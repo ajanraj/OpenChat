@@ -47,7 +47,7 @@ export function SettingsTrigger({
           setIsOpen(true);
         }}
       >
-        <User className="mr-2 size-4" />
+        <User className="size-4" />
         Settings
       </DropdownMenuItem>
     );

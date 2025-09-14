@@ -10,7 +10,6 @@ import {
 } from '@/components/prompt-kit/prompt-input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
-import { APP_NAME } from '@/lib/config';
 import {
   getAllowedLabel,
   PASTE_ALLOWED_MIME,
@@ -281,7 +280,7 @@ export function ChatInput({
             className="mt-2 ml-2 text-foreground leading-[1.3]"
             disabled={isSubmitting}
             onKeyDown={handleKeyDown}
-            placeholder={`Ask ${APP_NAME}`}
+            placeholder="How can I help you today?"
             ref={textareaRef}
           />
           <PromptInputActions className="mt-5 w-full justify-between px-2 sm:px-2">
