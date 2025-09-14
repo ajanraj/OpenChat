@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
-import { ArrowSquareOut, FileText, Trash } from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useMutation } from 'convex/react';
-import Image from 'next/image';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import { convexQuery } from "@convex-dev/react-query";
+import { ArrowSquareOut, FileText, Trash } from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import Image from "next/image";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -16,19 +16,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/toast";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
 function formatBytes(bytes: number) {
   if (bytes === 0) {
-    return '0 B';
+    return "0 B";
   }
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${(bytes / k ** i).toFixed(2)} ${sizes[i]}`;
 }
@@ -44,17 +44,17 @@ export default function AttachmentsPage() {
       new Date(b._creationTime).getTime() - new Date(a._creationTime).getTime()
   );
   const deleteAttachments = useMutation(api.files.deleteAttachments);
-  const [selectedIds, setSelectedIds] = useState<Set<Id<'chat_attachments'>>>(
+  const [selectedIds, setSelectedIds] = useState<Set<Id<"chat_attachments">>>(
     new Set()
   );
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] =
     useState(false);
   const [showDeleteSingleDialog, setShowDeleteSingleDialog] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] =
-    useState<Id<'chat_attachments'> | null>(null);
+    useState<Id<"chat_attachments"> | null>(null);
 
-  const isSelected = (id: Id<'chat_attachments'>) => selectedIds.has(id);
-  const toggleSelect = (id: Id<'chat_attachments'>) => {
+  const isSelected = (id: Id<"chat_attachments">) => selectedIds.has(id);
+  const toggleSelect = (id: Id<"chat_attachments">) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -70,7 +70,7 @@ export default function AttachmentsPage() {
       return;
     }
     setSelectedIds(
-      new Set(attachments.map((a) => a._id as Id<'chat_attachments'>))
+      new Set(attachments.map((a) => a._id as Id<"chat_attachments">))
     );
   };
   const clearSelection = () => setSelectedIds(new Set());
@@ -85,16 +85,16 @@ export default function AttachmentsPage() {
   const confirmDeleteSelected = async () => {
     try {
       await deleteAttachments({ attachmentIds: Array.from(selectedIds) });
-      toast({ title: 'Selected attachments deleted', status: 'success' });
+      toast({ title: "Selected attachments deleted", status: "success" });
       setSelectedIds(new Set());
     } catch {
-      toast({ title: 'Failed to delete some attachments', status: 'error' });
+      toast({ title: "Failed to delete some attachments", status: "error" });
     } finally {
       setShowDeleteSelectedDialog(false);
     }
   };
 
-  const handleDelete = (attachmentId: Id<'chat_attachments'>) => {
+  const handleDelete = (attachmentId: Id<"chat_attachments">) => {
     setAttachmentToDelete(attachmentId);
     setShowDeleteSingleDialog(true);
   };
@@ -105,9 +105,9 @@ export default function AttachmentsPage() {
     }
     try {
       await deleteAttachments({ attachmentIds: [attachmentToDelete] });
-      toast({ title: 'Attachment deleted', status: 'success' });
+      toast({ title: "Attachment deleted", status: "success" });
     } catch {
-      toast({ title: 'Failed to delete attachment', status: 'error' });
+      toast({ title: "Failed to delete attachment", status: "error" });
     } finally {
       setShowDeleteSingleDialog(false);
       setAttachmentToDelete(null);
@@ -161,7 +161,7 @@ export default function AttachmentsPage() {
                   type="button"
                   variant="secondary"
                 >
-                  Clear{' '}
+                  Clear{" "}
                   <span className="hidden text-sm sm:inline">Selection</span>
                 </Button>
               )}
@@ -173,7 +173,7 @@ export default function AttachmentsPage() {
                 size="sm"
                 variant="destructive"
               >
-                <Trash className="size-4" />{' '}
+                <Trash className="size-4" />{" "}
                 <span className="hidden sm:inline">Delete</span>
                 {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </Button>
@@ -186,21 +186,21 @@ export default function AttachmentsPage() {
             ) : (
               attachments.map((att) => (
                 <Card
-                  className={`${isSelected(att._id as Id<'chat_attachments'>) ? 'bg-muted/50 py-3' : 'py-3'}`}
+                  className={`${isSelected(att._id as Id<"chat_attachments">) ? "bg-muted/50 py-3" : "py-3"}`}
                   key={att._id}
                 >
                   <CardContent className="flex items-center gap-4 px-4">
                     <Checkbox
-                      checked={isSelected(att._id as Id<'chat_attachments'>)}
+                      checked={isSelected(att._id as Id<"chat_attachments">)}
                       onCheckedChange={() =>
-                        toggleSelect(att._id as Id<'chat_attachments'>)
+                        toggleSelect(att._id as Id<"chat_attachments">)
                       }
                     />
-                    {(att.fileType?.startsWith('image/') ?? false) &&
+                    {(att.fileType?.startsWith("image/") ?? false) &&
                     att.url ? (
                       <div className="h-10 w-10 overflow-hidden rounded border">
                         <Image
-                          alt={att.fileName ?? 'attachment'}
+                          alt={att.fileName ?? "attachment"}
                           className="h-full w-full object-cover"
                           height={40}
                           src={att.url}
@@ -225,13 +225,13 @@ export default function AttachmentsPage() {
                         <ArrowSquareOut className="size-4 shrink-0" />
                       </a>
                       <span className="text-muted-foreground text-sm">
-                        {att.fileType ?? 'file'} •{' '}
+                        {att.fileType ?? "file"} •{" "}
                         {formatBytes(att.fileSize ?? 0)}
                       </span>
                     </div>
                     <Button
                       onClick={() =>
-                        handleDelete(att._id as Id<'chat_attachments'>)
+                        handleDelete(att._id as Id<"chat_attachments">)
                       }
                       size="icon"
                       variant="destructive"
@@ -244,7 +244,7 @@ export default function AttachmentsPage() {
             )
           ) : (
             <div className="space-y-4">
-              {['skeleton-1', 'skeleton-2', 'skeleton-3'].map((skeletonId) => (
+              {["skeleton-1", "skeleton-2", "skeleton-3"].map((skeletonId) => (
                 <Card key={skeletonId}>
                   <CardContent className="flex items-center gap-4 p-4">
                     <Skeleton className="h-4 w-4" />
@@ -271,9 +271,9 @@ export default function AttachmentsPage() {
           <DialogHeader>
             <DialogTitle>Delete selected attachments?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete{' '}
+              This action cannot be undone. This will permanently delete{" "}
               {selectedIds.size} selected attachment
-              {selectedIds.size === 1 ? '' : 's'}.
+              {selectedIds.size === 1 ? "" : "s"}.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

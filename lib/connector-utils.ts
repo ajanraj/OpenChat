@@ -1,5 +1,5 @@
-import { SUPPORTED_CONNECTORS as TOOLS_SUPPORTED_CONNECTORS } from './config/tools';
-import type { ConnectorType } from './types';
+import { SUPPORTED_CONNECTORS as TOOLS_SUPPORTED_CONNECTORS } from "./config/tools";
+import type { ConnectorType } from "./types";
 
 // Re-export the authoritative SUPPORTED_CONNECTORS from tools.ts
 export const SUPPORTED_CONNECTORS = TOOLS_SUPPORTED_CONNECTORS;

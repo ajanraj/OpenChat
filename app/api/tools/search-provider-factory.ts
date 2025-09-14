@@ -1,13 +1,13 @@
-import { BraveSearchProvider } from './providers/brave-search';
-import { ExaSearchProvider } from './providers/exa-search';
-import { TavilySearchProvider } from './providers/tavily-search';
+import { BraveSearchProvider } from "./providers/brave-search";
+import { ExaSearchProvider } from "./providers/exa-search";
+import { TavilySearchProvider } from "./providers/tavily-search";
 import {
   SEARCH_CONFIG,
   type SearchAdapter,
   type SearchOptions,
   type SearchProvider,
   type SearchResult,
-} from './types';
+} from "./types";
 
 // Cache for provider instances
 const instances: Map<SearchProvider, SearchAdapter> = new Map();
@@ -25,28 +25,28 @@ export function getProvider(provider?: SearchProvider): SearchAdapter {
   let instance: SearchAdapter;
 
   switch (selectedProvider) {
-    case 'brave': {
+    case "brave": {
       const braveKey = process.env.BRAVE_API_KEY;
       if (!braveKey) {
-        throw new Error('BRAVE_API_KEY environment variable is not set');
+        throw new Error("BRAVE_API_KEY environment variable is not set");
       }
       instance = new BraveSearchProvider(braveKey);
       break;
     }
 
-    case 'tavily': {
+    case "tavily": {
       const tavilyKey = process.env.TAVILY_API_KEY;
       if (!tavilyKey) {
-        throw new Error('TAVILY_API_KEY environment variable is not set');
+        throw new Error("TAVILY_API_KEY environment variable is not set");
       }
       instance = new TavilySearchProvider(tavilyKey);
       break;
     }
 
-    case 'exa': {
+    case "exa": {
       const exaKey = process.env.EXA_API_KEY;
       if (!exaKey) {
-        throw new Error('EXA_API_KEY environment variable is not set');
+        throw new Error("EXA_API_KEY environment variable is not set");
       }
       instance = new ExaSearchProvider(exaKey);
       break;
@@ -71,7 +71,7 @@ export async function searchWithFallback(
     providers ||
     (() => {
       const defaultProvider = SEARCH_CONFIG.defaultProvider;
-      const allProviders: SearchProvider[] = ['brave', 'tavily', 'exa'];
+      const allProviders: SearchProvider[] = ["brave", "tavily", "exa"];
 
       // Start with default provider, then add others
       return [
@@ -85,7 +85,7 @@ export async function searchWithFallback(
     providerIndex: number
   ): Promise<SearchResult[]> => {
     if (providerIndex >= providersToTry.length) {
-      throw new Error('All search providers failed');
+      throw new Error("All search providers failed");
     }
 
     const provider = providersToTry[providerIndex];
@@ -103,7 +103,7 @@ export async function searchWithFallback(
       // If this is the last provider, throw the error
       if (providerIndex === providersToTry.length - 1) {
         throw new Error(
-          `All search providers failed. Last error: ${error instanceof Error ? error.message : 'Unknown error'}`
+          `All search providers failed. Last error: ${error instanceof Error ? error.message : "Unknown error"}`
         );
       }
       // Otherwise, try the next provider
@@ -116,11 +116,11 @@ export async function searchWithFallback(
 
 function hasApiKeyForProvider(provider: SearchProvider): boolean {
   switch (provider) {
-    case 'brave':
+    case "brave":
       return Boolean(process.env.BRAVE_API_KEY);
-    case 'tavily':
+    case "tavily":
       return Boolean(process.env.TAVILY_API_KEY);
-    case 'exa':
+    case "exa":
       return Boolean(process.env.EXA_API_KEY);
     default:
       return false;

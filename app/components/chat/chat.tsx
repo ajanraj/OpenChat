@@ -1,53 +1,53 @@
-'use client';
+"use client";
 
-import { type UIMessage, useChat } from '@ai-sdk/react';
-import { convexQuery } from '@convex-dev/react-query';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { DefaultChatTransport, type FileUIPart } from 'ai';
-import { useConvex } from 'convex/react';
-import { AnimatePresence, motion } from 'motion/react';
-import dynamic from 'next/dynamic';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { z } from 'zod';
+import { type UIMessage, useChat } from "@ai-sdk/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { DefaultChatTransport, type FileUIPart } from "ai";
+import { useConvex } from "convex/react";
+import { AnimatePresence, motion } from "motion/react";
+import dynamic from "next/dynamic";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import {
   Conversation,
   type MessageWithExtras,
-} from '@/app/components/chat/conversation';
-import { ChatInput } from '@/app/components/chat-input/chat-input';
-import { useChatOperations } from '@/app/hooks/use-chat-operations';
-import { useChatValidation } from '@/app/hooks/use-chat-validation';
-import { useDocumentTitle } from '@/app/hooks/use-document-title';
-import { useFileHandling } from '@/app/hooks/use-file-handling';
-import { useChatSession } from '@/app/providers/chat-session-provider';
-import { useUser } from '@/app/providers/user-provider';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import { createChatErrorHandler } from '@/lib/chat-error-utils';
-import { MODEL_DEFAULT } from '@/lib/config';
+} from "@/app/components/chat/conversation";
+import { ChatInput } from "@/app/components/chat-input/chat-input";
+import { useChatOperations } from "@/app/hooks/use-chat-operations";
+import { useChatValidation } from "@/app/hooks/use-chat-validation";
+import { useDocumentTitle } from "@/app/hooks/use-document-title";
+import { useFileHandling } from "@/app/hooks/use-file-handling";
+import { useChatSession } from "@/app/providers/chat-session-provider";
+import { useUser } from "@/app/providers/user-provider";
+import { toast } from "@/components/ui/toast";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { createChatErrorHandler } from "@/lib/chat-error-utils";
+import { MODEL_DEFAULT } from "@/lib/config";
 import {
   createOptimisticAttachments,
   revokeOptimisticAttachments,
   uploadFilesInParallel,
-} from '@/lib/file-upload-utils';
+} from "@/lib/file-upload-utils";
 import {
   createPlaceholderId,
   mapMessage,
   validateInput,
-} from '@/lib/message-utils';
+} from "@/lib/message-utils";
 import {
   createModelValidator,
   supportsReasoningEffort,
-} from '@/lib/model-utils';
-import { TRANSITION_LAYOUT } from '@/lib/motion';
-import { API_ROUTE_CHAT } from '@/lib/routes';
+} from "@/lib/model-utils";
+import { TRANSITION_LAYOUT } from "@/lib/motion";
+import { API_ROUTE_CHAT } from "@/lib/routes";
 import {
   getDisplayName,
   getUserTimezone,
   isUserAuthenticated,
-} from '@/lib/user-utils';
-import { cn } from '@/lib/utils';
+} from "@/lib/user-utils";
+import { cn } from "@/lib/utils";
 
 // Schema for chat body
 const ChatBodySchema = z.object({
@@ -55,7 +55,7 @@ const ChatBodySchema = z.object({
   model: z.string(),
   personaId: z.string().optional(),
   enableSearch: z.boolean().optional(),
-  reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
+  reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
   userInfo: z
     .object({
       timezone: z.string().optional(),
@@ -67,7 +67,7 @@ type ChatBody = z.infer<typeof ChatBodySchema>;
 
 // Dynamic imports
 const DialogAuth = dynamic(
-  () => import('./dialog-auth').then((mod) => mod.DialogAuth),
+  () => import("./dialog-auth").then((mod) => mod.DialogAuth),
   { ssr: false }
 );
 
@@ -115,8 +115,8 @@ export default function Chat() {
   // Local state
   const [hasDialogAuth, setHasDialogAuth] = useState(false);
   const [reasoningEffort, setReasoningEffort] = useState<
-    'low' | 'medium' | 'high'
-  >('low');
+    "low" | "medium" | "high"
+  >("low");
   const [tempPersonaId, setTempPersonaId] = useState<string | undefined>();
   const [tempSelectedModel, setTempSelectedModel] = useState<
     string | undefined
@@ -127,7 +127,7 @@ export default function Chat() {
   const { data: messagesFromDB } = useTanStackQuery({
     ...convexQuery(
       api.messages.getMessagesForChat,
-      chatId ? { chatId: chatId as Id<'chats'> } : 'skip'
+      chatId ? { chatId: chatId as Id<"chats"> } : "skip"
     ),
     enabled: Boolean(chatId),
   });
@@ -135,7 +135,7 @@ export default function Chat() {
   const { data: currentChat } = useTanStackQuery({
     ...convexQuery(
       api.chats.getChat,
-      chatId ? { chatId: chatId as Id<'chats'> } : 'skip'
+      chatId ? { chatId: chatId as Id<"chats"> } : "skip"
     ),
     enabled: Boolean(chatId),
   });
@@ -166,7 +166,7 @@ export default function Chat() {
         api: API_ROUTE_CHAT,
         // Global configuration
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       }),
       // AI SDK error handling
@@ -176,7 +176,7 @@ export default function Chat() {
   // Message synchronization effect - optimized to prevent infinite re-renders
   useEffect(() => {
     if (
-      (status !== 'ready' && status !== 'error') ||
+      (status !== "ready" && status !== "error") ||
       !messagesFromDB ||
       isDeleting
     ) {
@@ -186,10 +186,10 @@ export default function Chat() {
     const mappedDb = messagesFromDB.map((msg, index) => {
       const mappedMessage = mapMessage(msg) as MessageWithExtras;
 
-      if (msg.role === 'user') {
+      if (msg.role === "user") {
         // Next message is always the assistant response
         const nextMsg = messagesFromDB[index + 1];
-        if (nextMsg?.role === 'assistant') {
+        if (nextMsg?.role === "assistant") {
           if (nextMsg.metadata?.modelId) {
             mappedMessage.model = nextMsg.metadata.modelId;
           }
@@ -201,7 +201,7 @@ export default function Chat() {
             };
           }
         }
-      } else if (msg.role === 'assistant' && msg.metadata?.modelId) {
+      } else if (msg.role === "assistant" && msg.metadata?.modelId) {
         mappedMessage.model = msg.metadata.modelId;
       }
 
@@ -256,7 +256,7 @@ export default function Chat() {
 
   // Reset state for new chats
   useEffect(() => {
-    if ((status === 'ready' || status === 'error') && !chatId) {
+    if ((status === "ready" || status === "error") && !chatId) {
       setMessages([]);
       setTempPersonaId(undefined);
       setTempSelectedModel(undefined);
@@ -282,7 +282,7 @@ export default function Chat() {
         chatId: chatIdToUse,
         model: selectedModel,
         personaId,
-        ...(typeof options?.enableSearch !== 'undefined'
+        ...(typeof options?.enableSearch !== "undefined"
           ? { enableSearch: options.enableSearch }
           : {}),
         ...(isReasoningModel ? { reasoningEffort } : {}),
@@ -300,16 +300,16 @@ export default function Chat() {
           ...cur,
           {
             id: placeholderId,
-            role: 'user' as const,
+            role: "user" as const,
             parts: [
-              { type: 'text', text: inputMessage },
+              { type: "text", text: inputMessage },
               ...optimisticAttachments,
             ],
           },
         ]);
 
         try {
-          attachments = await processFiles(chatIdToUse as Id<'chats'>);
+          attachments = await processFiles(chatIdToUse as Id<"chats">);
           // Remove placeholder and cleanup blob URLs
           setMessages((cur) => cur.filter((m) => m.id !== placeholderId));
           revokeOptimisticAttachments(optimisticAttachments);
@@ -324,13 +324,13 @@ export default function Chat() {
       // Send message with AI SDK
       try {
         const messageParts = [
-          { type: 'text' as const, text: inputMessage },
+          { type: "text" as const, text: inputMessage },
           ...(attachments || []),
         ];
 
-        await sendMessage({ parts: messageParts, role: 'user' }, { body });
+        await sendMessage({ parts: messageParts, role: "user" }, { body });
       } catch {
-        toast({ title: 'Failed to send message', status: 'error' });
+        toast({ title: "Failed to send message", status: "error" });
       }
     },
     [
@@ -352,8 +352,8 @@ export default function Chat() {
       return;
     }
 
-    const modelId = searchParams.get('model');
-    const query = searchParams.get('q');
+    const modelId = searchParams.get("model");
+    const query = searchParams.get("q");
 
     if (modelId && query) {
       processedUrl.current = true;
@@ -375,13 +375,13 @@ export default function Chat() {
             personaId
           );
           if (newChatId) {
-            window.history.pushState(null, '', `/c/${newChatId}`);
+            window.history.pushState(null, "", `/c/${newChatId}`);
             await sendMessageHelper(trimmedQuery, newChatId, {
               enableSearch: false,
             });
           }
         } catch {
-          toast({ title: 'Failed to create chat', status: 'error' });
+          toast({ title: "Failed to create chat", status: "error" });
         }
       };
 
@@ -429,7 +429,7 @@ export default function Chat() {
           return;
         }
 
-        window.history.pushState(null, '', `/c/${currentChatId}`);
+        window.history.pushState(null, "", `/c/${currentChatId}`);
         setTempSelectedModel(undefined);
         setTempPersonaId(undefined);
       }
@@ -493,7 +493,7 @@ export default function Chat() {
       try {
         const result = await handleDeleteMessage(id);
         if (result?.chatDeleted) {
-          router.push('/');
+          router.push("/");
         } else {
           setIsDeleting(false);
         }
@@ -530,8 +530,8 @@ export default function Chat() {
         } catch {
           setMessages(originalMessages);
           toast({
-            title: 'Failed to delete messages for reload',
-            status: 'error',
+            title: "Failed to delete messages for reload",
+            status: "error",
           });
         } finally {
           setIsDeleting(false);
@@ -547,7 +547,7 @@ export default function Chat() {
           model: selectedModel,
           personaId,
           reloadAssistantMessageId: messageId,
-          ...(typeof opts?.enableSearch !== 'undefined'
+          ...(typeof opts?.enableSearch !== "undefined"
             ? { enableSearch: opts.enableSearch }
             : {}),
           ...(isReasoningModel ? { reasoningEffort } : {}),
@@ -577,7 +577,7 @@ export default function Chat() {
         model: string;
         enableSearch: boolean;
         files: File[];
-        reasoningEffort: 'low' | 'medium' | 'high';
+        reasoningEffort: "low" | "medium" | "high";
         removedFileUrls?: string[];
       }
     ) => {
@@ -593,18 +593,18 @@ export default function Chat() {
       }
 
       // Helper function to filter out optimistic (blob URL) files
-      const getNonOptimisticFiles = (parts: UIMessage['parts']) =>
+      const getNonOptimisticFiles = (parts: UIMessage["parts"]) =>
         (parts || [])
-          .filter((part): part is FileUIPart => part.type === 'file')
+          .filter((part): part is FileUIPart => part.type === "file")
           .filter(
             (file) =>
-              !(typeof file.url === 'string' && file.url.startsWith('blob:'))
+              !(typeof file.url === "string" && file.url.startsWith("blob:"))
           );
 
       // No-op guard: Check if edit has no substantive changes
       const originalMessage = originalMessages[targetIdx] as MessageWithExtras;
       const originalText =
-        originalMessage.parts?.find((p) => p.type === 'text')?.text || '';
+        originalMessage.parts?.find((p) => p.type === "text")?.text || "";
 
       // Get current settings for comparison
       const originalModel = originalMessage.model || selectedModel;
@@ -635,7 +635,7 @@ export default function Chat() {
 
       try {
         const removedSet = new Set(
-          (editOptions.removedFileUrls || []).map((u) => u.split('?')[0])
+          (editOptions.removedFileUrls || []).map((u) => u.split("?")[0])
         );
         // 1. Update message content and remove subsequent messages immediately
         setMessages((currentMsgs) => {
@@ -654,14 +654,14 @@ export default function Chat() {
             // Update only the edited message
             const existingNonOptimisticFiles = getNonOptimisticFiles(msg.parts);
             const filteredExisting = existingNonOptimisticFiles.filter((f) => {
-              const url = typeof f.url === 'string' ? f.url.split('?')[0] : '';
+              const url = typeof f.url === "string" ? f.url.split("?")[0] : "";
               return !removedSet.has(url);
             });
 
             return {
               ...msg,
               parts: [
-                { type: 'text' as const, text: newText },
+                { type: "text" as const, text: newText },
                 ...filteredExisting,
                 ...optimisticFileParts, // Include optimistic files for immediate feedback
               ],
@@ -674,7 +674,7 @@ export default function Chat() {
           try {
             const newFileParts = await uploadFilesInParallel(
               editOptions.files,
-              chatId as Id<'chats'>,
+              chatId as Id<"chats">,
               uploadFile,
               ({ chatId: cid, key, fileName }) =>
                 saveFileAttachment({ chatId: cid, key, fileName })
@@ -696,7 +696,7 @@ export default function Chat() {
                 const nonBlobFiles = getNonOptimisticFiles(msg.parts).filter(
                   (f) => {
                     const url =
-                      typeof f.url === 'string' ? f.url.split('?')[0] : '';
+                      typeof f.url === "string" ? f.url.split("?")[0] : "";
                     return !removedSet.has(url);
                   }
                 );
@@ -704,7 +704,7 @@ export default function Chat() {
                 return {
                   ...msg,
                   parts: [
-                    { type: 'text' as const, text: newText },
+                    { type: "text" as const, text: newText },
                     ...nonBlobFiles,
                     ...newFileParts, // Real uploaded files
                   ],
@@ -745,8 +745,8 @@ export default function Chat() {
         // Rollback on failure - restore all original messages
         setMessages(originalMessages);
         toast({
-          title: 'Failed to update message',
-          status: 'error',
+          title: "Failed to update message",
+          status: "error",
         });
       }
     },
@@ -765,7 +765,7 @@ export default function Chat() {
   // Chat redirect effect
   useEffect(() => {
     if (!isUserLoading && chatId && currentChat === null && !isDeleting) {
-      router.replace('/');
+      router.replace("/");
     }
   }, [chatId, currentChat, isUserLoading, router, isDeleting]);
 
@@ -773,7 +773,7 @@ export default function Chat() {
   useDocumentTitle(currentChat?.title, chatId || undefined);
 
   // Message scrolling
-  const targetMessageId = searchParams.get('m');
+  const targetMessageId = searchParams.get("m");
   const hasScrolledRef = useRef(false);
 
   useEffect(() => {
@@ -788,7 +788,7 @@ export default function Chat() {
     }
     const el = document.getElementById(targetMessageId);
     if (el) {
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
       hasScrolledRef.current = true;
     }
   }, [targetMessageId, messages]);
@@ -801,7 +801,7 @@ export default function Chat() {
   return (
     <div
       className={cn(
-        '@container/main relative flex h-full flex-col items-center justify-end md:justify-center'
+        "@container/main relative flex h-full flex-col items-center justify-end md:justify-center"
       )}
     >
       <DialogAuth open={hasDialogAuth} setOpen={setHasDialogAuth} />
@@ -849,7 +849,7 @@ export default function Chat() {
 
       <motion.div
         className={cn(
-          'relative inset-x-0 bottom-0 z-50 mx-auto w-full max-w-3xl'
+          "relative inset-x-0 bottom-0 z-50 mx-auto w-full max-w-3xl"
         )}
         layout="position"
         layoutId="chat-input-container"
@@ -864,7 +864,7 @@ export default function Chat() {
           files={files}
           hasSuggestions={!chatId && messages.length === 0}
           isReasoningModel={supportsReasoningEffort(selectedModel)}
-          isSubmitting={status === 'streaming'}
+          isSubmitting={status === "streaming"}
           isUserAuthenticated={isAuthenticated}
           onFileRemoveAction={removeFile}
           onFileUploadAction={addFiles}

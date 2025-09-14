@@ -1,22 +1,22 @@
-import type { UIMessage } from '@ai-sdk/react';
-import type { Infer } from 'convex/values';
-import React, { useRef } from 'react';
-import { ScrollButton } from '@/components/motion-primitives/scroll-button';
-import { ChatContainer } from '@/components/prompt-kit/chat-container';
-import { ImageSkeleton } from '@/components/prompt-kit/image-skeleton';
-import { Loader } from '@/components/prompt-kit/loader';
-import type { Message as MessageSchema } from '@/convex/schema/message';
-import { MODELS_MAP } from '@/lib/config';
-import { Message } from './message';
+import type { UIMessage } from "@ai-sdk/react";
+import type { Infer } from "convex/values";
+import React, { useRef } from "react";
+import { ScrollButton } from "@/components/motion-primitives/scroll-button";
+import { ChatContainer } from "@/components/prompt-kit/chat-container";
+import { ImageSkeleton } from "@/components/prompt-kit/image-skeleton";
+import { Loader } from "@/components/prompt-kit/loader";
+import type { Message as MessageSchema } from "@/convex/schema/message";
+import { MODELS_MAP } from "@/lib/config";
+import { Message } from "./message";
 
 export type MessageWithExtras = UIMessage & {
   model?: string;
-  metadata?: Infer<typeof MessageSchema>['metadata'];
+  metadata?: Infer<typeof MessageSchema>["metadata"];
 };
 
 type ConversationProps = {
   messages: MessageWithExtras[];
-  status?: 'streaming' | 'ready' | 'submitted' | 'error';
+  status?: "streaming" | "ready" | "submitted" | "error";
   onDelete: (id: string) => void;
   onEdit: (
     id: string,
@@ -25,7 +25,7 @@ type ConversationProps = {
       model: string;
       enableSearch: boolean;
       files: File[];
-      reasoningEffort: 'low' | 'medium' | 'high';
+      reasoningEffort: "low" | "medium" | "high";
       removedFileUrls?: string[];
     }
   ) => void;
@@ -35,13 +35,13 @@ type ConversationProps = {
   selectedModel?: string;
   isUserAuthenticated?: boolean;
   isReasoningModel?: boolean;
-  reasoningEffort?: 'low' | 'medium' | 'high';
+  reasoningEffort?: "low" | "medium" | "high";
 };
 
 const Conversation = React.memo(
   ({
     messages,
-    status = 'ready',
+    status = "ready",
     onDelete,
     onEdit,
     onReload,
@@ -50,7 +50,7 @@ const Conversation = React.memo(
     selectedModel,
     isUserAuthenticated = false,
     isReasoningModel = false,
-    reasoningEffort = 'medium',
+    reasoningEffort = "medium",
   }: ConversationProps) => {
     const initialMessageCount = useRef(messages.length);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -59,7 +59,7 @@ const Conversation = React.memo(
     const isImageGenerationModel =
       selectedModel &&
       MODELS_MAP[selectedModel]?.features?.some(
-        (feature) => feature.id === 'image-generation' && feature.enabled
+        (feature) => feature.id === "image-generation" && feature.enabled
       );
 
     if (!messages || messages.length === 0) {
@@ -75,12 +75,12 @@ const Conversation = React.memo(
           className="relative flex w-full flex-col items-center pt-20 pb-4"
           ref={containerRef}
           style={{
-            scrollbarGutter: 'stable both-edges',
+            scrollbarGutter: "stable both-edges",
           }}
         >
           {messages?.map((message, index) => {
             const isLast =
-              index === messages.length - 1 && status !== 'submitted';
+              index === messages.length - 1 && status !== "submitted";
             const hasScrollAnchor =
               isLast && messages.length > initialMessageCount.current;
 
@@ -106,17 +106,17 @@ const Conversation = React.memo(
               />
             );
           })}
-          {((status === 'submitted' &&
+          {((status === "submitted" &&
             messages.length > 0 &&
-            messages.at(-1)?.role === 'user') ||
-            (status === 'streaming' &&
+            messages.at(-1)?.role === "user") ||
+            (status === "streaming" &&
               isImageGenerationModel &&
               messages.length > 0 &&
-              (messages.at(-1)?.role === 'user' ||
-                (messages.at(-1)?.role === 'assistant' &&
+              (messages.at(-1)?.role === "user" ||
+                (messages.at(-1)?.role === "assistant" &&
                   !messages
                     .at(-1)
-                    ?.parts?.some((part) => part.type === 'file'))))) && (
+                    ?.parts?.some((part) => part.type === "file"))))) && (
             <div className="group flex min-h-scroll-anchor w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
               {isImageGenerationModel ? (
                 <ImageSkeleton height={300} width={300} />

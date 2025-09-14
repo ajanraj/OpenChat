@@ -1,17 +1,17 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
-import { R2 } from '@convex-dev/r2';
-import { v } from 'convex/values';
-import { components } from './_generated/api';
-import type { Doc, Id } from './_generated/dataModel';
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { R2 } from "@convex-dev/r2";
+import { v } from "convex/values";
+import { components } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
   type MutationCtx,
   mutation,
   query,
-} from './_generated/server';
+} from "./_generated/server";
 // Import helper functions
-import { ensureChatAccess, ensureMessageAccess } from './lib/auth_helper';
-import { sanitizeMessageParts } from './lib/sanitization_helper';
+import { ensureChatAccess, ensureMessageAccess } from "./lib/auth_helper";
+import { sanitizeMessageParts } from "./lib/sanitization_helper";
 
 // Keep reusable regex at top-level per lint rule
 const TRAILING_SLASH_RE = /\/$/;
@@ -19,15 +19,15 @@ const TRAILING_SLASH_RE = /\/$/;
 // New: Get messages for public shared chat with optional redaction
 export const getPublicChatMessages = query({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
   },
   returns: v.array(
     v.object({
-      _id: v.id('messages'),
+      _id: v.id("messages"),
       role: v.union(
-        v.literal('user'),
-        v.literal('assistant'),
-        v.literal('system')
+        v.literal("user"),
+        v.literal("assistant"),
+        v.literal("system")
       ),
       parts: v.optional(v.any()),
       metadata: v.object({
@@ -53,9 +53,9 @@ export const getPublicChatMessages = query({
     const hideFiles = !(chat.shareAttachments ?? false);
 
     const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_chat_and_created', (q) => q.eq('chatId', chatId))
-      .order('asc')
+      .query("messages")
+      .withIndex("by_chat_and_created", (q) => q.eq("chatId", chatId))
+      .order("asc")
       .collect();
 
     // Sanitize parts if needed
@@ -77,8 +77,8 @@ export const getPublicChatMessages = query({
  */
 async function cleanupMessageAttachments(
   ctx: MutationCtx,
-  messagesToDelete: Doc<'messages'>[],
-  userId: Id<'users'>
+  messagesToDelete: Doc<"messages">[],
+  userId: Id<"users">
 ) {
   const attachmentCleanupPromises: Promise<void>[] = [];
 
@@ -87,8 +87,8 @@ async function cleanupMessageAttachments(
       for (const part of msgToDelete.parts) {
         if (
           part &&
-          part.type === 'file' &&
-          typeof part.url === 'string' &&
+          part.type === "file" &&
+          typeof part.url === "string" &&
           part.url
         ) {
           attachmentCleanupPromises.push(
@@ -107,18 +107,18 @@ async function cleanupMessageAttachments(
  */
 async function cleanupSingleAttachment(
   ctx: MutationCtx,
-  chatId: Id<'chats'>,
+  chatId: Id<"chats">,
   fileUrl: string,
-  userId: Id<'users'>
+  userId: Id<"users">
 ) {
   const r2 = new R2(components.r2);
   try {
     // Derive R2 object key from the URL and use by_key index
     const configuredBase = process.env.R2_PUBLIC_URL_BASE;
     const base = configuredBase
-      ? configuredBase.replace(TRAILING_SLASH_RE, '')
+      ? configuredBase.replace(TRAILING_SLASH_RE, "")
       : undefined;
-    const canonicalUrl = fileUrl.split('?')[0];
+    const canonicalUrl = fileUrl.split("?")[0];
 
     if (!(base && canonicalUrl.startsWith(`${base}/`))) {
       return; // URL doesn't match configured base; nothing to clean up
@@ -130,8 +130,8 @@ async function cleanupSingleAttachment(
     }
 
     const attByKey = await ctx.db
-      .query('chat_attachments')
-      .withIndex('by_key', (q) => q.eq('key', key))
+      .query("chat_attachments")
+      .withIndex("by_key", (q) => q.eq("key", key))
       .first();
     if (attByKey && attByKey.userId === userId && attByKey.chatId === chatId) {
       await r2.deleteObject(ctx, attByKey.key);
@@ -147,18 +147,18 @@ async function cleanupSingleAttachment(
  */
 async function cleanupBranchedChats(
   ctx: MutationCtx,
-  chatId: Id<'chats'>,
-  userId: Id<'users'>
+  chatId: Id<"chats">,
+  userId: Id<"users">
 ) {
   // This uses .filter() correctly - first narrows by index (by_user), then filters by originalChatId
   // See: https://docs.convex.dev/database/indexes/ - "For all other filtering you can use the .filter method"
   const branchedChats = await ctx.db
-    .query('chats')
-    .withIndex('by_user', (q) => q.eq('userId', userId))
-    .filter((q) => q.eq(q.field('originalChatId'), chatId))
+    .query("chats")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("originalChatId"), chatId))
     .collect();
 
-  const updatePromises = branchedChats.map((branchedChat: Doc<'chats'>) =>
+  const updatePromises = branchedChats.map((branchedChat: Doc<"chats">) =>
     ctx.db.patch(branchedChat._id, {
       originalChatId: undefined,
       updatedAt: Date.now(),
@@ -173,16 +173,16 @@ async function cleanupBranchedChats(
  */
 async function cleanupOrphanedAttachments(
   ctx: MutationCtx,
-  chatId: Id<'chats'>
+  chatId: Id<"chats">
 ) {
   const r2 = new R2(components.r2);
   const orphanedAttachments = await ctx.db
-    .query('chat_attachments')
-    .withIndex('by_chatId', (q) => q.eq('chatId', chatId))
+    .query("chat_attachments")
+    .withIndex("by_chatId", (q) => q.eq("chatId", chatId))
     .collect();
 
   const cleanupPromises = orphanedAttachments.map(
-    async (attachment: Doc<'chat_attachments'>) => {
+    async (attachment: Doc<"chat_attachments">) => {
       try {
         await r2.deleteObject(ctx, attachment.key);
         await ctx.db.delete(attachment._id);
@@ -202,10 +202,10 @@ async function cleanupOrphanedAttachments(
 async function insertMessageToChat(
   ctx: MutationCtx,
   args: {
-    chatId: Id<'chats'>;
-    role: 'user' | 'assistant' | 'system';
+    chatId: Id<"chats">;
+    role: "user" | "assistant" | "system";
     content: string;
-    parentMessageId?: Id<'messages'>;
+    parentMessageId?: Id<"messages">;
     // biome-ignore lint/suspicious/noExplicitAny: <parts can be any>
     parts?: any;
     metadata?: {
@@ -221,9 +221,9 @@ async function insertMessageToChat(
       reasoningEffort?: string;
     };
   },
-  userId: Id<'users'>
-): Promise<{ messageId: Id<'messages'> }> {
-  const messageId = await ctx.db.insert('messages', {
+  userId: Id<"users">
+): Promise<{ messageId: Id<"messages"> }> {
+  const messageId = await ctx.db.insert("messages", {
     chatId: args.chatId,
     userId,
     role: args.role,
@@ -240,14 +240,14 @@ async function insertMessageToChat(
 
 export const sendUserMessageToChat = mutation({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     role: v.union(
-      v.literal('user'),
-      v.literal('assistant'),
-      v.literal('system')
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system")
     ),
     content: v.string(),
-    parentMessageId: v.optional(v.id('messages')),
+    parentMessageId: v.optional(v.id("messages")),
     parts: v.optional(v.any()), // Allow any type for parts
     metadata: v.optional(
       v.object({
@@ -262,7 +262,7 @@ export const sendUserMessageToChat = mutation({
       })
     ),
   },
-  returns: v.object({ messageId: v.id('messages') }),
+  returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Verify that the authenticated user owns the chat
     const { userId } = await ensureChatAccess(ctx, args.chatId);
@@ -273,14 +273,14 @@ export const sendUserMessageToChat = mutation({
 
 export const saveAssistantMessage = mutation({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     role: v.union(
-      v.literal('user'),
-      v.literal('assistant'),
-      v.literal('system')
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system")
     ),
     content: v.string(),
-    parentMessageId: v.optional(v.id('messages')),
+    parentMessageId: v.optional(v.id("messages")),
     parts: v.optional(v.any()),
     metadata: v.optional(
       v.object({
@@ -297,7 +297,7 @@ export const saveAssistantMessage = mutation({
       })
     ),
   },
-  returns: v.object({ messageId: v.id('messages') }),
+  returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Verify that the authenticated user owns the chat
     const { userId } = await ensureChatAccess(ctx, args.chatId);
@@ -307,22 +307,22 @@ export const saveAssistantMessage = mutation({
 });
 
 export const getMessagesForChat = query({
-  args: { chatId: v.id('chats') },
+  args: { chatId: v.id("chats") },
   returns: v.array(
     v.object({
-      _id: v.id('messages'),
+      _id: v.id("messages"),
       _creationTime: v.number(),
-      chatId: v.id('chats'),
-      userId: v.optional(v.id('users')),
+      chatId: v.id("chats"),
+      userId: v.optional(v.id("users")),
       role: v.union(
-        v.literal('user'),
-        v.literal('assistant'),
-        v.literal('system')
+        v.literal("user"),
+        v.literal("assistant"),
+        v.literal("system")
       ),
       content: v.string(),
       createdAt: v.optional(v.number()),
       parts: v.optional(v.any()),
-      parentMessageId: v.optional(v.id('messages')),
+      parentMessageId: v.optional(v.id("messages")),
       metadata: v.object({
         modelId: v.optional(v.string()),
         modelName: v.optional(v.string()),
@@ -346,9 +346,9 @@ export const getMessagesForChat = query({
     }
 
     return await ctx.db
-      .query('messages')
-      .withIndex('by_chat_and_created', (q) => q.eq('chatId', chatId))
-      .order('asc')
+      .query("messages")
+      .withIndex("by_chat_and_created", (q) => q.eq("chatId", chatId))
+      .order("asc")
       .collect();
   },
 });
@@ -356,15 +356,15 @@ export const getMessagesForChat = query({
 // Note: Single-message deletion is handled via deleteMessageAndDescendants
 
 export const getMessageDetails = query({
-  args: { messageId: v.id('messages') },
+  args: { messageId: v.id("messages") },
   returns: v.union(
     v.null(),
     v.object({
-      parentMessageId: v.optional(v.id('messages')),
+      parentMessageId: v.optional(v.id("messages")),
       role: v.union(
-        v.literal('user'),
-        v.literal('assistant'),
-        v.literal('system')
+        v.literal("user"),
+        v.literal("assistant"),
+        v.literal("system")
       ),
     })
   ),
@@ -383,7 +383,7 @@ export const getMessageDetails = query({
 
 export const deleteMessageAndDescendants = mutation({
   args: {
-    messageId: v.id('messages'),
+    messageId: v.id("messages"),
     deleteOnlyDescendants: v.optional(v.boolean()),
   },
   returns: v.object({ chatDeleted: v.boolean() }),
@@ -407,13 +407,13 @@ export const deleteMessageAndDescendants = mutation({
     // Fix: Use .collect() directly instead of async iteration
     // See: https://docs.convex.dev/database/reading-data
     const messagesToDelete = await ctx.db
-      .query('messages')
-      .withIndex('by_chat_and_created', (q) =>
+      .query("messages")
+      .withIndex("by_chat_and_created", (q) =>
         deleteOnlyDescendants
-          ? q.eq('chatId', message.chatId).gt('createdAt', threshold)
-          : q.eq('chatId', message.chatId).gte('createdAt', threshold)
+          ? q.eq("chatId", message.chatId).gt("createdAt", threshold)
+          : q.eq("chatId", message.chatId).gte("createdAt", threshold)
       )
-      .order('asc')
+      .order("asc")
       .collect();
 
     const ids = messagesToDelete.map((m) => m._id);
@@ -429,8 +429,8 @@ export const deleteMessageAndDescendants = mutation({
     await ctx.db.patch(chat._id, { updatedAt: Date.now() });
 
     const remaining = await ctx.db
-      .query('messages')
-      .withIndex('by_chat_and_created', (q) => q.eq('chatId', message.chatId))
+      .query("messages")
+      .withIndex("by_chat_and_created", (q) => q.eq("chatId", message.chatId))
       .first();
 
     if (!remaining) {
@@ -449,7 +449,7 @@ export const deleteMessageAndDescendants = mutation({
 
 export const patchMessageContent = mutation({
   args: {
-    messageId: v.id('messages'),
+    messageId: v.id("messages"),
     newContent: v.string(),
     newParts: v.optional(v.any()),
   },
@@ -459,7 +459,7 @@ export const patchMessageContent = mutation({
     const { message, chat, userId } = await ensureMessageAccess(ctx, messageId);
 
     // If parts were provided, compute removed file URLs and clean up attachments
-    if (typeof newParts !== 'undefined') {
+    if (typeof newParts !== "undefined") {
       // Collect previous and next file URLs (ignore blob:)
       const prevUrls: string[] = [];
       const nextUrls: string[] = [];
@@ -469,11 +469,11 @@ export const patchMessageContent = mutation({
         const type = (part as { type?: string }).type;
         const url = (part as { url?: string }).url;
         if (
-          type === 'file' &&
-          typeof url === 'string' &&
-          !url.startsWith('blob:')
+          type === "file" &&
+          typeof url === "string" &&
+          !url.startsWith("blob:")
         ) {
-          prevUrls.push(url.split('?')[0]);
+          prevUrls.push(url.split("?")[0]);
         }
       }
       // biome-ignore lint/suspicious/noExplicitAny: parts can be any; we validate properties at runtime
@@ -481,11 +481,11 @@ export const patchMessageContent = mutation({
         const type = (part as { type?: string }).type;
         const url = (part as { url?: string }).url;
         if (
-          type === 'file' &&
-          typeof url === 'string' &&
-          !url.startsWith('blob:')
+          type === "file" &&
+          typeof url === "string" &&
+          !url.startsWith("blob:")
         ) {
-          nextUrls.push(url.split('?')[0]);
+          nextUrls.push(url.split("?")[0]);
         }
       }
 
@@ -504,8 +504,8 @@ export const patchMessageContent = mutation({
     }
 
     // Patch existing message with new content/parts
-    const patch: Partial<Doc<'messages'>> = { content: newContent };
-    if (typeof newParts !== 'undefined') {
+    const patch: Partial<Doc<"messages">> = { content: newContent };
+    if (typeof newParts !== "undefined") {
       patch.parts = newParts;
     }
     await ctx.db.patch(messageId, patch);
@@ -518,8 +518,8 @@ export const searchMessages = query({
   args: { query: v.string(), limit: v.optional(v.number()) },
   returns: v.array(
     v.object({
-      _id: v.id('messages'),
-      chatId: v.id('chats'),
+      _id: v.id("messages"),
+      chatId: v.id("chats"),
       content: v.string(),
       createdAt: v.optional(v.number()),
     })
@@ -527,14 +527,14 @@ export const searchMessages = query({
   handler: async (ctx, { query: search, limit = 20 }) => {
     const safeLimit = Math.min(Math.max(1, limit), 100); // Cap between 1-100
     const userId = await getAuthUserId(ctx);
-    if (!userId || search.trim() === '') {
+    if (!userId || search.trim() === "") {
       return [];
     }
 
     const results = await ctx.db
-      .query('messages')
-      .withSearchIndex('by_user_content', (q) =>
-        q.search('content', search).eq('userId', userId)
+      .query("messages")
+      .withSearchIndex("by_user_content", (q) =>
+        q.search("content", search).eq("userId", userId)
       )
       .take(safeLimit);
 
@@ -550,14 +550,14 @@ export const searchMessages = query({
 // Internal mutation for scheduled tasks to send user messages
 export const sendUserMessageToChatInternal = internalMutation({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     role: v.union(
-      v.literal('user'),
-      v.literal('assistant'),
-      v.literal('system')
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system")
     ),
     content: v.string(),
-    parentMessageId: v.optional(v.id('messages')),
+    parentMessageId: v.optional(v.id("messages")),
     parts: v.optional(v.any()),
     metadata: v.optional(
       v.object({
@@ -572,12 +572,12 @@ export const sendUserMessageToChatInternal = internalMutation({
       })
     ),
   },
-  returns: v.object({ messageId: v.id('messages') }),
+  returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Get the chat to find the userId (no auth in scheduled functions)
     const chat = await ctx.db.get(args.chatId);
     if (!chat) {
-      throw new Error('Chat not found');
+      throw new Error("Chat not found");
     }
 
     return await insertMessageToChat(ctx, args, chat.userId);
@@ -587,14 +587,14 @@ export const sendUserMessageToChatInternal = internalMutation({
 // Internal mutation for scheduled tasks to save assistant messages
 export const saveAssistantMessageInternal = internalMutation({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     role: v.union(
-      v.literal('user'),
-      v.literal('assistant'),
-      v.literal('system')
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system")
     ),
     content: v.string(),
-    parentMessageId: v.optional(v.id('messages')),
+    parentMessageId: v.optional(v.id("messages")),
     parts: v.optional(v.any()),
     metadata: v.optional(
       v.object({
@@ -611,12 +611,12 @@ export const saveAssistantMessageInternal = internalMutation({
       })
     ),
   },
-  returns: v.object({ messageId: v.id('messages') }),
+  returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Get the chat to find the userId (no auth in scheduled functions)
     const chat = await ctx.db.get(args.chatId);
     if (!chat) {
-      throw new Error('Chat not found');
+      throw new Error("Chat not found");
     }
 
     return await insertMessageToChat(ctx, args, chat.userId);

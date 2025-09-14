@@ -1,7 +1,7 @@
-import { ConvexError, v } from 'convex/values';
-import { ERROR_CODES } from '../lib/error-codes';
-import { internalMutation, query } from './_generated/server';
-import { ensureAuthenticated } from './lib/auth_helper';
+import { ConvexError, v } from "convex/values";
+import { ERROR_CODES } from "../lib/error-codes";
+import { internalMutation, query } from "./_generated/server";
+import { ensureAuthenticated } from "./lib/auth_helper";
 
 // Shared validator for task_history entity metadata
 const taskHistoryMetadataValidator = v.optional(
@@ -21,24 +21,24 @@ const taskHistoryMetadataValidator = v.optional(
 
 // Shared validator for task_history entity status
 const taskHistoryStatusValidator = v.union(
-  v.literal('pending'),
-  v.literal('running'),
-  v.literal('success'),
-  v.literal('failure'),
-  v.literal('cancelled'),
-  v.literal('timeout')
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("success"),
+  v.literal("failure"),
+  v.literal("cancelled"),
+  v.literal("timeout")
 );
 
 // Shared validator for complete task_history entity
 const taskHistoryEntityValidator = v.object({
-  _id: v.id('task_history'),
+  _id: v.id("task_history"),
   _creationTime: v.number(),
-  taskId: v.id('scheduled_tasks'),
+  taskId: v.id("scheduled_tasks"),
   executionId: v.string(),
   status: taskHistoryStatusValidator,
   startTime: v.number(),
   endTime: v.optional(v.number()),
-  chatId: v.optional(v.id('chats')),
+  chatId: v.optional(v.id("chats")),
   errorMessage: v.optional(v.string()),
   metadata: taskHistoryMetadataValidator,
   isManualTrigger: v.optional(v.boolean()),
@@ -48,17 +48,17 @@ const taskHistoryEntityValidator = v.object({
 // Create a new task execution history record
 export const createExecutionHistory = internalMutation({
   args: {
-    taskId: v.id('scheduled_tasks'),
+    taskId: v.id("scheduled_tasks"),
     executionId: v.string(),
     startTime: v.number(),
     isManualTrigger: v.optional(v.boolean()),
   },
-  returns: v.id('task_history'),
+  returns: v.id("task_history"),
   handler: async (ctx, args) => {
-    const historyId = await ctx.db.insert('task_history', {
+    const historyId = await ctx.db.insert("task_history", {
       taskId: args.taskId,
       executionId: args.executionId,
-      status: 'running', // Task is now running, will be updated on completion/failure
+      status: "running", // Task is now running, will be updated on completion/failure
       startTime: args.startTime,
       isManualTrigger: args.isManualTrigger,
       createdAt: Date.now(),
@@ -74,7 +74,7 @@ export const updateExecutionHistory = internalMutation({
     executionId: v.string(),
     status: taskHistoryStatusValidator,
     endTime: v.number(),
-    chatId: v.optional(v.id('chats')),
+    chatId: v.optional(v.id("chats")),
     errorMessage: v.optional(v.string()),
     metadata: taskHistoryMetadataValidator,
   },
@@ -82,15 +82,15 @@ export const updateExecutionHistory = internalMutation({
   handler: async (ctx, args) => {
     // Find the history record by executionId
     const historyRecord = await ctx.db
-      .query('task_history')
-      .withIndex('by_execution_id', (q) =>
-        q.eq('executionId', args.executionId)
+      .query("task_history")
+      .withIndex("by_execution_id", (q) =>
+        q.eq("executionId", args.executionId)
       )
       .unique();
 
     if (!historyRecord) {
       throw new ConvexError({
-        message: 'Execution history record not found',
+        message: "Execution history record not found",
         code: ERROR_CODES.INVALID_INPUT,
       });
     }
@@ -111,7 +111,7 @@ export const updateExecutionHistory = internalMutation({
 // Get execution history for a specific task
 export const getTaskExecutionHistory = query({
   args: {
-    taskId: v.id('scheduled_tasks'),
+    taskId: v.id("scheduled_tasks"),
     limit: v.optional(v.number()),
   },
   returns: v.array(taskHistoryEntityValidator),
@@ -122,7 +122,7 @@ export const getTaskExecutionHistory = query({
     const task = await ctx.db.get(args.taskId);
     if (!task || task.userId !== userId) {
       throw new ConvexError({
-        message: 'Task not found or access denied',
+        message: "Task not found or access denied",
         code: ERROR_CODES.INVALID_INPUT,
       });
     }
@@ -130,9 +130,9 @@ export const getTaskExecutionHistory = query({
     // Get execution history for this task, ordered by most recent first
     const limit = args.limit || 30;
     const history = await ctx.db
-      .query('task_history')
-      .withIndex('by_task_and_time', (q) => q.eq('taskId', args.taskId))
-      .order('desc')
+      .query("task_history")
+      .withIndex("by_task_and_time", (q) => q.eq("taskId", args.taskId))
+      .order("desc")
       .take(limit);
 
     return history;
@@ -142,7 +142,7 @@ export const getTaskExecutionHistory = query({
 // Get execution statistics for a task
 export const getTaskExecutionStats = query({
   args: {
-    taskId: v.id('scheduled_tasks'),
+    taskId: v.id("scheduled_tasks"),
   },
   returns: v.object({
     totalExecutions: v.number(),
@@ -154,11 +154,11 @@ export const getTaskExecutionStats = query({
     averageDuration: v.optional(v.number()),
     lastExecution: v.optional(
       v.object({
-        _id: v.id('task_history'),
+        _id: v.id("task_history"),
         status: taskHistoryStatusValidator,
         startTime: v.number(),
         endTime: v.optional(v.number()),
-        chatId: v.optional(v.id('chats')),
+        chatId: v.optional(v.id("chats")),
         isManualTrigger: v.optional(v.boolean()),
       })
     ),
@@ -170,29 +170,29 @@ export const getTaskExecutionStats = query({
     const task = await ctx.db.get(args.taskId);
     if (!task || task.userId !== userId) {
       throw new ConvexError({
-        message: 'Task not found or access denied',
+        message: "Task not found or access denied",
         code: ERROR_CODES.INVALID_INPUT,
       });
     }
 
     // Get all execution history for this task
     const allHistory = await ctx.db
-      .query('task_history')
-      .withIndex('by_task', (q) => q.eq('taskId', args.taskId))
+      .query("task_history")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
 
     const totalExecutions = allHistory.length;
     const successfulExecutions = allHistory.filter(
-      (h) => h.status === 'success'
+      (h) => h.status === "success"
     ).length;
     const failedExecutions = allHistory.filter(
       (h) =>
-        h.status === 'failure' ||
-        h.status === 'cancelled' ||
-        h.status === 'timeout'
+        h.status === "failure" ||
+        h.status === "cancelled" ||
+        h.status === "timeout"
     ).length;
     const runningExecutions = allHistory.filter(
-      (h) => h.status === 'running' || h.status === 'pending'
+      (h) => h.status === "running" || h.status === "pending"
     ).length;
     const completedExecutions = successfulExecutions + failedExecutions;
     const successRate =
@@ -259,9 +259,9 @@ export const getExecutionDetails = query({
 
     // Find the execution record
     const execution = await ctx.db
-      .query('task_history')
-      .withIndex('by_execution_id', (q) =>
-        q.eq('executionId', args.executionId)
+      .query("task_history")
+      .withIndex("by_execution_id", (q) =>
+        q.eq("executionId", args.executionId)
       )
       .unique();
 
@@ -273,7 +273,7 @@ export const getExecutionDetails = query({
     const task = await ctx.db.get(execution.taskId);
     if (!task || task.userId !== userId) {
       throw new ConvexError({
-        message: 'Task not found or access denied',
+        message: "Task not found or access denied",
         code: ERROR_CODES.INVALID_INPUT,
       });
     }
@@ -288,7 +288,7 @@ export const getExecutionDetails = query({
 // Clean up old execution history (retention policy)
 export const cleanupOldExecutions = internalMutation({
   args: {
-    taskId: v.id('scheduled_tasks'),
+    taskId: v.id("scheduled_tasks"),
     keepCount: v.optional(v.number()), // Default to 30
   },
   returns: v.object({
@@ -299,9 +299,9 @@ export const cleanupOldExecutions = internalMutation({
 
     // Get all executions for this task, ordered by most recent first
     const allExecutions = await ctx.db
-      .query('task_history')
-      .withIndex('by_task_and_time', (q) => q.eq('taskId', args.taskId))
-      .order('desc')
+      .query("task_history")
+      .withIndex("by_task_and_time", (q) => q.eq("taskId", args.taskId))
+      .order("desc")
       .collect();
 
     // If we have more than keepCount, delete the oldest ones

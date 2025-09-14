@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   ArchiveIcon,
@@ -9,13 +9,13 @@ import {
   PlayIcon,
   RepeatOnceIcon,
   TrashIcon,
-} from '@phosphor-icons/react';
-import { useMutation } from 'convex/react';
-import dayjs from 'dayjs';
-import Link from 'next/link';
-import { memo, useCallback, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+} from "@phosphor-icons/react";
+import { useMutation } from "convex/react";
+import dayjs from "dayjs";
+import Link from "next/link";
+import { memo, useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -23,39 +23,39 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Pill, PillIndicator } from '@/components/ui/pill';
+} from "@/components/ui/dropdown-menu";
+import { Pill, PillIndicator } from "@/components/ui/pill";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import { ExecutionHistoryTrigger } from './execution-history-trigger';
-import { TaskTrigger } from './task-trigger';
-import type { ScheduledTask } from './types';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import { ExecutionHistoryTrigger } from "./execution-history-trigger";
+import { TaskTrigger } from "./task-trigger";
+import type { ScheduledTask } from "./types";
 
 // Static constants moved outside component for better performance
 const DAY_NAMES = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
 ] as const;
 
 const SCHEDULE_TYPE_DISPLAY_MAP = {
-  onetime: 'One-time',
-  daily: 'Daily',
-  weekly: 'Weekly',
+  onetime: "One-time",
+  daily: "Daily",
+  weekly: "Weekly",
 } as const;
 
 type TaskCardProps = {
@@ -73,28 +73,28 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
   const handleDelete = async () => {
     try {
       await deleteTask({ taskId: task._id });
-      toast.success('Background Agent deleted successfully');
+      toast.success("Background Agent deleted successfully");
     } catch (_error) {
-      toast.error('Failed to delete task');
+      toast.error("Failed to delete task");
     }
     setShowDeleteDialog(false);
   };
 
   const handlePauseResume = async () => {
     try {
-      const newStatus = task.status === 'active' ? 'paused' : 'active';
+      const newStatus = task.status === "active" ? "paused" : "active";
       await updateTask({
         taskId: task._id,
         status: newStatus,
       });
       toast.success(
-        task.status === 'active'
-          ? 'Background Agent paused'
-          : 'Background Agent resumed'
+        task.status === "active"
+          ? "Background Agent paused"
+          : "Background Agent resumed"
       );
     } catch (_error) {
       toast.error(
-        `Failed to ${task.status === 'active' ? 'pause' : 'resume'} task`
+        `Failed to ${task.status === "active" ? "pause" : "resume"} task`
       );
     }
   };
@@ -107,9 +107,9 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
   const handleTriggerNow = async () => {
     try {
       await triggerTask({ taskId: task._id });
-      toast.success('Background Agent triggered successfully');
+      toast.success("Background Agent triggered successfully");
     } catch (_error) {
-      toast.error('Failed to trigger task');
+      toast.error("Failed to trigger task");
     }
   };
 
@@ -124,11 +124,11 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 
   // Memoized weekly day computation
   const weeklyDay = useMemo(() => {
-    if (task.scheduleType !== 'weekly') {
+    if (task.scheduleType !== "weekly") {
       return null;
     }
 
-    const parts = task.scheduledTime.split(':');
+    const parts = task.scheduledTime.split(":");
     if (parts.length < 3) {
       return null;
     }
@@ -140,24 +140,24 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
   // Memoized time formatting function
   const formatTime = useCallback((timestamp: number | undefined) => {
     if (!timestamp) {
-      return 'Never';
+      return "Never";
     }
-    return dayjs(timestamp).format('MMM D, h:mm a');
+    return dayjs(timestamp).format("MMM D, h:mm a");
   }, []);
 
   // Memoized next execution display
   const nextExecutionDisplay = useMemo(() => {
     switch (task.status) {
-      case 'active':
+      case "active":
         return formatTime(task.nextExecution);
-      case 'running':
-        return 'Currently running';
-      case 'paused':
-        return 'Paused';
-      case 'archived':
-        return 'Archived';
+      case "running":
+        return "Currently running";
+      case "paused":
+        return "Paused";
+      case "archived":
+        return "Archived";
       default:
-        return 'Unknown';
+        return "Unknown";
     }
   }, [task.status, task.nextExecution, formatTime]);
 
@@ -169,28 +169,28 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
   // Memoized tooltip content
   const tooltipContent = useMemo(() => {
     switch (task.status) {
-      case 'active':
-        return 'Pause task';
-      case 'paused':
-        return 'Resume task';
-      case 'running':
-        return 'Background Agent is running';
-      case 'archived':
-        return 'Background Agent is archived';
+      case "active":
+        return "Pause task";
+      case "paused":
+        return "Resume task";
+      case "running":
+        return "Background Agent is running";
+      case "archived":
+        return "Background Agent is archived";
       default:
-        return 'Unknown status';
+        return "Unknown status";
     }
   }, [task.status]);
 
   // Memoized trigger tooltip content
   const triggerTooltipContent = useMemo(() => {
     switch (task.status) {
-      case 'running':
-        return 'Cannot trigger - task is running';
-      case 'paused':
-        return 'Cannot trigger - task is paused';
+      case "running":
+        return "Cannot trigger - task is running";
+      case "paused":
+        return "Cannot trigger - task is paused";
       default:
-        return 'Run task once now';
+        return "Run task once now";
     }
   }, [task.status]);
 
@@ -199,11 +199,11 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
     try {
       await updateTask({
         taskId: task._id,
-        status: 'archived',
+        status: "archived",
       });
-      toast.success('Background Agent archived successfully');
+      toast.success("Background Agent archived successfully");
     } catch (_error) {
-      toast.error('Failed to archive task');
+      toast.error("Failed to archive task");
     }
   }, [updateTask, task._id]);
 
@@ -238,11 +238,11 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
     // biome-ignore lint/a11y/useSemanticElements: <soh>
     <div
       aria-expanded={isExpanded}
-      aria-label={`${task.title} task card${isExpanded ? ', expanded' : ', collapsed'}`}
+      aria-label={`${task.title} task card${isExpanded ? ", expanded" : ", collapsed"}`}
       className="w-full cursor-pointer rounded-xl border border-border bg-card text-left transition-shadow hover:shadow-sm"
       onClick={() => setIsExpanded(!isExpanded)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           setIsExpanded(!isExpanded);
         }
@@ -256,24 +256,24 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
           <div className="min-w-0 flex-1">
             <div className="mb-2 flex items-center gap-2">
               <h3
-                className={`font-medium text-lg leading-tight ${task.status === 'active' || task.status === 'running' ? '' : 'opacity-60'}`}
+                className={`font-medium text-lg leading-tight ${task.status === "active" || task.status === "running" ? "" : "opacity-60"}`}
               >
                 {task.title}
               </h3>
               {/* Main status pill */}
-              {task.status === 'paused' && (
+              {task.status === "paused" && (
                 <Pill className="text-xs" variant="outline">
                   <PillIndicator pulse={false} variant="warning" />
                   Paused
                 </Pill>
               )}
-              {task.status === 'running' && (
+              {task.status === "running" && (
                 <Pill className="text-xs" variant="outline">
                   <PillIndicator pulse={true} variant="success" />
                   Running
                 </Pill>
               )}
-              {task.status === 'archived' && (
+              {task.status === "archived" && (
                 <Pill className="text-xs" variant="outline">
                   <PillIndicator pulse={false} variant="info" />
                   Archived
@@ -292,10 +292,10 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
             {/* Primary action button - larger for touch */}
             <Button
               aria-label={
-                task.status === 'active' ? 'Pause task' : 'Resume task'
+                task.status === "active" ? "Pause task" : "Resume task"
               }
               className="h-11 w-11"
-              disabled={task.status === 'running' || task.status === 'archived'}
+              disabled={task.status === "running" || task.status === "archived"}
               onClick={(e) => {
                 e.stopPropagation();
                 handlePauseResume();
@@ -303,7 +303,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
               size="icon"
               variant="ghost"
             >
-              {task.status === 'active' ? (
+              {task.status === "active" ? (
                 <PauseIcon className="h-5 w-5" />
               ) : (
                 <PlayIcon className="h-5 w-5" />
@@ -326,9 +326,9 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   disabled={
-                    task.status === 'archived' ||
-                    task.status === 'running' ||
-                    task.status === 'paused'
+                    task.status === "archived" ||
+                    task.status === "running" ||
+                    task.status === "paused"
                   }
                   onClick={(e) => {
                     e.stopPropagation();
@@ -353,14 +353,14 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
                 />
                 <TaskTrigger
                   disabled={
-                    task.status === 'archived' || task.status === 'running'
+                    task.status === "archived" || task.status === "running"
                   }
                   initialData={taskDialogInitialData}
                   mode="edit"
                   trigger={
                     <DropdownMenuItem
                       disabled={
-                        task.status === 'archived' || task.status === 'running'
+                        task.status === "archived" || task.status === "running"
                       }
                       onClick={(e) => e.stopPropagation()}
                       onSelect={(e) => e.preventDefault()}
@@ -372,7 +372,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
                 />
                 <DropdownMenuItem
                   disabled={
-                    task.status === 'archived' || task.status === 'running'
+                    task.status === "archived" || task.status === "running"
                   }
                   onClick={(e) => {
                     e.stopPropagation();
@@ -384,7 +384,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive"
-                  disabled={task.status === 'running'}
+                  disabled={task.status === "running"}
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowDeleteDialog(true);
@@ -448,7 +448,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-2">
             <h3
-              className={`font-medium text-lg ${task.status === 'active' || task.status === 'running' ? '' : 'opacity-60'}`}
+              className={`font-medium text-lg ${task.status === "active" || task.status === "running" ? "" : "opacity-60"}`}
             >
               {task.title}
             </h3>
@@ -465,19 +465,19 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
                 Email
               </Pill>
             )}
-            {task.status === 'paused' && (
+            {task.status === "paused" && (
               <Pill className="text-xs" variant="outline">
                 <PillIndicator pulse={false} variant="warning" />
                 Paused
               </Pill>
             )}
-            {task.status === 'running' && (
+            {task.status === "running" && (
               <Pill className="text-xs" variant="outline">
                 <PillIndicator pulse={true} variant="success" />
                 Running
               </Pill>
             )}
-            {task.status === 'archived' && (
+            {task.status === "archived" && (
               <Pill className="text-xs" variant="outline">
                 <PillIndicator pulse={false} variant="info" />
                 Archived
@@ -497,24 +497,24 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
               <TooltipTrigger
                 asChild
                 className={
-                  task.status === 'running' || task.status === 'archived'
-                    ? 'cursor-not-allowed'
-                    : ''
+                  task.status === "running" || task.status === "archived"
+                    ? "cursor-not-allowed"
+                    : ""
                 }
               >
                 <Button
                   aria-label={
-                    task.status === 'active' ? 'Pause task' : 'Resume task'
+                    task.status === "active" ? "Pause task" : "Resume task"
                   }
                   className="h-8 w-8"
                   disabled={
-                    task.status === 'running' || task.status === 'archived'
+                    task.status === "running" || task.status === "archived"
                   }
                   onClick={handlePauseResume}
                   size="icon"
                   variant="ghost"
                 >
-                  {task.status === 'active' ? (
+                  {task.status === "active" ? (
                     <PauseIcon className="h-4 w-4" />
                   ) : (
                     <PlayIcon className="h-4 w-4" />
@@ -530,20 +530,20 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
               <TooltipTrigger
                 asChild
                 className={
-                  task.status === 'archived' ||
-                  task.status === 'running' ||
-                  task.status === 'paused'
-                    ? 'cursor-not-allowed'
-                    : ''
+                  task.status === "archived" ||
+                  task.status === "running" ||
+                  task.status === "paused"
+                    ? "cursor-not-allowed"
+                    : ""
                 }
               >
                 <Button
                   aria-label="Run task once now"
                   className="h-8 w-8"
                   disabled={
-                    task.status === 'archived' ||
-                    task.status === 'running' ||
-                    task.status === 'paused'
+                    task.status === "archived" ||
+                    task.status === "running" ||
+                    task.status === "paused"
                   }
                   onClick={handleTriggerNow}
                   size="icon"
@@ -582,15 +582,15 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
             />
 
             <TaskTrigger
-              disabled={task.status === 'archived' || task.status === 'running'}
+              disabled={task.status === "archived" || task.status === "running"}
               initialData={taskDialogInitialData}
               mode="edit"
               trigger={
                 <span
                   className={
-                    task.status === 'archived' || task.status === 'running'
-                      ? 'cursor-not-allowed'
-                      : ''
+                    task.status === "archived" || task.status === "running"
+                      ? "cursor-not-allowed"
+                      : ""
                   }
                 >
                   <Tooltip>
@@ -599,8 +599,8 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
                         aria-label="Edit task"
                         className="h-8 w-8"
                         disabled={
-                          task.status === 'archived' ||
-                          task.status === 'running'
+                          task.status === "archived" ||
+                          task.status === "running"
                         }
                         size="icon"
                         variant="ghost"
@@ -610,9 +610,9 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>
-                        {task.status === 'running'
-                          ? 'Cannot edit - task is running'
-                          : 'Edit task'}
+                        {task.status === "running"
+                          ? "Cannot edit - task is running"
+                          : "Edit task"}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -624,16 +624,16 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
               <TooltipTrigger
                 asChild
                 className={
-                  task.status === 'archived' || task.status === 'running'
-                    ? 'cursor-not-allowed'
-                    : ''
+                  task.status === "archived" || task.status === "running"
+                    ? "cursor-not-allowed"
+                    : ""
                 }
               >
                 <Button
                   aria-label="Archive task"
                   className="h-8 w-8"
                   disabled={
-                    task.status === 'archived' || task.status === 'running'
+                    task.status === "archived" || task.status === "running"
                   }
                   onClick={handleArchive}
                   size="icon"
@@ -644,9 +644,9 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
               </TooltipTrigger>
               <TooltipContent>
                 <p>
-                  {task.status === 'running'
-                    ? 'Cannot archive - task is running'
-                    : 'Archive task'}
+                  {task.status === "running"
+                    ? "Cannot archive - task is running"
+                    : "Archive task"}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -656,7 +656,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
                 <Button
                   aria-label="Delete task"
                   className="h-8 w-8"
-                  disabled={task.status === 'running'}
+                  disabled={task.status === "running"}
                   onClick={() => setShowDeleteDialog(true)}
                   size="icon"
                   variant="ghost"
@@ -666,9 +666,9 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
               </TooltipTrigger>
               <TooltipContent>
                 <p>
-                  {task.status === 'running'
-                    ? 'Cannot delete - task is running'
-                    : 'Delete task'}
+                  {task.status === "running"
+                    ? "Cannot delete - task is running"
+                    : "Delete task"}
                 </p>
               </TooltipContent>
             </Tooltip>

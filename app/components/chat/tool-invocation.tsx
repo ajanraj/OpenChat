@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { CaretDown, Code, Link, Nut, Spinner } from '@phosphor-icons/react';
+import { CaretDown, Code, Link, Nut, Spinner } from "@phosphor-icons/react";
 // Note: AI SDK v5 uses ToolUIPart instead of ToolInvocationUIPart
 // We'll use custom types that work with the existing component structure
-import { AnimatePresence, motion, type Transition } from 'motion/react';
-import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
-import { SearchQueryDisplay } from './search-query-display';
-import { SearchResults } from './search-result';
+import { AnimatePresence, motion, type Transition } from "motion/react";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import { SearchQueryDisplay } from "./search-query-display";
+import { SearchResults } from "./search-result";
 
 type CustomToolInvocation = {
-  state: 'requested' | 'result';
+  state: "requested" | "result";
   step?: number;
   toolCallId: string;
   toolName: string;
@@ -20,7 +20,7 @@ type CustomToolInvocation = {
 };
 
 type CustomToolInvocationUIPart = {
-  type: 'tool-invocation';
+  type: "tool-invocation";
   toolInvocation: CustomToolInvocation;
 };
 
@@ -49,13 +49,13 @@ function hasResult(
   toolInvocation: CustomToolInvocation
 ): toolInvocation is CustomToolInvocation & { result: unknown } {
   return (
-    toolInvocation.state === 'result' ||
-    ('result' in toolInvocation && toolInvocation.result !== undefined)
+    toolInvocation.state === "result" ||
+    ("result" in toolInvocation && toolInvocation.result !== undefined)
   );
 }
 
 const TRANSITION: Transition = {
-  type: 'spring',
+  type: "spring",
   duration: 0.2,
   bounce: 0,
 };
@@ -63,12 +63,12 @@ const TRANSITION: Transition = {
 // Helper to format argument values for display without deep nested ternaries
 function formatArgValue(value: unknown): string {
   if (value === null) {
-    return 'null';
+    return "null";
   }
   if (Array.isArray(value)) {
-    return value.length === 0 ? '[]' : JSON.stringify(value);
+    return value.length === 0 ? "[]" : JSON.stringify(value);
   }
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     return JSON.stringify(value);
   }
   return String(value);
@@ -77,15 +77,15 @@ function formatArgValue(value: unknown): string {
 // Helper to safely extract text content from AI SDK result objects
 function extractTextFromResultObject(obj: unknown): string | null {
   if (
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== null &&
-    'content' in obj &&
+    "content" in obj &&
     Array.isArray((obj as { content: unknown }).content)
   ) {
     const contentArr = (
       obj as { content: Array<{ type: string; text?: string }> }
     ).content;
-    const textPart = contentArr.find((item) => item.type === 'text');
+    const textPart = contentArr.find((item) => item.type === "text");
     return textPart?.text ?? null;
   }
   return null;
@@ -131,17 +131,17 @@ function extractSearchQueries(
       const { toolName, args } = toolInvocation as CustomToolInvocation;
 
       // Handle different search tool argument structures
-      if (toolName === 'search' && args) {
+      if (toolName === "search" && args) {
         // New unified search tool
         return { query: args.query as string, toolName };
       }
 
-      if (toolName === 'duckDuckGo' && args) {
+      if (toolName === "duckDuckGo" && args) {
         // Legacy duckDuckGo tool
         return { query: args.query as string, toolName };
       }
 
-      if (toolName === 'exaSearch' && args) {
+      if (toolName === "exaSearch" && args) {
         // Legacy exaSearch tool
         return { query: args.query as string, toolName };
       }
@@ -151,7 +151,7 @@ function extractSearchQueries(
     .filter(
       (item): item is { query: string; toolName: string } =>
         item !== null &&
-        typeof item.query === 'string' &&
+        typeof item.query === "string" &&
         item.query.trim().length > 0
     );
 }
@@ -159,7 +159,7 @@ function extractSearchQueries(
 // Helper renderers split to keep individual functions simple
 function renderSearchToolResults(parsedResult: ParsedResult | null): ReactNode {
   if (
-    typeof parsedResult === 'object' &&
+    typeof parsedResult === "object" &&
     parsedResult !== null &&
     !Array.isArray(parsedResult)
   ) {
@@ -195,10 +195,10 @@ function renderArrayResults(parsedResult: ParsedResult): ReactNode {
 
   const firstItem = parsedResult[0];
   if (
-    typeof firstItem === 'object' &&
+    typeof firstItem === "object" &&
     firstItem !== null &&
-    'url' in firstItem &&
-    'title' in firstItem
+    "url" in firstItem &&
+    "title" in firstItem
   ) {
     return (
       <div className="space-y-3">
@@ -237,7 +237,7 @@ function renderArrayResults(parsedResult: ParsedResult): ReactNode {
 
 function renderObjectResults(parsedResult: ParsedResult): ReactNode {
   if (
-    typeof parsedResult !== 'object' ||
+    typeof parsedResult !== "object" ||
     parsedResult === null ||
     Array.isArray(parsedResult)
   ) {
@@ -273,10 +273,10 @@ function renderParsedResults(
   parsedResult: ParsedResult | null
 ): ReactNode {
   if (!parsedResult) {
-    return 'No result data available';
+    return "No result data available";
   }
 
-  if (toolName === 'search') {
+  if (toolName === "search") {
     const searchRendered = renderSearchToolResults(parsedResult);
     if (searchRendered) {
       return searchRendered;
@@ -287,15 +287,15 @@ function renderParsedResults(
     return renderArrayResults(parsedResult);
   }
 
-  if (typeof parsedResult === 'object' && parsedResult !== null) {
+  if (typeof parsedResult === "object" && parsedResult !== null) {
     return renderObjectResults(parsedResult);
   }
 
-  if (typeof parsedResult === 'string') {
+  if (typeof parsedResult === "string") {
     return <div className="whitespace-pre-wrap">{parsedResult}</div>;
   }
 
-  return 'No result data available';
+  return "No result data available";
 }
 
 export function ToolInvocation({
@@ -347,8 +347,8 @@ export function ToolInvocation({
           </div>
           <CaretDown
             className={cn(
-              'h-4 w-4 transition-transform',
-              isExpanded ? 'rotate-180 transform' : ''
+              "h-4 w-4 transition-transform",
+              isExpanded ? "rotate-180 transform" : ""
             )}
           />
         </button>
@@ -356,7 +356,7 @@ export function ToolInvocation({
         <AnimatePresence initial={false}>
           {isExpanded && (
             <motion.div
-              animate={{ height: 'auto', opacity: 1 }}
+              animate={{ height: "auto", opacity: 1 }}
               className="overflow-hidden"
               exit={{ height: 0, opacity: 0 }}
               initial={{ height: 0, opacity: 0 }}
@@ -370,13 +370,13 @@ export function ToolInvocation({
                       (item) =>
                         item.toolInvocation.toolCallId === toolId &&
                         (item.toolInvocation as CustomToolInvocation).state ===
-                          'requested'
+                          "requested"
                     );
 
                     const resultTool = toolInvocations.find(
                       (item) =>
                         item.toolInvocation.toolCallId === toolId &&
-                        item.toolInvocation.state === 'result'
+                        item.toolInvocation.state === "result"
                     );
 
                     // Show the result tool if available, otherwise show the request
@@ -420,21 +420,21 @@ function SingleToolView({
   const [parseError, setParseError] = useState<string | null>(null);
 
   const resultTool = data.find(
-    (item) => item.toolInvocation.state === 'result'
+    (item) => item.toolInvocation.state === "result"
   );
   const requestTool = data.find(
     (item) =>
-      (item.toolInvocation as CustomToolInvocation).state === 'requested'
+      (item.toolInvocation as CustomToolInvocation).state === "requested"
   );
   const toolData = resultTool || requestTool;
 
   const { toolInvocation } = toolData || { toolInvocation: null };
   const { state, toolName, toolCallId, args } = toolInvocation
     ? (toolInvocation as CustomToolInvocation)
-    : { state: null, toolName: '', toolCallId: '', args: null };
+    : { state: null, toolName: "", toolCallId: "", args: null };
 
-  const isRequested = state === 'requested';
-  const isCompleted = state === 'result';
+  const isRequested = state === "requested";
+  const isCompleted = state === "result";
   const result =
     toolInvocation && hasResult(toolInvocation)
       ? toolInvocation.result
@@ -457,7 +457,7 @@ function SingleToolView({
   const formattedArgs = args
     ? Object.entries(args).map(([key, value]) => (
         <div className="mb-1" key={key}>
-          <span className="font-medium text-slate-600">{key}:</span>{' '}
+          <span className="font-medium text-slate-600">{key}:</span>{" "}
           <span className="font-mono">{formatArgValue(value)}</span>
         </div>
       ))
@@ -467,12 +467,12 @@ function SingleToolView({
 
   // Extract search queries for display
   const searchQueries = extractSearchQueries(data);
-  const isSearchTool = ['search', 'duckDuckGo', 'exaSearch'].includes(toolName);
+  const isSearchTool = ["search", "duckDuckGo", "exaSearch"].includes(toolName);
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-0 overflow-hidden rounded-md border border-border',
+        "flex flex-col gap-0 overflow-hidden rounded-md border border-border",
         className
       )}
     >
@@ -491,10 +491,10 @@ function SingleToolView({
           <span className="font-mono text-sm">{toolName}</span>
           <div
             className={cn(
-              'rounded-full px-1.5 py-0.5 text-xs',
+              "rounded-full px-1.5 py-0.5 text-xs",
               isRequested
-                ? 'border border-blue-200 bg-blue-50 text-blue-700'
-                : 'border border-green-200 bg-green-50 text-green-700'
+                ? "border border-blue-200 bg-blue-50 text-blue-700"
+                : "border border-green-200 bg-green-50 text-green-700"
             )}
           >
             {isRequested ? (
@@ -503,14 +503,14 @@ function SingleToolView({
                 Running
               </div>
             ) : (
-              'Completed'
+              "Completed"
             )}
           </div>
         </div>
         <CaretDown
           className={cn(
-            'h-4 w-4 transition-transform',
-            isExpanded ? 'rotate-180 transform' : ''
+            "h-4 w-4 transition-transform",
+            isExpanded ? "rotate-180 transform" : ""
           )}
         />
       </button>
@@ -518,7 +518,7 @@ function SingleToolView({
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             className="overflow-hidden"
             exit={{ height: 0, opacity: 0 }}
             initial={{ height: 0, opacity: 0 }}
@@ -557,7 +557,7 @@ function SingleToolView({
               <div className="flex items-center justify-between text-muted-foreground text-xs">
                 <div className="flex items-center">
                   <Code className="mr-1 inline h-3 w-3" />
-                  Tool Call ID:{' '}
+                  Tool Call ID:{" "}
                   <span className="ml-1 font-mono">{toolCallId}</span>
                 </div>
               </div>

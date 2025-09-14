@@ -1,8 +1,8 @@
-import { Resend } from '@convex-dev/resend';
-import { v } from 'convex/values';
-import { marked } from 'marked';
-import { components } from './_generated/api';
-import { internalMutation } from './_generated/server';
+import { Resend } from "@convex-dev/resend";
+import { v } from "convex/values";
+import { marked } from "marked";
+import { components } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
 
 // Email validation regex at top level for performance
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -11,7 +11,7 @@ const MAX_CONTENT_LENGTH = 5000;
 // Initialize Resend with the component
 export const resend: Resend = new Resend(components.resend, {
   // Enable test mode in development (set to false in production via env var)
-  testMode: process.env.NODE_ENV !== 'production',
+  testMode: process.env.NODE_ENV !== "production",
 });
 
 /**
@@ -33,12 +33,12 @@ function markdownToSafeHtml(markdown: string): string {
   // Remove any script tags and their content
   html = html.replace(
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    ''
+    ""
   );
 
   // Remove any on* event attributes
-  html = html.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
-  html = html.replace(/\son\w+\s*=\s*[^\s>]*/gi, '');
+  html = html.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
+  html = html.replace(/\son\w+\s*=\s*[^\s>]*/gi, "");
 
   // Remove javascript: protocol from links
   html = html.replace(/href\s*=\s*["']?\s*javascript:[^"'>]*/gi, 'href="#"');
@@ -50,21 +50,21 @@ function markdownToSafeHtml(markdown: string): string {
   );
 
   // Remove any style tags and their content (optional, but recommended for email)
-  html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
 
   // Remove any meta tags
-  html = html.replace(/<meta\b[^>]*>/gi, '');
+  html = html.replace(/<meta\b[^>]*>/gi, "");
 
   // Remove any iframe tags
   html = html.replace(
     /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
-    ''
+    ""
   );
 
   // Remove any object/embed tags
   html = html.replace(
     /<(object|embed)\b[^<]*(?:(?!<\/(object|embed)>)<[^<]*)*<\/(object|embed)>/gi,
-    ''
+    ""
   );
 
   return html;
@@ -76,12 +76,12 @@ function markdownToSafeHtml(markdown: string): string {
  */
 export const sendTaskSummaryEmail = internalMutation({
   args: {
-    userId: v.id('users'),
-    taskId: v.id('scheduled_tasks'),
+    userId: v.id("users"),
+    taskId: v.id("scheduled_tasks"),
     taskTitle: v.string(),
     taskContent: v.string(),
     executionDate: v.string(),
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
   },
   returns: v.object({
     success: v.boolean(),
@@ -93,16 +93,16 @@ export const sendTaskSummaryEmail = internalMutation({
       const user = await ctx.db.get(args.userId);
 
       if (!user) {
-        return { success: false, error: 'User not found' };
+        return { success: false, error: "User not found" };
       }
 
       if (!user.email) {
-        return { success: false, error: 'User has no email address' };
+        return { success: false, error: "User has no email address" };
       }
 
       // Validate email format (basic validation)
       if (!EMAIL_REGEX.test(user.email)) {
-        return { success: false, error: 'Invalid email format' };
+        return { success: false, error: "Invalid email format" };
       }
 
       // Truncate content if too long for email
@@ -124,7 +124,7 @@ export const sendTaskSummaryEmail = internalMutation({
         taskContent: htmlTaskContent, // Use converted HTML
         contentTruncated,
         chatId: args.chatId,
-        userName: user.name || user.preferredName || 'there',
+        userName: user.name || user.preferredName || "there",
       });
 
       // Create plain text version (keep original markdown for text-only emails)
@@ -134,12 +134,12 @@ export const sendTaskSummaryEmail = internalMutation({
         taskContent: emailContent, // Keep markdown for plain text
         contentTruncated,
         chatId: args.chatId,
-        userName: user.name || user.preferredName || 'there',
+        userName: user.name || user.preferredName || "there",
       });
 
       // Send email using Resend
       await resend.sendEmail(ctx, {
-        from: 'OS Chat <noreply@oschat.ai>',
+        from: "OS Chat <noreply@oschat.ai>",
         to: user.email,
         subject: `Task Complete: ${args.taskTitle}`,
         html: htmlContent,
@@ -151,7 +151,7 @@ export const sendTaskSummaryEmail = internalMutation({
       // Log error but don't throw - we never want to break task execution
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   },
@@ -797,7 +797,7 @@ function createMonospaceTemplate({
                         <strong>INFO:</strong> Output truncated. Full results available in dashboard.
                     </div>
                 </div>`
-                    : ''
+                    : ""
                 }
                 
                 <div class="section-header">// Next Actions</div>
@@ -807,7 +807,7 @@ function createMonospaceTemplate({
                 </div>
                 
                 <div class="button-container">
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://oschat.ai'}/c/${chatId}" class="cli-button">
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://oschat.ai"}/c/${chatId}" class="cli-button">
                         open dashboard
                     </a>
                 </div>
@@ -827,7 +827,7 @@ function createMonospaceTemplate({
             </div>
             <div class="footer-line">
                 <span class="comment">// Configure settings: </span>
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://oschat.ai'}/settings" class="footer-link">account_settings</a>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://oschat.ai"}/settings" class="footer-link">account_settings</a>
             </div>
         </div>
     </div>
@@ -1260,9 +1260,9 @@ Task: ${taskTitle}
 Completed: ${executionDate}
 
 Results:
-${taskContent}${contentTruncated ? '\n\n[Content truncated - view full results in the app]' : ''}
+${taskContent}${contentTruncated ? "\n\n[Content truncated - view full results in the app]" : ""}
 
-View full results: ${process.env.NEXT_PUBLIC_APP_URL || 'https://oschat.ai'}/chat/${chatId}
+View full results: ${process.env.NEXT_PUBLIC_APP_URL || "https://oschat.ai"}/chat/${chatId}
 
 This email was sent because you enabled email notifications for this scheduled task.
 You can manage your notification preferences in your account settings.
@@ -1274,11 +1274,11 @@ You can manage your notification preferences in your account settings.
  */
 function escapeHtml(text: string): string {
   const map: { [key: string]: string } = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
   };
   return text.replace(/[&<>"']/g, (m) => map[m]);
 }

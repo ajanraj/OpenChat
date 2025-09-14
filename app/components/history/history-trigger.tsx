@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { ListMagnifyingGlassIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
-import { CommandHistory } from '@/app/components/history/command-history';
-import { DrawerHistory } from '@/app/components/history/drawer-history';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
+import { ListMagnifyingGlassIcon } from "@phosphor-icons/react";
+import { useState } from "react";
+import { CommandHistory } from "@/app/components/history/command-history";
+import { DrawerHistory } from "@/app/components/history/drawer-history";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
 
 export function HistoryTrigger() {
   const isMobileOrTablet = useBreakpoint(896);

@@ -1,5 +1,5 @@
-import { fal } from '@ai-sdk/fal';
-import { google } from '@ai-sdk/google';
+import { fal } from "@ai-sdk/fal";
+import { google } from "@ai-sdk/google";
 import {
   FILE_UPLOAD_FEATURE,
   IMAGE_GENERATION_FEATURE,
@@ -7,18 +7,18 @@ import {
   REASONING_FEATURE,
   REASONING_FEATURE_DISABLED,
   TOOL_CALLING_FEATURE,
-} from '../features';
+} from "../features";
 
 export const GOOGLE_MODELS = [
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    provider: 'gemini',
+    id: "gemini-2.0-flash",
+    name: "Gemini 2.0 Flash",
+    provider: "gemini",
     premium: false,
     usesPremiumCredits: false,
     description: `Google's fast multimodal model with native tool use.\nExcels at general tasks, web search, and real-time applications.`,
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
-    api_sdk: google('gemini-2.0-flash'),
+    api_sdk: google("gemini-2.0-flash"),
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
@@ -27,15 +27,15 @@ export const GOOGLE_MODELS = [
     ],
   },
   {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite',
-    provider: 'gemini',
+    id: "gemini-2.0-flash-lite",
+    name: "Gemini 2.0 Flash Lite",
+    provider: "gemini",
     premium: false,
     usesPremiumCredits: false,
     description:
-      'Most cost-efficient Gemini model with fast responses.\nIdeal for high-volume, latency-sensitive applications.',
+      "Most cost-efficient Gemini model with fast responses.\nIdeal for high-volume, latency-sensitive applications.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
-    api_sdk: google('gemini-2.0-flash-lite'),
+    api_sdk: google("gemini-2.0-flash-lite"),
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
@@ -44,14 +44,14 @@ export const GOOGLE_MODELS = [
     ],
   },
   {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    provider: 'gemini',
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "gemini",
     premium: false,
     usesPremiumCredits: false,
     description: `Google's flagship light model.\nExcels at agentic use cases and large-scale processing.`,
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
-    api_sdk: google('gemini-2.5-flash'),
+    api_sdk: google("gemini-2.5-flash"),
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
@@ -60,16 +60,16 @@ export const GOOGLE_MODELS = [
     ],
   },
   {
-    id: 'gemini-2.5-flash-thinking',
-    name: 'Gemini 2.5 Flash',
-    subName: 'Thinking',
-    provider: 'gemini',
+    id: "gemini-2.5-flash-thinking",
+    name: "Gemini 2.5 Flash",
+    subName: "Thinking",
+    provider: "gemini",
     premium: true,
     usesPremiumCredits: false,
     description:
-      'Gemini flagship light model with reasoning capabilities enabled.\nFeatures visible thought process for complex problem-solving with thinking.',
+      "Gemini flagship light model with reasoning capabilities enabled.\nFeatures visible thought process for complex problem-solving with thinking.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
-    api_sdk: google('gemini-2.5-flash'),
+    api_sdk: google("gemini-2.5-flash"),
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
@@ -78,15 +78,15 @@ export const GOOGLE_MODELS = [
     ],
   },
   {
-    id: 'gemini-2.5-flash-lite',
-    name: 'Gemini 2.5 Flash Lite',
-    provider: 'gemini',
+    id: "gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
+    provider: "gemini",
     premium: false,
     usesPremiumCredits: false,
     description:
-      'Most cost-efficient and fastest model with lowest latency.\nIdeal for high-volume classification and summarization tasks.',
+      "Most cost-efficient and fastest model with lowest latency.\nIdeal for high-volume classification and summarization tasks.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
-    api_sdk: google('gemini-2.5-flash-lite'),
+    api_sdk: google("gemini-2.5-flash-lite"),
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
@@ -95,16 +95,16 @@ export const GOOGLE_MODELS = [
     ],
   },
   {
-    id: 'gemini-2.5-flash-lite-thinking',
-    name: 'Gemini 2.5 Flash Lite',
-    subName: 'Thinking',
-    provider: 'gemini',
+    id: "gemini-2.5-flash-lite-thinking",
+    name: "Gemini 2.5 Flash Lite",
+    subName: "Thinking",
+    provider: "gemini",
     premium: true,
     usesPremiumCredits: false,
     description:
-      'Flash Lite with adjustable thinking budget for reasoning.\nCombines cost-efficiency with controllable thinking capabilities.',
+      "Flash Lite with adjustable thinking budget for reasoning.\nCombines cost-efficiency with controllable thinking capabilities.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
-    api_sdk: google('gemini-2.5-flash-lite'),
+    api_sdk: google("gemini-2.5-flash-lite"),
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
@@ -113,9 +113,9 @@ export const GOOGLE_MODELS = [
     ],
   },
   {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    provider: 'gemini',
+    id: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    provider: "gemini",
     premium: true,
     usesPremiumCredits: true,
     description: `Google's state-of-the-art model leading math and science benchmarks.\nExcels at creating web apps and agentic code applications.`,
@@ -126,29 +126,29 @@ export const GOOGLE_MODELS = [
       REASONING_FEATURE,
       TOOL_CALLING_FEATURE,
     ],
-    api_sdk: google('gemini-2.5-pro'),
+    api_sdk: google("gemini-2.5-pro"),
   },
   {
-    id: 'imagen-4',
-    name: 'Imagen 4',
-    provider: 'gemini',
+    id: "imagen-4",
+    name: "Imagen 4",
+    provider: "gemini",
     premium: true,
     usesPremiumCredits: true,
     description: `Google's flagship text-to-image model with superior text rendering.\nCreates photorealistic images with precise instruction following.`,
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [IMAGE_GENERATION_FEATURE],
-    api_sdk: fal.image('fal-ai/imagen4/preview/fast'),
+    api_sdk: fal.image("fal-ai/imagen4/preview/fast"),
   },
   {
-    id: 'imagen-4-ultra',
-    name: 'Imagen 4 Ultra',
-    provider: 'gemini',
+    id: "imagen-4-ultra",
+    name: "Imagen 4 Ultra",
+    provider: "gemini",
     premium: true,
     usesPremiumCredits: true,
     description:
-      'Ultra-precise image generation model with enhanced prompt adherence.\nDesigned for professional applications requiring exact specifications.',
+      "Ultra-precise image generation model with enhanced prompt adherence.\nDesigned for professional applications requiring exact specifications.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [IMAGE_GENERATION_FEATURE],
-    api_sdk: fal.image('fal-ai/imagen4/preview/ultra'),
+    api_sdk: fal.image("fal-ai/imagen4/preview/ultra"),
   },
 ];

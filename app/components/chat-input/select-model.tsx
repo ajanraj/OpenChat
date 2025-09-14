@@ -1,4 +1,4 @@
-import { ModelSelector } from '@/components/common/model-selector';
+import { ModelSelector } from "@/components/common/model-selector";
 // no additional config imports needed
 
 export type SelectModelProps = {

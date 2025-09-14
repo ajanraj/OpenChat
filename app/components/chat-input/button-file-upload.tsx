@@ -1,24 +1,24 @@
-import { FileArrowUp, Paperclip } from '@phosphor-icons/react';
+import { FileArrowUp, Paperclip } from "@phosphor-icons/react";
 import {
   FileUpload,
   FileUploadContent,
   FileUploadTrigger,
-} from '@/components/prompt-kit/file-upload';
-import { Button } from '@/components/ui/button';
+} from "@/components/prompt-kit/file-upload";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
+} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { MODELS_OPTIONS } from '@/lib/config';
-import { UPLOAD_ACCEPT } from '@/lib/config/upload';
-import { cn } from '@/lib/utils';
-import { PopoverContentAuth } from './popover-content-auth';
+} from "@/components/ui/tooltip";
+import { MODELS_OPTIONS } from "@/lib/config";
+import { UPLOAD_ACCEPT } from "@/lib/config/upload";
+import { cn } from "@/lib/utils";
+import { PopoverContentAuth } from "./popover-content-auth";
 
 type ButtonFileUploadProps = {
   onFileUpload: (files: File[]) => void;
@@ -33,7 +33,7 @@ export function ButtonFileUpload({
 }: ButtonFileUploadProps) {
   const isFileUploadAvailable = MODELS_OPTIONS.find(
     (m) => m.id === model
-  )?.features?.find((f) => f.id === 'file-upload')?.enabled;
+  )?.features?.find((f) => f.id === "file-upload")?.enabled;
 
   if (!isFileUploadAvailable) {
     return (
@@ -102,8 +102,8 @@ export function ButtonFileUpload({
             <Button
               aria-label="Add files"
               className={cn(
-                'size-9 rounded-full',
-                !isUserAuthenticated && 'opacity-50'
+                "size-9 rounded-full",
+                !isUserAuthenticated && "opacity-50"
               )}
               disabled={!isUserAuthenticated}
               size="sm"

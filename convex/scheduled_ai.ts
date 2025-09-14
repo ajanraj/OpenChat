@@ -1,27 +1,27 @@
-'use node';
+"use node";
 
-import type { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
+import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import {
   consumeStream,
   convertToModelMessages,
   stepCountIs,
   streamText,
   type UIMessage,
-} from 'ai';
-import { ConvexError, v } from 'convex/values';
-import dayjs from 'dayjs';
-import timezonePlugin from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
-import { searchTool } from '@/app/api/tools/search';
-import { getComposioTools } from '@/lib/composio-server';
-import { MODELS_MAP } from '@/lib/config';
-import type { ConnectorStatusLists } from '@/lib/connector-utils';
-import { limitDepth } from '@/lib/depth-limiter';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { buildSystemPrompt } from '@/lib/prompt_config';
-import { internal } from './_generated/api';
-import type { Doc } from './_generated/dataModel';
-import { internalAction } from './_generated/server';
+} from "ai";
+import { ConvexError, v } from "convex/values";
+import dayjs from "dayjs";
+import timezonePlugin from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+import { searchTool } from "@/app/api/tools/search";
+import { getComposioTools } from "@/lib/composio-server";
+import { MODELS_MAP } from "@/lib/config";
+import type { ConnectorStatusLists } from "@/lib/connector-utils";
+import { limitDepth } from "@/lib/depth-limiter";
+import { ERROR_CODES } from "@/lib/error-codes";
+import { buildSystemPrompt } from "@/lib/prompt_config";
+import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
+import { internalAction } from "./_generated/server";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -30,7 +30,7 @@ dayjs.extend(timezonePlugin);
 // Execute a scheduled task
 export const executeTask = internalAction({
   args: {
-    taskId: v.id('scheduled_tasks'),
+    taskId: v.id("scheduled_tasks"),
     isManualTrigger: v.optional(v.boolean()),
   },
   returns: v.null(),
@@ -43,7 +43,7 @@ export const executeTask = internalAction({
     try {
       // Get task details
       // console.log('Executing scheduled task:', args.taskId);
-      const task: Doc<'scheduled_tasks'> | null = await ctx.runQuery(
+      const task: Doc<"scheduled_tasks"> | null = await ctx.runQuery(
         internal.scheduled_tasks.getTask,
         { taskId: args.taskId }
       );
@@ -53,13 +53,13 @@ export const executeTask = internalAction({
         return null;
       }
 
-      if (task.status !== 'active') {
+      if (task.status !== "active") {
         // console.log('Task is not active:', args.taskId);
         return null;
       }
 
       // Get user details
-      const user: Doc<'users'> | null = await ctx.runQuery(
+      const user: Doc<"users"> | null = await ctx.runQuery(
         internal.users.getUser,
         { userId: task.userId }
       );
@@ -81,11 +81,11 @@ export const executeTask = internalAction({
       );
 
       // Create a new chat for each task execution
-      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-      const currentTime = new Date().toLocaleTimeString('en-US', {
+      const currentDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+      const currentTime = new Date().toLocaleTimeString("en-US", {
         hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
+        hour: "2-digit",
+        minute: "2-digit",
       });
 
       const { chatId } = await ctx.runMutation(
@@ -93,7 +93,7 @@ export const executeTask = internalAction({
         {
           userId: task.userId,
           title: `${task.title} - ${currentDate} ${currentTime}`,
-          model: 'gpt-5-mini',
+          model: "gpt-5-mini",
         }
       );
 
@@ -107,7 +107,7 @@ export const executeTask = internalAction({
       await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
         taskId: args.taskId,
         lastExecuted: Date.now(),
-        newStatus: 'running',
+        newStatus: "running",
       });
 
       // Get Composio tools from user's connected services
@@ -162,16 +162,16 @@ export const executeTask = internalAction({
         );
         // Supported types (server-safe, without importing UI modules)
         const SUPPORTED_TYPES = [
-          'gmail',
-          'googlecalendar',
-          'googledrive',
-          'notion',
-          'googledocs',
-          'googlesheets',
-          'slack',
-          'linear',
-          'github',
-          'twitter',
+          "gmail",
+          "googlecalendar",
+          "googledrive",
+          "notion",
+          "googledocs",
+          "googlesheets",
+          "slack",
+          "linear",
+          "github",
+          "twitter",
         ] as const;
         const notConnectedSlugs = SUPPORTED_TYPES.filter(
           (t) => !presentTypes.has(t)
@@ -200,7 +200,7 @@ export const executeTask = internalAction({
       );
 
       // Get GPT-5 Mini model
-      const selectedModel = MODELS_MAP['gpt-5-mini'];
+      const selectedModel = MODELS_MAP["gpt-5-mini"];
       if (!selectedModel) {
         // console.log('GPT-5 Mini model not found');
         return null;
@@ -229,7 +229,7 @@ export const executeTask = internalAction({
               {
                 taskId: args.taskId,
                 lastExecuted: Date.now(),
-                newStatus: 'paused',
+                newStatus: "paused",
               }
             );
             return null;
@@ -243,8 +243,8 @@ export const executeTask = internalAction({
       // Create user message
       const userMessage: UIMessage = {
         id: Math.random().toString(36).substring(2, 15),
-        role: 'user',
-        parts: [{ type: 'text', text: task.prompt }],
+        role: "user",
+        parts: [{ type: "text", text: task.prompt }],
       };
 
       // console.log('User message:', userMessage);
@@ -254,9 +254,9 @@ export const executeTask = internalAction({
         internal.messages.sendUserMessageToChatInternal,
         {
           chatId,
-          role: 'user',
+          role: "user",
           content: task.prompt,
-          parts: [{ type: 'text', text: task.prompt }],
+          parts: [{ type: "text", text: task.prompt }],
           metadata: {},
         }
       );
@@ -269,7 +269,7 @@ export const executeTask = internalAction({
         modelId: selectedModel.id,
         modelName: selectedModel.name,
         includeSearch: task.enableSearch,
-        reasoningEffort: 'medium' as const,
+        reasoningEffort: "medium" as const,
       };
 
       // Initialize usage tracking (same as chat route)
@@ -285,7 +285,7 @@ export const executeTask = internalAction({
         model: selectedModel.api_sdk,
         system: systemPrompt,
         messages: convertToModelMessages([userMessage]),
-        toolChoice: 'auto',
+        toolChoice: "auto",
         tools: {
           ...(task.enableSearch ? { search: searchTool } : {}),
           ...composioTools,
@@ -293,9 +293,9 @@ export const executeTask = internalAction({
         stopWhen: stepCountIs(10),
         providerOptions: {
           openai: {
-            textVerbosity: 'low',
-            reasoningEffort: 'medium',
-            reasoningSummary: 'detailed',
+            textVerbosity: "low",
+            reasoningEffort: "medium",
+            reasoningSummary: "detailed",
           } satisfies OpenAIResponsesProviderOptions,
         },
         onFinish({ usage }) {
@@ -314,7 +314,7 @@ export const executeTask = internalAction({
       await result.consumeStream();
 
       // Variable to store email content outside the callback
-      let emailTextContent = '';
+      let emailTextContent = "";
 
       // Get UI-compatible parts using toUIMessageStreamResponse (same as chat route)
       // Create a promise that resolves when onFinish completes
@@ -338,16 +338,16 @@ export const executeTask = internalAction({
 
               // Extract text content for the content field (for search indexing)
               const textContent = Messages.responseMessage.parts
-                .filter((part) => part.type === 'text')
+                .filter((part) => part.type === "text")
                 .map((part) => part.text)
-                .join('');
+                .join("");
 
               // Extract email content (last text part only)
               const textParts = Messages.responseMessage.parts.filter(
-                (part) => part.type === 'text'
+                (part) => part.type === "text"
               );
               emailTextContent =
-                textParts.length > 0 ? textParts.at(-1)?.text || '' : '';
+                textParts.length > 0 ? textParts.at(-1)?.text || "" : "";
 
               // Limit depth of parts to prevent Convex nesting limit errors
               const depthLimitedParts = limitDepth(
@@ -378,7 +378,7 @@ export const executeTask = internalAction({
                 internal.messages.saveAssistantMessageInternal,
                 {
                   chatId,
-                  role: 'assistant',
+                  role: "assistant",
                   content: textContent,
                   parentMessageId: userMsgId,
                   parts: depthLimitedParts,
@@ -415,14 +415,14 @@ export const executeTask = internalAction({
       // Handle rescheduling based on task type
       const now = Date.now();
 
-      if (task.scheduleType === 'onetime') {
+      if (task.scheduleType === "onetime") {
         // One-time task - mark as archived (completed)
         await ctx.runMutation(
           internal.scheduled_tasks.updateTaskAfterExecution,
           {
             taskId: args.taskId,
             lastExecuted: now,
-            newStatus: 'archived',
+            newStatus: "archived",
           }
         );
       } else if (args.isManualTrigger) {
@@ -432,7 +432,7 @@ export const executeTask = internalAction({
           {
             taskId: args.taskId,
             lastExecuted: now,
-            newStatus: 'active', // Reset to active but don't schedule next execution
+            newStatus: "active", // Reset to active but don't schedule next execution
           }
         );
       } else {
@@ -440,9 +440,9 @@ export const executeTask = internalAction({
         // We need to parse the original scheduled time to maintain consistent timing
         let nextExecution: number;
 
-        if (task.scheduleType === 'daily') {
+        if (task.scheduleType === "daily") {
           // Parse the scheduled time (HH:MM) and calculate next occurrence
-          const [hours, minutes] = task.scheduledTime.split(':').map(Number);
+          const [hours, minutes] = task.scheduledTime.split(":").map(Number);
 
           // Create a date in the user's timezone
           const nowInUserTz = new Date();
@@ -468,7 +468,7 @@ export const executeTask = internalAction({
           nextExecution = utcDate.getTime();
         } else {
           // Weekly - parse day:HH:MM
-          const parts = task.scheduledTime.split(':');
+          const parts = task.scheduledTime.split(":");
           const targetDay = Number.parseInt(parts[0], 10);
           const hours = Number.parseInt(parts[1], 10);
           const minutes = Number.parseInt(parts[2], 10);
@@ -513,7 +513,7 @@ export const executeTask = internalAction({
             lastExecuted: now,
             nextExecution,
             scheduledFunctionId,
-            newStatus: 'active', // Reset to active for next scheduled execution
+            newStatus: "active", // Reset to active for next scheduled execution
           }
         );
       }
@@ -522,7 +522,7 @@ export const executeTask = internalAction({
       if (historyRecordId) {
         await ctx.runMutation(internal.task_history.updateExecutionHistory, {
           executionId,
-          status: 'success',
+          status: "success",
           endTime: Date.now(),
           chatId,
           metadata: {
@@ -554,10 +554,10 @@ export const executeTask = internalAction({
       if (historyRecordId) {
         await ctx.runMutation(internal.task_history.updateExecutionHistory, {
           executionId,
-          status: 'failure',
+          status: "failure",
           endTime: Date.now(),
           errorMessage:
-            error instanceof Error ? error.message : 'Unknown error',
+            error instanceof Error ? error.message : "Unknown error",
         });
       }
 
@@ -565,7 +565,7 @@ export const executeTask = internalAction({
       await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
         taskId: args.taskId,
         lastExecuted: Date.now(),
-        newStatus: 'active', // Reset to active even on error for recurring tasks
+        newStatus: "active", // Reset to active even on error for recurring tasks
       });
 
       return null;

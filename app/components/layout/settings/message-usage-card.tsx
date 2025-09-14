@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { Info } from '@phosphor-icons/react';
-import dayjs from 'dayjs';
-import calendar from 'dayjs/plugin/calendar';
-import isToday from 'dayjs/plugin/isToday';
-import isTomorrow from 'dayjs/plugin/isTomorrow';
-import React, { useCallback } from 'react';
-import { useUser } from '@/app/providers/user-provider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Info } from "@phosphor-icons/react";
+import dayjs from "dayjs";
+import calendar from "dayjs/plugin/calendar";
+import isToday from "dayjs/plugin/isToday";
+import isTomorrow from "dayjs/plugin/isTomorrow";
+import React, { useCallback } from "react";
+import { useUser } from "@/app/providers/user-provider";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { PREMIUM_CREDITS } from '@/lib/config';
+} from "@/components/ui/tooltip";
+import { PREMIUM_CREDITS } from "@/lib/config";
 
 dayjs.extend(calendar);
 dayjs.extend(isToday);
@@ -27,32 +27,32 @@ function MessageUsageCardComponent() {
   const formatResetDate = useCallback(
     (timestamp: number | null | undefined) => {
       if (!timestamp) {
-        return 'Not available';
+        return "Not available";
       }
       try {
         const resetDate = dayjs(timestamp);
 
         // Use dayjs calendar plugin with custom formats
         return resetDate.calendar(null, {
-          sameDay: '[today at] h:mm A',
-          nextDay: '[tomorrow at] h:mm A',
+          sameDay: "[today at] h:mm A",
+          nextDay: "[tomorrow at] h:mm A",
           nextWeek() {
-            return resetDate.format('MMM D [at] h:mm A');
+            return resetDate.format("MMM D [at] h:mm A");
           },
-          lastDay: '[yesterday at] h:mm A',
+          lastDay: "[yesterday at] h:mm A",
           lastWeek() {
-            return resetDate.format('MMM D [at] h:mm A');
+            return resetDate.format("MMM D [at] h:mm A");
           },
           sameElse() {
             // Check if same year
             if (resetDate.year() === dayjs().year()) {
-              return resetDate.format('MMM D [at] h:mm A');
+              return resetDate.format("MMM D [at] h:mm A");
             }
-            return resetDate.format('MMM D, YYYY [at] h:mm A');
+            return resetDate.format("MMM D, YYYY [at] h:mm A");
           },
         });
       } catch {
-        return 'Error calculating reset time';
+        return "Error calculating reset time";
       }
     },
     []
@@ -97,8 +97,8 @@ function MessageUsageCardComponent() {
           <TooltipContent>
             <p>
               {resetTimestamp
-                ? dayjs(resetTimestamp).format('M/D/YYYY, h:mm:ss A')
-                : 'Not available'}
+                ? dayjs(resetTimestamp).format("M/D/YYYY, h:mm:ss A")
+                : "Not available"}
             </p>
           </TooltipContent>
         </Tooltip>

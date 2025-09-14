@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
 import {
   EnvelopeSimple,
   FileText,
   Info,
   ShieldCheck,
-} from '@phosphor-icons/react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
-import { Button } from '@/components/ui/button';
+} from "@phosphor-icons/react";
+import Image from "next/image";
+import Link from "next/link";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Drawer,
   DrawerContent,
@@ -25,8 +25,8 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@/components/ui/drawer';
-import { APP_DESCRIPTION, APP_NAME } from '@/lib/config';
+} from "@/components/ui/drawer";
+import { APP_DESCRIPTION, APP_NAME } from "@/lib/config";
 
 const InfoContent = () => (
   <div className="space-y-4">
@@ -35,7 +35,7 @@ const InfoContent = () => (
       prompt-kit components.
     </p>
     <p className="text-foreground leading-relaxed">
-      The code is available on{' '}
+      The code is available on{" "}
       <a
         className="underline"
         href="https://github.com/ajanraj/OpenChat"
@@ -44,7 +44,7 @@ const InfoContent = () => (
       >
         GitHub
       </a>
-      . Edited by{' '}
+      . Edited by{" "}
       <a
         className="underline"
         href="https://twitter.com/ajanraj25"

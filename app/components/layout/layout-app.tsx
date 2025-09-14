@@ -1,41 +1,41 @@
-'use client';
+"use client";
 
-import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect } from 'react';
-import { useSidebar } from '@/app/providers/sidebar-provider';
-import ChatSidebar from './chat-sidebar';
-import { Header } from './header';
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect } from "react";
+import { useSidebar } from "@/app/providers/sidebar-provider";
+import ChatSidebar from "./chat-sidebar";
+import { Header } from "./header";
 
 export default function LayoutApp({ children }: { children: React.ReactNode }) {
   const { toggleSidebar } = useSidebar();
   const router = useRouter();
   const pathname = usePathname();
-  const isSettings = pathname?.startsWith('/settings');
-  const isAuth = pathname?.startsWith('/auth');
+  const isSettings = pathname?.startsWith("/settings");
+  const isAuth = pathname?.startsWith("/auth");
   const isLegal =
-    pathname?.startsWith('/terms') ||
-    pathname?.startsWith('/privacy') ||
-    pathname?.startsWith('/security') ||
-    pathname?.startsWith('/legal');
+    pathname?.startsWith("/terms") ||
+    pathname?.startsWith("/privacy") ||
+    pathname?.startsWith("/security") ||
+    pathname?.startsWith("/legal");
 
   // Helper functions to reduce complexity
   const isInputElementFocused = useCallback((target: EventTarget | null) => {
     const element = target as HTMLElement;
     const tag = element?.tagName;
-    return tag === 'INPUT' || tag === 'TEXTAREA' || element?.isContentEditable;
+    return tag === "INPUT" || tag === "TEXTAREA" || element?.isContentEditable;
   }, []);
 
   const handleGlobalSearch = useCallback((e: KeyboardEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    window.dispatchEvent(new Event('toggleFloatingSearch'));
+    window.dispatchEvent(new Event("toggleFloatingSearch"));
   }, []);
 
   const handleNewChat = useCallback(
     (e: KeyboardEvent) => {
       e.preventDefault();
-      if (pathname !== '/') {
-        router.push('/');
+      if (pathname !== "/") {
+        router.push("/");
       }
     },
     [pathname, router]
@@ -56,7 +56,7 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
       const isMeta = e.metaKey || e.ctrlKey;
 
       // Handle Cmd+K globally (even when inputs are focused)
-      if (isMeta && key === 'k') {
+      if (isMeta && key === "k") {
         handleGlobalSearch(e);
         return;
       }
@@ -70,12 +70,12 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (e.shiftKey && key === 'o') {
+      if (e.shiftKey && key === "o") {
         handleNewChat(e);
         return;
       }
 
-      if (!e.shiftKey && key === 'b') {
+      if (!e.shiftKey && key === "b") {
         handleToggleSidebar(e);
       }
     },
@@ -87,8 +87,8 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
     ]
   );
   useEffect(() => {
-    document.addEventListener('keydown', handler, true);
-    return () => document.removeEventListener('keydown', handler, true);
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
   }, [handler]);
 
   // Settings, Auth, and Legal pages use their own layout; do not render ChatSidebar/Header

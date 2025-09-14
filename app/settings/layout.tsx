@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { HeaderGoBack } from '@/app/components/header-go-back';
-import { SettingsNav } from '@/app/components/layout/settings/settings-nav';
-import { SettingsSidebar } from '@/app/components/layout/settings/settings-sidebar';
-import { useUser } from '@/app/providers/user-provider';
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { HeaderGoBack } from "@/app/components/header-go-back";
+import { SettingsNav } from "@/app/components/layout/settings/settings-nav";
+import { SettingsSidebar } from "@/app/components/layout/settings/settings-sidebar";
+import { useUser } from "@/app/providers/user-provider";
 
 export default function SettingsLayout({
   children,
@@ -23,13 +23,13 @@ export default function SettingsLayout({
 
     // Redirect unauthenticated users to login page (middleware should catch this)
     if (!user) {
-      router.replace('/auth');
+      router.replace("/auth");
       return;
     }
 
     // Redirect anonymous users to login page to upgrade their account
     if (user?.isAnonymous) {
-      router.replace('/auth');
+      router.replace("/auth");
       return;
     }
   }, [user, isLoading, router]);

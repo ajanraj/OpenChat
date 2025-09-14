@@ -1,12 +1,12 @@
-'use client';
-import { Moon, Sun } from '@phosphor-icons/react';
-import { useEffect, useState } from 'react';
-import { useTheme } from '@/components/theme-provider';
+"use client";
+import { Moon, Sun } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { useTheme } from "@/components/theme-provider";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 
 export default function ThemeSwitchIcon() {
   const { theme, toggleTheme } = useTheme();
@@ -35,7 +35,7 @@ export default function ThemeSwitchIcon() {
           tabIndex={0}
           type="button"
         >
-          {theme === 'dark' ? (
+          {theme === "dark" ? (
             <Sun
               className="size-5 text-muted-foreground transition-colors group-hover:text-foreground"
               weight="bold"

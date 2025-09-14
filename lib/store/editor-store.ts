@@ -1,11 +1,11 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { defaultThemeState } from '../config/theme';
-import type { FontCategory, FontOption } from '../theme/theme-fonts';
-import { hasCustomFonts, updateThemeFont } from '../theme/theme-fonts';
-import { getPresetThemeStyles } from '../theme/theme-preset-helper';
-import type { ThemeEditorState } from '../types/theme';
-import { isDeepEqual } from '../utils';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { defaultThemeState } from "../config/theme";
+import type { FontCategory, FontOption } from "../theme/theme-fonts";
+import { hasCustomFonts, updateThemeFont } from "../theme/theme-fonts";
+import { getPresetThemeStyles } from "../theme/theme-preset-helper";
+import type { ThemeEditorState } from "../types/theme";
+import { isDeepEqual } from "../utils";
 
 const MAX_HISTORY_COUNT = 30;
 const HISTORY_OVERRIDE_THRESHOLD_MS = 500; // 0.5 seconds
@@ -35,13 +35,13 @@ type EditorStore = {
 };
 
 // Helper function to safely detect system preference on client-side only
-const getSystemPreference = (): 'light' | 'dark' => {
-  if (typeof window === 'undefined') {
-    return 'light'; // Safe server-side default
+const getSystemPreference = (): "light" | "dark" => {
+  if (typeof window === "undefined") {
+    return "light"; // Safe server-side default
   }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 };
 
 export const useEditorStore = create<EditorStore>()(
@@ -218,7 +218,7 @@ export const useEditorStore = create<EditorStore>()(
       hasUnsavedChanges: () => {
         const themeState = get().themeState;
         const presetThemeStyles = getPresetThemeStyles(
-          themeState.preset ?? 'oschat'
+          themeState.preset ?? "oschat"
         );
         const stylesChanged = !isDeepEqual(
           themeState.styles,
@@ -234,7 +234,7 @@ export const useEditorStore = create<EditorStore>()(
         const currentThemeState = get().themeState;
 
         const presetThemeStyles = getPresetThemeStyles(
-          currentThemeState.preset ?? 'oschat'
+          currentThemeState.preset ?? "oschat"
         );
         const newThemeState: ThemeEditorState = {
           ...currentThemeState,
@@ -316,12 +316,12 @@ export const useEditorStore = create<EditorStore>()(
       canRedo: () => get().future.length > 0,
     }),
     {
-      name: 'editor-storage',
+      name: "editor-storage",
       onRehydrateStorage: () => (state) => {
         // Only run on client-side after hydration
-        if (state && typeof window !== 'undefined') {
+        if (state && typeof window !== "undefined") {
           // If no theme state exists in storage (first visit), detect system preference
-          const hasStoredTheme = localStorage.getItem('editor-storage');
+          const hasStoredTheme = localStorage.getItem("editor-storage");
           if (!hasStoredTheme) {
             const systemPreference = getSystemPreference();
             state.themeState = {

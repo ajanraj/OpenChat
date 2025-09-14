@@ -1,32 +1,32 @@
-'use client';
+"use client";
 
-import { FadersHorizontal, Globe } from '@phosphor-icons/react';
-import { useMutation } from 'convex/react';
-import { memo, useCallback, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { ConnectorIcon } from '@/app/components/common/connector-icon';
-import { useUser } from '@/app/providers/user-provider';
-import { Button } from '@/components/ui/button';
+import { FadersHorizontal, Globe } from "@phosphor-icons/react";
+import { useMutation } from "convex/react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { ConnectorIcon } from "@/app/components/common/connector-icon";
+import { useUser } from "@/app/providers/user-provider";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Popover, PopoverTrigger } from '@/components/ui/popover';
-import { Switch } from '@/components/ui/switch';
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import { MODELS_OPTIONS } from '@/lib/config';
-import { CONNECTOR_CONFIGS, SUPPORTED_CONNECTORS } from '@/lib/config/tools';
-import { classifyError } from '@/lib/error-utils';
-import type { ConnectorType } from '@/lib/types';
-import { PopoverContentAuth } from './popover-content-auth';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { MODELS_OPTIONS } from "@/lib/config";
+import { CONNECTOR_CONFIGS, SUPPORTED_CONNECTORS } from "@/lib/config/tools";
+import { classifyError } from "@/lib/error-utils";
+import type { ConnectorType } from "@/lib/types";
+import { PopoverContentAuth } from "./popover-content-auth";
 
 type ButtonToolsDropdownProps = {
   isUserAuthenticated: boolean;
@@ -39,7 +39,7 @@ type ConnectorRow = {
   type: ConnectorType;
   isConnected: boolean;
   enabled: boolean; // Always defined after processing
-  id?: Id<'connectors'>;
+  id?: Id<"connectors">;
 };
 
 function BaseButtonToolsDropdown({
@@ -74,7 +74,7 @@ function BaseButtonToolsDropdown({
   const isToolCallingAvailable = useMemo(
     () =>
       MODELS_OPTIONS.find((m) => m.id === selectedModel)?.features?.find(
-        (f) => f.id === 'tool-calling'
+        (f) => f.id === "tool-calling"
       )?.enabled === true,
     [selectedModel]
   );
@@ -93,7 +93,7 @@ function BaseButtonToolsDropdown({
         type: c.type as ConnectorType,
         isConnected: c.isConnected,
         enabled: c.enabled !== false,
-        id: c._id as Id<'connectors'>,
+        id: c._id as Id<"connectors">,
       });
     }
     return Array.from(byType.values());
@@ -121,9 +121,9 @@ function BaseButtonToolsDropdown({
   const handleConnect = useCallback(async (type: ConnectorType) => {
     try {
       setConnectingType(type);
-      const response = await fetch('/api/composio/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/composio/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectorType: type }),
       });
       if (!response.ok) {
@@ -135,8 +135,8 @@ function BaseButtonToolsDropdown({
       // Validate URL is HTTPS
       try {
         const url = new URL(redirectUrl);
-        if (url.protocol !== 'https:') {
-          throw new Error('Invalid URL protocol');
+        if (url.protocol !== "https:") {
+          throw new Error("Invalid URL protocol");
         }
       } catch {
         setConnectingType(null);
@@ -234,7 +234,7 @@ function BaseButtonToolsDropdown({
                     />
                   ) : (
                     <span className="text-muted-foreground text-sm">
-                      {connectingType === row.type ? 'Connecting…' : 'Connect'}
+                      {connectingType === row.type ? "Connecting…" : "Connect"}
                     </span>
                   )}
                 </div>

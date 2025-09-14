@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { BrainIcon, CaretDownIcon } from '@phosphor-icons/react';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
-import { Button } from '@/components/ui/button';
+import { BrainIcon, CaretDownIcon } from "@phosphor-icons/react";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Popover, PopoverTrigger } from '@/components/ui/popover';
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { PopoverContentAuth } from './popover-content-auth';
+} from "@/components/ui/tooltip";
+import { PopoverContentAuth } from "./popover-content-auth";
 
-type ReasoningEffort = 'low' | 'medium' | 'high';
+type ReasoningEffort = "low" | "medium" | "high";
 
 type SelectReasoningEffortProps = {
   reasoningEffort: ReasoningEffort;
@@ -109,15 +109,15 @@ export function SelectReasoningEffort({
         align="start"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <DropdownMenuItem onClick={() => onSelectReasoningEffortAction('low')}>
+        <DropdownMenuItem onClick={() => onSelectReasoningEffortAction("low")}>
           Low
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => onSelectReasoningEffortAction('medium')}
+          onClick={() => onSelectReasoningEffortAction("medium")}
         >
           Medium
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onSelectReasoningEffortAction('high')}>
+        <DropdownMenuItem onClick={() => onSelectReasoningEffortAction("high")}>
           High
         </DropdownMenuItem>
       </DropdownMenuContent>

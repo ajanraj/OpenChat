@@ -1,36 +1,36 @@
-import { COMMON_STYLES } from '../config/theme';
+import { COMMON_STYLES } from "../config/theme";
 import type {
   ThemeEditorState,
   ThemeStyleProps,
   ThemeStyles,
-} from '../types/theme';
+} from "../types/theme";
 
-type Theme = 'dark' | 'light';
+type Theme = "dark" | "light";
 
 const COMMON_NON_COLOR_KEYS = COMMON_STYLES;
 
 // Map primary font family names to next/font CSS variable names
 const FONT_VAR_MAP: Readonly<Record<string, string>> = {
-  Geist: '--font-geist-sans',
-  'Geist Mono': '--font-geist-mono',
-  Inter: '--font-inter',
-  'Space Grotesk': '--font-space-grotesk',
-  'Open Sans': '--font-open-sans',
-  'DM Sans': '--font-dm-sans',
-  'Architects Daughter': '--font-architects-daughter',
-  'Atkinson Hyperlegible': '--font-atkinson-hyperlegible',
-  'Atkinson Hyperlegible Mono': '--font-atkinson-hyperlegible-mono',
-  'Fira Mono': '--font-fira-mono',
-  'JetBrains Mono': '--font-jetbrains-mono',
-  'IBM Plex Mono': '--font-ibm-plex-mono',
+  Geist: "--font-geist-sans",
+  "Geist Mono": "--font-geist-mono",
+  Inter: "--font-inter",
+  "Space Grotesk": "--font-space-grotesk",
+  "Open Sans": "--font-open-sans",
+  "DM Sans": "--font-dm-sans",
+  "Architects Daughter": "--font-architects-daughter",
+  "Atkinson Hyperlegible": "--font-atkinson-hyperlegible",
+  "Atkinson Hyperlegible Mono": "--font-atkinson-hyperlegible-mono",
+  "Fira Mono": "--font-fira-mono",
+  "JetBrains Mono": "--font-jetbrains-mono",
+  "IBM Plex Mono": "--font-ibm-plex-mono",
 } as const;
 
 // Normalize font keys for robust lookups: trim, strip quotes, collapse spaces, lowercase
 const normalizeFontKey = (value: string): string =>
   value
     .trim()
-    .replace(/^['"]|['"]$/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\s+/g, " ")
     .toLowerCase();
 
 // Build a normalized map to allow case/spacing-insensitive lookups
@@ -40,27 +40,27 @@ const NORMALIZED_FONT_VAR_MAP: Readonly<Record<string, string>> = Object.freeze(
   )
 );
 
-const DEFAULT_FALLBACKS: Readonly<Record<'sans' | 'mono', string>> = {
-  sans: 'ui-sans-serif, system-ui, sans-serif',
-  mono: 'ui-monospace, monospace',
+const DEFAULT_FALLBACKS: Readonly<Record<"sans" | "mono", string>> = {
+  sans: "ui-sans-serif, system-ui, sans-serif",
+  mono: "ui-monospace, monospace",
 } as const;
 
 const extractPrimaryAndRest = (
   familyList: string | undefined
 ): { primary: string | null; rest: string } => {
   if (!familyList) {
-    return { primary: null, rest: '' };
+    return { primary: null, rest: "" };
   }
-  const parts = familyList.split(',');
-  const primaryRaw = parts[0]?.trim() ?? '';
-  const primary = primaryRaw.replace(/^['"]|['"]$/g, '');
-  const rest = parts.slice(1).join(',').trim();
+  const parts = familyList.split(",");
+  const primaryRaw = parts[0]?.trim() ?? "";
+  const primary = primaryRaw.replace(/^['"]|['"]$/g, "");
+  const rest = parts.slice(1).join(",").trim();
   return { primary: primary || null, rest };
 };
 
 const buildActiveFontValue = (
   fullFamily: string | undefined,
-  category: 'sans' | 'mono'
+  category: "sans" | "mono"
 ): string | null => {
   const { primary, rest } = extractPrimaryAndRest(fullFamily);
   if (!primary) {
@@ -78,10 +78,10 @@ const buildActiveFontValue = (
 
 // Helper functions (not exported, used internally by applyThemeToElement)
 const updateThemeClass = (root: HTMLElement, mode: Theme) => {
-  if (mode === 'light') {
-    root.classList.remove('dark');
+  if (mode === "light") {
+    root.classList.remove("dark");
   } else {
-    root.classList.add('dark');
+    root.classList.add("dark");
   }
 };
 
@@ -90,7 +90,7 @@ const applyStyleToElement = (
   key: string,
   value: string | null | undefined
 ) => {
-  if (value == null || value === '') {
+  if (value == null || value === "") {
     element.style.removeProperty(`--${key}`);
   } else {
     element.style.setProperty(`--${key}`, value);
@@ -103,10 +103,10 @@ const applyCommonStyles = (root: HTMLElement, themeStyles: ThemeStyleProps) => {
       COMMON_NON_COLOR_KEYS.includes(
         key as (typeof COMMON_NON_COLOR_KEYS)[number]
       ) &&
-      typeof value === 'string'
+      typeof value === "string"
     ) {
       // Avoid overriding Tailwind v4 font tokens; fonts are driven via --active-font-*
-      if (key === 'font-sans' || key === 'font-mono') {
+      if (key === "font-sans" || key === "font-mono") {
         continue;
       }
       applyStyleToElement(root, key, value);
@@ -121,7 +121,7 @@ const applyThemeColors = (
 ) => {
   for (const [key, value] of Object.entries(themeStyles[mode])) {
     if (
-      typeof value === 'string' &&
+      typeof value === "string" &&
       !COMMON_NON_COLOR_KEYS.includes(
         key as (typeof COMMON_NON_COLOR_KEYS)[number]
       )
@@ -150,13 +150,13 @@ export const applyThemeToElement = (
 
   // Set active font variables to drive Tailwind v4 tokens via @theme inline
   const activeSans = buildActiveFontValue(
-    themeStyles.light['font-sans'],
-    'sans'
+    themeStyles.light["font-sans"],
+    "sans"
   );
   const activeMono = buildActiveFontValue(
-    themeStyles.light['font-mono'],
-    'mono'
+    themeStyles.light["font-mono"],
+    "mono"
   );
-  applyStyleToElement(rootElement, 'active-font-sans', activeSans);
-  applyStyleToElement(rootElement, 'active-font-mono', activeMono);
+  applyStyleToElement(rootElement, "active-font-sans", activeSans);
+  applyStyleToElement(rootElement, "active-font-mono", activeMono);
 };

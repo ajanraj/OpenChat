@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { CaretDown, Copy, SpinnerGap } from '@phosphor-icons/react';
-import { motion } from 'motion/react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ConnectorIcon } from '@/app/components/common/connector-icon';
-import { getConnectorConfig } from '@/lib/config/tools';
-import { TRANSITION_LAYOUT } from '@/lib/motion';
-import type { ConnectorType } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { CaretDown, Copy, SpinnerGap } from "@phosphor-icons/react";
+import { motion } from "motion/react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConnectorIcon } from "@/app/components/common/connector-icon";
+import { getConnectorConfig } from "@/lib/config/tools";
+import { TRANSITION_LAYOUT } from "@/lib/motion";
+import type { ConnectorType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 // Types for connector tool calls
 type ConnectorToolCallData = {
@@ -72,12 +72,12 @@ const CopyButton = memo<{ content: string; size?: number }>(
     // Get Tailwind size classes based on size prop
     const getSizeClasses = (sizeValue: number): string => {
       const sizeMap: Record<number, string> = {
-        12: 'h-3 w-3',
-        16: 'h-4 w-4',
-        20: 'h-5 w-5',
-        24: 'h-6 w-6',
+        12: "h-3 w-3",
+        16: "h-4 w-4",
+        20: "h-5 w-5",
+        24: "h-6 w-6",
       };
-      return sizeMap[sizeValue] || 'h-3 w-3'; // fallback to h-3 w-3 for size 12
+      return sizeMap[sizeValue] || "h-3 w-3"; // fallback to h-3 w-3 for size 12
     };
 
     const sizeClasses = getSizeClasses(size);
@@ -86,12 +86,12 @@ const CopyButton = memo<{ content: string; size?: number }>(
       <button
         aria-label="Copy to clipboard"
         className={cn(
-          'relative inline-flex shrink-0 select-none items-center justify-center',
-          'disabled:pointer-events-none disabled:opacity-50',
-          'border-transparent font-ui text-muted-foreground tracking-tight transition',
-          'duration-300 ease-[cubic-bezier(0.165,0.85,0.45,1)]',
-          'hover:bg-accent hover:text-foreground',
-          'h-6 w-6 rounded-md active:scale-95'
+          "relative inline-flex shrink-0 select-none items-center justify-center",
+          "disabled:pointer-events-none disabled:opacity-50",
+          "border-transparent font-ui text-muted-foreground tracking-tight transition",
+          "duration-300 ease-[cubic-bezier(0.165,0.85,0.45,1)]",
+          "hover:bg-accent hover:text-foreground",
+          "h-6 w-6 rounded-md active:scale-95"
         )}
         onClick={handleCopy}
         type="button"
@@ -99,8 +99,8 @@ const CopyButton = memo<{ content: string; size?: number }>(
         <div className="relative flex">
           <div
             className={cn(
-              'flex items-center justify-center text-muted-foreground transition-all',
-              copied ? 'scale-50 opacity-0' : 'scale-100 opacity-100',
+              "flex items-center justify-center text-muted-foreground transition-all",
+              copied ? "scale-50 opacity-0" : "scale-100 opacity-100",
               sizeClasses
             )}
           >
@@ -108,8 +108,8 @@ const CopyButton = memo<{ content: string; size?: number }>(
           </div>
           <div
             className={cn(
-              'absolute top-0 left-0 flex items-center justify-center text-muted-foreground transition-all',
-              copied ? 'scale-100 opacity-100' : 'scale-50 opacity-0',
+              "absolute top-0 left-0 flex items-center justify-center text-muted-foreground transition-all",
+              copied ? "scale-100 opacity-100" : "scale-50 opacity-0",
               sizeClasses
             )}
           >
@@ -131,11 +131,11 @@ const CopyButton = memo<{ content: string; size?: number }>(
   }
 );
 
-CopyButton.displayName = 'CopyButton';
+CopyButton.displayName = "CopyButton";
 
 // Format JSON for display with syntax highlighting
 const formatJsonContent = (data: unknown): string => {
-  if (typeof data === 'string') {
+  if (typeof data === "string") {
     return data;
   }
   return JSON.stringify(data, null, 2);
@@ -161,31 +161,31 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
 
     const statusText = useMemo(() => {
       if (isLoading) {
-        return 'Running';
+        return "Running";
       }
       if (data.response?.error) {
-        return 'Failed';
+        return "Failed";
       }
       if (data.response?.success) {
-        return 'Success';
+        return "Success";
       }
-      return 'Completed';
+      return "Completed";
     }, [isLoading, data.response]);
 
     const buttonClassName = useMemo(() => {
       return cn(
-        'group/row flex h-[2.625rem] flex-row items-center justify-between gap-4 rounded-xl px-3 py-2',
-        'text-muted-foreground transition-colors duration-200',
-        isLoading ? 'cursor-default' : 'cursor-pointer hover:text-foreground'
+        "group/row flex h-[2.625rem] flex-row items-center justify-between gap-4 rounded-xl px-3 py-2",
+        "text-muted-foreground transition-colors duration-200",
+        isLoading ? "cursor-default" : "cursor-pointer hover:text-foreground"
       );
     }, [isLoading]);
 
     const caretClassName = useMemo(() => {
-      return 'flex items-center justify-center text-muted-foreground';
+      return "flex items-center justify-center text-muted-foreground";
     }, []);
 
     const resultsClassName = useMemo(() => {
-      return 'shrink-0 overflow-hidden';
+      return "shrink-0 overflow-hidden";
     }, []);
 
     const handleToggleExpanded = useCallback(() => {
@@ -203,7 +203,7 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
     }, [data.response]);
 
     return (
-      <div className={cn('my-3 w-full', className)}>
+      <div className={cn("my-3 w-full", className)}>
         <div className="flex min-h-[2.625rem] flex-col rounded-xl border bg-card font-ui leading-normal tracking-tight shadow-sm transition-all duration-400 ease-out">
           {/* Toggle Button Header */}
           <button
@@ -237,7 +237,7 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
                     animate={{
                       rotate: isExpanded ? -180 : 0,
                     }}
-                    className={cn(caretClassName, 'h-4 w-4')}
+                    className={cn(caretClassName, "h-4 w-4")}
                     initial={{
                       rotate: isExpanded ? -180 : 0,
                     }}
@@ -254,12 +254,12 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
           {!isLoading && (
             <motion.div
               animate={{
-                height: isExpanded ? 'auto' : 0,
+                height: isExpanded ? "auto" : 0,
                 opacity: isExpanded ? 1 : 0,
               }}
               className={resultsClassName}
               initial={{
-                height: isExpanded ? 'auto' : 0,
+                height: isExpanded ? "auto" : 0,
                 opacity: isExpanded ? 1 : 0,
               }}
               tabIndex={-1}
@@ -268,7 +268,7 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
               <div>
                 <div
                   className="h-full max-h-[238px] overflow-y-auto overflow-x-hidden"
-                  style={{ scrollbarGutter: 'stable' }}
+                  style={{ scrollbarGutter: "stable" }}
                   tabIndex={-1}
                 >
                   <div className="flex flex-col gap-3 p-3 pt-1">
@@ -299,15 +299,15 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
                             </p>
                             <div
                               className={cn(
-                                'rounded px-1.5 py-0.5 font-medium text-[0.6875rem]',
+                                "rounded px-1.5 py-0.5 font-medium text-[0.6875rem]",
                                 (() => {
                                   if (data.response.error) {
-                                    return 'bg-destructive/10 text-destructive';
+                                    return "bg-destructive/10 text-destructive";
                                   }
                                   if (data.response.success) {
-                                    return 'bg-green-100 text-green-700';
+                                    return "bg-green-100 text-green-700";
                                   }
-                                  return 'bg-secondary text-secondary-foreground';
+                                  return "bg-secondary text-secondary-foreground";
                                 })()
                               )}
                             >
@@ -371,4 +371,4 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
   }
 );
 
-ConnectorToolCall.displayName = 'ConnectorToolCall';
+ConnectorToolCall.displayName = "ConnectorToolCall";

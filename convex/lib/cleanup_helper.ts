@@ -1,7 +1,7 @@
-import { R2 } from '@convex-dev/r2';
-import { components } from '../_generated/api';
-import type { Doc, Id } from '../_generated/dataModel';
-import type { MutationCtx } from '../_generated/server';
+import { R2 } from "@convex-dev/r2";
+import { components } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 
 /**
  * Deletes all messages for a given chat.
@@ -12,11 +12,11 @@ import type { MutationCtx } from '../_generated/server';
  */
 export async function deleteMessagesForChat(
   ctx: MutationCtx,
-  chatId: Id<'chats'>
-): Promise<Id<'messages'>[]> {
+  chatId: Id<"chats">
+): Promise<Id<"messages">[]> {
   const messages = await ctx.db
-    .query('messages')
-    .withIndex('by_chat_and_created', (q) => q.eq('chatId', chatId))
+    .query("messages")
+    .withIndex("by_chat_and_created", (q) => q.eq("chatId", chatId))
     .collect();
 
   const messageIds = messages.map((m) => m._id);
@@ -36,12 +36,12 @@ export async function deleteMessagesForChat(
  */
 export async function deleteAttachmentsForChat(
   ctx: MutationCtx,
-  chatId: Id<'chats'>
+  chatId: Id<"chats">
 ): Promise<void> {
   const r2 = new R2(components.r2);
   const attachments = await ctx.db
-    .query('chat_attachments')
-    .withIndex('by_chatId', (q) => q.eq('chatId', chatId))
+    .query("chat_attachments")
+    .withIndex("by_chatId", (q) => q.eq("chatId", chatId))
     .collect();
 
   // Delete files from storage and database records in parallel
@@ -69,16 +69,16 @@ export async function deleteAttachmentsForChat(
  */
 export async function removeBranchReferences(
   ctx: MutationCtx,
-  originalChatId: Id<'chats'>,
-  userId: Id<'users'>
+  originalChatId: Id<"chats">,
+  userId: Id<"users">
 ): Promise<void> {
   // Find all chats that are branched from this chat
   // This uses .filter() correctly - first narrows by index (by_user), then filters by originalChatId
   // See: https://docs.convex.dev/database/indexes/ - "For all other filtering you can use the .filter method"
   const branchedChats = await ctx.db
-    .query('chats')
-    .withIndex('by_user', (q) => q.eq('userId', userId))
-    .filter((q) => q.eq(q.field('originalChatId'), originalChatId))
+    .query("chats")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("originalChatId"), originalChatId))
     .collect();
 
   // Remove the branch reference from all branched chats in parallel
@@ -101,8 +101,8 @@ export async function removeBranchReferences(
  */
 export async function deleteChatCompletely(
   ctx: MutationCtx,
-  chatId: Id<'chats'>,
-  userId: Id<'users'>
+  chatId: Id<"chats">,
+  userId: Id<"users">
 ): Promise<void> {
   // Remove branch references first
   await removeBranchReferences(ctx, chatId, userId);
@@ -126,8 +126,8 @@ export async function deleteChatCompletely(
  */
 export async function deleteMultipleChats(
   ctx: MutationCtx,
-  chats: Doc<'chats'>[],
-  userId: Id<'users'>
+  chats: Doc<"chats">[],
+  userId: Id<"users">
 ): Promise<void> {
   // Handle branch cleanup for all chats in parallel
   await Promise.all(

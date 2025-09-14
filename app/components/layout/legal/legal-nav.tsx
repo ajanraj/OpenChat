@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import React from 'react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import React from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const LEGAL_NAV_ITEMS = [
-  { name: 'Privacy Policy', href: '/privacy' },
-  { name: 'Terms of Service', href: '/terms' },
-  { name: 'Security Policy', href: '/security' },
+  { name: "Privacy Policy", href: "/privacy" },
+  { name: "Terms of Service", href: "/terms" },
+  { name: "Security Policy", href: "/security" },
 ] as const;
 
 function LegalNavComponent() {

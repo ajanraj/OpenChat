@@ -10,26 +10,26 @@ export function limitDepth<T>(obj: T, maxDepth = 14, currentDepth = 0): T {
   if (
     obj === null ||
     obj === undefined ||
-    typeof obj === 'string' ||
-    typeof obj === 'number' ||
-    typeof obj === 'boolean' ||
-    typeof obj === 'bigint' ||
-    typeof obj === 'symbol'
+    typeof obj === "string" ||
+    typeof obj === "number" ||
+    typeof obj === "boolean" ||
+    typeof obj === "bigint" ||
+    typeof obj === "symbol"
   ) {
     return obj;
   }
 
   // Handle functions and other non-serializable types
-  if (typeof obj === 'function') {
-    return '[Function]' as T;
+  if (typeof obj === "function") {
+    return "[Function]" as T;
   }
 
   // If we've reached max depth, truncate
   if (currentDepth >= maxDepth) {
     if (Array.isArray(obj)) {
-      return { _truncated: true, _type: 'array', _depth: currentDepth } as T;
+      return { _truncated: true, _type: "array", _depth: currentDepth } as T;
     }
-    return { _truncated: true, _type: 'object', _depth: currentDepth } as T;
+    return { _truncated: true, _type: "object", _depth: currentDepth } as T;
   }
 
   // Handle arrays
@@ -43,7 +43,7 @@ export function limitDepth<T>(obj: T, maxDepth = 14, currentDepth = 0): T {
   }
 
   // Handle regular objects
-  if (typeof obj === 'object') {
+  if (typeof obj === "object") {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = limitDepth(value, maxDepth, currentDepth + 1);

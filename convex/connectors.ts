@@ -1,26 +1,26 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
-import { ConvexError, v } from 'convex/values';
-import { ERROR_CODES } from '../lib/error-codes';
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError, v } from "convex/values";
+import { ERROR_CODES } from "../lib/error-codes";
 import {
   internalMutation,
   internalQuery,
   mutation,
   query,
-} from './_generated/server';
-import { ensureAuthenticated } from './lib/auth_helper';
+} from "./_generated/server";
+import { ensureAuthenticated } from "./lib/auth_helper";
 
 // Type for connector types
 const CONNECTOR_TYPES = v.union(
-  v.literal('gmail'),
-  v.literal('googlecalendar'),
-  v.literal('googledrive'),
-  v.literal('notion'),
-  v.literal('googledocs'),
-  v.literal('googlesheets'),
-  v.literal('slack'),
-  v.literal('linear'),
-  v.literal('github'),
-  v.literal('twitter')
+  v.literal("gmail"),
+  v.literal("googlecalendar"),
+  v.literal("googledrive"),
+  v.literal("notion"),
+  v.literal("googledocs"),
+  v.literal("googlesheets"),
+  v.literal("slack"),
+  v.literal("linear"),
+  v.literal("github"),
+  v.literal("twitter")
 );
 
 /**
@@ -30,9 +30,9 @@ export const listUserConnectors = query({
   args: {},
   returns: v.array(
     v.object({
-      _id: v.id('connectors'),
+      _id: v.id("connectors"),
       _creationTime: v.number(),
-      userId: v.id('users'),
+      userId: v.id("users"),
       type: CONNECTOR_TYPES,
       connectionId: v.string(),
       isConnected: v.boolean(),
@@ -46,8 +46,8 @@ export const listUserConnectors = query({
       return [];
     }
     const connectors = await ctx.db
-      .query('connectors')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .query("connectors")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     return connectors;
@@ -63,9 +63,9 @@ export const getConnectorByType = query({
   },
   returns: v.union(
     v.object({
-      _id: v.id('connectors'),
+      _id: v.id("connectors"),
       _creationTime: v.number(),
-      userId: v.id('users'),
+      userId: v.id("users"),
       type: CONNECTOR_TYPES,
       connectionId: v.string(),
       isConnected: v.boolean(),
@@ -80,9 +80,9 @@ export const getConnectorByType = query({
       return null;
     }
     const connector = await ctx.db
-      .query('connectors')
-      .withIndex('by_user_and_type', (q) =>
-        q.eq('userId', userId).eq('type', args.type)
+      .query("connectors")
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
       )
       .unique();
 
@@ -99,15 +99,15 @@ export const saveConnection = mutation({
     connectionId: v.string(),
     displayName: v.optional(v.string()),
   },
-  returns: v.id('connectors'),
+  returns: v.id("connectors"),
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
 
     // Check if connector already exists
     const existingConnector = await ctx.db
-      .query('connectors')
-      .withIndex('by_user_and_type', (q) =>
-        q.eq('userId', userId).eq('type', args.type)
+      .query("connectors")
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
       )
       .unique();
 
@@ -124,7 +124,7 @@ export const saveConnection = mutation({
     }
 
     // Create new connector
-    const connectorId = await ctx.db.insert('connectors', {
+    const connectorId = await ctx.db.insert("connectors", {
       userId,
       type: args.type,
       connectionId: args.connectionId,
@@ -148,9 +148,9 @@ export const removeConnection = mutation({
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
     const connector = await ctx.db
-      .query('connectors')
-      .withIndex('by_user_and_type', (q) =>
-        q.eq('userId', userId).eq('type', args.type)
+      .query("connectors")
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
       )
       .unique();
 
@@ -175,9 +175,9 @@ export const updateConnectionStatus = mutation({
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
     const connector = await ctx.db
-      .query('connectors')
-      .withIndex('by_user_and_type', (q) =>
-        q.eq('userId', userId).eq('type', args.type)
+      .query("connectors")
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
       )
       .unique();
 
@@ -205,9 +205,9 @@ export const setConnectorEnabled = mutation({
     const userId = await ensureAuthenticated(ctx);
 
     const connector = await ctx.db
-      .query('connectors')
-      .withIndex('by_user_and_type', (q) =>
-        q.eq('userId', userId).eq('type', args.type)
+      .query("connectors")
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
       )
       .unique();
 
@@ -225,13 +225,13 @@ export const setConnectorEnabled = mutation({
  */
 export const getConnectedConnectors = internalQuery({
   args: {
-    userId: v.id('users'),
+    userId: v.id("users"),
   },
   returns: v.array(
     v.object({
-      _id: v.id('connectors'),
+      _id: v.id("connectors"),
       _creationTime: v.number(),
-      userId: v.id('users'),
+      userId: v.id("users"),
       type: CONNECTOR_TYPES,
       connectionId: v.string(),
       isConnected: v.boolean(),
@@ -241,9 +241,9 @@ export const getConnectedConnectors = internalQuery({
   ),
   handler: async (ctx, args) => {
     const connectors = await ctx.db
-      .query('connectors')
-      .withIndex('by_user_and_connected', (q) =>
-        q.eq('userId', args.userId).eq('isConnected', true)
+      .query("connectors")
+      .withIndex("by_user_and_connected", (q) =>
+        q.eq("userId", args.userId).eq("isConnected", true)
       )
       .collect();
 
@@ -260,7 +260,7 @@ export const getConnectedConnectors = internalQuery({
  */
 export const syncConnectionStatus = internalMutation({
   args: {
-    connectorId: v.id('connectors'),
+    connectorId: v.id("connectors"),
     isConnected: v.boolean(),
   },
   returns: v.null(),
@@ -277,12 +277,12 @@ export const syncConnectionStatus = internalMutation({
  * Internal: List all connectors for a given user (including disabled)
  */
 export const getAllUserConnectors = internalQuery({
-  args: { userId: v.id('users') },
+  args: { userId: v.id("users") },
   returns: v.array(
     v.object({
-      _id: v.id('connectors'),
+      _id: v.id("connectors"),
       _creationTime: v.number(),
-      userId: v.id('users'),
+      userId: v.id("users"),
       type: CONNECTOR_TYPES,
       connectionId: v.string(),
       isConnected: v.boolean(),
@@ -292,8 +292,8 @@ export const getAllUserConnectors = internalQuery({
   ),
   handler: async (ctx, args) => {
     const connectors = await ctx.db
-      .query('connectors')
-      .withIndex('by_user', (q) => q.eq('userId', args.userId))
+      .query("connectors")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
     return connectors;
   },

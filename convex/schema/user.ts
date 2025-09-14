@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { v } from "convex/values";
 
 export const User = v.object({
   name: v.optional(v.string()),

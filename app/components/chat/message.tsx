@@ -1,12 +1,12 @@
-import type { UIMessage as MessageType } from '@ai-sdk/react';
-import type { Infer } from 'convex/values';
-import React, { useState } from 'react';
-import type { Message as MessageSchema } from '@/convex/schema/message';
-import { MessageAssistant } from './message-assistant';
-import { MessageUser } from './message-user';
+import type { UIMessage as MessageType } from "@ai-sdk/react";
+import type { Infer } from "convex/values";
+import React, { useState } from "react";
+import type { Message as MessageSchema } from "@/convex/schema/message";
+import { MessageAssistant } from "./message-assistant";
+import { MessageUser } from "./message-user";
 
 export type MessageProps = {
-  variant: MessageType['role'];
+  variant: MessageType["role"];
   model?: string;
   id: string;
   isLast?: boolean;
@@ -19,20 +19,20 @@ export type MessageProps = {
       model: string;
       enableSearch: boolean;
       files: File[];
-      reasoningEffort: 'low' | 'medium' | 'high';
+      reasoningEffort: "low" | "medium" | "high";
       removedFileUrls?: string[];
     }
   ) => void;
   onReload: () => void;
   onBranch: () => void;
   hasScrollAnchor?: boolean;
-  parts?: MessageType['parts'];
-  status?: 'streaming' | 'ready' | 'submitted' | 'error'; // Add status prop
-  metadata?: Infer<typeof MessageSchema>['metadata'];
+  parts?: MessageType["parts"];
+  status?: "streaming" | "ready" | "submitted" | "error"; // Add status prop
+  metadata?: Infer<typeof MessageSchema>["metadata"];
   selectedModel?: string;
   isUserAuthenticated?: boolean;
   isReasoningModel?: boolean;
-  reasoningEffort?: 'low' | 'medium' | 'high';
+  reasoningEffort?: "low" | "medium" | "high";
 };
 
 function MessageComponent({
@@ -52,7 +52,7 @@ function MessageComponent({
   selectedModel,
   isUserAuthenticated = false,
   isReasoningModel = false,
-  reasoningEffort = 'medium',
+  reasoningEffort = "medium",
 }: MessageProps) {
   const [copied, setCopied] = useState(false);
 
@@ -60,15 +60,15 @@ function MessageComponent({
     // Extract text content from parts for copying
     const textContent =
       parts
-        ?.filter((part) => part.type === 'text')
+        ?.filter((part) => part.type === "text")
         .map((part) => part.text)
-        .join('') || '';
+        .join("") || "";
     navigator.clipboard.writeText(textContent);
     setCopied(true);
     setTimeout(() => setCopied(false), 500);
   };
 
-  if (variant === 'user') {
+  if (variant === "user") {
     return (
       <MessageUser
         copied={copied}
@@ -84,13 +84,13 @@ function MessageComponent({
         parts={parts}
         readOnly={readOnly}
         reasoningEffort={reasoningEffort}
-        selectedModel={model || selectedModel || ''}
+        selectedModel={model || selectedModel || ""}
         status={status}
       />
     );
   }
 
-  if (variant === 'assistant') {
+  if (variant === "assistant") {
     return (
       <MessageAssistant
         copied={copied}
@@ -113,4 +113,4 @@ function MessageComponent({
 }
 
 export const Message = React.memo(MessageComponent);
-Message.displayName = 'Message';
+Message.displayName = "Message";

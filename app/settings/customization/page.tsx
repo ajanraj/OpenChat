@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Architects_Daughter,
@@ -11,11 +11,11 @@ import {
   JetBrains_Mono,
   Open_Sans,
   Space_Grotesk,
-} from 'next/font/google';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { useUser } from '@/app/providers/user-provider';
-import { CodeBlock, CodeBlockCode } from '@/components/prompt-kit/code-block';
+} from "next/font/google";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useUser } from "@/app/providers/user-provider";
+import { CodeBlock, CodeBlockCode } from "@/components/prompt-kit/code-block";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,89 +25,89 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { ThemeFontControls } from '@/components/ui/theme-font-controls';
-import { ThemeSelector } from '@/components/ui/theme-selector';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ThemeFontControls } from "@/components/ui/theme-font-controls";
+import { ThemeSelector } from "@/components/ui/theme-selector";
+import { cn } from "@/lib/utils";
 
 // Load non-default fonts only on the customization page, without preloading
 const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
+  variable: "--font-inter",
+  subsets: ["latin"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const spaceGrotesk = Space_Grotesk({
-  variable: '--font-space-grotesk',
-  subsets: ['latin'],
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const openSans = Open_Sans({
-  variable: '--font-open-sans',
-  subsets: ['latin'],
+  variable: "--font-open-sans",
+  subsets: ["latin"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const dmSans = DM_Sans({
-  variable: '--font-dm-sans',
-  subsets: ['latin'],
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const architectsDaughter = Architects_Daughter({
-  variable: '--font-architects-daughter',
-  subsets: ['latin'],
-  weight: '400',
+  variable: "--font-architects-daughter",
+  subsets: ["latin"],
+  weight: "400",
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const atkinsonHyperlegible = Atkinson_Hyperlegible({
-  variable: '--font-atkinson-hyperlegible',
-  subsets: ['latin'],
-  weight: ['400', '700'],
+  variable: "--font-atkinson-hyperlegible",
+  subsets: ["latin"],
+  weight: ["400", "700"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const atkinsonHyperlegibleMono = Atkinson_Hyperlegible_Mono({
-  variable: '--font-atkinson-hyperlegible-mono',
-  subsets: ['latin'],
-  weight: ['400', '700'],
+  variable: "--font-atkinson-hyperlegible-mono",
+  subsets: ["latin"],
+  weight: ["400", "700"],
   preload: false,
-  display: 'swap',
+  display: "swap",
   adjustFontFallback: false,
-  fallback: ['ui-monospace'],
+  fallback: ["ui-monospace"],
 });
 const firaMono = Fira_Mono({
-  variable: '--font-fira-mono',
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
+  variable: "--font-fira-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const jetbrainsMono = JetBrains_Mono({
-  variable: '--font-jetbrains-mono',
-  subsets: ['latin'],
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 const ibmPlexMono = IBM_Plex_Mono({
-  variable: '--font-ibm-plex-mono',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  variable: "--font-ibm-plex-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   preload: false,
-  display: 'swap',
+  display: "swap",
 });
 
-import { toast } from '@/components/ui/toast';
-import { APP_NAME } from '@/lib/config';
-import { useEditorStore } from '@/lib/store/editor-store';
-import type { FontCategory, FontOption } from '@/lib/theme/theme-fonts';
+import { toast } from "@/components/ui/toast";
+import { APP_NAME } from "@/lib/config";
+import { useEditorStore } from "@/lib/store/editor-store";
+import type { FontCategory, FontOption } from "@/lib/theme/theme-fonts";
 
 export default function CustomizationPage() {
   const { user, updateUser } = useUser();
@@ -116,11 +116,11 @@ export default function CustomizationPage() {
   const themeState = useEditorStore((state) => state.themeState);
   const updateFont = useEditorStore((state) => state.updateFont);
 
-  const [preferredName, setPreferredName] = useState('');
-  const [occupation, setOccupation] = useState('');
+  const [preferredName, setPreferredName] = useState("");
+  const [occupation, setOccupation] = useState("");
   const [traits, setTraits] = useState<string[]>([]);
-  const [about, setAbout] = useState('');
-  const [traitInput, setTraitInput] = useState('');
+  const [about, setAbout] = useState("");
+  const [traitInput, setTraitInput] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] =
     useState(false);
@@ -128,21 +128,21 @@ export default function CustomizationPage() {
 
   useEffect(() => {
     if (user) {
-      setPreferredName(user.preferredName || '');
-      setOccupation(user.occupation || '');
-      setTraits(user.traits ? user.traits.split(', ') : []);
-      setAbout(user.about || '');
+      setPreferredName(user.preferredName || "");
+      setOccupation(user.occupation || "");
+      setTraits(user.traits ? user.traits.split(", ") : []);
+      setAbout(user.about || "");
     }
   }, [user]);
 
   useEffect(() => {
     if (user) {
-      const initialTraits = user.traits ? user.traits.split(', ') : [];
+      const initialTraits = user.traits ? user.traits.split(", ") : [];
       const hasChanges =
-        (user.preferredName || '') !== preferredName ||
-        (user.occupation || '') !== occupation ||
-        initialTraits.join(', ') !== traits.join(', ') ||
-        (user.about || '') !== about;
+        (user.preferredName || "") !== preferredName ||
+        (user.occupation || "") !== occupation ||
+        initialTraits.join(", ") !== traits.join(", ") ||
+        (user.about || "") !== about;
       setHasUnsavedChanges(hasChanges);
     }
   }, [user, preferredName, occupation, traits, about]);
@@ -151,26 +151,26 @@ export default function CustomizationPage() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = "";
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [hasUnsavedChanges]);
 
   // Helper function to check if an anchor should trigger unsaved changes dialog
   const shouldInterceptAnchor = useCallback(
     (anchor: HTMLAnchorElement): string | null => {
-      if (!anchor.href || anchor.target === '_blank') {
+      if (!anchor.href || anchor.target === "_blank") {
         return null;
       }
 
-      const url = anchor.getAttribute('href') || anchor.href;
-      if (url?.startsWith('/')) {
+      const url = anchor.getAttribute("href") || anchor.href;
+      if (url?.startsWith("/")) {
         return url;
       }
 
@@ -198,7 +198,7 @@ export default function CustomizationPage() {
       }
 
       const anchor = (e.target as HTMLElement).closest(
-        'a'
+        "a"
       ) as HTMLAnchorElement | null;
       if (!anchor) {
         return;
@@ -210,9 +210,9 @@ export default function CustomizationPage() {
       }
     };
 
-    document.addEventListener('click', handleDocumentClick, true);
+    document.addEventListener("click", handleDocumentClick, true);
     return () => {
-      document.removeEventListener('click', handleDocumentClick, true);
+      document.removeEventListener("click", handleDocumentClick, true);
     };
   }, [hasUnsavedChanges, shouldInterceptAnchor, handleNavigationAttempt]);
 
@@ -220,11 +220,11 @@ export default function CustomizationPage() {
     await updateUser({
       preferredName,
       occupation,
-      traits: traits.join(', '),
+      traits: traits.join(", "),
       about,
     });
     setHasUnsavedChanges(false);
-    toast({ title: 'Preferences saved', status: 'success' });
+    toast({ title: "Preferences saved", status: "success" });
   };
 
   const handleAddTrait = (trait: string) => {
@@ -244,17 +244,17 @@ export default function CustomizationPage() {
   const handleTraitInputKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>
   ) => {
-    if (e.key === 'Enter' || e.key === 'Tab') {
+    if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       handleAddTrait(traitInput);
-      setTraitInput('');
+      setTraitInput("");
     }
   };
 
   const handleInputKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    if (e.key === 'Enter' && hasUnsavedChanges) {
+    if (e.key === "Enter" && hasUnsavedChanges) {
       e.preventDefault();
       handleSave();
     }
@@ -268,13 +268,13 @@ export default function CustomizationPage() {
   };
 
   const defaultTraits = [
-    'friendly',
-    'witty',
-    'concise',
-    'curious',
-    'empathetic',
-    'creative',
-    'patient',
+    "friendly",
+    "witty",
+    "concise",
+    "curious",
+    "empathetic",
+    "creative",
+    "patient",
   ];
 
   // Ensure the non-default font CSS variables are present on this route only
@@ -354,7 +354,7 @@ export default function CustomizationPage() {
                 className="mb-2 block font-medium text-base"
                 htmlFor="traits-input"
               >
-                What traits should {APP_NAME} have?{' '}
+                What traits should {APP_NAME} have?{" "}
                 <span className="ml-2 font-normal text-muted-foreground text-xs">
                   (up to 50, max 100 chars each)
                 </span>

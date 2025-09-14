@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
-import { InfoIcon } from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useMutation } from 'convex/react';
-import dayjs from 'dayjs';
-import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { formatWeeklyTime, parseWeeklyTime } from '@/app/utils/time-utils';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { ProgressRing } from '@/components/ui/progress-ring';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import { convexQuery } from "@convex-dev/react-query";
+import { InfoIcon } from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import dayjs from "dayjs";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { formatWeeklyTime, parseWeeklyTime } from "@/app/utils/time-utils";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ProgressRing } from "@/components/ui/progress-ring";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import { TimePicker } from './time-picker';
-import type { CreateTaskForm } from './types';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { TimePicker } from "./time-picker";
+import type { CreateTaskForm } from "./types";
 
 // Task limits constants (matching backend)
 const TASK_LIMITS = {
@@ -36,17 +36,17 @@ const TASK_LIMITS = {
 const getTomorrowDate = () => {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return dayjs(tomorrow).format('YYYY-MM-DD');
+  return dayjs(tomorrow).format("YYYY-MM-DD");
 };
 
 // Pure function to compute initial form state - no side effects
 const getInitialFormState = (
-  initialData?: Partial<CreateTaskForm> & { taskId?: Id<'scheduled_tasks'> },
-  mode: 'create' | 'edit' = 'create'
+  initialData?: Partial<CreateTaskForm> & { taskId?: Id<"scheduled_tasks"> },
+  mode: "create" | "edit" = "create"
 ): CreateTaskForm => {
   // Parse weekly time if needed
   const parsedData =
-    initialData?.scheduleType === 'weekly' && initialData?.scheduledTime
+    initialData?.scheduleType === "weekly" && initialData?.scheduledTime
       ? {
           ...initialData,
           scheduledTime: parseWeeklyTime(initialData.scheduledTime).time,
@@ -56,13 +56,13 @@ const getInitialFormState = (
 
   // Determine if this is a new onetime task that needs default date/time
   const isNewOnetimeTask =
-    mode === 'create' && (parsedData?.scheduleType || 'daily') === 'onetime';
+    mode === "create" && (parsedData?.scheduleType || "daily") === "onetime";
 
   return {
-    title: parsedData?.title || '',
-    prompt: parsedData?.prompt || '',
-    scheduleType: parsedData?.scheduleType || 'daily',
-    scheduledTime: parsedData?.scheduledTime || '09:00',
+    title: parsedData?.title || "",
+    prompt: parsedData?.prompt || "",
+    scheduleType: parsedData?.scheduleType || "daily",
+    scheduledTime: parsedData?.scheduledTime || "09:00",
     scheduledDate:
       parsedData?.scheduledDate ||
       (isNewOnetimeTask ? getTomorrowDate() : undefined),
@@ -79,8 +79,8 @@ type CreateTaskFormProps = {
   onSuccess: () => void;
   onCancel: () => void;
   CloseWrapper?: React.ComponentType<{ children: React.ReactNode }>;
-  initialData?: Partial<CreateTaskForm> & { taskId?: Id<'scheduled_tasks'> };
-  mode?: 'create' | 'edit';
+  initialData?: Partial<CreateTaskForm> & { taskId?: Id<"scheduled_tasks"> };
+  mode?: "create" | "edit";
 };
 
 export function TaskFormContent({
@@ -88,7 +88,7 @@ export function TaskFormContent({
   onCancel,
   CloseWrapper,
   initialData,
-  mode = 'create',
+  mode = "create",
 }: CreateTaskFormProps) {
   // Use pure function to compute initial state - no useEffect needed
   const [form, setForm] = useState<CreateTaskForm>(() =>
@@ -115,7 +115,7 @@ export function TaskFormContent({
     e.preventDefault();
 
     if (!(form.title.trim() && form.prompt.trim())) {
-      toast.error('Please fill in all required fields');
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -123,16 +123,16 @@ export function TaskFormContent({
     try {
       // Format scheduledTime for weekly tasks
       const formattedScheduledTime =
-        form.scheduleType === 'weekly'
+        form.scheduleType === "weekly"
           ? formatWeeklyTime(form.selectedDay ?? 1, form.scheduledTime)
           : form.scheduledTime;
 
-      if (mode === 'edit' && initialData?.taskId) {
+      if (mode === "edit" && initialData?.taskId) {
         await updateTask({
           taskId: initialData.taskId,
           title: form.title.trim(),
           prompt: form.prompt.trim(),
-          scheduleType: form.scheduleType as 'onetime' | 'daily' | 'weekly',
+          scheduleType: form.scheduleType as "onetime" | "daily" | "weekly",
           scheduledTime: formattedScheduledTime,
           scheduledDate: form.scheduledDate,
           timezone: form.timezone,
@@ -140,12 +140,12 @@ export function TaskFormContent({
           enabledToolSlugs: form.enabledToolSlugs,
           emailNotifications: form.emailNotifications,
         });
-        toast.success('Scheduled task updated successfully');
+        toast.success("Scheduled task updated successfully");
       } else {
         await createTask({
           title: form.title.trim(),
           prompt: form.prompt.trim(),
-          scheduleType: form.scheduleType as 'onetime' | 'daily' | 'weekly',
+          scheduleType: form.scheduleType as "onetime" | "daily" | "weekly",
           scheduledTime: formattedScheduledTime,
           scheduledDate: form.scheduledDate,
           timezone: form.timezone,
@@ -153,13 +153,13 @@ export function TaskFormContent({
           enabledToolSlugs: form.enabledToolSlugs,
           emailNotifications: form.emailNotifications,
         });
-        toast.success('Scheduled task created successfully');
+        toast.success("Scheduled task created successfully");
       }
       onSuccess();
     } catch (_error) {
       // Error logged for debugging purposes
       toast.error(
-        `Failed to ${mode === 'edit' ? 'update' : 'create'} task. Please try again.`
+        `Failed to ${mode === "edit" ? "update" : "create"} task. Please try again.`
       );
     } finally {
       setIsSubmitting(false);
@@ -184,8 +184,8 @@ export function TaskFormContent({
   // Helper to handle date changes
   const handleDateChange = (date: Date | undefined) => {
     updateForm(
-      'scheduledDate',
-      date ? dayjs(date).format('YYYY-MM-DD') : undefined
+      "scheduledDate",
+      date ? dayjs(date).format("YYYY-MM-DD") : undefined
     );
   };
 
@@ -196,12 +196,12 @@ export function TaskFormContent({
     }
 
     switch (form.scheduleType) {
-      case 'daily':
+      case "daily":
         // Daily tasks are limited by both daily limit AND total limit
         return (
           taskLimits.daily.remaining <= 0 || taskLimits.total.remaining <= 0
         );
-      case 'weekly':
+      case "weekly":
         // Weekly tasks are limited by both weekly limit AND total limit
         return (
           taskLimits.weekly.remaining <= 0 || taskLimits.total.remaining <= 0
@@ -214,26 +214,26 @@ export function TaskFormContent({
   // Helper function to get color for progress ring
   const getDailyTaskColor = (
     remaining: number
-  ): 'danger' | 'warning' | 'success' => {
+  ): "danger" | "warning" | "success" => {
     if (remaining <= 0) {
-      return 'danger';
+      return "danger";
     }
     if (remaining <= 1) {
-      return 'warning';
+      return "warning";
     }
-    return 'success';
+    return "success";
   };
 
   const getTotalTaskColor = (
     remaining: number
-  ): 'danger' | 'warning' | 'primary' => {
+  ): "danger" | "warning" | "primary" => {
     if (remaining <= 0) {
-      return 'danger';
+      return "danger";
     }
     if (remaining <= 2) {
-      return 'warning';
+      return "warning";
     }
-    return 'primary';
+    return "primary";
   };
 
   return (
@@ -247,7 +247,7 @@ export function TaskFormContent({
           <Label htmlFor="title">Background Agent Name</Label>
           <Input
             id="title"
-            onChange={(e) => updateForm('title', e.target.value)}
+            onChange={(e) => updateForm("title", e.target.value)}
             placeholder="Enter task name"
             required
             value={form.title}
@@ -260,8 +260,8 @@ export function TaskFormContent({
           <Tabs
             onValueChange={(value) =>
               updateForm(
-                'scheduleType',
-                value as 'onetime' | 'daily' | 'weekly'
+                "scheduleType",
+                value as "onetime" | "daily" | "weekly"
               )
             }
             value={form.scheduleType}
@@ -278,15 +278,15 @@ export function TaskFormContent({
         <div className="space-y-2">
           <Label htmlFor="scheduledTime">On</Label>
           <TimePicker
-            filterPastTimes={form.scheduleType === 'onetime'}
+            filterPastTimes={form.scheduleType === "onetime"}
             name="scheduledTime"
-            onChange={(value: string) => updateForm('scheduledTime', value)}
+            onChange={(value: string) => updateForm("scheduledTime", value)}
             onDateChange={handleDateChange}
-            onDayChange={(day: number) => updateForm('selectedDay', day)}
+            onDayChange={(day: number) => updateForm("selectedDay", day)}
             selectedDate={getSelectedDate()}
             selectedDay={form.selectedDay}
-            showDatePicker={form.scheduleType === 'onetime'}
-            showDayPicker={form.scheduleType === 'weekly'}
+            showDatePicker={form.scheduleType === "onetime"}
+            showDayPicker={form.scheduleType === "weekly"}
             value={form.scheduledTime}
           />
         </div>
@@ -313,7 +313,7 @@ export function TaskFormContent({
           <Textarea
             className="min-h-[120px] resize-none"
             id="prompt"
-            onChange={(e) => updateForm('prompt', e.target.value)}
+            onChange={(e) => updateForm("prompt", e.target.value)}
             placeholder="Enter detailed instructions for what you want the task to search for and analyze..."
             required
             value={form.prompt}
@@ -327,7 +327,7 @@ export function TaskFormContent({
               checked={form.enableSearch}
               id="enableSearch"
               onCheckedChange={(checked) =>
-                updateForm('enableSearch', Boolean(checked))
+                updateForm("enableSearch", Boolean(checked))
               }
             />
             <Label htmlFor="enableSearch">Enable web search</Label>
@@ -338,7 +338,7 @@ export function TaskFormContent({
               checked={form.emailNotifications}
               id="emailNotifications"
               onCheckedChange={(checked) =>
-                updateForm('emailNotifications', Boolean(checked))
+                updateForm("emailNotifications", Boolean(checked))
               }
             />
             <Label htmlFor="emailNotifications">
@@ -355,7 +355,7 @@ export function TaskFormContent({
           <div className="flex items-center gap-3">
             {taskLimits && (
               <>
-                {form.scheduleType === 'daily' ? (
+                {form.scheduleType === "daily" ? (
                   <ProgressRing
                     color={getDailyTaskColor(taskLimits.daily.remaining)}
                     max={TASK_LIMITS.DAILY_TASKS}
@@ -375,7 +375,7 @@ export function TaskFormContent({
                   />
                 )}
                 <div className="text-muted-foreground text-xs">
-                  {form.scheduleType === 'daily'
+                  {form.scheduleType === "daily"
                     ? `${Math.max(0, taskLimits.daily.remaining)} task remaining`
                     : `${taskLimits.total.remaining} task remaining`}
                 </div>
@@ -396,17 +396,17 @@ export function TaskFormContent({
               </Button>
             )}
             <Button
-              disabled={isSubmitting || (mode === 'create' && isLimitReached())}
+              disabled={isSubmitting || (mode === "create" && isLimitReached())}
               type="submit"
             >
               {(() => {
                 if (isSubmitting) {
-                  return mode === 'edit' ? 'Updating...' : 'Creating...';
+                  return mode === "edit" ? "Updating..." : "Creating...";
                 }
-                if (mode === 'create' && isLimitReached()) {
-                  return 'Limit Reached';
+                if (mode === "create" && isLimitReached()) {
+                  return "Limit Reached";
                 }
-                return mode === 'edit' ? 'Update' : 'Create';
+                return mode === "edit" ? "Update" : "Create";
               })()}
             </Button>
           </div>

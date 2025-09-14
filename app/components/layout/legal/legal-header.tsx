@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { List, X } from '@phosphor-icons/react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import React, { useState } from 'react';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { APP_NAME } from '@/lib/config';
+import { List, X } from "@phosphor-icons/react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import React, { useState } from "react";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { APP_NAME } from "@/lib/config";
 
 const LEGAL_NAV_ITEMS = [
-  { name: 'Privacy Policy', href: '/privacy' },
-  { name: 'Terms of Service', href: '/terms' },
-  { name: 'Security Policy', href: '/security' },
+  { name: "Privacy Policy", href: "/privacy" },
+  { name: "Terms of Service", href: "/terms" },
+  { name: "Security Policy", href: "/security" },
 ] as const;
 
 type LogoSectionProps = {
@@ -67,7 +67,7 @@ function MobileHamburgerMenu({ isOpen, onToggle }: MobileHamburgerMenuProps) {
   return (
     <div className="md:hidden">
       <Button
-        aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
         onClick={onToggle}
         size="icon"
         variant="ghost"
@@ -126,8 +126,8 @@ function LegalHeaderComponent() {
                   <Link
                     className={`rounded-lg px-3 py-3 text-base transition-colors ${
                       isActive
-                        ? 'bg-accent font-medium text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        ? "bg-accent font-medium text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                     href={item.href}
                     key={item.href}

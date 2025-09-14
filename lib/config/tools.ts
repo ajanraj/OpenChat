@@ -8,12 +8,12 @@ import {
   Slack,
   XDark,
   XLight,
-} from '@ridemountainpig/svgl-react';
-import type { ComponentType } from 'react';
-import { GoogleCalendarIcon } from '@/components/icons/google-calendar';
-import { GoogleDocsIcon } from '@/components/icons/google-docs';
-import { GoogleSheetsIcon } from '@/components/icons/google-sheets';
-import type { ConnectorType } from '@/lib/types';
+} from "@ridemountainpig/svgl-react";
+import type { ComponentType } from "react";
+import { GoogleCalendarIcon } from "@/components/icons/google-calendar";
+import { GoogleDocsIcon } from "@/components/icons/google-docs";
+import { GoogleSheetsIcon } from "@/components/icons/google-sheets";
+import type { ConnectorType } from "@/lib/types";
 
 export type ConnectorConfig = {
   type: ConnectorType;
@@ -26,87 +26,87 @@ export type ConnectorConfig = {
 
 export const CONNECTOR_CONFIGS: Record<ConnectorType, ConnectorConfig> = {
   gmail: {
-    type: 'gmail',
-    displayName: 'Gmail',
+    type: "gmail",
+    displayName: "Gmail",
     icon: Gmail,
-    description: 'Access and manage your Gmail messages directly from chat.',
-    authConfigId: process.env.NEXT_PUBLIC_GMAIL_AUTH_CONFIG_ID || 'gmail_oauth',
+    description: "Access and manage your Gmail messages directly from chat.",
+    authConfigId: process.env.NEXT_PUBLIC_GMAIL_AUTH_CONFIG_ID || "gmail_oauth",
   },
   googlecalendar: {
-    type: 'googlecalendar',
-    displayName: 'Google Calendar',
+    type: "googlecalendar",
+    displayName: "Google Calendar",
     icon: GoogleCalendarIcon,
-    description: 'View and schedule events in your Google Calendar.',
+    description: "View and schedule events in your Google Calendar.",
     authConfigId:
       process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_AUTH_CONFIG_ID ||
-      'googlecalendar_oauth',
+      "googlecalendar_oauth",
   },
   googledrive: {
-    type: 'googledrive',
-    displayName: 'Google Drive',
+    type: "googledrive",
+    displayName: "Google Drive",
     icon: GoogleDrive,
-    description: 'Access and manage your Google Drive files and folders.',
+    description: "Access and manage your Google Drive files and folders.",
     authConfigId:
       process.env.NEXT_PUBLIC_GOOGLE_DRIVE_AUTH_CONFIG_ID ||
-      'googledrive_oauth',
+      "googledrive_oauth",
   },
   notion: {
-    type: 'notion',
-    displayName: 'Notion',
+    type: "notion",
+    displayName: "Notion",
     icon: Notion,
-    description: 'Read and write to your Notion workspace pages.',
+    description: "Read and write to your Notion workspace pages.",
     authConfigId:
-      process.env.NEXT_PUBLIC_NOTION_AUTH_CONFIG_ID || 'notion_oauth',
+      process.env.NEXT_PUBLIC_NOTION_AUTH_CONFIG_ID || "notion_oauth",
   },
   googledocs: {
-    type: 'googledocs',
-    displayName: 'Google Docs',
+    type: "googledocs",
+    displayName: "Google Docs",
     icon: GoogleDocsIcon,
-    description: 'Create, edit, and collaborate on Google Docs documents.',
+    description: "Create, edit, and collaborate on Google Docs documents.",
     authConfigId:
-      process.env.NEXT_PUBLIC_GOOGLE_DOCS_AUTH_CONFIG_ID || 'googledocs_oauth',
+      process.env.NEXT_PUBLIC_GOOGLE_DOCS_AUTH_CONFIG_ID || "googledocs_oauth",
   },
   googlesheets: {
-    type: 'googlesheets',
-    displayName: 'Google Sheets',
+    type: "googlesheets",
+    displayName: "Google Sheets",
     icon: GoogleSheetsIcon,
-    description: 'Work with spreadsheets and data in Google Sheets.',
+    description: "Work with spreadsheets and data in Google Sheets.",
     authConfigId:
       process.env.NEXT_PUBLIC_GOOGLE_SHEETS_AUTH_CONFIG_ID ||
-      'googlesheets_oauth',
+      "googlesheets_oauth",
   },
   slack: {
-    type: 'slack',
-    displayName: 'Slack',
+    type: "slack",
+    displayName: "Slack",
     icon: Slack,
-    description: 'Send messages and interact with your Slack workspace.',
-    authConfigId: process.env.NEXT_PUBLIC_SLACK_AUTH_CONFIG_ID || 'slack_oauth',
+    description: "Send messages and interact with your Slack workspace.",
+    authConfigId: process.env.NEXT_PUBLIC_SLACK_AUTH_CONFIG_ID || "slack_oauth",
   },
   linear: {
-    type: 'linear',
-    displayName: 'Linear',
+    type: "linear",
+    displayName: "Linear",
     icon: Linear,
-    description: 'Manage issues and projects in Linear.',
+    description: "Manage issues and projects in Linear.",
     authConfigId:
-      process.env.NEXT_PUBLIC_LINEAR_AUTH_CONFIG_ID || 'linear_oauth',
+      process.env.NEXT_PUBLIC_LINEAR_AUTH_CONFIG_ID || "linear_oauth",
   },
   github: {
-    type: 'github',
-    displayName: 'GitHub',
+    type: "github",
+    displayName: "GitHub",
     icon: GitHubDark,
     icon_light: GitHubLight,
-    description: 'Manage repositories, issues, and pull requests on GitHub.',
+    description: "Manage repositories, issues, and pull requests on GitHub.",
     authConfigId:
-      process.env.NEXT_PUBLIC_GITHUB_AUTH_CONFIG_ID || 'github_oauth',
+      process.env.NEXT_PUBLIC_GITHUB_AUTH_CONFIG_ID || "github_oauth",
   },
   twitter: {
-    type: 'twitter',
-    displayName: 'X (Twitter)',
+    type: "twitter",
+    displayName: "X (Twitter)",
     icon: XDark,
     icon_light: XLight,
-    description: 'Post tweets and interact with your X (Twitter) account.',
+    description: "Post tweets and interact with your X (Twitter) account.",
     authConfigId:
-      process.env.NEXT_PUBLIC_TWITTER_AUTH_CONFIG_ID || 'twitter_oauth',
+      process.env.NEXT_PUBLIC_TWITTER_AUTH_CONFIG_ID || "twitter_oauth",
   },
 };
 
@@ -143,20 +143,20 @@ const getConnectorPatterns = (): Record<ConnectorType, string[]> => {
 
     // Add specific patterns based on the connector type
     switch (type) {
-      case 'googlecalendar':
-        typePatterns.push('calendar');
+      case "googlecalendar":
+        typePatterns.push("calendar");
         break;
-      case 'googledrive':
-        typePatterns.push('drive');
+      case "googledrive":
+        typePatterns.push("drive");
         break;
-      case 'googledocs':
-        typePatterns.push('docs');
+      case "googledocs":
+        typePatterns.push("docs");
         break;
-      case 'googlesheets':
-        typePatterns.push('sheets');
+      case "googlesheets":
+        typePatterns.push("sheets");
         break;
-      case 'twitter':
-        typePatterns.push('x.com');
+      case "twitter":
+        typePatterns.push("x.com");
         break;
       default:
         // For most connectors, the type name is sufficient
@@ -223,6 +223,6 @@ export const getConnectorTypeFromToolName = (
   // Throw error for unmatched cases instead of silent fallback
   throw new Error(
     `Unable to determine connector type for tool: ${toolName}. ` +
-      'Please ensure the tool name contains one of the supported connector patterns.'
+      "Please ensure the tool name contains one of the supported connector patterns."
   );
 };

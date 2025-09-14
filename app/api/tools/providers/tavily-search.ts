@@ -4,16 +4,16 @@ import {
   type SearchAdapter,
   type SearchOptions,
   type SearchResult,
-} from '../types';
+} from "../types";
 
 export class TavilySearchProvider implements SearchAdapter {
-  readonly name = 'tavily';
+  readonly name = "tavily";
   private readonly apiKey: string;
-  private readonly baseUrl = 'https://api.tavily.com/search';
+  private readonly baseUrl = "https://api.tavily.com/search";
 
   constructor(apiKey: string) {
     if (!apiKey) {
-      throw new Error('Tavily Search API key is required');
+      throw new Error("Tavily Search API key is required");
     }
     this.apiKey = apiKey;
   }
@@ -40,7 +40,7 @@ export class TavilySearchProvider implements SearchAdapter {
       const requestBody = {
         query,
         max_results: limit,
-        search_depth: scrapeContent ? 'advanced' : 'basic',
+        search_depth: scrapeContent ? "advanced" : "basic",
         include_content: scrapeContent,
         chunks_per_source: chunksPerSource,
         api_key: this.apiKey,
@@ -51,9 +51,9 @@ export class TavilySearchProvider implements SearchAdapter {
       };
 
       const response = await fetch(this.baseUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -69,7 +69,7 @@ export class TavilySearchProvider implements SearchAdapter {
       return this.formatResults(data.results || [], scrapeContent);
     } catch (error) {
       throw new Error(
-        `Failed to search with Tavily: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to search with Tavily: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
@@ -87,9 +87,9 @@ export class TavilySearchProvider implements SearchAdapter {
       };
 
       return {
-        url: item.url || '',
-        title: item.title || '',
-        description: item.content || '',
+        url: item.url || "",
+        title: item.title || "",
+        description: item.content || "",
         content: includeContent ? item.raw_content : undefined,
         markdown: this.formatMarkdown(item, includeContent),
       };
@@ -104,13 +104,13 @@ export class TavilySearchProvider implements SearchAdapter {
       raw_content?: string;
     };
 
-    let markdown = `### [${item.title || 'Untitled'}](${item.url || '#'})\n${item.content || ''}`;
+    let markdown = `### [${item.title || "Untitled"}](${item.url || "#"})\n${item.content || ""}`;
 
     if (includeContent && item.raw_content) {
       const truncatedContent =
         item.raw_content.length > SEARCH_CONFIG.maxTextCharacters
           ? item.raw_content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3) +
-            '...'
+            "..."
           : item.raw_content;
       markdown += `\n\n> ${truncatedContent}`;
     }

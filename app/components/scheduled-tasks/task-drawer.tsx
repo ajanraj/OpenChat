@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { XIcon } from '@phosphor-icons/react';
-import { lazy, Suspense, useState } from 'react';
+import { XIcon } from "@phosphor-icons/react";
+import { lazy, Suspense, useState } from "react";
 import {
   Drawer,
   DrawerClose,
@@ -10,13 +10,13 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@/components/ui/drawer';
-import type { Id } from '@/convex/_generated/dataModel';
-import type { CreateTaskForm } from './types';
+} from "@/components/ui/drawer";
+import type { Id } from "@/convex/_generated/dataModel";
+import type { CreateTaskForm } from "./types";
 
 // Lazy load TaskFormContent for better performance
 const TaskFormContent = lazy(() =>
-  import('./task-form').then((module) => ({ default: module.TaskFormContent }))
+  import("./task-form").then((module) => ({ default: module.TaskFormContent }))
 );
 
 // Loading component for Suspense
@@ -27,8 +27,8 @@ const FormLoadingSpinner = () => (
 );
 
 type SharedDrawerContentProps = {
-  mode: 'create' | 'edit';
-  initialData?: Partial<CreateTaskForm> & { taskId?: Id<'scheduled_tasks'> };
+  mode: "create" | "edit";
+  initialData?: Partial<CreateTaskForm> & { taskId?: Id<"scheduled_tasks"> };
   onClose: () => void;
 };
 
@@ -43,14 +43,14 @@ function SharedDrawerContent({
       <div className="flex h-full max-h-[80vh] flex-col pb-6">
         <DrawerHeader className="flex-row items-center justify-between border-border border-b px-6 py-4">
           <DrawerTitle className="font-semibold text-base">
-            {mode === 'edit'
-              ? 'Edit Scheduled Background Agent'
-              : 'Create New Scheduled Background Agent'}
+            {mode === "edit"
+              ? "Edit Scheduled Background Agent"
+              : "Create New Scheduled Background Agent"}
           </DrawerTitle>
           <DrawerDescription className="sr-only">
-            {mode === 'edit'
-              ? 'Edit the settings and configuration for this scheduled background agent.'
-              : 'Create a new automated background agent that will run on a schedule.'}
+            {mode === "edit"
+              ? "Edit the settings and configuration for this scheduled background agent."
+              : "Create a new automated background agent that will run on a schedule."}
           </DrawerDescription>
           <DrawerClose asChild>
             <button
@@ -83,8 +83,8 @@ type TaskDrawerProps = {
   trigger?: React.ReactNode;
   isOpen?: boolean;
   onClose?: () => void;
-  initialData?: Partial<CreateTaskForm> & { taskId?: Id<'scheduled_tasks'> };
-  mode?: 'create' | 'edit';
+  initialData?: Partial<CreateTaskForm> & { taskId?: Id<"scheduled_tasks"> };
+  mode?: "create" | "edit";
 };
 
 export function TaskDrawer({
@@ -92,7 +92,7 @@ export function TaskDrawer({
   isOpen,
   onClose,
   initialData,
-  mode = 'create',
+  mode = "create",
 }: TaskDrawerProps) {
   // Internal state for uncontrolled mode
   const [internalOpen, setInternalOpen] = useState(false);

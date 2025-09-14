@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useAuthActions } from '@convex-dev/auth/react';
-import { useEffect, useRef } from 'react';
-import { Loader } from '@/components/prompt-kit/loader';
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useEffect, useRef } from "react";
+import { Loader } from "@/components/prompt-kit/loader";
 
 export function AnonymousSignIn() {
   const { signIn } = useAuthActions();
@@ -12,7 +12,7 @@ export function AnonymousSignIn() {
   useEffect(() => {
     if (!attemptedAnon.current) {
       attemptedAnon.current = true;
-      signIn('anonymous');
+      signIn("anonymous");
     }
   }, [signIn]);
 

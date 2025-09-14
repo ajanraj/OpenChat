@@ -1,34 +1,34 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
-import { MagnifyingGlass, Plus, SidebarSimple } from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useMutation } from 'convex/react';
-import { motion } from 'motion/react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useChatSession } from '@/app/providers/chat-session-provider';
-import { useSidebar } from '@/app/providers/sidebar-provider';
-import { useUser } from '@/app/providers/user-provider';
-import { useTheme } from '@/components/theme-provider';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { convexQuery } from "@convex-dev/react-query";
+import { MagnifyingGlass, Plus, SidebarSimple } from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import { motion } from "motion/react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useChatSession } from "@/app/providers/chat-session-provider";
+import { useSidebar } from "@/app/providers/sidebar-provider";
+import { useUser } from "@/app/providers/user-provider";
+import { useTheme } from "@/components/theme-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   getOrderedGroupKeys,
   groupChatsByTime,
   hasChatsInGroup,
-} from '@/lib/chat-utils/time-grouping';
-import { TRANSITION_LAYOUT } from '@/lib/motion';
-import { ChatList } from './chat-list';
+} from "@/lib/chat-utils/time-grouping";
+import { TRANSITION_LAYOUT } from "@/lib/motion";
+import { ChatList } from "./chat-list";
 
 const ChatSidebar = memo(function SidebarComponent() {
   const { isSidebarOpen: isOpen, toggleSidebar } = useSidebar();
@@ -54,7 +54,7 @@ const ChatSidebar = memo(function SidebarComponent() {
   const pathname = usePathname();
 
   // State for search and edit/delete in the main sidebar list
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Memoize search input handler
   const handleSearchChange = useCallback(
@@ -67,31 +67,31 @@ const ChatSidebar = memo(function SidebarComponent() {
   // Memoize search button handler
   const handleSearchButtonClick = useCallback(() => {
     if (!isOpen) {
-      window.dispatchEvent(new Event('openCommandHistory'));
+      window.dispatchEvent(new Event("openCommandHistory"));
     }
   }, [isOpen]);
 
   // Memoize new chat button handler
   const handleNewChatClick = useCallback(() => {
-    router.push('/');
+    router.push("/");
   }, [router]);
 
   // Memoize conditional new chat button handler
   const handleConditionalNewChatClick = useCallback(() => {
-    if (pathname !== '/') {
-      router.push('/');
+    if (pathname !== "/") {
+      router.push("/");
     }
   }, [pathname, router]);
 
   // Memoize conditional tasks button handler
   const handleConditionalTasksClick = useCallback(() => {
     if (!user || user.isAnonymous) {
-      router.push('/auth');
+      router.push("/auth");
       return;
     }
 
-    if (pathname !== '/tasks') {
-      router.push('/tasks');
+    if (pathname !== "/tasks") {
+      router.push("/tasks");
     }
   }, [pathname, router, user]);
 
@@ -100,14 +100,14 @@ const ChatSidebar = memo(function SidebarComponent() {
 
   // --- Handlers for main sidebar list ---
   const handleSaveEdit = useCallback(
-    async (id: Id<'chats'>, newTitle: string) => {
+    async (id: Id<"chats">, newTitle: string) => {
       await updateChatTitle({ chatId: id, title: newTitle });
     },
     [updateChatTitle]
   );
 
   const handleConfirmDelete = useCallback(
-    async (id: Id<'chats'>) => {
+    async (id: Id<"chats">) => {
       // Determine current chat at execution time to avoid dependency churn
       const isCurrentChat = activeChatIdRef.current === id;
       if (isCurrentChat) {
@@ -121,7 +121,7 @@ const ChatSidebar = memo(function SidebarComponent() {
         await deleteChat({ chatId: id });
 
         if (isCurrentChat) {
-          router.push('/');
+          router.push("/");
           // We intentionally do NOT reset `isDeleting` here. The
           // ChatSessionProvider will automatically clear this flag when the route
           // (and therefore the chatId) changes, ensuring the flag remains set
@@ -140,7 +140,7 @@ const ChatSidebar = memo(function SidebarComponent() {
   );
 
   const handleTogglePin = useCallback(
-    async (id: Id<'chats'>) => {
+    async (id: Id<"chats">) => {
       await pinChatToggle({ chatId: id });
     },
     [pinChatToggle]
@@ -157,7 +157,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 
     const lowerQuery = searchQuery.toLowerCase();
     return chats.filter((chat) =>
-      (chat.title || '').toLowerCase().includes(lowerQuery)
+      (chat.title || "").toLowerCase().includes(lowerQuery)
     );
   }, [chats, searchQuery]);
 
@@ -167,8 +167,8 @@ const ChatSidebar = memo(function SidebarComponent() {
       return { pinnedChats: [], unpinnedChats: [] };
     }
 
-    const pinned: Doc<'chats'>[] = [];
-    const unpinned: Doc<'chats'>[] = [];
+    const pinned: Doc<"chats">[] = [];
+    const unpinned: Doc<"chats">[] = [];
 
     // Single pass through the array instead of two filter operations
     for (const chat of filteredChats) {
@@ -194,9 +194,9 @@ const ChatSidebar = memo(function SidebarComponent() {
       {/* Fixed collapse button with animated extra buttons (always same size/position) */}
       <div className="fixed top-4 left-4 z-[60] flex flex-row items-center">
         <button
-          aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
           className={
-            'group flex items-center justify-center rounded-full p-2 outline-none transition-all duration-300 hover:bg-accent focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+            "group flex items-center justify-center rounded-full p-2 outline-none transition-all duration-300 hover:bg-accent focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           }
           onClick={toggleSidebar}
           tabIndex={0}
@@ -224,7 +224,7 @@ const ChatSidebar = memo(function SidebarComponent() {
                 opacity: isOpen ? 0 : 1,
               }}
               onClick={handleSearchButtonClick}
-              style={{ pointerEvents: isOpen ? 'none' : 'auto' }}
+              style={{ pointerEvents: isOpen ? "none" : "auto" }}
               tabIndex={isOpen ? -1 : 0}
               transition={{
                 ...TRANSITION_LAYOUT,
@@ -240,7 +240,7 @@ const ChatSidebar = memo(function SidebarComponent() {
           </TooltipTrigger>
           <TooltipContent>Search</TooltipContent>
         </Tooltip>
-        {pathname !== '/' && (
+        {pathname !== "/" && (
           <Tooltip>
             <TooltipTrigger asChild>
               <motion.button
@@ -257,7 +257,7 @@ const ChatSidebar = memo(function SidebarComponent() {
                   opacity: isOpen ? 0 : 1,
                 }}
                 onClick={handleNewChatClick}
-                style={{ pointerEvents: isOpen ? 'none' : 'auto' }}
+                style={{ pointerEvents: isOpen ? "none" : "auto" }}
                 tabIndex={isOpen ? -1 : 0}
                 transition={{
                   ...TRANSITION_LAYOUT,
@@ -297,7 +297,7 @@ const ChatSidebar = memo(function SidebarComponent() {
             }}
             transition={{
               duration: 0.15,
-              ease: 'easeInOut',
+              ease: "easeInOut",
               delay: isOpen ? 0.1 : 0,
             }}
           >
@@ -312,13 +312,13 @@ const ChatSidebar = memo(function SidebarComponent() {
                 height={32}
                 priority
                 src={
-                  theme === 'dark'
-                    ? '/oschat_logo_dark.svg'
-                    : '/oschat_logo_light.svg'
+                  theme === "dark"
+                    ? "/oschat_logo_dark.svg"
+                    : "/oschat_logo_light.svg"
                 }
                 style={{
-                  filter: 'none',
-                  imageRendering: 'auto',
+                  filter: "none",
+                  imageRendering: "auto",
                 }}
                 unoptimized
                 width={128}

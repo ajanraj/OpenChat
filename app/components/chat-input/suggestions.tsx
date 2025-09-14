@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { AnimatePresence, motion } from 'motion/react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { PromptSuggestion } from '@/components/prompt-kit/prompt-suggestion';
-import { TRANSITION_SUGGESTIONS } from '@/lib/motion';
-import { SUGGESTIONS as SUGGESTIONS_CONFIG } from '../../../lib/config';
+import { AnimatePresence, motion } from "motion/react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { PromptSuggestion } from "@/components/prompt-kit/prompt-suggestion";
+import { TRANSITION_SUGGESTIONS } from "@/lib/motion";
+import { SUGGESTIONS as SUGGESTIONS_CONFIG } from "../../../lib/config";
 
 type SuggestionsProps = {
   onValueChange: (value: string) => void;
@@ -68,13 +68,13 @@ export const Suggestions = memo(function SuggestionsComponent({
         initial="initial"
         key="suggestions-grid"
         style={{
-          scrollbarWidth: 'none',
+          scrollbarWidth: "none",
         }}
         transition={TRANSITION_SUGGESTIONS}
         variants={{
-          initial: { opacity: 0, y: 10, filter: 'blur(4px)' },
-          animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-          exit: { opacity: 0, y: -10, filter: 'blur(4px)' },
+          initial: { opacity: 0, y: 10, filter: "blur(4px)" },
+          animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+          exit: { opacity: 0, y: -10, filter: "blur(4px)" },
         }}
       >
         {SUGGESTIONS_CONFIG.map((suggestion, index) => (
@@ -114,9 +114,9 @@ export const Suggestions = memo(function SuggestionsComponent({
         key={activeCategoryData?.label}
         transition={TRANSITION_SUGGESTIONS}
         variants={{
-          initial: { opacity: 0, y: 10, filter: 'blur(4px)' },
-          animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-          exit: { opacity: 0, y: -10, filter: 'blur(4px)' },
+          initial: { opacity: 0, y: 10, filter: "blur(4px)" },
+          animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+          exit: { opacity: 0, y: -10, filter: "blur(4px)" },
         }}
       >
         {activeCategoryData?.items.map((suggestion: string, index: number) => (

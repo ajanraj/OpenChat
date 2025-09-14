@@ -1,5 +1,5 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -14,7 +14,7 @@ export function isDeepEqual(a: unknown, b: unknown): boolean {
     return a === b;
   }
 
-  if (typeof a !== 'object' || typeof b !== 'object') {
+  if (typeof a !== "object" || typeof b !== "object") {
     return false;
   }
 

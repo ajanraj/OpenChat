@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { usePathname } from 'next/navigation';
+import { usePathname } from "next/navigation";
 import {
   createContext,
   type Dispatch,
@@ -9,7 +9,7 @@ import {
   useEffect,
   useMemo,
   useState,
-} from 'react';
+} from "react";
 
 type ChatSessionContextType = {
   chatId: string | null;
@@ -36,8 +36,8 @@ export function ChatSessionProvider({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const chatId = useMemo(() => {
-    if (pathname?.startsWith('/c/')) {
-      return pathname.split('/c/')[1];
+    if (pathname?.startsWith("/c/")) {
+      return pathname.split("/c/")[1];
     }
     return null;
   }, [pathname]);

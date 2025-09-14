@@ -31,38 +31,38 @@ export function sanitizeMessageParts(
   // biome-ignore lint/suspicious/noExplicitAny: parts can be any; we validate properties at runtime
   return (parts ?? []).map((p: any) => {
     try {
-      if (!p || typeof p !== 'object') {
+      if (!p || typeof p !== "object") {
         return p;
       }
 
       // Redact sensitive tool use info (except tool-search which is public)
       if (
-        typeof p.type === 'string' &&
-        p.type.startsWith('tool-') &&
-        p.type !== 'tool-search'
+        typeof p.type === "string" &&
+        p.type.startsWith("tool-") &&
+        p.type !== "tool-search"
       ) {
         const cloned = { ...p } as Record<string, unknown>;
-        if ('input' in cloned) {
-          cloned.input = 'REDACTED';
+        if ("input" in cloned) {
+          cloned.input = "REDACTED";
         }
-        if ('output' in cloned) {
-          cloned.output = 'REDACTED';
+        if ("output" in cloned) {
+          cloned.output = "REDACTED";
         }
-        if ('error' in cloned) {
-          cloned.error = 'REDACTED';
+        if ("error" in cloned) {
+          cloned.error = "REDACTED";
         }
         return cloned;
       }
 
       // Hide files/images if requested
-      if (options.hideFiles && p.type === 'file') {
-        return { ...p, url: 'redacted' };
+      if (options.hideFiles && p.type === "file") {
+        return { ...p, url: "redacted" };
       }
 
       return p;
     } catch (_err) {
       // Fail closed: return safe placeholder instead of potentially sensitive original
-      return { type: 'redacted', error: 'Content sanitization failed' };
+      return { type: "redacted", error: "Content sanitization failed" };
     }
   });
 }

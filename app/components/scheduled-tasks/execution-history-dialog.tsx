@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
-import { ClockIcon } from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import dayjs from 'dayjs';
-import { useRouter } from 'next/navigation';
-import { memo, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { convexQuery } from "@convex-dev/react-query";
+import { ClockIcon } from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import { useRouter } from "next/navigation";
+import { memo, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,43 +14,43 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Pill, PillIndicator } from '@/components/ui/pill';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+} from "@/components/ui/dialog";
+import { Pill, PillIndicator } from "@/components/ui/pill";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
 type ExecutionHistoryDialogProps = {
   trigger: React.ReactNode;
-  taskId: Id<'scheduled_tasks'>;
+  taskId: Id<"scheduled_tasks">;
   taskTitle: string;
 };
 
 // Static constants for better performance
 const STATUS_CONFIG = {
   pending: {
-    label: 'Pending',
-    indicator: 'info' as const,
+    label: "Pending",
+    indicator: "info" as const,
   },
   running: {
-    label: 'Running',
-    indicator: 'warning' as const,
+    label: "Running",
+    indicator: "warning" as const,
   },
   success: {
-    label: 'Success',
-    indicator: 'success' as const,
+    label: "Success",
+    indicator: "success" as const,
   },
   failure: {
-    label: 'Failed',
-    indicator: 'error' as const,
+    label: "Failed",
+    indicator: "error" as const,
   },
   cancelled: {
-    label: 'Cancelled',
-    indicator: 'info' as const,
+    label: "Cancelled",
+    indicator: "info" as const,
   },
   timeout: {
-    label: 'Timeout',
-    indicator: 'warning' as const,
+    label: "Timeout",
+    indicator: "warning" as const,
   },
 } as const;
 
@@ -88,13 +88,13 @@ function ExecutionHistoryDialogComponent({
 
   // Memoized formatters
   const formatTime = useMemo(() => {
-    return (timestamp: number) => dayjs(timestamp).format('MMM D, h:mm a');
+    return (timestamp: number) => dayjs(timestamp).format("MMM D, h:mm a");
   }, []);
 
   const formatDuration = useMemo(() => {
     return (startTime: number, endTime?: number) => {
       if (!endTime) {
-        return 'Running...';
+        return "Running...";
       }
       const duration = endTime - startTime;
       const seconds = Math.round(duration / 1000);
@@ -219,7 +219,7 @@ function ExecutionHistoryDialogComponent({
                             </div>
                             {execution.metadata?.totalTokens !== undefined && (
                               <div className="text-muted-foreground text-xs">
-                                Tokens:{' '}
+                                Tokens:{" "}
                                 {execution.metadata.totalTokens.toLocaleString()}
                               </div>
                             )}

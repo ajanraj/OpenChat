@@ -1,10 +1,10 @@
-import Google from '@auth/core/providers/google';
-import { Anonymous } from '@convex-dev/auth/providers/Anonymous';
-import { convexAuth } from '@convex-dev/auth/server';
-import { MODEL_DEFAULT, RECOMMENDED_MODELS } from '../lib/config';
-import type { Id } from './_generated/dataModel';
-import type { MutationCtx } from './_generated/server';
-import { rateLimiter } from './rateLimiter';
+import Google from "@auth/core/providers/google";
+import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
+import { convexAuth } from "@convex-dev/auth/server";
+import { MODEL_DEFAULT, RECOMMENDED_MODELS } from "../lib/config";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+import { rateLimiter } from "./rateLimiter";
 
 // Helper function to initialize user fields
 const initializeUserFields = () => ({
@@ -18,7 +18,7 @@ const initializeUserFields = () => ({
 // Helper function to initialize rate limits for new user
 const initializeRateLimits = async (
   ctx: MutationCtx,
-  userId: Id<'users'>,
+  userId: Id<"users">,
   isAnonymous: boolean
 ): Promise<void> => {
   try {
@@ -26,8 +26,8 @@ const initializeRateLimits = async (
 
     // Daily limits based on user type
     const dailyLimitName = isAnonymous
-      ? 'anonymousDaily'
-      : 'authenticatedDaily';
+      ? "anonymousDaily"
+      : "authenticatedDaily";
     rateLimitPromises.push(
       rateLimiter.limit(ctx, dailyLimitName, {
         key: userId,
@@ -37,7 +37,7 @@ const initializeRateLimits = async (
 
     // Monthly limits for all users
     rateLimitPromises.push(
-      rateLimiter.limit(ctx, 'standardMonthly', {
+      rateLimiter.limit(ctx, "standardMonthly", {
         key: userId,
         count: 0,
       })
@@ -45,7 +45,7 @@ const initializeRateLimits = async (
 
     // Initialize premium credits counter for all users (will only be used by premium users)
     rateLimitPromises.push(
-      rateLimiter.limit(ctx, 'premiumMonthly', {
+      rateLimiter.limit(ctx, "premiumMonthly", {
         key: userId,
         count: 0,
       })
@@ -75,7 +75,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       }
 
       // Create new user (either anonymous or OAuth)
-      const isAnonymous = type !== 'oauth';
+      const isAnonymous = type !== "oauth";
 
       // Build user fields with OAuth profile information if available
       const baseFields = {
@@ -84,7 +84,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       };
 
       const userFields =
-        type === 'oauth' && profile
+        type === "oauth" && profile
           ? {
               ...baseFields,
               name: profile.name as string | undefined,
@@ -95,7 +95,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             }
           : baseFields;
 
-      const userId = await ctx.db.insert('users', userFields);
+      const userId = await ctx.db.insert("users", userFields);
 
       // Initialize rate limits for new user
       await initializeRateLimits(ctx, userId, isAnonymous);

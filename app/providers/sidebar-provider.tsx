@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import type React from 'react';
-import { createContext, useCallback, useContext, useState } from 'react';
+import type React from "react";
+import { createContext, useCallback, useContext, useState } from "react";
 
 type SidebarContextType = {
   isSidebarOpen: boolean;
@@ -12,10 +12,10 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        const savedState = localStorage.getItem('sidebarOpen');
-        return savedState === 'true';
+        const savedState = localStorage.getItem("sidebarOpen");
+        return savedState === "true";
       } catch {
         // Fallback to false if localStorage is blocked/unavailable
         return false;
@@ -27,9 +27,9 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => {
       const newState = !prev;
-      if (typeof window !== 'undefined' && window.localStorage) {
+      if (typeof window !== "undefined" && window.localStorage) {
         try {
-          localStorage.setItem('sidebarOpen', String(newState));
+          localStorage.setItem("sidebarOpen", String(newState));
         } catch {
           // Silently handle localStorage errors (private mode, quota exceeded, etc.)
         }
@@ -48,7 +48,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 export function useSidebar() {
   const context = useContext(SidebarContext);
   if (context === undefined) {
-    throw new Error('useSidebar must be used within a SidebarProvider');
+    throw new Error("useSidebar must be used within a SidebarProvider");
   }
   return context;
 }

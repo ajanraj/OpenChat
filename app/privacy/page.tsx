@@ -1,10 +1,10 @@
-import type { Metadata } from 'next';
-import { LegalHeader } from '@/app/components/layout/legal/legal-header';
+import type { Metadata } from "next";
+import { LegalHeader } from "@/app/components/layout/legal/legal-header";
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy - OS Chat',
+  title: "Privacy Policy - OS Chat",
   description:
-    'OS Chat Privacy Policy - How we collect, use, and protect your personal information',
+    "OS Chat Privacy Policy - How we collect, use, and protect your personal information",
 };
 
 export default function PrivacyPage() {
@@ -230,7 +230,7 @@ export default function PrivacyPage() {
           <p>
             Our AI systems automatically generate responses and may flag
             inappropriate content. You can request human review of automated
-            decisions by contacting us at{' '}
+            decisions by contacting us at{" "}
             <a href="mailto:support@oschat.ai">support@oschat.ai</a>.
           </p>
 
@@ -277,7 +277,7 @@ export default function PrivacyPage() {
             preference you can set in your browser to let the websites you visit
             know that you do not want them collecting certain information about
             you. For more details about Do Not Track, including how to enable or
-            disable this preference, visit{' '}
+            disable this preference, visit{" "}
             <a href="https://www.allaboutdnt.com/">
               https://www.allaboutdnt.com
             </a>
@@ -297,16 +297,16 @@ export default function PrivacyPage() {
           <h3>14. Contact Us</h3>
           <p>Questions about privacy? Contact us:</p>
           <p>
-            <strong>Email:</strong>{' '}
+            <strong>Email:</strong>{" "}
             <a href="mailto:support@oschat.ai">support@oschat.ai</a>
             <br />
-            <strong>Website:</strong>{' '}
+            <strong>Website:</strong>{" "}
             <a href="https://oschat.ai">https://oschat.ai</a>
           </p>
 
           <p>
             <strong>California residents:</strong> You may also contact the
-            California Attorney General at{' '}
+            California Attorney General at{" "}
             <a href="https://oag.ca.gov/contact/consumer-complaint-against-business-or-company">
               oag.ca.gov/contact/consumer-complaint-against-business-or-company
             </a>

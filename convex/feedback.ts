@@ -1,6 +1,6 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
-import { v } from 'convex/values';
-import { mutation } from './_generated/server';
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
+import { mutation } from "./_generated/server";
 // import { Feedback } from './schema/feedback';
 
 export const createFeedback = mutation({
@@ -11,7 +11,7 @@ export const createFeedback = mutation({
     if (!userId) {
       return null;
     }
-    await ctx.db.insert('feedback', {
+    await ctx.db.insert("feedback", {
       userId,
       message,
       createdAt: Date.now(),

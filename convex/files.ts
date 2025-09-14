@@ -1,12 +1,12 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
-import { R2, type R2Callbacks } from '@convex-dev/r2';
-import { ConvexError, v } from 'convex/values';
-import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BYTES } from '@/lib/config/upload';
-import { sanitizeAndValidateFileName } from '@/lib/filename';
-import { ERROR_CODES } from '../lib/error-codes';
-import { api, components, internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import { action, internalMutation, mutation, query } from './_generated/server';
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { R2, type R2Callbacks } from "@convex-dev/r2";
+import { ConvexError, v } from "convex/values";
+import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BYTES } from "@/lib/config/upload";
+import { sanitizeAndValidateFileName } from "@/lib/filename";
+import { ERROR_CODES } from "../lib/error-codes";
+import { api, components, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 
 // R2 client and client API exports (used by React upload hook and server routes)
 const r2 = new R2(components.r2);
@@ -33,13 +33,13 @@ export const { generateUploadUrl, syncMetadata, onSyncMetadata } = r2.clientApi(
 
       // If a row for this key already exists for this user, skip insert
       const existing = await ctx.db
-        .query('chat_attachments')
-        .withIndex('by_key', (q) => q.eq('key', key))
+        .query("chat_attachments")
+        .withIndex("by_key", (q) => q.eq("key", key))
         .first();
       if (existing) {
         return;
       }
-      await ctx.db.insert('chat_attachments', {
+      await ctx.db.insert("chat_attachments", {
         userId,
         key,
       });
@@ -49,18 +49,18 @@ export const { generateUploadUrl, syncMetadata, onSyncMetadata } = r2.clientApi(
       // args received from syncMetadata
       const meta = await r2.getMetadata(ctx, args.key);
       // metadata synced from R2
-      const contentType = meta?.contentType ?? 'application/octet-stream';
+      const contentType = meta?.contentType ?? "application/octet-stream";
       const contentLength = meta?.size ?? 0;
 
       const row = await ctx.db
-        .query('chat_attachments')
-        .withIndex('by_key', (q) => q.eq('key', args.key))
+        .query("chat_attachments")
+        .withIndex("by_key", (q) => q.eq("key", args.key))
         .first();
       if (!row) {
         return;
       }
 
-      const rowId = row._id as Id<'chat_attachments'>;
+      const rowId = row._id as Id<"chat_attachments">;
       await ctx.db.patch(rowId, {
         fileType: contentType,
         fileSize: contentLength,
@@ -74,58 +74,58 @@ export const { generateUploadUrl, syncMetadata, onSyncMetadata } = r2.clientApi(
 // Only these models currently support file inputs. Update as new ones roll out.
 const FILE_UPLOAD_MODELS = [
   // Anthropic models
-  'claude-3-5-sonnet-20241022',
-  'claude-3-7-sonnet-20250219',
-  'claude-3-7-sonnet-reasoning',
-  'claude-4-opus',
-  'claude-4-sonnet',
-  'claude-4-sonnet-reasoning',
+  "claude-3-5-sonnet-20241022",
+  "claude-3-7-sonnet-20250219",
+  "claude-3-7-sonnet-reasoning",
+  "claude-4-opus",
+  "claude-4-sonnet",
+  "claude-4-sonnet-reasoning",
 
   // OpenAI models
-  'gpt-4o',
-  'gpt-4o-mini',
-  'o4-mini',
-  'o3',
-  'o3-pro',
-  'gpt-4.1',
-  'gpt-4.1-mini',
-  'gpt-4.1-nano',
-  'gpt-4.5',
-  'gpt-5',
-  'gpt-5-mini',
-  'gpt-5-nano',
+  "gpt-4o",
+  "gpt-4o-mini",
+  "o4-mini",
+  "o3",
+  "o3-pro",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+  "gpt-4.5",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
 
-  'glm-4.5v',
+  "glm-4.5v",
 
   // Google models
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-thinking',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-flash-lite-thinking',
-  'gemini-2.5-pro',
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-thinking",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash-lite-thinking",
+  "gemini-2.5-pro",
 
   // Meta models
-  'meta-llama/llama-4-maverick:free',
-  'meta-llama/llama-4-scout:free',
+  "meta-llama/llama-4-maverick:free",
+  "meta-llama/llama-4-scout:free",
 
   // Mistral models
-  'pixtral-large-latest',
+  "pixtral-large-latest",
 
   // Grok models
-  'grok-3',
-  'grok-3-mini',
+  "grok-3",
+  "grok-3-mini",
 ] as const;
 
 type AllowedMimeType = (typeof UPLOAD_ALLOWED_MIME)[number];
 type FileUploadModel = (typeof FILE_UPLOAD_MODELS)[number];
 
 type SavedAttachment = {
-  _id: Id<'chat_attachments'>;
+  _id: Id<"chat_attachments">;
   _creationTime: number;
-  userId: Id<'users'>;
-  chatId: Id<'chats'>;
+  userId: Id<"users">;
+  chatId: Id<"chats">;
   key: string; // R2 object key
   fileName: string; // display name
   fileType: string;
@@ -139,7 +139,7 @@ type SavedAttachment = {
  */
 export const saveFileAttachment = action({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     key: v.string(),
     fileName: v.string(),
   },
@@ -175,14 +175,14 @@ export const saveFileAttachment = action({
       // Metadata still not available; ask client to retry shortly
       throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }
-    const derivedType = meta.contentType ?? 'application/octet-stream';
+    const derivedType = meta.contentType ?? "application/octet-stream";
     const derivedSize = meta.size ?? 0;
     const safeName = sanitizeAndValidateFileName(args.fileName);
     // derived metadata assembled above
 
     const publicBase = process.env.R2_PUBLIC_URL_BASE;
     const publicUrl = publicBase
-      ? `${publicBase.replace(TRAILING_SLASH_RE, '')}/${args.key}`
+      ? `${publicBase.replace(TRAILING_SLASH_RE, "")}/${args.key}`
       : undefined;
 
     const attachmentId = await ctx.runMutation(internal.files.internalSave, {
@@ -208,7 +208,7 @@ export const saveFileAttachment = action({
  */
 export const saveGeneratedImage = action({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     key: v.string(),
     url: v.optional(v.string()),
     fileName: v.optional(v.string()),
@@ -222,19 +222,19 @@ export const saveGeneratedImage = action({
     // Sync metadata and read it
     await ctx.runMutation(api.files.syncMetadata, { key: args.key });
     const meta = await r2.getMetadata(ctx, args.key);
-    const mime = meta?.contentType ?? 'application/octet-stream';
+    const mime = meta?.contentType ?? "application/octet-stream";
     const size = meta?.size ?? 0;
 
     // Compute default filename if not provided
     const epochMs = Date.now();
-    const subtype = mime.split('/')[1] ?? '';
-    const defaultExt = (subtype.split('+')[0] || 'bin').toLowerCase();
+    const subtype = mime.split("/")[1] ?? "";
+    const defaultExt = (subtype.split("+")[0] || "bin").toLowerCase();
     const fileName = args.fileName ?? `gen-${epochMs}.${defaultExt}`;
 
     const publicUrl =
       args.url ??
       (process.env.R2_PUBLIC_URL_BASE
-        ? `${process.env.R2_PUBLIC_URL_BASE.replace(TRAILING_SLASH_RE, '')}/${args.key}`
+        ? `${process.env.R2_PUBLIC_URL_BASE.replace(TRAILING_SLASH_RE, "")}/${args.key}`
         : undefined);
 
     const attachmentId = await ctx.runMutation(
@@ -260,7 +260,7 @@ export const saveGeneratedImage = action({
 
 export const internalSave = internalMutation({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     key: v.string(),
     fileName: v.string(),
     fileType: v.string(),
@@ -275,8 +275,8 @@ export const internalSave = internalMutation({
 
     // Verify that the key belongs to the current user via the pending row.
     const existing = await ctx.db
-      .query('chat_attachments')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .query("chat_attachments")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
       .first();
     if (!existing || existing.userId !== userId) {
       // Do NOT delete here; key belongs to another user or not tracked
@@ -333,7 +333,7 @@ export const internalSave = internalMutation({
 
 export const internalSaveGenerated = internalMutation({
   args: {
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     key: v.string(),
     fileName: v.string(),
     fileType: v.string(),
@@ -348,8 +348,8 @@ export const internalSaveGenerated = internalMutation({
 
     // Verify ownership of the key to this user
     const existing = await ctx.db
-      .query('chat_attachments')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .query("chat_attachments")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
       .first();
     if (!existing || existing.userId !== userId) {
       throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
@@ -385,7 +385,7 @@ export const internalSaveGenerated = internalMutation({
 });
 
 export const getAttachment = query({
-  args: { attachmentId: v.id('chat_attachments') },
+  args: { attachmentId: v.id("chat_attachments") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -409,8 +409,8 @@ export const findAttachmentByKey = query({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
     const row = await ctx.db
-      .query('chat_attachments')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .query("chat_attachments")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
       .first();
     if (!row || row.userId !== userId) {
       return null;
@@ -436,7 +436,7 @@ export const getStorageUrl = query({
       if (!base) {
         return null;
       }
-      return `${base.replace(TRAILING_SLASH_RE, '')}/${args.key}`;
+      return `${base.replace(TRAILING_SLASH_RE, "")}/${args.key}`;
     } catch {
       // Silently handle URL generation errors
       return null;
@@ -456,9 +456,9 @@ export const getAttachmentsForUser = query({
     }
 
     const attachments = await ctx.db
-      .query('chat_attachments')
-      .withIndex('by_userId', (q) => q.eq('userId', userId))
-      .order('desc')
+      .query("chat_attachments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .order("desc")
       .collect();
 
     return Promise.all(
@@ -471,7 +471,7 @@ export const getAttachmentsForUser = query({
 });
 
 export const deleteAttachments = mutation({
-  args: { attachmentIds: v.array(v.id('chat_attachments')) },
+  args: { attachmentIds: v.array(v.id("chat_attachments")) },
   handler: async (ctx, { attachmentIds }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -483,8 +483,8 @@ export const deleteAttachments = mutation({
 
     // Fetch all user attachments in a single query using the by_userId index
     const userAttachments = await ctx.db
-      .query('chat_attachments')
-      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .query("chat_attachments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
 
     // Filter to only include attachments that are in the deletion list
@@ -504,7 +504,7 @@ export const deleteAttachments = mutation({
 });
 
 export const getAttachmentsForChat = query({
-  args: { chatId: v.id('chats') },
+  args: { chatId: v.id("chats") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -518,8 +518,8 @@ export const getAttachmentsForChat = query({
     }
 
     const attachments = await ctx.db
-      .query('chat_attachments')
-      .withIndex('by_chatId', (q) => q.eq('chatId', args.chatId))
+      .query("chat_attachments")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
       .collect();
 
     return Promise.all(

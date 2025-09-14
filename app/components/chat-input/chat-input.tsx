@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import { ArrowUp, Globe, Stop, X } from '@phosphor-icons/react';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowUp, Globe, Stop, X } from "@phosphor-icons/react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   PromptInput,
   PromptInputAction,
   PromptInputActions,
   PromptInputTextarea,
-} from '@/components/prompt-kit/prompt-input';
-import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/toast';
+} from "@/components/prompt-kit/prompt-input";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import {
   getAllowedLabel,
   PASTE_ALLOWED_MIME,
   UPLOAD_MAX_BYTES,
   UPLOAD_MAX_LABEL,
-} from '@/lib/config/upload';
-import { ButtonFileUpload } from './button-file-upload';
-import { ButtonToolsDropdown } from './button-tools-dropdown';
-import { FileList } from './file-list';
-import { PromptSystem } from './prompt-system';
-import { SelectModel } from './select-model';
-import { SelectReasoningEffort } from './select-reasoning-effort';
+} from "@/lib/config/upload";
+import { ButtonFileUpload } from "./button-file-upload";
+import { ButtonToolsDropdown } from "./button-tools-dropdown";
+import { FileList } from "./file-list";
+import { PromptSystem } from "./prompt-system";
+import { SelectModel } from "./select-model";
+import { SelectReasoningEffort } from "./select-reasoning-effort";
 
-type ReasoningEffort = 'low' | 'medium' | 'high';
+type ReasoningEffort = "low" | "medium" | "high";
 
 type ChatInputProps = {
   onSendAction: (message: string, options: { enableSearch: boolean }) => void;
@@ -40,7 +40,7 @@ type ChatInputProps = {
   onSelectSystemPromptAction: (personaId: string) => void;
   selectedPersonaId?: string;
   stopAction: () => void;
-  status?: 'submitted' | 'streaming' | 'ready' | 'error';
+  status?: "submitted" | "streaming" | "ready" | "error";
   isReasoningModel: boolean;
   reasoningEffort: ReasoningEffort;
   onSelectReasoningEffortAction: (reasoningEffort: ReasoningEffort) => void;
@@ -65,7 +65,7 @@ export function ChatInput({
   isReasoningModel,
   reasoningEffort,
   onSelectReasoningEffortAction,
-  initialValue = '',
+  initialValue = "",
 }: ChatInputProps) {
   // Local state for input value to prevent parent re-renders
   const [value, setValue] = useState(initialValue);
@@ -80,7 +80,7 @@ export function ChatInput({
 
   // Only update isEmpty when the emptiness state actually changes
   useEffect(() => {
-    const currentEmpty = !value || value.trim() === '';
+    const currentEmpty = !value || value.trim() === "";
     if (currentEmpty !== isEmpty) {
       setIsEmpty(currentEmpty);
     }
@@ -97,17 +97,17 @@ export function ChatInput({
         return;
       }
 
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         onSendAction(value, { enableSearch: searchEnabled });
-        setValue(''); // Clear input after sending
+        setValue(""); // Clear input after sending
       }
     },
     [onSendAction, isSubmitting, searchEnabled, value]
   );
 
   const handleMainClick = () => {
-    if (status === 'streaming') {
+    if (status === "streaming") {
       stopAction();
       return;
     }
@@ -118,7 +118,7 @@ export function ChatInput({
     }
 
     onSendAction(value, { enableSearch: searchEnabled });
-    setValue(''); // Clear input after sending
+    setValue(""); // Clear input after sending
   };
 
   const handleSuggestionClick = useCallback(
@@ -137,7 +137,7 @@ export function ChatInput({
       }
 
       // Check if there are any file items in the clipboard (not just text)
-      const hasFiles = Array.from(items).some((item) => item.kind === 'file');
+      const hasFiles = Array.from(items).some((item) => item.kind === "file");
       // If user is not authenticated and trying to paste files, prevent it
       if (!isUserAuthenticated && hasFiles) {
         e.preventDefault();
@@ -165,12 +165,12 @@ export function ChatInput({
             }
             const newFile = new File(
               [file],
-              `pasted-image-${Date.now()}.${file.type.split('/')[1]}`,
+              `pasted-image-${Date.now()}.${file.type.split("/")[1]}`,
               { type: file.type }
             );
             imageFiles.push(newFile);
           }
-        } else if (item.type.startsWith('image/')) {
+        } else if (item.type.startsWith("image/")) {
           hadInvalidType = true;
         }
       }
@@ -180,21 +180,21 @@ export function ChatInput({
       } else {
         // If there were image items but none matched allowed types, show feedback
         const hadAnyImages = Array.from(items).some((it) =>
-          it.type.startsWith('image/')
+          it.type.startsWith("image/")
         );
         if (hadAnyImages) {
           e.preventDefault();
           if (hadTooLarge) {
             toast({
-              title: 'File too large',
+              title: "File too large",
               description: `Max ${UPLOAD_MAX_LABEL} per file`,
-              status: 'error',
+              status: "error",
             });
           } else if (hadInvalidType) {
             toast({
-              title: 'File not supported',
+              title: "File not supported",
               description: `Allowed: ${getAllowedLabel(Array.from(allowed))}`,
-              status: 'error',
+              status: "error",
             });
           }
         }
@@ -208,8 +208,8 @@ export function ChatInput({
     if (!el) {
       return;
     }
-    el.addEventListener('paste', handlePaste);
-    return () => el.removeEventListener('paste', handlePaste);
+    el.addEventListener("paste", handlePaste);
+    return () => el.removeEventListener("paste", handlePaste);
   }, [handlePaste]);
 
   // Auto-focus on typing: focus the textarea when user starts typing
@@ -223,8 +223,8 @@ export function ChatInput({
       // Don't steal focus if another input element is already focused
       const activeElement = document.activeElement;
       if (
-        activeElement?.tagName === 'INPUT' ||
-        activeElement?.tagName === 'TEXTAREA' ||
+        activeElement?.tagName === "INPUT" ||
+        activeElement?.tagName === "TEXTAREA" ||
         (activeElement as HTMLElement)?.isContentEditable
       ) {
         return;
@@ -245,16 +245,16 @@ export function ChatInput({
       }
     };
 
-    document.addEventListener('keydown', handleGlobalKeyDown);
-    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
   }, [isSubmitting]);
 
   // Compute tooltip text without nested ternary expressions
-  let tooltipText = 'Send';
-  if (status === 'streaming') {
-    tooltipText = 'Stop';
+  let tooltipText = "Send";
+  if (status === "streaming") {
+    tooltipText = "Stop";
   } else if (isSubmitting && files.length > 0) {
-    tooltipText = 'Uploading...';
+    tooltipText = "Uploading...";
   }
 
   return (
@@ -329,14 +329,14 @@ export function ChatInput({
                 disabled={
                   !value.trim() &&
                   files.length === 0 &&
-                  status !== 'streaming' &&
-                  status !== 'submitted'
+                  status !== "streaming" &&
+                  status !== "submitted"
                 }
                 onClick={handleMainClick}
                 size="sm"
                 type="button"
               >
-                {status === 'streaming' || status === 'submitted' ? (
+                {status === "streaming" || status === "submitted" ? (
                   <Stop className="size-4" />
                 ) : (
                   <ArrowUp className="size-4" />

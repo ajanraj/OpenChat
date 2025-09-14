@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { ArrowCounterClockwise, X } from '@phosphor-icons/react';
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { ArrowCounterClockwise, X } from "@phosphor-icons/react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from '@/components/ui/hover-card';
+} from "@/components/ui/hover-card";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 
 type FileItemProps = {
   file: File;
@@ -39,12 +39,12 @@ export function FileItem({ file, onRemoveAction }: FileItemProps) {
     <div className="relative mr-2 mb-0 flex items-center">
       <HoverCard
         onOpenChange={setIsOpen}
-        open={file.type.includes('image') ? isOpen : false}
+        open={file.type.includes("image") ? isOpen : false}
       >
         <HoverCardTrigger className="w-full">
           <div className="flex w-full items-center gap-3 rounded-2xl border border-input bg-background p-2 pr-3 transition-colors hover:bg-accent">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent-foreground">
-              {file.type.includes('image') ? (
+              {file.type.includes("image") ? (
                 <Image
                   alt={file.name}
                   className="h-full w-full object-cover"
@@ -54,7 +54,7 @@ export function FileItem({ file, onRemoveAction }: FileItemProps) {
                 />
               ) : (
                 <div className="text-center text-gray-400 text-xs">
-                  {file.name.split('.').pop()?.toUpperCase()}
+                  {file.name.split(".").pop()?.toUpperCase()}
                 </div>
               )}
             </div>
@@ -112,9 +112,9 @@ export function ExistingFileItem({
   kept,
   onToggle,
 }: ExistingFileItemProps) {
-  const isImage = Boolean(attachment.mediaType?.startsWith('image'));
-  const ext = attachment.filename?.split('.').pop()?.toUpperCase();
-  const canonicalUrl = attachment.url.split('?')[0];
+  const isImage = Boolean(attachment.mediaType?.startsWith("image"));
+  const ext = attachment.filename?.split(".").pop()?.toUpperCase();
+  const canonicalUrl = attachment.url.split("?")[0];
 
   const handleToggle = () => onToggle(canonicalUrl);
 
@@ -123,12 +123,12 @@ export function ExistingFileItem({
       <HoverCard>
         <HoverCardTrigger className="w-full">
           <div
-            className={`flex w-full items-center gap-3 rounded-2xl border border-input p-2 pr-3 transition-colors ${kept ? 'bg-background hover:bg-accent' : 'bg-accent/50 opacity-70'}`}
+            className={`flex w-full items-center gap-3 rounded-2xl border border-input p-2 pr-3 transition-colors ${kept ? "bg-background hover:bg-accent" : "bg-accent/50 opacity-70"}`}
           >
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent-foreground">
               {isImage ? (
                 <Image
-                  alt={attachment.filename || 'attachment'}
+                  alt={attachment.filename || "attachment"}
                   className="h-full w-full object-cover"
                   height={40}
                   src={attachment.url}
@@ -140,7 +140,7 @@ export function ExistingFileItem({
             </div>
             <div className="flex flex-col overflow-hidden">
               <span className="truncate font-medium text-xs">
-                {attachment.filename || 'attachment'}
+                {attachment.filename || "attachment"}
               </span>
               <span className="text-gray-500 text-xs">Existing</span>
             </div>
@@ -149,7 +149,7 @@ export function ExistingFileItem({
         {isImage && (
           <HoverCardContent side="top">
             <Image
-              alt={attachment.filename || 'attachment'}
+              alt={attachment.filename || "attachment"}
               className="h-full w-full object-cover"
               height={200}
               src={attachment.url}
@@ -161,7 +161,7 @@ export function ExistingFileItem({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            aria-label={kept ? 'Remove file' : 'Undo remove'}
+            aria-label={kept ? "Remove file" : "Undo remove"}
             className="-translate-y-1/2 absolute top-1 right-1 z-10 inline-flex size-6 translate-x-1/2 items-center justify-center rounded-full border-[3px] border-background bg-black text-white shadow-none transition-colors"
             onClick={handleToggle}
             type="button"
@@ -173,7 +173,7 @@ export function ExistingFileItem({
             )}
           </button>
         </TooltipTrigger>
-        <TooltipContent>{kept ? 'Remove file' : 'Undo remove'}</TooltipContent>
+        <TooltipContent>{kept ? "Remove file" : "Undo remove"}</TooltipContent>
       </Tooltip>
     </div>
   );

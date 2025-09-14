@@ -1,9 +1,9 @@
-import { convexAuthNextjsToken } from '@convex-dev/auth/nextjs/server';
-import { fetchMutation, fetchQuery } from 'convex/nextjs';
-import { PostHog } from 'posthog-node';
-import { z } from 'zod';
-import { api } from '@/convex/_generated/api';
-import { createErrorResponse } from '@/lib/error-utils';
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { PostHog } from "posthog-node";
+import { z } from "zod";
+import { api } from "@/convex/_generated/api";
+import { createErrorResponse } from "@/lib/error-utils";
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +11,8 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const schema = z.object({
-      title: z.string().min(1, 'Title is required'),
-      model: z.string().min(1, 'Model is required'),
+      title: z.string().min(1, "Title is required"),
+      model: z.string().min(1, "Model is required"),
       personaId: z.string().optional(),
       timezone: z.string().optional(),
     });
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const parseResult = schema.safeParse(body);
 
     if (!parseResult.success) {
-      return createErrorResponse(new Error('Invalid request body'));
+      return createErrorResponse(new Error("Invalid request body"));
     }
 
     const { title, model, personaId } = parseResult.data;
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     // If the user is not authenticated or the token is invalid, short-circuit early
     if (!user) {
-      return createErrorResponse(new Error('Unauthorized'));
+      return createErrorResponse(new Error("Unauthorized"));
     }
 
     // Check usage limits before creating the chat. This mutation will throw
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY);
         posthog.capture({
           distinctId: user._id,
-          event: 'chat_created',
+          event: "chat_created",
           properties: {
             model,
           },
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     // The chat data itself will be fetched on the client via a query.
     return new Response(JSON.stringify({ chatId }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
     // console.error('Error in create-chat endpoint:', err);

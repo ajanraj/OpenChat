@@ -3,7 +3,7 @@
  * Helper functions for user display names and user-related operations
  */
 
-import type { Doc } from '@/convex/_generated/dataModel';
+import type { Doc } from "@/convex/_generated/dataModel";
 
 /**
  * Extracts first name from full name
@@ -12,13 +12,13 @@ export function getFirstName(fullName?: string): string | null {
   if (!fullName) {
     return null;
   }
-  return fullName.split(' ')[0];
+  return fullName.split(" ")[0];
 }
 
 /**
  * Gets the display name - prefer preferredName over extracted first name
  */
-export function getDisplayName(user: Doc<'users'> | null): string | null {
+export function getDisplayName(user: Doc<"users"> | null): string | null {
   if (user?.preferredName) {
     return user.preferredName;
   }
@@ -28,7 +28,7 @@ export function getDisplayName(user: Doc<'users'> | null): string | null {
 /**
  * Checks if user is authenticated (not anonymous)
  */
-export function isUserAuthenticated(user: Doc<'users'> | null): boolean {
+export function isUserAuthenticated(user: Doc<"users"> | null): boolean {
   return Boolean(user) && !user?.isAnonymous;
 }
 

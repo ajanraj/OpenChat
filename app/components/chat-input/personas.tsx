@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { motion } from 'motion/react';
-import { memo } from 'react';
-import { Button } from '@/components/ui/button';
-import { TRANSITION_SUGGESTIONS } from '@/lib/motion';
-import { PERSONAS } from '@/lib/prompt_config';
-import { cn } from '@/lib/utils';
+import { motion } from "motion/react";
+import { memo } from "react";
+import { Button } from "@/components/ui/button";
+import { TRANSITION_SUGGESTIONS } from "@/lib/motion";
+import { PERSONAS } from "@/lib/prompt_config";
+import { cn } from "@/lib/utils";
 
 type ButtonPersonaProps = {
   id: string;
@@ -28,13 +28,13 @@ const ButtonPersona = memo(function ButtonPersonaComponent({
   return (
     <Button
       className={cn(
-        'rounded-full',
+        "rounded-full",
         isActive &&
-          'bg-primary text-primary-foreground transition-none hover:bg-primary/90 hover:text-primary-foreground'
+          "bg-primary text-primary-foreground transition-none hover:bg-primary/90 hover:text-primary-foreground"
       )}
       key={label}
       onClick={() =>
-        isActive ? onSelectSystemPrompt('') : onSelectSystemPrompt(id)
+        isActive ? onSelectSystemPrompt("") : onSelectSystemPrompt(id)
       }
       size="lg"
       type="button"
@@ -62,13 +62,13 @@ export const Personas = memo(function PersonasComponent({
       exit="exit"
       initial="initial"
       style={{
-        scrollbarWidth: 'none',
+        scrollbarWidth: "none",
       }}
       transition={TRANSITION_SUGGESTIONS}
       variants={{
-        initial: { opacity: 0, y: 10, filter: 'blur(4px)' },
-        animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-        exit: { opacity: 0, y: -10, filter: 'blur(4px)' },
+        initial: { opacity: 0, y: 10, filter: "blur(4px)" },
+        animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+        exit: { opacity: 0, y: -10, filter: "blur(4px)" },
       }}
     >
       {PERSONAS.map((persona: (typeof PERSONAS)[0], index: number) => (

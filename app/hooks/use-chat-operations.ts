@@ -3,13 +3,13 @@
  * Manages chat creation, updates, branching, and deletion operations
  */
 
-import { useMutation } from 'convex/react';
-import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/convex/_generated/api';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
-import { processBranchError } from '@/lib/chat-error-utils';
+import { useMutation } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
+import { toast } from "@/components/ui/toast";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { processBranchError } from "@/lib/chat-error-utils";
 
 export function useChatOperations() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export function useChatOperations() {
         });
         return result.chatId;
       } catch {
-        toast({ title: 'Failed to create new chat.', status: 'error' });
+        toast({ title: "Failed to create new chat.", status: "error" });
         return null;
       }
     },
@@ -41,7 +41,7 @@ export function useChatOperations() {
     async (
       chatId: string | null,
       model: string,
-      _user: Doc<'users'> | null
+      _user: Doc<"users"> | null
     ) => {
       if (!chatId) {
         // For new chats, this will be handled by temporary state
@@ -49,10 +49,10 @@ export function useChatOperations() {
       }
 
       try {
-        await updateChatModel({ chatId: chatId as Id<'chats'>, model });
+        await updateChatModel({ chatId: chatId as Id<"chats">, model });
         return true;
       } catch {
-        toast({ title: 'Failed to update chat model', status: 'error' });
+        toast({ title: "Failed to update chat model", status: "error" });
         return false;
       }
     },
@@ -60,11 +60,11 @@ export function useChatOperations() {
   );
 
   const handleBranch = useCallback(
-    async (chatId: string, messageId: string, user: Doc<'users'> | null) => {
+    async (chatId: string, messageId: string, user: Doc<"users"> | null) => {
       if (!(chatId && user?._id)) {
         toast({
-          title: 'Unable to branch chat. Please try again.',
-          status: 'error',
+          title: "Unable to branch chat. Please try again.",
+          status: "error",
         });
         return false;
       }
@@ -77,21 +77,21 @@ export function useChatOperations() {
 
       try {
         const result = await branchChat({
-          originalChatId: chatId as Id<'chats'>,
-          branchFromMessageId: messageId as Id<'messages'>,
+          originalChatId: chatId as Id<"chats">,
+          branchFromMessageId: messageId as Id<"messages">,
         });
 
         router.push(`/c/${result.chatId}`);
         toast({
-          title: 'Chat branched successfully',
-          status: 'success',
+          title: "Chat branched successfully",
+          status: "success",
         });
         return true;
       } catch (branchError: unknown) {
         const errorMessage = processBranchError(branchError);
         toast({
           title: errorMessage,
-          status: 'error',
+          status: "error",
         });
         return false;
       } finally {
@@ -105,11 +105,11 @@ export function useChatOperations() {
     async (messageId: string) => {
       try {
         const result = await deleteMessage({
-          messageId: messageId as Id<'messages'>,
+          messageId: messageId as Id<"messages">,
         });
         return result;
       } catch {
-        toast({ title: 'Failed to delete message', status: 'error' });
+        toast({ title: "Failed to delete message", status: "error" });
         return null;
       }
     },

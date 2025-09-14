@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Check,
@@ -8,33 +8,33 @@ import {
   PushPinSimpleSlash,
   TrashSimple,
   X,
-} from '@phosphor-icons/react';
-import { useParams, useRouter } from 'next/navigation';
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { CommandItem } from '@/components/ui/command';
-import { Input } from '@/components/ui/input';
+} from "@phosphor-icons/react";
+import { useParams, useRouter } from "next/navigation";
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { CommandItem } from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/tooltip";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { cn } from "@/lib/utils";
 
 type CommandHistoryItemProps = {
-  chat: Doc<'chats'>;
-  chatHistory?: Doc<'chats'>[];
-  editingId: Id<'chats'> | null;
+  chat: Doc<"chats">;
+  chatHistory?: Doc<"chats">[];
+  editingId: Id<"chats"> | null;
   editTitle: string;
-  deletingId: Id<'chats'> | null;
-  handleEdit: (chat: Doc<'chats'>) => void;
-  handleSaveEdit: (id: Id<'chats'>) => void;
+  deletingId: Id<"chats"> | null;
+  handleEdit: (chat: Doc<"chats">) => void;
+  handleSaveEdit: (id: Id<"chats">) => void;
   handleCancelEdit: () => void;
-  handleDelete: (id: Id<'chats'>) => void;
-  handleConfirmDelete: (id: Id<'chats'>) => void;
+  handleDelete: (id: Id<"chats">) => void;
+  handleConfirmDelete: (id: Id<"chats">) => void;
   handleCancelDelete: () => void;
-  handleTogglePin: (chat: Doc<'chats'>) => void;
+  handleTogglePin: (chat: Doc<"chats">) => void;
   setIsOpen: (isOpen: boolean) => void;
   setEditTitle: (title: string) => void;
 };
@@ -80,7 +80,7 @@ export const CommandHistoryItem = React.memo(
                 className="h-8 flex-1 rounded border border-input bg-transparent px-3 py-1"
                 onChange={(e) => setEditTitle(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleSaveEdit(chat._id);
                   }
@@ -126,10 +126,10 @@ export const CommandHistoryItem = React.memo(
                   autoFocus
                   className="sr-only"
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
+                    if (e.key === "Escape") {
                       e.preventDefault();
                       handleCancelDelete();
-                    } else if (e.key === 'Enter') {
+                    } else if (e.key === "Enter") {
                       e.preventDefault();
                       handleConfirmDelete(chat._id);
                     }
@@ -162,9 +162,9 @@ export const CommandHistoryItem = React.memo(
         {!(isEditing || isDeleting) && (
           <CommandItem
             className={cn(
-              'group flex h-9 w-full items-center justify-between rounded-md px-2 py-1 hover:bg-accent',
+              "group flex h-9 w-full items-center justify-between rounded-md px-2 py-1 hover:bg-accent",
               Boolean(editingId || deletingId) &&
-                'hover:bg-transparent data-[selected=true]:bg-transparent'
+                "hover:bg-transparent data-[selected=true]:bg-transparent"
             )}
             key={chat._id}
             onSelect={() => {
@@ -200,22 +200,22 @@ export const CommandHistoryItem = React.memo(
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="z-[9999]" side="top">
-                      Branched From:{' '}
+                      Branched From:{" "}
                       {chatHistory?.find((c) => c._id === chat.originalChatId)
-                        ?.title ?? 'Parent Chat'}
+                        ?.title ?? "Parent Chat"}
                     </TooltipContent>
                   </Tooltip>
                 )}
                 <span className="line-clamp-1 flex-1 font-normal text-sm">
-                  {chat?.title || 'Untitled Chat'}
+                  {chat?.title || "Untitled Chat"}
                 </span>
               </div>
             </div>
             <div className="relative flex min-w-[100px] flex-shrink-0 justify-end">
               <div
                 className={cn(
-                  'flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-0 group-hover:opacity-100',
-                  Boolean(editingId || deletingId) && 'group-hover:opacity-0'
+                  "flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-0 group-hover:opacity-100",
+                  Boolean(editingId || deletingId) && "group-hover:opacity-0"
                 )}
               >
                 <Tooltip>
@@ -238,7 +238,7 @@ export const CommandHistoryItem = React.memo(
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="z-[9999]" side="bottom">
-                    {chat.isPinned ? 'Unpin' : 'Pin Chat'}
+                    {chat.isPinned ? "Unpin" : "Pin Chat"}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>

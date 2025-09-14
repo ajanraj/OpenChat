@@ -1,10 +1,10 @@
-import { Redis } from '@upstash/redis';
-import type { Tool } from 'ai';
+import { Redis } from "@upstash/redis";
+import type { Tool } from "ai";
 
 // Initialize Redis client using environment variables
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+  url: process.env.UPSTASH_REDIS_REST_URL || "",
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
 });
 
 // Cache TTL values (in seconds)
@@ -14,7 +14,7 @@ const CACHE_TTL = {
 
 // Cache key prefixes
 const CACHE_PREFIX = {
-  CONVERTED_TOOLS: 'composio:converted:',
+  CONVERTED_TOOLS: "composio:converted:",
 } as const;
 
 // Note: We cannot cache raw tools because they contain non-serializable functions
@@ -27,9 +27,9 @@ export async function getCachedConvertedTools(
   userId: string,
   toolkitSlugs: string[]
 ): Promise<Record<string, Tool> | null> {
-  const sortedSlugs = toolkitSlugs.sort().join(',');
+  const sortedSlugs = toolkitSlugs.sort().join(",");
   const cacheKey = `${CACHE_PREFIX.CONVERTED_TOOLS}${userId}:${sortedSlugs}`;
-  const cached = await redis.json.get(cacheKey, '$');
+  const cached = await redis.json.get(cacheKey, "$");
 
   if (!(cached && Array.isArray(cached)) || cached.length === 0) {
     return null;
@@ -47,9 +47,9 @@ export async function setCachedConvertedTools(
   tools: Record<string, Tool>
 ): Promise<void> {
   try {
-    const sortedSlugs = toolkitSlugs.sort().join(',');
+    const sortedSlugs = toolkitSlugs.sort().join(",");
     const cacheKey = `${CACHE_PREFIX.CONVERTED_TOOLS}${userId}:${sortedSlugs}`;
-    await redis.json.set(cacheKey, '$', tools);
+    await redis.json.set(cacheKey, "$", tools);
     await redis.expire(cacheKey, CACHE_TTL.CONVERTED_TOOLS);
   } catch {
     // Silently fail - caching is optional

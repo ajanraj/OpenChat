@@ -1,28 +1,28 @@
-'use client';
+"use client";
 
 import {
   CheckCircleIcon,
   GithubLogoIcon,
   InfoIcon,
   PlusIcon,
-} from '@phosphor-icons/react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { HistoryTrigger } from '@/app/components/history/history-trigger';
-import { AppInfoTrigger } from '@/app/components/layout/app-info/app-info-trigger';
-import { DialogShare } from '@/app/components/layout/dialog-share';
-import { UserMenu } from '@/app/components/layout/user-menu';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
-import { useUser } from '@/app/providers/user-provider';
-import { useTheme } from '@/components/theme-provider';
+} from "@phosphor-icons/react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { HistoryTrigger } from "@/app/components/history/history-trigger";
+import { AppInfoTrigger } from "@/app/components/layout/app-info/app-info-trigger";
+import { DialogShare } from "@/app/components/layout/dialog-share";
+import { UserMenu } from "@/app/components/layout/user-menu";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
+import { useUser } from "@/app/providers/user-provider";
+import { useTheme } from "@/components/theme-provider";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { GITHUB_REPO_URL } from '@/lib/config';
-import ThemeSwitchIcon from './theme-switch-icon';
+} from "@/components/ui/tooltip";
+import { GITHUB_REPO_URL } from "@/lib/config";
+import ThemeSwitchIcon from "./theme-switch-icon";
 
 export function Header() {
   const { user } = useUser();
@@ -44,9 +44,9 @@ export function Header() {
               height={28}
               priority
               src={
-                theme === 'dark'
-                  ? '/oschat_logo_dark.svg'
-                  : '/oschat_logo_light.svg'
+                theme === "dark"
+                  ? "/oschat_logo_dark.svg"
+                  : "/oschat_logo_light.svg"
               }
               unoptimized
               width={100}
@@ -60,13 +60,13 @@ export function Header() {
         {isLoggedIn ? (
           <div className="flex items-center gap-4">
             {/* Mobile button for new chat */}
-            {isMobile && pathname !== '/' && (
+            {isMobile && pathname !== "/" && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     aria-label="New Chat"
                     className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    onClick={() => router.push('/')}
+                    onClick={() => router.push("/")}
                     type="button"
                   >
                     <PlusIcon size={24} />
@@ -76,13 +76,13 @@ export function Header() {
               </Tooltip>
             )}
             {/* Tasks button - mobile only, home page only */}
-            {isMobile && pathname === '/' && (
+            {isMobile && pathname === "/" && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     aria-label="Background Agents"
                     className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    onClick={() => router.push('/tasks')}
+                    onClick={() => router.push("/tasks")}
                     type="button"
                   >
                     <CheckCircleIcon size={24} />
@@ -131,7 +131,7 @@ export function Header() {
             <AppInfoTrigger
               trigger={
                 <button
-                  aria-label={'About'}
+                  aria-label={"About"}
                   className="group flex items-center justify-center rounded-full p-2 outline-none hover:bg-accent focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   tabIndex={0}
                   type="button"

@@ -1,8 +1,8 @@
-import type { Doc } from '@/convex/_generated/dataModel';
+import type { Doc } from "@/convex/_generated/dataModel";
 
-export type ScheduledTask = Doc<'scheduled_tasks'>;
+export type ScheduledTask = Doc<"scheduled_tasks">;
 
-export type ScheduleType = 'onetime' | 'daily' | 'weekly';
+export type ScheduleType = "onetime" | "daily" | "weekly";
 
 export type CreateTaskForm = {
   title: string;
@@ -17,4 +17,4 @@ export type CreateTaskForm = {
   emailNotifications?: boolean;
 };
 
-export type TaskStatus = 'active' | 'paused' | 'archived' | 'running';
+export type TaskStatus = "active" | "paused" | "archived" | "running";

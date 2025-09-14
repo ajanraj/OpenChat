@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
 import {
   CheckIcon,
   KeyIcon,
   TrashSimpleIcon,
   WarningCircleIcon,
-} from '@phosphor-icons/react';
-import { useMutation } from 'convex/react';
-import { useCallback, useEffect, useState } from 'react';
-import { useUser } from '@/app/providers/user-provider';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+} from "@phosphor-icons/react";
+import { useMutation } from "convex/react";
+import { useCallback, useEffect, useState } from "react";
+import { useUser } from "@/app/providers/user-provider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -18,17 +18,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/convex/_generated/api';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/toast";
+import { api } from "@/convex/_generated/api";
 
 import {
   getApiKeyProviders,
   type ApiKeyProvider as Provider,
   validateApiKey,
-} from '@/lib/config/api-keys';
+} from "@/lib/config/api-keys";
 
 // Get dynamic provider data from model configuration
 const PROVIDERS = getApiKeyProviders();
@@ -64,10 +64,10 @@ function ToggleSwitch({
     <div className="flex items-center gap-2">
       <Switch checked={checked} id={switchId} onCheckedChange={onChange} />
       <label
-        className={`text-sm ${checked ? 'font-medium text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`}
+        className={`text-sm ${checked ? "font-medium text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`}
         htmlFor={switchId}
       >
-        {checked ? 'Priority' : 'Fallback'}
+        {checked ? "Priority" : "Fallback"}
       </label>
     </div>
   );
@@ -96,7 +96,7 @@ function ApiKeyInputForm({
   // Handle Enter key press to save
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' && !isValidating) {
+      if (e.key === "Enter" && !isValidating) {
         e.preventDefault();
         onSave();
       }
@@ -109,7 +109,7 @@ function ApiKeyInputForm({
       <div className="space-y-2">
         <div className="relative">
           <Input
-            className={validationError ? 'border-red-500' : ''}
+            className={validationError ? "border-red-500" : ""}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
@@ -124,20 +124,20 @@ function ApiKeyInputForm({
           </p>
         )}
         <p className="prose prose-pink text-muted-foreground text-xs">
-          Get your API key from{' '}
+          Get your API key from{" "}
           <a
             className="no-underline hover:underline"
             href={docs}
             rel="noopener noreferrer"
             target="_blank"
           >
-            {title.split(' ')[0]}&apos;s Dashboard
+            {title.split(" ")[0]}&apos;s Dashboard
           </a>
         </p>
       </div>
       <div className="flex w-full justify-end gap-2">
         <Button disabled={isValidating} onClick={onSave}>
-          {isValidating ? 'Saving...' : 'Save'}
+          {isValidating ? "Saving..." : "Save"}
         </Button>
       </div>
     </div>
@@ -169,7 +169,7 @@ function ProviderCard({
   const hasKey = savedApiKeys.some((k) => k.provider === providerConfig.id);
   const getMode = () => {
     const apiKey = savedApiKeys.find((k) => k.provider === providerConfig.id);
-    return (apiKey?.mode || 'fallback') === 'priority';
+    return (apiKey?.mode || "fallback") === "priority";
   };
 
   return (
@@ -256,7 +256,7 @@ export default function ApiKeysPage() {
 
   const handleSave = useCallback(
     async (provider: Provider) => {
-      const key = inputValues[provider] || '';
+      const key = inputValues[provider] || "";
 
       if (!key.trim()) {
         return;
@@ -267,24 +267,24 @@ export default function ApiKeysPage() {
       if (!validation.isValid) {
         setValidationErrors((prev) => ({
           ...prev,
-          [provider]: validation.error || 'Invalid API key',
+          [provider]: validation.error || "Invalid API key",
         }));
         return;
       }
 
       // Clear validation error
-      setValidationErrors((prev) => ({ ...prev, [provider]: '' }));
+      setValidationErrors((prev) => ({ ...prev, [provider]: "" }));
       setIsValidating((prev) => ({ ...prev, [provider]: true }));
 
       try {
         await saveApiKey({ provider, key });
-        toast({ title: 'API key saved', status: 'success' });
+        toast({ title: "API key saved", status: "success" });
 
         // Immediately clear the input value for security
-        setInputValues((prev) => ({ ...prev, [provider]: '' }));
+        setInputValues((prev) => ({ ...prev, [provider]: "" }));
       } catch {
         // Error handling without console
-        toast({ title: 'Failed to save key', status: 'error' });
+        toast({ title: "Failed to save key", status: "error" });
       } finally {
         setIsValidating((prev) => ({ ...prev, [provider]: false }));
       }
@@ -298,7 +298,7 @@ export default function ApiKeysPage() {
       setInputValues((prev) => ({ ...prev, [provider]: value }));
       // Clear validation error when user starts typing
       if (validationErrors[provider]) {
-        setValidationErrors((prev) => ({ ...prev, [provider]: '' }));
+        setValidationErrors((prev) => ({ ...prev, [provider]: "" }));
       }
     },
     [validationErrors]
@@ -336,10 +336,10 @@ export default function ApiKeysPage() {
     setIsDeleting(true);
     try {
       await deleteApiKey({ provider: providerToDelete });
-      toast({ title: 'API key deleted', status: 'success' });
+      toast({ title: "API key deleted", status: "success" });
     } catch {
       // Error handling without console
-      toast({ title: 'Failed to delete key', status: 'error' });
+      toast({ title: "Failed to delete key", status: "error" });
     } finally {
       setIsDeleting(false);
       setShowDeleteDialog(false);
@@ -350,10 +350,10 @@ export default function ApiKeysPage() {
   const handleToggle = useCallback(
     async (provider: Provider, checked: boolean) => {
       try {
-        await updateMode({ provider, mode: checked ? 'priority' : 'fallback' });
+        await updateMode({ provider, mode: checked ? "priority" : "fallback" });
       } catch {
         // Error handling without console
-        toast({ title: 'Failed to update mode', status: 'error' });
+        toast({ title: "Failed to update mode", status: "error" });
       }
     },
     [updateMode]
@@ -376,7 +376,7 @@ export default function ApiKeysPage() {
         </div>
         {PROVIDERS.map((providerConfig) => (
           <ProviderCard
-            inputValue={inputValues[providerConfig.id] || ''}
+            inputValue={inputValues[providerConfig.id] || ""}
             isValidating={isValidating}
             key={providerConfig.id}
             onDelete={handleDelete}
@@ -397,7 +397,7 @@ export default function ApiKeysPage() {
             <DialogTitle>Delete API key?</DialogTitle>
             <DialogDescription>
               This action cannot be undone. This will permanently delete the
-              saved API key for{' '}
+              saved API key for{" "}
               {providerToDelete &&
                 PROVIDERS.find((p) => p.id === providerToDelete)?.title}
               .
@@ -412,7 +412,7 @@ export default function ApiKeysPage() {
               onClick={confirmDelete}
               variant="destructive"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

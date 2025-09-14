@@ -1,14 +1,14 @@
-import type { Doc } from '@/convex/_generated/dataModel';
+import type { Doc } from "@/convex/_generated/dataModel";
 
 export type TimeGroup =
-  | 'Today'
-  | 'Yesterday'
-  | 'Last 7 Days'
-  | 'Last 30 Days'
-  | 'Older';
+  | "Today"
+  | "Yesterday"
+  | "Last 7 Days"
+  | "Last 30 Days"
+  | "Older";
 
 export type GroupedChats = {
-  [key: string]: Doc<'chats'>[];
+  [key: string]: Doc<"chats">[];
 };
 
 // Cache date boundaries to avoid recalculating on every call
@@ -50,20 +50,20 @@ function getDateBoundaries() {
 export function getTimeGroup(timestamp: number): TimeGroup {
   // Handle invalid timestamps
   if (!timestamp || timestamp <= 0 || !Number.isFinite(timestamp)) {
-    return 'Older';
+    return "Older";
   }
 
   const chatDate = new Date(timestamp);
 
   // Check if the date is valid
   if (Number.isNaN(chatDate.getTime())) {
-    return 'Older';
+    return "Older";
   }
 
   // Handle future dates by treating them as "Today"
   const now = Date.now();
   if (timestamp > now) {
-    return 'Today';
+    return "Today";
   }
 
   // Get cached date boundaries
@@ -78,31 +78,31 @@ export function getTimeGroup(timestamp: number): TimeGroup {
 
   // Compare against cached boundaries
   if (chatStartOfDay === boundaries.today) {
-    return 'Today';
+    return "Today";
   }
   if (chatStartOfDay === boundaries.yesterday) {
-    return 'Yesterday';
+    return "Yesterday";
   }
   if (chatStartOfDay >= boundaries.sevenDaysAgo) {
-    return 'Last 7 Days';
+    return "Last 7 Days";
   }
   if (chatStartOfDay >= boundaries.thirtyDaysAgo) {
-    return 'Last 30 Days';
+    return "Last 30 Days";
   }
-  return 'Older';
+  return "Older";
 }
 
 /**
  * Group chats by time periods and sort within each group
  */
-export function groupChatsByTime(chats: Doc<'chats'>[]): GroupedChats {
+export function groupChatsByTime(chats: Doc<"chats">[]): GroupedChats {
   // Handle invalid input
   if (!Array.isArray(chats)) {
     return {
       Today: [],
       Yesterday: [],
-      'Last 7 Days': [],
-      'Last 30 Days': [],
+      "Last 7 Days": [],
+      "Last 30 Days": [],
       Older: [],
     };
   }
@@ -110,15 +110,15 @@ export function groupChatsByTime(chats: Doc<'chats'>[]): GroupedChats {
   const groups: GroupedChats = {
     Today: [],
     Yesterday: [],
-    'Last 7 Days': [],
-    'Last 30 Days': [],
+    "Last 7 Days": [],
+    "Last 30 Days": [],
     Older: [],
   };
 
   // Group chats by time period
   for (const chat of chats) {
     // Skip invalid chat objects
-    if (!chat || typeof chat !== 'object') {
+    if (!chat || typeof chat !== "object") {
       continue;
     }
 
@@ -144,7 +144,7 @@ export function groupChatsByTime(chats: Doc<'chats'>[]): GroupedChats {
  * Get ordered group keys (for consistent rendering order)
  */
 export function getOrderedGroupKeys(): TimeGroup[] {
-  return ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Older'];
+  return ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "Older"];
 }
 
 /**
@@ -163,7 +163,7 @@ export function hasChatsInGroup(
 export function getRelativeTimeDescription(timestamp: number): string {
   // Handle invalid timestamps
   if (!timestamp || timestamp <= 0 || !Number.isFinite(timestamp)) {
-    return 'Unknown';
+    return "Unknown";
   }
 
   const now = new Date();
@@ -171,14 +171,14 @@ export function getRelativeTimeDescription(timestamp: number): string {
 
   // Check if the date is valid
   if (Number.isNaN(date.getTime())) {
-    return 'Invalid date';
+    return "Invalid date";
   }
 
   const diffInMs = now.getTime() - date.getTime();
 
   // Handle future dates
   if (diffInMs < 0) {
-    return 'Future';
+    return "Future";
   }
 
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
@@ -186,7 +186,7 @@ export function getRelativeTimeDescription(timestamp: number): string {
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
   if (diffInMinutes < 1) {
-    return 'Just now';
+    return "Just now";
   }
   if (diffInMinutes < 60) {
     return `${diffInMinutes}m ago`;
@@ -195,7 +195,7 @@ export function getRelativeTimeDescription(timestamp: number): string {
     return `${diffInHours}h ago`;
   }
   if (diffInDays === 1) {
-    return 'Yesterday';
+    return "Yesterday";
   }
   if (diffInDays < 7) {
     return `${diffInDays}d ago`;
@@ -203,6 +203,6 @@ export function getRelativeTimeDescription(timestamp: number): string {
   try {
     return date.toLocaleDateString();
   } catch {
-    return 'Unknown date';
+    return "Unknown date";
   }
 }

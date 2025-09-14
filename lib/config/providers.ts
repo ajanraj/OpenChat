@@ -1,4 +1,4 @@
-import { Flux, Moonshot, ZAI } from '@lobehub/icons';
+import { Flux, Moonshot, ZAI } from "@lobehub/icons";
 import {
   AnthropicDark,
   AnthropicLight,
@@ -14,7 +14,7 @@ import {
   OpenRouterLight,
   QwenDark,
   QwenLight,
-} from '@ridemountainpig/svgl-react';
+} from "@ridemountainpig/svgl-react";
 
 export type Provider = {
   id: string;
@@ -25,68 +25,68 @@ export type Provider = {
 
 export const PROVIDERS = [
   {
-    id: 'deepseek',
-    name: 'DeepSeek',
+    id: "deepseek",
+    name: "DeepSeek",
     icon: DeepSeek,
   },
   {
-    id: 'fal',
-    name: 'Fal.ai',
+    id: "fal",
+    name: "Fal.ai",
     icon: Flux,
   },
   {
-    id: 'gemini',
-    name: 'Gemini',
+    id: "gemini",
+    name: "Gemini",
     icon: Gemini,
   },
   {
-    id: 'xai',
-    name: 'xAI',
+    id: "xai",
+    name: "xAI",
     icon: GrokDark,
     icon_light: GrokLight,
   },
   {
-    id: 'openrouter',
-    name: 'OpenRouter',
+    id: "openrouter",
+    name: "OpenRouter",
     icon: OpenRouterDark,
     icon_light: OpenRouterLight,
   },
   {
-    id: 'openai',
-    name: 'OpenAI',
+    id: "openai",
+    name: "OpenAI",
     icon: OpenAIDark,
     icon_light: OpenAILight,
   },
   {
-    id: 'anthropic',
-    name: 'Claude',
+    id: "anthropic",
+    name: "Claude",
     icon: AnthropicDark,
     icon_light: AnthropicLight,
   },
   {
-    id: 'mistral',
-    name: 'Mistral',
+    id: "mistral",
+    name: "Mistral",
     icon: MistralAI,
   },
   {
-    id: 'meta',
-    name: 'Meta',
+    id: "meta",
+    name: "Meta",
     icon: Meta,
   },
   {
-    id: 'qwen',
-    name: 'Qwen',
+    id: "qwen",
+    name: "Qwen",
     icon: QwenDark,
     icon_light: QwenLight,
   },
   {
-    id: 'moonshotai',
-    name: 'Moonshot AI',
+    id: "moonshotai",
+    name: "Moonshot AI",
     icon: Moonshot,
   },
   {
-    id: 'z-ai',
-    name: 'Z.AI',
+    id: "z-ai",
+    name: "Z.AI",
     icon: ZAI,
   },
 ] as Provider[];

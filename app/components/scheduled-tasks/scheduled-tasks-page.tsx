@@ -1,28 +1,28 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
-import { Plus } from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { api } from '@/convex/_generated/api';
-import { TaskCard } from './task-card';
-import { TaskTrigger } from './task-trigger';
-import type { TaskStatus } from './types';
+import { convexQuery } from "@convex-dev/react-query";
+import { Plus } from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { api } from "@/convex/_generated/api";
+import { TaskCard } from "./task-card";
+import { TaskTrigger } from "./task-trigger";
+import type { TaskStatus } from "./types";
 
 // Static constants moved outside component for better performance
 const SCROLL_CONTAINER_STYLES = {
-  maxHeight: '444px',
-  overflowY: 'scroll' as const,
-  scrollbarGutter: 'stable' as const,
+  maxHeight: "444px",
+  overflowY: "scroll" as const,
+  scrollbarGutter: "stable" as const,
 };
 
 const SKELETON_ARRAY = Array.from({ length: 1 });
 
 export function ScheduledTasksPage() {
-  const [activeTab, setActiveTab] = useState<TaskStatus>('active');
+  const [activeTab, setActiveTab] = useState<TaskStatus>("active");
   const isMobile = useBreakpoint(896); // Consistent breakpoint with TaskTrigger
 
   // Memoized query configuration to prevent recreation on every render
@@ -39,14 +39,14 @@ export function ScheduledTasksPage() {
   // Memoized task filtering to prevent recalculation on every render
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      if (activeTab === 'active') {
+      if (activeTab === "active") {
         return (
-          task.status === 'active' ||
-          task.status === 'paused' ||
-          task.status === 'running'
+          task.status === "active" ||
+          task.status === "paused" ||
+          task.status === "running"
         );
       }
-      return task.status === 'archived';
+      return task.status === "archived";
     });
   }, [tasks, activeTab]);
 
@@ -127,15 +127,15 @@ export function ScheduledTasksPage() {
 
         {!isLoading && filteredTasks.length === 0 && (
           <div
-            className={`flex min-h-[138px] items-center justify-center rounded-xl border border-border bg-card/50 ${isMobile ? '' : 'mr-4'}`}
+            className={`flex min-h-[138px] items-center justify-center rounded-xl border border-border bg-card/50 ${isMobile ? "" : "mr-4"}`}
           >
             <div className="text-center">
               <p className="mb-4 text-muted-foreground">
-                {activeTab === 'active'
-                  ? 'No scheduled tasks yet'
-                  : 'No archived tasks'}
+                {activeTab === "active"
+                  ? "No scheduled tasks yet"
+                  : "No archived tasks"}
               </p>
-              {activeTab === 'active' && !isMobile && (
+              {activeTab === "active" && !isMobile && (
                 <TaskTrigger
                   trigger={
                     <Button size="sm" variant="outline">
@@ -150,7 +150,7 @@ export function ScheduledTasksPage() {
 
         {!isLoading && filteredTasks.length > 0 && (
           <div
-            className={`space-y-3 ${isMobile ? 'pb-2' : 'pr-4'}`}
+            className={`space-y-3 ${isMobile ? "pb-2" : "pr-4"}`}
             style={isMobile ? {} : SCROLL_CONTAINER_STYLES}
           >
             {filteredTasks.map((task) => (

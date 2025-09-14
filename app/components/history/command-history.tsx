@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
-import { ListMagnifyingGlass, PushPinSimple } from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useMutation } from 'convex/react';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { convexQuery } from "@convex-dev/react-query";
+import { ListMagnifyingGlass, PushPinSimple } from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import {
   Command,
   CommandDialog,
@@ -13,20 +13,20 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
+} from "@/components/ui/command";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   getOrderedGroupKeys,
   groupChatsByTime,
   hasChatsInGroup,
-} from '@/lib/chat-utils/time-grouping';
-import { CommandHistoryItem } from './command-history-item';
+} from "@/lib/chat-utils/time-grouping";
+import { CommandHistoryItem } from "./command-history-item";
 
 function getSnippet(text: string, query: string, length = 80): React.ReactNode {
   const lower = text.toLowerCase();
@@ -56,25 +56,25 @@ export function CommandHistory() {
   const updateChatTitle = useMutation(api.chats.updateChatTitle);
   const pinChatToggle = useMutation(api.chats.pinChatToggle);
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: messageResults = [] } = useTanStackQuery({
     ...convexQuery(
       api.messages.searchMessages,
-      searchQuery ? { query: searchQuery } : 'skip'
+      searchQuery ? { query: searchQuery } : "skip"
     ),
     enabled: Boolean(searchQuery),
   });
-  const [editingId, setEditingId] = useState<Id<'chats'> | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [deletingId, setDeletingId] = useState<Id<'chats'> | null>(null);
+  const [editingId, setEditingId] = useState<Id<"chats"> | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [deletingId, setDeletingId] = useState<Id<"chats"> | null>(null);
 
-  const handleEdit = useCallback((chat: Doc<'chats'>) => {
+  const handleEdit = useCallback((chat: Doc<"chats">) => {
     setEditingId(chat._id);
-    setEditTitle(chat.title || '');
+    setEditTitle(chat.title || "");
   }, []);
 
   const handleSaveEdit = useCallback(
-    async (id: Id<'chats'>) => {
+    async (id: Id<"chats">) => {
       setEditingId(null);
       await updateChatTitle({ chatId: id, title: editTitle });
     },
@@ -83,15 +83,15 @@ export function CommandHistory() {
 
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
-    setEditTitle('');
+    setEditTitle("");
   }, []);
 
-  const handleDelete = useCallback((id: Id<'chats'>) => {
+  const handleDelete = useCallback((id: Id<"chats">) => {
     setDeletingId(id);
   }, []);
 
   const handleConfirmDelete = useCallback(
-    async (id: Id<'chats'>) => {
+    async (id: Id<"chats">) => {
       setDeletingId(null);
       await deleteChat({ chatId: id });
     },
@@ -103,7 +103,7 @@ export function CommandHistory() {
   }, []);
 
   const handleTogglePin = useCallback(
-    async (chat: Doc<'chats'>) => {
+    async (chat: Doc<"chats">) => {
       await pinChatToggle({ chatId: chat._id });
     },
     [pinChatToggle]
@@ -113,27 +113,27 @@ export function CommandHistory() {
   useEffect(() => {
     const open = () => setIsOpen(true);
     const toggle = () => setIsOpen((prev) => !prev);
-    window.addEventListener('openCommandHistory', open);
-    window.addEventListener('toggleFloatingSearch', toggle);
+    window.addEventListener("openCommandHistory", open);
+    window.addEventListener("toggleFloatingSearch", toggle);
     return () => {
-      window.removeEventListener('openCommandHistory', open);
-      window.removeEventListener('toggleFloatingSearch', toggle);
+      window.removeEventListener("openCommandHistory", open);
+      window.removeEventListener("toggleFloatingSearch", toggle);
     };
   }, []);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      setSearchQuery('');
+      setSearchQuery("");
       setEditingId(null);
-      setEditTitle('');
+      setEditTitle("");
       setDeletingId(null);
     }
   };
 
   const filteredChat =
     chatHistory?.filter((chat) =>
-      (chat.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+      (chat.title || "").toLowerCase().includes(searchQuery.toLowerCase())
     ) ?? [];
 
   // Separate pinned and unpinned chats
@@ -215,7 +215,7 @@ export function CommandHistory() {
                       </span>
                       <span className="text-muted-foreground text-xs">
                         {chatHistory?.find((c) => c._id === msg.chatId)
-                          ?.title || 'Untitled Chat'}
+                          ?.title || "Untitled Chat"}
                       </span>
                     </div>
                   </CommandItem>

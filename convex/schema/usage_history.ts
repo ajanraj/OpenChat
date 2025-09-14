@@ -1,7 +1,7 @@
-import { v } from 'convex/values';
+import { v } from "convex/values";
 
 export const UsageHistory = v.object({
-  userId: v.id('users'),
+  userId: v.id("users"),
   messageCount: v.number(),
   periodStart: v.number(),
   periodEnd: v.number(),

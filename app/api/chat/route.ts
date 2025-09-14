@@ -1,8 +1,8 @@
 /** biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: <main route> */
-import type { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import type { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
-import type { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
-import { convexAuthNextjsToken } from '@convex-dev/auth/nextjs/server';
+import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
+import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 // import { withTracing } from '@posthog/ai';
 import {
   consumeStream,
@@ -14,28 +14,28 @@ import {
   stepCountIs,
   streamText,
   type UIMessage,
-} from 'ai';
-import { fetchMutation, fetchQuery } from 'convex/nextjs';
-import { ConvexError, type Infer } from 'convex/values';
-import { searchTool } from '@/app/api/tools/search';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import type { Message } from '@/convex/schema/message';
-import { getComposioTools } from '@/lib/composio-server';
-import { MODELS_MAP } from '@/lib/config';
-import { calculateConnectorStatus } from '@/lib/connector-utils';
-import { limitDepth } from '@/lib/depth-limiter';
-import { ERROR_CODES } from '@/lib/error-codes';
+} from "ai";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { ConvexError, type Infer } from "convex/values";
+import { searchTool } from "@/app/api/tools/search";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import type { Message } from "@/convex/schema/message";
+import { getComposioTools } from "@/lib/composio-server";
+import { MODELS_MAP } from "@/lib/config";
+import { calculateConnectorStatus } from "@/lib/connector-utils";
+import { limitDepth } from "@/lib/depth-limiter";
+import { ERROR_CODES } from "@/lib/error-codes";
 import {
   classifyError,
   createErrorPart,
   createErrorResponse,
   createStreamingError,
   shouldShowInConversation,
-} from '@/lib/error-utils';
-import { buildSystemPrompt, PERSONAS_MAP } from '@/lib/prompt_config';
-import { sanitizeUserInput } from '@/lib/sanitize';
-import { uploadBlobToR2 } from '@/lib/server-upload-helpers';
+} from "@/lib/error-utils";
+import { buildSystemPrompt, PERSONAS_MAP } from "@/lib/prompt_config";
+import { sanitizeUserInput } from "@/lib/sanitize";
+import { uploadBlobToR2 } from "@/lib/server-upload-helpers";
 
 // Maximum allowed duration for streaming (in seconds)
 export const maxDuration = 300;
@@ -44,8 +44,8 @@ export const maxDuration = 300;
  * Helper function to save an error message as an assistant message
  */
 async function saveErrorMessage(
-  chatId: Id<'chats'>,
-  userMsgId: Id<'messages'> | null,
+  chatId: Id<"chats">,
+  userMsgId: Id<"messages"> | null,
   error: unknown,
   token: string,
   modelId?: string,
@@ -69,15 +69,15 @@ async function saveErrorMessage(
       api.messages.saveAssistantMessage,
       {
         chatId,
-        role: 'assistant',
-        content: '', // Empty content to avoid duplication and search pollution
+        role: "assistant",
+        content: "", // Empty content to avoid duplication and search pollution
         parentMessageId: userMsgId,
         parts: [errorPart],
         metadata: {
-          modelId: modelId || 'error',
-          modelName: modelName || 'Error',
+          modelId: modelId || "error",
+          modelName: modelName || "Error",
           includeSearch: enableSearch,
-          reasoningEffort: reasoningEffort || 'none',
+          reasoningEffort: reasoningEffort || "none",
         },
       },
       { token }
@@ -89,43 +89,43 @@ async function saveErrorMessage(
   }
 }
 
-type ReasoningEffort = 'low' | 'medium' | 'high';
+type ReasoningEffort = "low" | "medium" | "high";
 type SupportedProvider =
-  | 'openrouter'
-  | 'openai'
-  | 'anthropic'
-  | 'mistral'
-  | 'meta'
-  | 'Qwen';
+  | "openrouter"
+  | "openai"
+  | "anthropic"
+  | "mistral"
+  | "meta"
+  | "Qwen";
 
 /**
  * Helper function to save user message to chat if not in reload mode
  */
 async function saveUserMessage(
   messages: UIMessage[],
-  chatId: Id<'chats'>,
+  chatId: Id<"chats">,
   token: string | undefined,
-  reloadAssistantMessageId?: Id<'messages'>
-): Promise<Id<'messages'> | null> {
+  reloadAssistantMessageId?: Id<"messages">
+): Promise<Id<"messages"> | null> {
   if (!reloadAssistantMessageId && token) {
     const userMessage = messages.at(-1);
-    if (userMessage && userMessage.role === 'user') {
+    if (userMessage && userMessage.role === "user") {
       // Use parts directly since schema now matches AI SDK v5
       const userParts = (userMessage.parts || []).map((p) =>
-        p.type === 'text' ? { ...p, text: sanitizeUserInput(p.text) } : p
+        p.type === "text" ? { ...p, text: sanitizeUserInput(p.text) } : p
       );
 
       // Extract text content for backwards compatibility
       const textContent = userParts
-        .filter((part) => part.type === 'text')
+        .filter((part) => part.type === "text")
         .map((part) => part.text)
-        .join('');
+        .join("");
 
       const { messageId } = await fetchMutation(
         api.messages.sendUserMessageToChat,
         {
           chatId,
-          role: 'user',
+          role: "user",
           content: sanitizeUserInput(textContent),
           parts: userParts,
           metadata: {}, // Empty metadata for user messages
@@ -150,15 +150,15 @@ async function saveUserMessage(
 const REASONING_EFFORT_CONFIG = {
   low: {
     tokens: 1024,
-    effort: 'low',
+    effort: "low",
   },
   medium: {
     tokens: 6000,
-    effort: 'medium',
+    effort: "medium",
   },
   high: {
     tokens: 12_000,
-    effort: 'high',
+    effort: "high",
   },
 } as const;
 
@@ -173,25 +173,25 @@ const mapReasoningEffortToProviderConfig = (
   const config = REASONING_EFFORT_CONFIG[effort];
 
   switch (provider) {
-    case 'openai':
+    case "openai":
       return { reasoningEffort: config.effort };
 
-    case 'anthropic':
+    case "anthropic":
       return {
         thinking: {
           budgetTokens: config.tokens,
         },
       };
 
-    case 'google':
-    case 'gemini':
+    case "google":
+    case "gemini":
       return {
         thinkingConfig: {
           thinkingBudget: config.tokens,
         },
       };
 
-    case 'openrouter':
+    case "openrouter":
       return {
         reasoning: {
           effort: config.effort,
@@ -205,11 +205,11 @@ const mapReasoningEffortToProviderConfig = (
 
 type ChatRequest = {
   messages: UIMessage[];
-  chatId: Id<'chats'>;
+  chatId: Id<"chats">;
   model: string;
   personaId?: string;
-  reloadAssistantMessageId?: Id<'messages'>;
-  editMessageId?: Id<'messages'>;
+  reloadAssistantMessageId?: Id<"messages">;
+  editMessageId?: Id<"messages">;
   enableSearch?: boolean;
   reasoningEffort?: ReasoningEffort;
   userInfo?: { timezone?: string };
@@ -225,7 +225,7 @@ const shouldEnableThinking = (modelId: string): boolean => {
     return false;
   }
 
-  const reasoningFeature = model.features?.find((f) => f.id === 'reasoning');
+  const reasoningFeature = model.features?.find((f) => f.id === "reasoning");
   return reasoningFeature?.enabled === true;
 };
 
@@ -238,7 +238,7 @@ const supportsToolCalling = (
 ): boolean => {
   return (
     selectedModel.features?.some(
-      (feature) => feature.id === 'tool-calling' && feature.enabled === true
+      (feature) => feature.id === "tool-calling" && feature.enabled === true
     ) ?? false
   );
 };
@@ -252,7 +252,7 @@ const buildGoogleProviderOptions = (
   // Check if model supports reasoning using feature-based detection
   if (shouldEnableThinking(modelId) && reasoningEffort) {
     const reasoningConfig = mapReasoningEffortToProviderConfig(
-      'google',
+      "google",
       reasoningEffort
     );
 
@@ -260,7 +260,7 @@ const buildGoogleProviderOptions = (
       options.thinkingConfig = {
         includeThoughts: true,
         ...reasoningConfig.thinkingConfig,
-      } as GoogleGenerativeAIProviderOptions['thinkingConfig'];
+      } as GoogleGenerativeAIProviderOptions["thinkingConfig"];
     }
   }
 
@@ -276,14 +276,14 @@ const buildOpenAIProviderOptions = (
   // Check if model supports reasoning using feature-based detection
   if (shouldEnableThinking(modelId) && reasoningEffort) {
     const reasoningConfig = mapReasoningEffortToProviderConfig(
-      'openai',
+      "openai",
       reasoningEffort
     );
 
     if (reasoningConfig.reasoningEffort) {
       options.reasoningEffort =
         reasoningConfig.reasoningEffort as ReasoningEffort;
-      options.reasoningSummary = 'detailed';
+      options.reasoningSummary = "detailed";
     }
   }
 
@@ -299,15 +299,15 @@ const buildAnthropicProviderOptions = (
   // Check if model supports reasoning using feature-based detection
   if (shouldEnableThinking(modelId) && reasoningEffort) {
     const reasoningConfig = mapReasoningEffortToProviderConfig(
-      'anthropic',
+      "anthropic",
       reasoningEffort
     );
 
     if (reasoningConfig.thinking) {
       options.thinking = {
-        type: 'enabled',
+        type: "enabled",
         ...reasoningConfig.thinking,
-      } as AnthropicProviderOptions['thinking'];
+      } as AnthropicProviderOptions["thinking"];
     }
   }
 
@@ -323,7 +323,7 @@ const buildOpenRouterProviderOptions = (
   // Check if model supports reasoning using feature-based detection
   if (shouldEnableThinking(modelId) && reasoningEffort) {
     const reasoningConfig = mapReasoningEffortToProviderConfig(
-      'openrouter',
+      "openrouter",
       reasoningEffort
     );
 
@@ -346,12 +346,12 @@ async function handleImageGeneration({
   token,
 }: {
   messages: UIMessage[];
-  chatId: Id<'chats'>;
+  chatId: Id<"chats">;
   selectedModel: (typeof MODELS_MAP)[string];
-  userMsgId: Id<'messages'> | null;
+  userMsgId: Id<"messages"> | null;
   token?: string;
 }) {
-  let currentUserMsgId: Id<'messages'> | null = userMsgId;
+  let currentUserMsgId: Id<"messages"> | null = userMsgId;
 
   try {
     // Save user message first
@@ -361,22 +361,22 @@ async function handleImageGeneration({
     // Extract the prompt from the last user message parts
     const lastMessage = messages.at(-1);
     // console.log(lastMessage);
-    const textPart = lastMessage?.parts?.find((part) => part.type === 'text');
-    const prompt = textPart?.text || 'A beautiful image';
+    const textPart = lastMessage?.parts?.find((part) => part.type === "text");
+    const prompt = textPart?.text || "A beautiful image";
 
     // Generate the image using built-in API key
     // Use different parameters based on provider (OpenAI uses size, Google uses aspectRatio)
     const { image } =
-      selectedModel.provider === 'openai'
+      selectedModel.provider === "openai"
         ? await generateImage({
             model: selectedModel.api_sdk,
             prompt,
-            size: '1024x1024',
+            size: "1024x1024",
           })
         : await generateImage({
             model: selectedModel.api_sdk,
             prompt,
-            aspectRatio: '1:1',
+            aspectRatio: "1:1",
           });
 
     // console.log(image);
@@ -384,11 +384,11 @@ async function handleImageGeneration({
     // Upload image to R2 using standard upload helper (includes syncMetadata)
     const imageBuffer = image.uint8Array;
     const imageBlob = new Blob([new Uint8Array(imageBuffer)], {
-      type: 'image/png',
+      type: "image/png",
     });
 
     if (!token) {
-      throw new Error('Authentication token required for image upload');
+      throw new Error("Authentication token required for image upload");
     }
 
     const savedGenerated = await uploadBlobToR2(imageBlob, {
@@ -399,14 +399,14 @@ async function handleImageGeneration({
     });
 
     if (!savedGenerated?.url) {
-      throw new Error('Failed to generate storage URL for uploaded image');
+      throw new Error("Failed to generate storage URL for uploaded image");
     }
 
     // Create file part for the generated image
     const filePart: FileUIPart = {
-      type: 'file',
-      filename: savedGenerated?.fileName ?? 'generated-image.png',
-      mediaType: 'image/png',
+      type: "file",
+      filename: savedGenerated?.fileName ?? "generated-image.png",
+      mediaType: "image/png",
       url: savedGenerated.url,
     };
 
@@ -416,15 +416,15 @@ async function handleImageGeneration({
         api.messages.saveAssistantMessage,
         {
           chatId,
-          role: 'assistant',
-          content: '', // Empty content - let the image speak for itself
+          role: "assistant",
+          content: "", // Empty content - let the image speak for itself
           parentMessageId: currentUserMsgId,
           parts: [filePart], // Only include the file part, no redundant text
           metadata: {
             modelId: selectedModel.id,
             modelName: selectedModel.name,
             includeSearch: false,
-            reasoningEffort: 'none',
+            reasoningEffort: "none",
           },
         },
         { token }
@@ -443,7 +443,7 @@ async function handleImageGeneration({
     // Return success response
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
     if (currentUserMsgId && token) {
@@ -461,7 +461,7 @@ async function handleImageGeneration({
 }
 
 export async function POST(req: Request) {
-  req.signal.addEventListener('abort', () => {
+  req.signal.addEventListener("abort", () => {
     // Request aborted by client
   });
 
@@ -479,7 +479,7 @@ export async function POST(req: Request) {
     } = (await req.json()) as ChatRequest;
 
     if (!(messages && chatId)) {
-      return createErrorResponse(new Error('Missing required information'));
+      return createErrorResponse(new Error("Missing required information"));
     }
 
     // --- Enhanced Input Validation ---
@@ -489,7 +489,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (typeof chatId !== 'string' || chatId.trim() === '') {
+    if (typeof chatId !== "string" || chatId.trim() === "") {
       return createErrorResponse(
         new Error("'chatId' must be a non-empty string.")
       );
@@ -580,12 +580,12 @@ export async function POST(req: Request) {
     // Determine if we should use a user-provided API key
     const useUserKey = Boolean(
       (apiKeyUsage?.userKeyOnly && userApiKey) ||
-        (keyEntry?.mode === 'priority' && userApiKey)
+        (keyEntry?.mode === "priority" && userApiKey)
     );
 
     // Reject early if model requires user key only but no user API key provided
     if (apiKeyUsage?.userKeyOnly && !userApiKey) {
-      return createErrorResponse(new Error('user_key_required'));
+      return createErrorResponse(new Error("user_key_required"));
     }
 
     // --- Premium Model Access Check ---
@@ -604,7 +604,7 @@ export async function POST(req: Request) {
       );
 
       // Create premium access error
-      const premiumError = new Error('PREMIUM_MODEL_ACCESS_DENIED');
+      const premiumError = new Error("PREMIUM_MODEL_ACCESS_DENIED");
 
       // Save error message to conversation
       if (token) {
@@ -701,7 +701,7 @@ export async function POST(req: Request) {
     // console.log('DEBUG: finalSystemPrompt', finalSystemPrompt);
     // Check if this is an image generation model
     const isImageGenerationModel = selectedModel.features?.some(
-      (feature) => feature.id === 'image-generation' && feature.enabled
+      (feature) => feature.id === "image-generation" && feature.enabled
     );
 
     // Handle image generation models differently
@@ -719,7 +719,7 @@ export async function POST(req: Request) {
     // console.log('DEBUG: finalSystemPrompt', finalSystemPrompt);
 
     // --- Dedicated Flow Structure ---
-    let userMsgId: Id<'messages'> | null = null;
+    let userMsgId: Id<"messages"> | null = null;
 
     if (reloadAssistantMessageId) {
       // --- Reload Flow ---
@@ -746,12 +746,12 @@ export async function POST(req: Request) {
             messageId: editMessageId,
             newContent: sanitizeUserInput(
               lastMessage.parts
-                ?.filter((part) => part.type === 'text')
+                ?.filter((part) => part.type === "text")
                 .map((part) => part.text)
-                .join('') || ''
+                .join("") || ""
             ),
             newParts: lastMessage.parts?.map((part) =>
-              part.type === 'text'
+              part.type === "text"
                 ? { ...part, text: sanitizeUserInput(part.text) }
                 : part
             ),
@@ -784,7 +784,7 @@ export async function POST(req: Request) {
     const makeOptions = (useUser: boolean) => {
       const key = useUser ? userApiKey : undefined;
 
-      if (selectedModel.provider === 'gemini') {
+      if (selectedModel.provider === "gemini") {
         return {
           google: {
             ...buildGoogleProviderOptions(selectedModel.id, reasoningEffort),
@@ -792,7 +792,7 @@ export async function POST(req: Request) {
           },
         };
       }
-      if (selectedModel.provider === 'openai') {
+      if (selectedModel.provider === "openai") {
         return {
           openai: {
             ...buildOpenAIProviderOptions(selectedModel.id, reasoningEffort),
@@ -800,7 +800,7 @@ export async function POST(req: Request) {
           },
         };
       }
-      if (selectedModel.provider === 'anthropic') {
+      if (selectedModel.provider === "anthropic") {
         return {
           anthropic: {
             ...buildAnthropicProviderOptions(selectedModel.id, reasoningEffort),
@@ -808,7 +808,7 @@ export async function POST(req: Request) {
           },
         };
       }
-      if (selectedModel.provider === 'openrouter') {
+      if (selectedModel.provider === "openrouter") {
         return {
           openrouter: {
             ...buildOpenRouterProviderOptions(
@@ -829,7 +829,7 @@ export async function POST(req: Request) {
       modelId: selectedModel.id,
       modelName: selectedModel.name,
       includeSearch: enableSearch,
-      reasoningEffort: reasoningEffort || 'none',
+      reasoningEffort: reasoningEffort || "none",
     };
     let finalUsage = {
       inputTokens: 0,
@@ -852,7 +852,7 @@ export async function POST(req: Request) {
         stopWhen: stepCountIs(20),
         experimental_transform: smoothStream({
           delayInMs: 20, // optional: defaults to 10ms
-          chunking: 'word', // optional: defaults to 'word'
+          chunking: "word", // optional: defaults to 'word'
         }),
         // COMMENTED OUT: abortSignal: req.signal
         //
@@ -996,7 +996,7 @@ export async function POST(req: Request) {
       onFinish: async (Messages) => {
         // This callback ALWAYS runs, even on abort.
         // Construct the final metadata here.
-        const finalMetadata: Infer<typeof Message>['metadata'] = {
+        const finalMetadata: Infer<typeof Message>["metadata"] = {
           ...baseMetadata,
           serverDurationMs: Date.now() - startTime,
           inputTokens: finalUsage.inputTokens,
@@ -1008,9 +1008,9 @@ export async function POST(req: Request) {
 
         // Save the final assistant message with all parts
         const capturedText = Messages.responseMessage.parts
-          .filter((part) => part.type === 'text')
+          .filter((part) => part.type === "text")
           .map((part) => part.text)
-          .join('');
+          .join("");
 
         // Limit depth of parts to prevent Convex nesting limit errors
         const depthLimitedParts = limitDepth(
@@ -1022,7 +1022,7 @@ export async function POST(req: Request) {
           api.messages.saveAssistantMessage,
           {
             chatId,
-            role: 'assistant',
+            role: "assistant",
             content: capturedText,
             parentMessageId: userMsgId || undefined,
             parts: depthLimitedParts,

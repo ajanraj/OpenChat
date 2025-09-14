@@ -1,17 +1,17 @@
-'use client';
-import { ConvexAuthNextjsProvider } from '@convex-dev/auth/nextjs';
-import { ConvexQueryClient } from '@convex-dev/react-query';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { ConvexReactClient } from 'convex/react';
-import { useState } from 'react';
+"use client";
+import { ConvexAuthNextjsProvider } from "@convex-dev/auth/nextjs";
+import { ConvexQueryClient } from "@convex-dev/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { ConvexReactClient } from "convex/react";
+import { useState } from "react";
 
 // Validate environment variable early for clearer error messaging
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
 if (!convexUrl) {
   throw new Error(
-    'Environment variable NEXT_PUBLIC_CONVEX_URL is missing. Please set it in your environment to the URL of your Convex deployment.'
+    "Environment variable NEXT_PUBLIC_CONVEX_URL is missing. Please set it in your environment to the URL of your Convex deployment."
   );
 }
 
@@ -47,7 +47,7 @@ export function ConvexClientProvider({
     <ConvexAuthNextjsProvider client={client}>
       <QueryClientProvider client={queryClient}>
         {children}
-        {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
+        {process.env.NODE_ENV === "development" && <ReactQueryDevtools />}
       </QueryClientProvider>
     </ConvexAuthNextjsProvider>
   );

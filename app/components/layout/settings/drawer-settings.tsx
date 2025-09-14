@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { X } from '@phosphor-icons/react';
-import dynamic from 'next/dynamic';
+import { X } from "@phosphor-icons/react";
+import dynamic from "next/dynamic";
 import {
   Drawer,
   DrawerClose,
@@ -9,8 +9,8 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@/components/ui/drawer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+} from "@/components/ui/drawer";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type DrawerSettingsProps = {
   trigger: React.ReactNode;
@@ -22,42 +22,42 @@ type DrawerSettingsProps = {
 // don't duplicate code. Disable SSR to avoid hydration mismatches within the
 // client-side drawer.
 const AccountPage = dynamic(
-  () => import('@/app/settings/page').then((m) => m.default),
+  () => import("@/app/settings/page").then((m) => m.default),
   { ssr: false }
 );
 const CustomizationPage = dynamic(
-  () => import('@/app/settings/customization/page').then((m) => m.default),
+  () => import("@/app/settings/customization/page").then((m) => m.default),
   { ssr: false }
 );
 const HistorySettingsPage = dynamic(
-  () => import('@/app/settings/history/page').then((m) => m.default),
+  () => import("@/app/settings/history/page").then((m) => m.default),
   { ssr: false }
 );
 const AttachmentsPage = dynamic(
-  () => import('@/app/settings/attachments/page').then((m) => m.default),
+  () => import("@/app/settings/attachments/page").then((m) => m.default),
   { ssr: false }
 );
 const ApiKeysPage = dynamic(
-  () => import('@/app/settings/api-keys/page').then((m) => m.default),
+  () => import("@/app/settings/api-keys/page").then((m) => m.default),
   { ssr: false }
 );
 const ModelsPage = dynamic(
-  () => import('@/app/settings/models/page').then((m) => m.default),
+  () => import("@/app/settings/models/page").then((m) => m.default),
   { ssr: false }
 );
 const ConnectorsPage = dynamic(
-  () => import('@/app/settings/connectors/page').then((m) => m.default),
+  () => import("@/app/settings/connectors/page").then((m) => m.default),
   { ssr: false }
 );
 
 const NAV_ITEMS = [
-  { key: 'account', name: 'Account' },
-  { key: 'customization', name: 'Customization' },
-  { key: 'history', name: 'History & Sync' },
-  { key: 'models', name: 'Models' },
-  { key: 'api-keys', name: 'API Keys' },
-  { key: 'connectors', name: 'Connectors' },
-  { key: 'attachments', name: 'Attachments' },
+  { key: "account", name: "Account" },
+  { key: "customization", name: "Customization" },
+  { key: "history", name: "History & Sync" },
+  { key: "models", name: "Models" },
+  { key: "api-keys", name: "API Keys" },
+  { key: "connectors", name: "Connectors" },
+  { key: "attachments", name: "Attachments" },
 ] as const;
 
 export function DrawerSettings({

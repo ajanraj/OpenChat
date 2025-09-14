@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { memo } from 'react';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
-import type { Id } from '@/convex/_generated/dataModel';
-import { ExecutionHistoryDialog } from './execution-history-dialog';
-import { ExecutionHistoryDrawer } from './execution-history-drawer';
+import { memo } from "react";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
+import type { Id } from "@/convex/_generated/dataModel";
+import { ExecutionHistoryDialog } from "./execution-history-dialog";
+import { ExecutionHistoryDrawer } from "./execution-history-drawer";
 
 type ExecutionHistoryTriggerProps = {
   trigger: React.ReactNode;
-  taskId: Id<'scheduled_tasks'>;
+  taskId: Id<"scheduled_tasks">;
   taskTitle: string;
 };
 

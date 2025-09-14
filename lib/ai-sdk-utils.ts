@@ -5,8 +5,8 @@ import type {
   TextUIPart,
   ToolUIPart,
   UIMessage,
-} from 'ai';
-import type { Doc } from '@/convex/_generated/dataModel';
+} from "ai";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 // Type alias for message parts array
 type MessageParts = Array<
@@ -36,7 +36,7 @@ export function extractAttachmentsFromParts(
   }
 
   const attachments = parts
-    .filter((part): part is FileUIPart => part.type === 'file')
+    .filter((part): part is FileUIPart => part.type === "file")
     .map((part) => ({
       name: part.filename,
       contentType: part.mediaType,
@@ -54,9 +54,9 @@ export function convertAttachmentsToFileParts(
   attachments: Attachment[]
 ): FileUIPart[] {
   return attachments.map((att) => ({
-    type: 'file' as const,
+    type: "file" as const,
     url: att.storageId || att.url, // Use storage ID if available, fallback to URL for backwards compatibility
-    mediaType: att.contentType || 'application/octet-stream',
+    mediaType: att.contentType || "application/octet-stream",
     filename: att.name,
   }));
 }
@@ -72,9 +72,9 @@ export function extractReasoningFromResponse(
   }
 
   const reasoningText = responseParts
-    .filter((part): part is ReasoningUIPart => part.type === 'reasoning')
+    .filter((part): part is ReasoningUIPart => part.type === "reasoning")
     .map((part) => part.text)
-    .join('\n');
+    .join("\n");
 
   return reasoningText || undefined;
 }
@@ -90,7 +90,7 @@ export function extractReasoningFromParts(
   }
 
   const reasoningPart = parts.find(
-    (part): part is ReasoningUIPart => part.type === 'reasoning'
+    (part): part is ReasoningUIPart => part.type === "reasoning"
   );
 
   return reasoningPart?.text;
@@ -107,14 +107,14 @@ export function createPartsFromAIResponse(
     toolName: string;
     args?: unknown;
     result?: unknown;
-    state: 'call' | 'result' | 'partial-call';
+    state: "call" | "result" | "partial-call";
   }>
 ): MessageParts {
-  const parts: MessageParts = [{ type: 'text', text: textContent }];
+  const parts: MessageParts = [{ type: "text", text: textContent }];
 
   if (reasoningText) {
     parts.push({
-      type: 'reasoning',
+      type: "reasoning",
       text: reasoningText,
     });
   }
@@ -142,16 +142,16 @@ export function isConvexStorageId(value: string): boolean {
   // Convex storage IDs are typically 32-character hex strings
   return (
     CONVEX_STORAGE_ID_REGEX.test(value) &&
-    !value.startsWith('http') &&
-    !value.startsWith('data:') &&
-    !value.startsWith('blob:')
+    !value.startsWith("http") &&
+    !value.startsWith("data:") &&
+    !value.startsWith("blob:")
   );
 }
 
 /**
  * Convert Convex message document to AI SDK UIMessage format
  */
-export function convertConvexToAISDK(msg: Doc<'messages'>): UIMessage {
+export function convertConvexToAISDK(msg: Doc<"messages">): UIMessage {
   // console.log("Converting Convex message to AI SDK format:", msg);
   return {
     id: msg._id,

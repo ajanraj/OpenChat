@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useMutation } from 'convex/react';
-import { useCallback, useState } from 'react';
-import { toast } from 'sonner';
-import { useUser } from '@/app/providers/user-provider';
-import { Skeleton } from '@/components/ui/skeleton';
-import { api } from '@/convex/_generated/api';
-import { getConnectorConfig, SUPPORTED_CONNECTORS } from '@/lib/config/tools';
-import type { ConnectorType } from '@/lib/types';
-import { ConnectorGrid } from './components/ConnectorGrid';
+import { useMutation } from "convex/react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import { useUser } from "@/app/providers/user-provider";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/convex/_generated/api";
+import { getConnectorConfig, SUPPORTED_CONNECTORS } from "@/lib/config/tools";
+import type { ConnectorType } from "@/lib/types";
+import { ConnectorGrid } from "./components/ConnectorGrid";
 
 type SimpleConnectionState = {
-  status: 'idle' | 'connecting';
+  status: "idle" | "connecting";
 };
 
 export default function ConnectorsPage() {
@@ -39,7 +39,7 @@ export default function ConnectorsPage() {
     const initialStates: Record<ConnectorType, SimpleConnectionState> =
       {} as Record<ConnectorType, SimpleConnectionState>;
     for (const type of SUPPORTED_CONNECTORS) {
-      initialStates[type] = { status: 'idle' };
+      initialStates[type] = { status: "idle" };
     }
     return initialStates;
   });
@@ -47,19 +47,19 @@ export default function ConnectorsPage() {
   const handleConnect = useCallback(
     async (type: ConnectorType) => {
       if (!user) {
-        toast.error('Please log in to connect accounts');
+        toast.error("Please log in to connect accounts");
         return;
       }
 
       setConnectionStates((prev) => ({
         ...prev,
-        [type]: { status: 'connecting' },
+        [type]: { status: "connecting" },
       }));
 
       try {
-        const response = await fetch('/api/composio/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/composio/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ connectorType: type }),
         });
 
@@ -71,7 +71,7 @@ export default function ConnectorsPage() {
           );
           setConnectionStates((prev) => ({
             ...prev,
-            [type]: { status: 'idle' },
+            [type]: { status: "idle" },
           }));
           return;
         }
@@ -81,14 +81,14 @@ export default function ConnectorsPage() {
         // Validate URL is HTTPS
         try {
           const url = new URL(redirectUrl);
-          if (url.protocol !== 'https:') {
-            throw new Error('Invalid URL protocol');
+          if (url.protocol !== "https:") {
+            throw new Error("Invalid URL protocol");
           }
         } catch {
-          toast.error('Invalid redirect URL');
+          toast.error("Invalid redirect URL");
           setConnectionStates((prev) => ({
             ...prev,
-            [type]: { status: 'idle' },
+            [type]: { status: "idle" },
           }));
           return;
         }
@@ -107,7 +107,7 @@ export default function ConnectorsPage() {
         );
         setConnectionStates((prev) => ({
           ...prev,
-          [type]: { status: 'idle' },
+          [type]: { status: "idle" },
         }));
       }
     },
@@ -117,20 +117,20 @@ export default function ConnectorsPage() {
   const handleDisconnect = useCallback(
     async (type: ConnectorType) => {
       if (!user) {
-        toast.error('Please log in to disconnect accounts');
+        toast.error("Please log in to disconnect accounts");
         return;
       }
 
       try {
-        const response = await fetch('/api/composio/disconnect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/composio/disconnect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ connectorType: type }),
         });
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || 'Failed to disconnect');
+          throw new Error(error.error || "Failed to disconnect");
         }
 
         toast.success(
@@ -148,7 +148,7 @@ export default function ConnectorsPage() {
   const handleToggleEnabled = useCallback(
     async (type: ConnectorType, enabled: boolean) => {
       if (!user) {
-        toast.error('Please log in to update connector settings');
+        toast.error("Please log in to update connector settings");
         return;
       }
       await setConnectorEnabled({ type, enabled });
@@ -159,7 +159,7 @@ export default function ConnectorsPage() {
   const connectingStates = Object.fromEntries(
     Object.entries(connectionStates).map(([key, { status }]) => [
       key,
-      status === 'connecting',
+      status === "connecting",
     ])
   ) as Record<ConnectorType, boolean>;
 

@@ -1,6 +1,6 @@
-import type { Transition } from 'motion/react';
-import { AnimatePresence, motion } from 'motion/react';
-import { ExistingFileItem, FileItem } from './file-items';
+import type { Transition } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { ExistingFileItem, FileItem } from "./file-items";
 
 type ExistingAttachment = {
   url: string;
@@ -17,7 +17,7 @@ type FileListProps = {
 };
 
 const TRANSITION: Transition = {
-  type: 'spring',
+  type: "spring",
   duration: 0.2,
   bounce: 0,
 };
@@ -33,7 +33,7 @@ export function FileList({
     <AnimatePresence initial={false}>
       {(existingAttachments.length > 0 || files.length > 0) && (
         <motion.div
-          animate={{ height: 'auto' }}
+          animate={{ height: "auto" }}
           className="overflow-hidden"
           exit={{ height: 0 }}
           initial={{ height: 0 }}
@@ -53,7 +53,7 @@ export function FileList({
                 >
                   <ExistingFileItem
                     attachment={att}
-                    kept={keptUrls ? keptUrls.has(att.url.split('?')[0]) : true}
+                    kept={keptUrls ? keptUrls.has(att.url.split("?")[0]) : true}
                     onToggle={(url) => onToggleExisting?.(url)}
                   />
                 </motion.div>

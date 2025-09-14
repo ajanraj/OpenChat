@@ -1,5 +1,5 @@
-import withBundleAnalyzer from '@next/bundle-analyzer';
-import type { NextConfig } from 'next';
+import withBundleAnalyzer from "@next/bundle-analyzer";
+import type { NextConfig } from "next";
 
 // Extract hostname from CONVEX_URL for image configuration
 const getConvexHostname = (): string | null => {
@@ -20,9 +20,9 @@ const nextConfig: NextConfig = {
   experimental: {
     useCache: true,
     optimizePackageImports: [
-      '@phosphor-icons/react',
-      '@ridemountainpig/svgl-react',
-      '@lobehub/icons',
+      "@phosphor-icons/react",
+      "@ridemountainpig/svgl-react",
+      "@lobehub/icons",
     ],
     reactCompiler: true,
   },
@@ -34,24 +34,24 @@ const nextConfig: NextConfig = {
     domains: [],
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'assets.oschat.ai',
+        protocol: "https",
+        hostname: "assets.oschat.ai",
       },
       {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
       },
       {
-        protocol: 'https',
-        hostname: '*.googleusercontent.com',
+        protocol: "https",
+        hostname: "*.googleusercontent.com",
       },
       {
-        protocol: 'https',
-        hostname: 'www.google.com',
+        protocol: "https",
+        hostname: "www.google.com",
       },
       {
-        protocol: 'https',
-        hostname: 'api.microlink.io',
+        protocol: "https",
+        hostname: "api.microlink.io",
       },
       // Add Convex hostname dynamically
       ...(() => {
@@ -59,7 +59,7 @@ const nextConfig: NextConfig = {
         return convexHostname
           ? [
               {
-                protocol: 'https' as const,
+                protocol: "https" as const,
                 hostname: convexHostname,
               },
             ]
@@ -71,16 +71,16 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/p/static/:path*',
-        destination: 'https://eu-assets.i.posthog.com/static/:path*',
+        source: "/p/static/:path*",
+        destination: "https://eu-assets.i.posthog.com/static/:path*",
       },
       {
-        source: '/p/:path*',
-        destination: 'https://eu.i.posthog.com/:path*',
+        source: "/p/:path*",
+        destination: "https://eu.i.posthog.com/:path*",
       },
       {
-        source: '/p/decide',
-        destination: 'https://eu.i.posthog.com/decide',
+        source: "/p/decide",
+        destination: "https://eu.i.posthog.com/decide",
       },
     ];
   },
@@ -89,5 +89,5 @@ const nextConfig: NextConfig = {
 };
 
 export default withBundleAnalyzer({
-  enabled: process.env.ANALYZE === 'true',
+  enabled: process.env.ANALYZE === "true",
 })(nextConfig);

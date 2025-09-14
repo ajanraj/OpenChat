@@ -3,10 +3,10 @@
  * Helper functions for file uploads, validation, and attachment handling
  */
 
-import type { FileUIPart } from 'ai';
-import { toast } from '@/components/ui/toast';
-import type { Id } from '@/convex/_generated/dataModel';
-import { humaniseUploadError } from './chat-error-utils';
+import type { FileUIPart } from "ai";
+import { toast } from "@/components/ui/toast";
+import type { Id } from "@/convex/_generated/dataModel";
+import { humaniseUploadError } from "./chat-error-utils";
 
 export type FileAttachment = {
   key: string; // R2 object key
@@ -23,10 +23,10 @@ export type FileAttachment = {
  */
 export async function uploadAndSaveFile(
   file: File,
-  chatId: Id<'chats'>,
+  chatId: Id<"chats">,
   uploadToR2: (f: File) => Promise<string>,
   saveFileAttachment: (attachment: {
-    chatId: Id<'chats'>;
+    chatId: Id<"chats">;
     key: string;
     fileName: string;
   }) => Promise<FileAttachment>
@@ -40,7 +40,7 @@ export async function uploadAndSaveFile(
     });
   } catch (uploadError) {
     const friendly = humaniseUploadError(uploadError);
-    toast({ title: friendly, status: 'error' });
+    toast({ title: friendly, status: "error" });
     return null;
   }
 }
@@ -50,10 +50,10 @@ export async function uploadAndSaveFile(
  */
 export async function uploadFilesInParallel(
   files: File[],
-  chatId: Id<'chats'>,
+  chatId: Id<"chats">,
   uploadToR2: (file: File) => Promise<string>,
   saveFileAttachment: (attachment: {
-    chatId: Id<'chats'>;
+    chatId: Id<"chats">;
     key: string;
     fileName: string;
   }) => Promise<FileAttachment>
@@ -74,7 +74,7 @@ export async function uploadFilesInParallel(
     // Use stored permanent URL from server
     if (attachment.url) {
       fileAttachments.push({
-        type: 'file',
+        type: "file",
         filename: attachment.fileName,
         mediaType: attachment.fileType,
         url: attachment.url,
@@ -90,7 +90,7 @@ export async function uploadFilesInParallel(
  */
 export function createOptimisticAttachments(files: File[]): FileUIPart[] {
   return files.map((file) => ({
-    type: 'file' as const,
+    type: "file" as const,
     filename: file.name,
     mediaType: file.type,
     url: URL.createObjectURL(file),
@@ -102,12 +102,12 @@ export function createOptimisticAttachments(files: File[]): FileUIPart[] {
  * Safe to call multiple times; non-blob URLs are ignored.
  */
 export function revokeOptimisticAttachments(parts: FileUIPart[]): void {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return;
   }
   for (const part of parts) {
     const url = part?.url;
-    if (typeof url === 'string' && url.startsWith('blob:')) {
+    if (typeof url === "string" && url.startsWith("blob:")) {
       try {
         URL.revokeObjectURL(url);
       } catch {

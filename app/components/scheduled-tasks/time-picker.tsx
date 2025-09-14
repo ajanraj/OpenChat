@@ -1,28 +1,28 @@
-'use client';
+"use client";
 
-import { CalendarIcon } from '@phosphor-icons/react';
-import dayjs from 'dayjs';
-import { memo, useMemo } from 'react';
+import { CalendarIcon } from "@phosphor-icons/react";
+import dayjs from "dayjs";
+import { memo, useMemo } from "react";
 import {
   convertTo24Hour,
   formatTime12Hour,
   getDayOptions,
-} from '@/app/utils/time-utils';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+} from "@/app/utils/time-utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 // Pre-generated time options for performance - 144 options (12 hours × 12 five-minute intervals)
 const TIME_OPTIONS = (() => {
@@ -30,18 +30,18 @@ const TIME_OPTIONS = (() => {
   // Generate hours in correct 12-hour order: 12, 1, 2, 3, ..., 11
   const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   const minutes = [
-    '00',
-    '05',
-    '10',
-    '15',
-    '20',
-    '25',
-    '30',
-    '35',
-    '40',
-    '45',
-    '50',
-    '55',
+    "00",
+    "05",
+    "10",
+    "15",
+    "20",
+    "25",
+    "30",
+    "35",
+    "40",
+    "45",
+    "50",
+    "55",
   ];
 
   for (const hour of hours) {
@@ -110,22 +110,22 @@ function TimePickerComponent({
         return TIME_OPTIONS;
       }
 
-      const currentAmPm = currentHour < 12 ? 'AM' : 'PM';
+      const currentAmPm = currentHour < 12 ? "AM" : "PM";
 
       // If current time is PM and we're showing AM options, all AM times are for tomorrow (valid)
       // If current time is AM and we're showing PM options, all PM times are for today (valid)
       if (amPeriod !== currentAmPm) {
-        if (currentAmPm === 'PM' && amPeriod === 'AM') {
+        if (currentAmPm === "PM" && amPeriod === "AM") {
           return TIME_OPTIONS; // All AM times are for tomorrow
         }
-        if (currentAmPm === 'AM' && amPeriod === 'PM') {
+        if (currentAmPm === "AM" && amPeriod === "PM") {
           return TIME_OPTIONS; // All PM times are for today
         }
       }
 
       // Same period, filter based on current time
       return TIME_OPTIONS.filter((option) => {
-        const [hourStr, minuteStr] = option.value.split(':');
+        const [hourStr, minuteStr] = option.value.split(":");
         const optionHour12 = Number.parseInt(hourStr, 10);
         const optionMinute = Number.parseInt(minuteStr, 10);
 
@@ -144,23 +144,23 @@ function TimePickerComponent({
     currentMinute,
   ]);
 
-  const { hour12, minute, ampm } = formatTime12Hour(value || '09:00');
+  const { hour12, minute, ampm } = formatTime12Hour(value || "09:00");
 
   // Memoize AM/PM options based on current time if needed
   const availableAmPmOptions = useMemo(() => {
     if (!shouldFilterPastTimes) {
-      return ['AM', 'PM'];
+      return ["AM", "PM"];
     }
 
-    const currentAmPm = currentHour < 12 ? 'AM' : 'PM';
+    const currentAmPm = currentHour < 12 ? "AM" : "PM";
 
     // If current time is PM, only show PM (AM times have passed)
-    if (currentAmPm === 'PM') {
-      return ['PM'];
+    if (currentAmPm === "PM") {
+      return ["PM"];
     }
 
     // If current time is AM, show both AM and PM
-    return ['AM', 'PM'];
+    return ["AM", "PM"];
   }, [shouldFilterPastTimes, currentHour]);
 
   // Auto-correct AM/PM if current selection is not available
@@ -169,17 +169,17 @@ function TimePickerComponent({
     : availableAmPmOptions[0];
   const { hour12: correctedHour12, minute: correctedMinute } = formatTime12Hour(
     correctedAmPm !== ampm
-      ? `${convertTo24Hour(Number.parseInt(hour12, 10), correctedAmPm).toString().padStart(2, '0')}:${minute}`
-      : value || '09:00'
+      ? `${convertTo24Hour(Number.parseInt(hour12, 10), correctedAmPm).toString().padStart(2, "0")}:${minute}`
+      : value || "09:00"
   );
 
   const currentHourMinute = `${correctedHour12}:${correctedMinute}`;
   const filteredHourMinuteOptions = getFilteredOptions(correctedAmPm);
 
   const handleHourMinuteChange = (newHourMinute: string) => {
-    const [newHour, newMinute] = newHourMinute.split(':');
+    const [newHour, newMinute] = newHourMinute.split(":");
     const hour24 = convertTo24Hour(Number.parseInt(newHour, 10), correctedAmPm);
-    const timeString = `${hour24.toString().padStart(2, '0')}:${newMinute}`;
+    const timeString = `${hour24.toString().padStart(2, "0")}:${newMinute}`;
     onChange(timeString);
   };
 
@@ -188,7 +188,7 @@ function TimePickerComponent({
       Number.parseInt(correctedHour12, 10),
       newAmPm
     );
-    const timeString = `${hour24.toString().padStart(2, '0')}:${correctedMinute}`;
+    const timeString = `${hour24.toString().padStart(2, "0")}:${correctedMinute}`;
     onChange(timeString);
   };
 
@@ -231,14 +231,14 @@ function TimePickerComponent({
               <PopoverTrigger asChild>
                 <Button
                   className={cn(
-                    'h-9 w-full justify-between border-input bg-transparent text-left font-normal shadow-xs transition-[color,box-shadow] hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                    !selectedDate && 'text-muted-foreground'
+                    "h-9 w-full justify-between border-input bg-transparent text-left font-normal shadow-xs transition-[color,box-shadow] hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    !selectedDate && "text-muted-foreground"
                   )}
                   size="sm"
                   variant="outline"
                 >
                   {selectedDate ? (
-                    dayjs(selectedDate).format('MMM D, YYYY')
+                    dayjs(selectedDate).format("MMM D, YYYY")
                   ) : (
                     <span>Pick date</span>
                   )}

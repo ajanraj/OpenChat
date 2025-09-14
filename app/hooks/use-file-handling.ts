@@ -3,16 +3,16 @@
  * Manages file uploads and attachment processing for chat
  */
 
-import { useUploadFile } from '@convex-dev/r2/react';
-import type { FileUIPart } from 'ai';
-import { useAction } from 'convex/react';
-import { useCallback, useState } from 'react';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useUploadFile } from "@convex-dev/r2/react";
+import type { FileUIPart } from "ai";
+import { useAction } from "convex/react";
+import { useCallback, useState } from "react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   createOptimisticAttachments,
   uploadFilesInParallel,
-} from '@/lib/file-upload-utils';
+} from "@/lib/file-upload-utils";
 
 export function useFileHandling() {
   const [files, setFiles] = useState<File[]>([]);
@@ -33,7 +33,7 @@ export function useFileHandling() {
   }, []);
 
   const processFiles = useCallback(
-    async (chatId: Id<'chats'>): Promise<FileUIPart[]> => {
+    async (chatId: Id<"chats">): Promise<FileUIPart[]> => {
       if (files.length === 0) {
         return [];
       }

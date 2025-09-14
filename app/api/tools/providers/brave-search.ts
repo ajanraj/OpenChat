@@ -4,16 +4,16 @@ import {
   type SearchAdapter,
   type SearchOptions,
   type SearchResult,
-} from '../types';
+} from "../types";
 
 export class BraveSearchProvider implements SearchAdapter {
-  readonly name = 'brave';
+  readonly name = "brave";
   private readonly apiKey: string;
-  private readonly baseUrl = 'https://api.search.brave.com/res/v1/web/search';
+  private readonly baseUrl = "https://api.search.brave.com/res/v1/web/search";
 
   constructor(apiKey: string) {
     if (!apiKey) {
-      throw new Error('Brave Search API key is required');
+      throw new Error("Brave Search API key is required");
     }
     this.apiKey = apiKey;
   }
@@ -35,23 +35,23 @@ export class BraveSearchProvider implements SearchAdapter {
       const params = new URLSearchParams({
         q: query,
         count: limit.toString(),
-        safesearch: 'moderate',
-        search_lang: 'en',
-        country: 'US',
+        safesearch: "moderate",
+        search_lang: "en",
+        country: "US",
       });
 
       // Add domain filters if provided
       if (includeDomains && includeDomains.length > 0) {
-        params.append('site', includeDomains.join(' OR site:'));
+        params.append("site", includeDomains.join(" OR site:"));
       }
       if (excludeDomains && excludeDomains.length > 0) {
-        params.append('exclude', excludeDomains.join(' -site:'));
+        params.append("exclude", excludeDomains.join(" -site:"));
       }
 
       const response = await fetch(`${this.baseUrl}?${params}`, {
         headers: {
-          Accept: 'application/json',
-          'X-Subscription-Token': this.apiKey,
+          Accept: "application/json",
+          "X-Subscription-Token": this.apiKey,
         },
       });
 
@@ -66,7 +66,7 @@ export class BraveSearchProvider implements SearchAdapter {
       return this.formatResults(data.web?.results || [], scrapeContent);
     } catch (error) {
       throw new Error(
-        `Failed to search with Brave: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to search with Brave: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
@@ -84,9 +84,9 @@ export class BraveSearchProvider implements SearchAdapter {
       };
 
       return {
-        url: item.url || '',
-        title: item.title || '',
-        description: item.description || item.snippet || '',
+        url: item.url || "",
+        title: item.title || "",
+        description: item.description || item.snippet || "",
         content: includeContent ? item.description || item.snippet : undefined,
         markdown: this.formatMarkdown(item, includeContent),
       };
@@ -101,10 +101,10 @@ export class BraveSearchProvider implements SearchAdapter {
       snippet?: string;
     };
 
-    let markdown = `### [${item.title || 'Untitled'}](${item.url || '#'})\n${item.description || item.snippet || ''}`;
+    let markdown = `### [${item.title || "Untitled"}](${item.url || "#"})\n${item.description || item.snippet || ""}`;
 
     if (includeContent && (item.description || item.snippet)) {
-      const content = item.description || item.snippet || '';
+      const content = item.description || item.snippet || "";
       const truncatedContent =
         content.length > SEARCH_CONFIG.maxTextCharacters
           ? `${content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3)}...`

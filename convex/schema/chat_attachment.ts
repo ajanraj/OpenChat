@@ -1,9 +1,9 @@
-import { v } from 'convex/values';
+import { v } from "convex/values";
 
 export const ChatAttachment = v.object({
-  userId: v.id('users'),
+  userId: v.id("users"),
   // Allow creating a pending row before associating to a chat
-  chatId: v.optional(v.id('chats')),
+  chatId: v.optional(v.id("chats")),
   key: v.string(), // R2 object key
   // These are filled after metadata sync / final save
   fileName: v.optional(v.string()), // display name

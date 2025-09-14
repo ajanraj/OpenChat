@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import { ArrowUpIcon } from '@phosphor-icons/react';
-import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
-import { useEditClickOutside } from '@/app/hooks/use-edit-click-outside';
+import { ArrowUpIcon } from "@phosphor-icons/react";
+import type React from "react";
+import { useCallback, useRef, useState } from "react";
+import { useEditClickOutside } from "@/app/hooks/use-edit-click-outside";
 import {
   PromptInput,
   PromptInputAction,
   PromptInputActions,
   PromptInputTextarea,
-} from '@/components/prompt-kit/prompt-input';
-import { Button } from '@/components/ui/button';
-import { MODEL_DEFAULT, MODELS_MAP } from '@/lib/config';
-import { ButtonFileUpload } from './button-file-upload';
-import { ButtonSearch } from './button-search';
-import { FileList } from './file-list';
-import { SelectModel } from './select-model';
-import { SelectReasoningEffort } from './select-reasoning-effort';
+} from "@/components/prompt-kit/prompt-input";
+import { Button } from "@/components/ui/button";
+import { MODEL_DEFAULT, MODELS_MAP } from "@/lib/config";
+import { ButtonFileUpload } from "./button-file-upload";
+import { ButtonSearch } from "./button-search";
+import { FileList } from "./file-list";
+import { SelectModel } from "./select-model";
+import { SelectReasoningEffort } from "./select-reasoning-effort";
 
-type ReasoningEffort = 'low' | 'medium' | 'high';
+type ReasoningEffort = "low" | "medium" | "high";
 
 type EditInputProps = {
   initialValue: string;
@@ -43,7 +43,7 @@ type EditInputProps = {
   selectedModel: string;
   isSearchEnabled?: boolean;
   isUserAuthenticated: boolean;
-  status?: 'submitted' | 'streaming' | 'ready' | 'error';
+  status?: "submitted" | "streaming" | "ready" | "error";
   isReasoningModel?: boolean;
   reasoningEffort?: ReasoningEffort;
 };
@@ -59,7 +59,7 @@ export function EditInput({
   isUserAuthenticated,
   status,
   isReasoningModel = false,
-  reasoningEffort = 'medium',
+  reasoningEffort = "medium",
 }: EditInputProps) {
   // Local state for edit mode (isolated from global chat state)
   const [value, setValue] = useState(initialValue);
@@ -75,7 +75,7 @@ export function EditInput({
   const [editFiles, setEditFiles] = useState<File[]>(initialFiles);
   // Track which existing files are kept; default to all existing files
   const [keptExistingUrls, setKeptExistingUrls] = useState<Set<string>>(
-    () => new Set(existingFiles.map((f) => f.url.split('?')[0]))
+    () => new Set(existingFiles.map((f) => f.url.split("?")[0]))
   );
   const [editReasoningEffort, setEditReasoningEffort] =
     useState<ReasoningEffort>(reasoningEffort);
@@ -117,7 +117,7 @@ export function EditInput({
     }
 
     const existingCanonical = new Set(
-      existingFiles.map((f) => f.url.split('?')[0])
+      existingFiles.map((f) => f.url.split("?")[0])
     );
     if (
       existingFiles.length > 0 &&
@@ -155,7 +155,7 @@ export function EditInput({
       return;
     }
     const removedFileUrls = existingFiles
-      .map((f) => f.url.split('?')[0])
+      .map((f) => f.url.split("?")[0])
       .filter((u) => !keptExistingUrls.has(u));
     onSend(value, {
       enableSearch: editSearchEnabled,
@@ -178,11 +178,11 @@ export function EditInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onCancel();
       }
     },
@@ -207,7 +207,7 @@ export function EditInput({
           onToggleExisting={(url) =>
             setKeptExistingUrls((prev) => {
               const next = new Set(prev);
-              const canonical = url.split('?')[0];
+              const canonical = url.split("?")[0];
               if (next.has(canonical)) {
                 next.delete(canonical);
               } else {
@@ -219,7 +219,7 @@ export function EditInput({
         />
         <PromptInputTextarea
           className="mt-2 ml-2 text-foreground leading-[1.3]"
-          disabled={status === 'streaming'}
+          disabled={status === "streaming"}
           onKeyDown={handleKeyDown}
           placeholder="Edit message..."
           ref={textareaRef}

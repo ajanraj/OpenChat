@@ -1,24 +1,24 @@
-'use client';
-import { useAuthActions } from '@convex-dev/auth/react';
-import { convexQuery } from '@convex-dev/react-query';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useMutation } from 'convex/react';
-import { createContext, useCallback, useContext, useMemo } from 'react';
-import { api } from '../../convex/_generated/api';
-import type { Doc, Id } from '../../convex/_generated/dataModel';
+"use client";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import { createContext, useCallback, useContext, useMemo } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 
-export type UserProfile = Doc<'users'>;
+export type UserProfile = Doc<"users">;
 
 export type ApiKey = {
-  _id: Id<'user_api_keys'>;
+  _id: Id<"user_api_keys">;
   provider: string;
-  mode?: 'priority' | 'fallback';
+  mode?: "priority" | "fallback";
   messageCount?: number;
   createdAt?: number;
   updatedAt?: number;
 };
 
-export type Connector = Doc<'connectors'>;
+export type Connector = Doc<"connectors">;
 
 type UserContextType = {
   user: UserProfile | null;
@@ -117,7 +117,7 @@ export function UserProvider({
     useTanStackQuery({
       ...convexQuery(
         api.connectors.listUserConnectors,
-        user && !user?.isAnonymous ? {} : 'skip'
+        user && !user?.isAnonymous ? {} : "skip"
       ),
       enabled: Boolean(user) && !user?.isAnonymous,
       // Connectors are relatively stable, cache reasonably
@@ -129,7 +129,7 @@ export function UserProvider({
   // User creation and account linking is handled by the createOrUpdateUser callback in auth.ts
 
   const signInGoogle = useCallback(async () => {
-    await signIn('google');
+    await signIn("google");
   }, [signIn]);
 
   const updateUser = useCallback(
@@ -162,9 +162,9 @@ export function UserProvider({
     return keyMap;
   }, [apiKeys]);
 
-  const hasOpenAI = hasApiKey.get('openai') ?? false;
-  const hasAnthropic = hasApiKey.get('anthropic') ?? false;
-  const hasGemini = hasApiKey.get('gemini') ?? false;
+  const hasOpenAI = hasApiKey.get("openai") ?? false;
+  const hasAnthropic = hasApiKey.get("anthropic") ?? false;
+  const hasGemini = hasApiKey.get("gemini") ?? false;
 
   // Combined loading state for user-related data (auth loading is handled by AuthLoading component)
   const combinedLoading = Boolean(
@@ -245,7 +245,7 @@ export function UserProvider({
 export function useUser() {
   const context = useContext(UserContext);
   if (!context) {
-    throw new Error('useUser must be used within a UserProvider');
+    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
 }

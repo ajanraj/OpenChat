@@ -1,8 +1,8 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
-import { ConvexError, v } from 'convex/values';
-import { ERROR_CODES } from '../lib/error-codes';
-import type { Id } from './_generated/dataModel';
-import { mutation } from './_generated/server';
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError, v } from "convex/values";
+import { ERROR_CODES } from "../lib/error-codes";
+import type { Id } from "./_generated/dataModel";
+import { mutation } from "./_generated/server";
 
 export const bulkImportChat = mutation({
   args: {
@@ -14,9 +14,9 @@ export const bulkImportChat = mutation({
     messages: v.array(
       v.object({
         role: v.union(
-          v.literal('user'),
-          v.literal('assistant'),
-          v.literal('system')
+          v.literal("user"),
+          v.literal("assistant"),
+          v.literal("system")
         ),
         content: v.string(),
         parts: v.optional(v.array(v.any())), // Use any to allow any part structure
@@ -33,14 +33,14 @@ export const bulkImportChat = mutation({
           })
         ),
         createdAt: v.optional(v.number()),
-        parentMessageId: v.optional(v.id('messages')),
+        parentMessageId: v.optional(v.id("messages")),
         originalId: v.optional(v.string()),
         parentOriginalId: v.optional(v.string()),
       })
     ),
   },
   returns: v.object({
-    chatId: v.id('chats'),
+    chatId: v.id("chats"),
     messageCount: v.number(),
   }),
   handler: async (ctx, args) => {
@@ -51,9 +51,9 @@ export const bulkImportChat = mutation({
 
     // Create chat
     const now = Date.now();
-    const chatId = await ctx.db.insert('chats', {
+    const chatId = await ctx.db.insert("chats", {
       userId,
-      title: args.chat.title ?? 'Imported Chat',
+      title: args.chat.title ?? "Imported Chat",
       model: args.chat.model,
       personaId: args.chat.personaId,
       createdAt: now,
@@ -64,7 +64,7 @@ export const bulkImportChat = mutation({
     });
 
     // Create ID mapping for threading
-    const idMap = new Map<string, Id<'messages'>>();
+    const idMap = new Map<string, Id<"messages">>();
 
     // Insert all messages in order (preserving threading)
     for (const msg of args.messages) {
@@ -72,7 +72,7 @@ export const bulkImportChat = mutation({
         ? idMap.get(msg.parentOriginalId)
         : undefined;
 
-      const messageId = await ctx.db.insert('messages', {
+      const messageId = await ctx.db.insert("messages", {
         chatId,
         userId, // Always attribute imported messages to the importing user for consistency
         role: msg.role,

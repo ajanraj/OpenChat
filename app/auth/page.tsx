@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useAuthActions } from '@convex-dev/auth/react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { TextHoverEffect } from '@/components/ui/text-hover-effect';
-import { APP_NAME } from '@/lib/config';
-import { HeaderGoBack } from '../components/header-go-back';
+import { useAuthActions } from "@convex-dev/auth/react";
+import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { TextHoverEffect } from "@/components/ui/text-hover-effect";
+import { APP_NAME } from "@/lib/config";
+import { HeaderGoBack } from "../components/header-go-back";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,14 +20,14 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
 
-      await signIn('google');
+      await signIn("google");
     } catch (err: unknown) {
       setIsLoading(false);
       // console.error('Error signing in with Google:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('An unexpected error occurred. Please try again.');
+        setError("An unexpected error occurred. Please try again.");
       }
     }
   }
@@ -40,7 +40,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <h1 className="mb-5 font-bold text-foreground text-xl">
-              Welcome to{' '}
+              Welcome to{" "}
               <span className="-mt-1 ml-1.5 inline-block text-3xl">
                 {APP_NAME}
               </span>
@@ -72,20 +72,20 @@ export default function LoginPage() {
                   width={24}
                 />
                 <span>
-                  {isLoading ? 'Connecting...' : 'Continue with Google'}
+                  {isLoading ? "Connecting..." : "Continue with Google"}
                 </span>
               </Button>
             </div>
             <div className="mt-6 text-center text-muted-foreground/60 text-sm">
               <p>
-                By continuing, you agree to our{' '}
+                By continuing, you agree to our{" "}
                 <Link
                   className="text-muted-foreground hover:text-foreground"
                   href="/terms"
                 >
                   Terms of Service
-                </Link>{' '}
-                and{' '}
+                </Link>{" "}
+                and{" "}
                 <Link
                   className="text-muted-foreground hover:text-foreground"
                   href="/privacy"

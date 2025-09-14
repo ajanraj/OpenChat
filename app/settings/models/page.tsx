@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   BrainIcon,
@@ -10,12 +10,12 @@ import {
   LinkIcon,
   SketchLogoIcon,
   WrenchIcon,
-} from '@phosphor-icons/react';
-import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { ProviderIcon } from '@/app/components/common/provider-icon';
-import { useModelPreferences } from '@/app/hooks/use-model-preferences';
-import { useModelSettings } from '@/app/hooks/use-model-settings';
+} from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { ProviderIcon } from "@/app/components/common/provider-icon";
+import { useModelPreferences } from "@/app/hooks/use-model-preferences";
+import { useModelSettings } from "@/app/hooks/use-model-settings";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,31 +26,31 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Switch } from '@/components/ui/switch';
+} from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 import {
   APP_BASE_URL,
   MODEL_DEFAULT,
   MODELS_OPTIONS,
   PROVIDERS_OPTIONS,
   RECOMMENDED_MODELS,
-} from '@/lib/config';
-import { cn } from '@/lib/utils';
+} from "@/lib/config";
+import { cn } from "@/lib/utils";
 
 type FeatureInfo = {
   label: string;
@@ -58,24 +58,24 @@ type FeatureInfo = {
 };
 
 const FEATURE_INFO: Record<string, FeatureInfo> = {
-  'file-upload': {
-    label: 'Vision',
+  "file-upload": {
+    label: "Vision",
     icon: EyeIcon,
   },
-  'pdf-processing': {
-    label: 'PDF Comprehension',
+  "pdf-processing": {
+    label: "PDF Comprehension",
     icon: FilePdfIcon,
   },
   reasoning: {
-    label: 'Reasoning',
+    label: "Reasoning",
     icon: BrainIcon,
   },
-  'tool-calling': {
-    label: 'Tool Calling',
+  "tool-calling": {
+    label: "Tool Calling",
     icon: WrenchIcon,
   },
-  'image-generation': {
-    label: 'Image Generation',
+  "image-generation": {
+    label: "Image Generation",
     icon: ImagesIcon,
   },
 };
@@ -83,18 +83,18 @@ const FEATURE_INFO: Record<string, FeatureInfo> = {
 // Get the appropriate color classes for each feature
 const getFeatureColorClasses = (featureId: string) => {
   switch (featureId) {
-    case 'file-upload':
-      return 'text-teal-600 dark:text-teal-400';
-    case 'pdf-processing':
-      return 'text-indigo-600 dark:text-indigo-400';
-    case 'reasoning':
-      return 'text-pink-600 dark:text-pink-400';
-    case 'tool-calling':
-      return 'text-blue-600 dark:text-blue-400';
-    case 'image-generation':
-      return 'text-orange-600 dark:text-orange-400';
+    case "file-upload":
+      return "text-teal-600 dark:text-teal-400";
+    case "pdf-processing":
+      return "text-indigo-600 dark:text-indigo-400";
+    case "reasoning":
+      return "text-pink-600 dark:text-pink-400";
+    case "tool-calling":
+      return "text-blue-600 dark:text-blue-400";
+    case "image-generation":
+      return "text-orange-600 dark:text-orange-400";
     default:
-      return 'text-muted-foreground';
+      return "text-muted-foreground";
   }
 };
 
@@ -163,7 +163,7 @@ export default function ModelsPage() {
       // Rollback optimistic update on error
       setDisabled(disabled);
       toast.error(
-        `Failed to ${shouldEnable ? 'enable' : 'disable'} model. Please try again.`
+        `Failed to ${shouldEnable ? "enable" : "disable"} model. Please try again.`
       );
     }
   };
@@ -190,7 +190,7 @@ export default function ModelsPage() {
     } catch (_error) {
       // Rollback on error
       setDisabled(originalDisabled);
-      toast.error('Failed to apply recommended models. Please try again.');
+      toast.error("Failed to apply recommended models. Please try again.");
     }
   };
 
@@ -211,7 +211,7 @@ export default function ModelsPage() {
       // Rollback on error
       setDisabled(originalDisabled);
       setShowConfirm(false);
-      toast.error('Failed to unselect all models. Please try again.');
+      toast.error("Failed to unselect all models. Please try again.");
     }
   };
 
@@ -234,20 +234,20 @@ export default function ModelsPage() {
   const handleCopy = async (id: string) => {
     try {
       const base =
-        process.env.NODE_ENV === 'development'
-          ? 'http://localhost:3000'
+        process.env.NODE_ENV === "development"
+          ? "http://localhost:3000"
           : APP_BASE_URL;
       const u = new URL(base);
-      u.searchParams.set('model', id); // encodes automatically
-      u.searchParams.set('q', '%s'); // encodes to %25s
-      const searchUrl = u.toString().replace('%25s', '%s');
+      u.searchParams.set("model", id); // encodes automatically
+      u.searchParams.set("q", "%s"); // encodes to %25s
+      const searchUrl = u.toString().replace("%25s", "%s");
       await navigator.clipboard.writeText(searchUrl);
       setCopied(id);
       setTimeout(() => {
         setCopied((prev) => (prev === id ? null : prev));
       }, 1000);
     } catch {
-      toast.error('Failed to copy to clipboard. Please try again.');
+      toast.error("Failed to copy to clipboard. Please try again.");
     }
   };
 
@@ -265,7 +265,7 @@ export default function ModelsPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="secondary">
-                  {`Filter by features${filters.size ? ` (${filters.size})` : ''}`}
+                  {`Filter by features${filters.size ? ` (${filters.size})` : ""}`}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -280,7 +280,7 @@ export default function ModelsPage() {
                     <DropdownMenuItem
                       aria-checked={checked}
                       className="flex items-center justify-between"
-                      data-state={checked ? 'checked' : 'unchecked'}
+                      data-state={checked ? "checked" : "unchecked"}
                       key={fid}
                       onSelect={(e) => {
                         e.preventDefault();
@@ -291,14 +291,14 @@ export default function ModelsPage() {
                       <div className="flex items-center gap-2">
                         <div
                           className={cn(
-                            'relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md',
+                            "relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-md",
                             getFeatureColorClasses(fid)
                           )}
                         >
                           <div className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
                           <Icon
                             className={cn(
-                              'relative h-4 w-4',
+                              "relative h-4 w-4",
                               getFeatureColorClasses(fid)
                             )}
                           />
@@ -315,7 +315,7 @@ export default function ModelsPage() {
                 <DropdownMenuItem
                   aria-checked={freeOnly}
                   className="flex items-center justify-between"
-                  data-state={freeOnly ? 'checked' : 'unchecked'}
+                  data-state={freeOnly ? "checked" : "unchecked"}
                   onSelect={(e) => {
                     e.preventDefault();
                     toggleFree();
@@ -475,16 +475,16 @@ export default function ModelsPage() {
                       <p className="mr-12 text-xs sm:text-sm">
                         {(() => {
                           if (!model.description) {
-                            return '';
+                            return "";
                           }
                           if (expanded[model.id]) {
-                            return model.description.replace(/\n/g, ' ');
+                            return model.description.replace(/\n/g, " ");
                           }
-                          return model.description.split('\n')[0];
+                          return model.description.split("\n")[0];
                         })()}
                       </p>
                       {model.description &&
-                        model.description.split('\n').length > 1 && (
+                        model.description.split("\n").length > 1 && (
                           <button
                             className="mt-1 cursor-pointer text-xs"
                             onClick={() =>
@@ -495,7 +495,7 @@ export default function ModelsPage() {
                             }
                             type="button"
                           >
-                            {expanded[model.id] ? 'Show less' : 'Show more'}
+                            {expanded[model.id] ? "Show less" : "Show more"}
                           </button>
                         )}
                     </div>
@@ -514,7 +514,7 @@ export default function ModelsPage() {
                           return (
                             <Badge
                               className={cn(
-                                'relative flex items-center gap-1 overflow-hidden rounded-full px-1.5 py-0.5 text-[10px] sm:gap-1.5 sm:px-2 sm:text-xs',
+                                "relative flex items-center gap-1 overflow-hidden rounded-full px-1.5 py-0.5 text-[10px] sm:gap-1.5 sm:px-2 sm:text-xs",
                                 getFeatureColorClasses(feat.id)
                               )}
                               key={feat.id}

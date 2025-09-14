@@ -17,7 +17,7 @@ export const convertTo12Hour = (hour24: number): number => {
 };
 
 export const convertTo24Hour = (hour12: number, ampm: string): number => {
-  if (ampm === 'AM') {
+  if (ampm === "AM") {
     return hour12 === 12 ? 0 : hour12;
   }
   return hour12 === 12 ? 12 : hour12 + 12;
@@ -27,7 +27,7 @@ export const convertTo24Hour = (hour12: number, ampm: string): number => {
 export type Time12HourFormat = {
   hour12: string;
   minute: string;
-  ampm: 'AM' | 'PM';
+  ampm: "AM" | "PM";
 };
 
 export const formatTime12Hour = (time24: string): Time12HourFormat => {
@@ -38,7 +38,7 @@ export const formatTime12Hour = (time24: string): Time12HourFormat => {
     );
   }
 
-  const [hour, minute] = time24.split(':');
+  const [hour, minute] = time24.split(":");
   const hour24 = Number.parseInt(hour, 10);
 
   // Additional validation for hour range (0-23)
@@ -55,7 +55,7 @@ export const formatTime12Hour = (time24: string): Time12HourFormat => {
   }
 
   const hour12 = convertTo12Hour(hour24);
-  const ampm: 'AM' | 'PM' = hour24 < 12 ? 'AM' : 'PM';
+  const ampm: "AM" | "PM" = hour24 < 12 ? "AM" : "PM";
 
   return {
     hour12: hour12.toString(),
@@ -68,22 +68,22 @@ export const formatNextRun = (
   date: Date | string,
   timezone: string
 ): string => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('en-US', {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    dateStyle: "medium",
+    timeStyle: "short",
   }).format(dateObj);
 };
 
 export const formatFrequency = (frequency: string, time: string): string => {
   switch (frequency) {
-    case 'daily': {
+    case "daily": {
       const { hour12, minute, ampm } = formatTime12Hour(time);
       const displayTime = `${hour12}:${minute} ${ampm}`;
       return `Daily at ${displayTime}`;
     }
-    case 'weekly': {
+    case "weekly": {
       // For weekly tasks, time format is "day:HH:MM"
       const { day, time: timeOnly } = parseWeeklyTime(time);
       const { hour12, minute, ampm } = formatTime12Hour(timeOnly);
@@ -91,12 +91,12 @@ export const formatFrequency = (frequency: string, time: string): string => {
       const dayName = getDayName(day);
       return `${dayName}s at ${displayTime}`;
     }
-    case 'monthly': {
+    case "monthly": {
       const { hour12, minute, ampm } = formatTime12Hour(time);
       const displayTime = `${hour12}:${minute} ${ampm}`;
       return `Monthly on the 1st at ${displayTime}`;
     }
-    case 'once': {
+    case "once": {
       const { hour12, minute, ampm } = formatTime12Hour(time);
       const displayTime = `${hour12}:${minute} ${ampm}`;
       return `Once at ${displayTime}`;
@@ -110,7 +110,7 @@ export const formatFrequency = (frequency: string, time: string): string => {
 };
 
 export const formatRelativeTime = (date: Date | string): string => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const dateObj = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
 
@@ -119,7 +119,7 @@ export const formatRelativeTime = (date: Date | string): string => {
   const absDiffInSeconds = Math.abs(diffInSeconds);
 
   if (absDiffInSeconds < 60) {
-    return isFuture ? 'In a moment' : 'Just now';
+    return isFuture ? "In a moment" : "Just now";
   }
   if (absDiffInSeconds < 3600) {
     const minutes = Math.floor(absDiffInSeconds / 60);
@@ -142,7 +142,7 @@ export const isTimeInPast = (time: string, selectedDate?: Date): boolean => {
     return false;
   }
 
-  const [hours, minutes] = time.split(':').map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
   const targetDateTime = new Date(selectedDate);
   targetDateTime.setHours(hours, minutes, 0, 0);
 
@@ -174,7 +174,7 @@ export const getNextAvailableTime = (): string => {
     nextMinute = 0;
   }
 
-  return `${nextHour.toString().padStart(2, '0')}:${nextMinute.toString().padStart(2, '0')}`;
+  return `${nextHour.toString().padStart(2, "0")}:${nextMinute.toString().padStart(2, "0")}`;
 };
 
 export const getNextAvailableDate = (): Date => {
@@ -203,16 +203,16 @@ export const parseWeeklyTime = (
   scheduledTime: string
 ): { day: number; time: string } => {
   // Validate input is a string
-  if (typeof scheduledTime !== 'string') {
-    throw new Error('scheduledTime must be a string');
+  if (typeof scheduledTime !== "string") {
+    throw new Error("scheduledTime must be a string");
   }
 
   const trimmedTime = scheduledTime.trim();
   if (!trimmedTime) {
-    throw new Error('scheduledTime cannot be empty');
+    throw new Error("scheduledTime cannot be empty");
   }
 
-  const parts = trimmedTime.split(':');
+  const parts = trimmedTime.split(":");
 
   if (parts.length === 3) {
     // Format is "day:HH:MM"
@@ -223,14 +223,14 @@ export const parseWeeklyTime = (
     // Validate day part
     const day = Number.parseInt(dayStr, 10);
     if (Number.isNaN(day) || day < 0 || day > 6) {
-      throw new Error('Day must be a number between 0 and 6 (Sunday-Saturday)');
+      throw new Error("Day must be a number between 0 and 6 (Sunday-Saturday)");
     }
 
     // Validate hour part
     const hour = Number.parseInt(hourStr, 10);
     if (Number.isNaN(hour) || hour < 0 || hour > 23 || hourStr.length !== 2) {
       throw new Error(
-        'Hour must be a valid two-digit number between 00 and 23'
+        "Hour must be a valid two-digit number between 00 and 23"
       );
     }
 
@@ -243,7 +243,7 @@ export const parseWeeklyTime = (
       minuteStr.length !== 2
     ) {
       throw new Error(
-        'Minute must be a valid two-digit number between 00 and 59'
+        "Minute must be a valid two-digit number between 00 and 59"
       );
     }
 
@@ -260,7 +260,7 @@ export const parseWeeklyTime = (
     const hour = Number.parseInt(hourStr, 10);
     if (Number.isNaN(hour) || hour < 0 || hour > 23 || hourStr.length !== 2) {
       throw new Error(
-        'Hour must be a valid two-digit number between 00 and 23'
+        "Hour must be a valid two-digit number between 00 and 23"
       );
     }
 
@@ -273,7 +273,7 @@ export const parseWeeklyTime = (
       minuteStr.length !== 2
     ) {
       throw new Error(
-        'Minute must be a valid two-digit number between 00 and 59'
+        "Minute must be a valid two-digit number between 00 and 59"
       );
     }
 
@@ -285,22 +285,22 @@ export const parseWeeklyTime = (
 
 export const formatWeeklyTime = (day: number, time: string): string => {
   // Validate day parameter
-  if (typeof day !== 'number') {
-    throw new Error('day must be a number');
+  if (typeof day !== "number") {
+    throw new Error("day must be a number");
   }
 
   if (Number.isNaN(day) || day < 0 || day > 6 || !Number.isInteger(day)) {
-    throw new Error('day must be an integer between 0 and 6 (Sunday-Saturday)');
+    throw new Error("day must be an integer between 0 and 6 (Sunday-Saturday)");
   }
 
   // Validate time parameter
-  if (typeof time !== 'string') {
-    throw new Error('time must be a string');
+  if (typeof time !== "string") {
+    throw new Error("time must be a string");
   }
 
   const trimmedTime = time.trim();
   if (!trimmedTime) {
-    throw new Error('time cannot be empty');
+    throw new Error("time cannot be empty");
   }
 
   // Validate time format (HH:MM)
@@ -316,25 +316,25 @@ export const formatWeeklyTime = (day: number, time: string): string => {
 
 export const getDayName = (dayNumber: number): string => {
   const days = [
-    'Sunday',
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
   ];
-  return days[dayNumber] || 'Monday';
+  return days[dayNumber] || "Monday";
 };
 
 export const getDayOptions = (): Array<{ value: number; label: string }> => {
   return [
-    { value: 0, label: 'Sunday' },
-    { value: 1, label: 'Monday' },
-    { value: 2, label: 'Tuesday' },
-    { value: 3, label: 'Wednesday' },
-    { value: 4, label: 'Thursday' },
-    { value: 5, label: 'Friday' },
-    { value: 6, label: 'Saturday' },
+    { value: 0, label: "Sunday" },
+    { value: 1, label: "Monday" },
+    { value: 2, label: "Tuesday" },
+    { value: 3, label: "Wednesday" },
+    { value: 4, label: "Thursday" },
+    { value: 5, label: "Friday" },
+    { value: 6, label: "Saturday" },
   ];
 };

@@ -1,44 +1,44 @@
-'use client';
+"use client";
 
-import type { UIMessage } from '@ai-sdk/react';
-import { ArrowUpRight, Lock } from '@phosphor-icons/react';
-import { useMutation } from 'convex/react';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Message } from '@/app/components/chat/message';
-import { useUser } from '@/app/providers/user-provider';
-import { Button } from '@/components/ui/button';
+import type { UIMessage } from "@ai-sdk/react";
+import { ArrowUpRight, Lock } from "@phosphor-icons/react";
+import { useMutation } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Message } from "@/app/components/chat/message";
+import { useUser } from "@/app/providers/user-provider";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import { shouldDisableFork } from '@/lib/redacted-content-detector';
+} from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { shouldDisableFork } from "@/lib/redacted-content-detector";
 
 type SharedMessage = {
   _id: string;
-  role: UIMessage['role'];
-  parts?: UIMessage['parts'];
+  role: UIMessage["role"];
+  parts?: UIMessage["parts"];
   metadata?: Record<string, unknown>;
 };
 
 function getButtonText(canFork: boolean, isAuthenticated: boolean): string {
   if (!canFork) {
-    return 'Cannot fork this chat';
+    return "Cannot fork this chat";
   }
-  return isAuthenticated ? 'Continue in your chat' : 'Sign in to continue';
+  return isAuthenticated ? "Continue in your chat" : "Sign in to continue";
 }
 
 function getAriaLabel(canFork: boolean, isAuthenticated: boolean): string {
   if (!canFork) {
-    return 'Cannot fork - contains private content';
+    return "Cannot fork - contains private content";
   }
-  return isAuthenticated ? 'Continue in your chat' : 'Sign in to continue';
+  return isAuthenticated ? "Continue in your chat" : "Sign in to continue";
 }
 
 export default function ShareView({
@@ -60,37 +60,37 @@ export default function ShareView({
 
   const onFork = async () => {
     try {
-      const result = await fork({ sourceChatId: sourceChatId as Id<'chats'> });
+      const result = await fork({ sourceChatId: sourceChatId as Id<"chats"> });
       // Navigate to the new chat
       router.push(`/c/${result.chatId}`);
     } catch (error) {
       // Provide user-friendly error message
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      let friendlyMessage = 'Failed to fork chat. Please try again.';
+      let friendlyMessage = "Failed to fork chat. Please try again.";
 
-      if (errorMessage.includes('UNAUTHENTICATED')) {
-        friendlyMessage = 'Please sign in to fork this chat.';
-      } else if (errorMessage.includes('NOT_PUBLIC')) {
-        friendlyMessage = 'This chat is no longer publicly available.';
-      } else if (errorMessage.includes('NOT_FOUND')) {
-        friendlyMessage = 'Chat not found or no longer available.';
-      } else if (errorMessage.includes('REDACTED_CONTENT')) {
+      if (errorMessage.includes("UNAUTHENTICATED")) {
+        friendlyMessage = "Please sign in to fork this chat.";
+      } else if (errorMessage.includes("NOT_PUBLIC")) {
+        friendlyMessage = "This chat is no longer publicly available.";
+      } else if (errorMessage.includes("NOT_FOUND")) {
+        friendlyMessage = "Chat not found or no longer available.";
+      } else if (errorMessage.includes("REDACTED_CONTENT")) {
         // Open the existing redaction / cannot fork dialog and skip toast
         setShowCannotForkDialog(true);
         return;
       }
 
       toast({
-        title: 'Fork Failed',
+        title: "Fork Failed",
         description: friendlyMessage,
-        status: 'error',
+        status: "error",
       });
     }
   };
 
   const onSignIn = () => {
-    router.push('/auth');
+    router.push("/auth");
   };
 
   const handleButtonClick = () => {

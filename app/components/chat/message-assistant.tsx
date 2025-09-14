@@ -1,31 +1,31 @@
-'use client';
+"use client";
 
-import type { UIMessage as MessageType } from '@ai-sdk/react';
+import type { UIMessage as MessageType } from "@ai-sdk/react";
 import type {
   FileUIPart,
   ReasoningUIPart,
   SourceUrlUIPart,
   ToolUIPart,
-} from 'ai';
-import type { Infer } from 'convex/values';
-import { Loader } from '@/components/prompt-kit/loader';
+} from "ai";
+import type { Infer } from "convex/values";
+import { Loader } from "@/components/prompt-kit/loader";
 import {
   Message,
   MessageAction,
   MessageActions,
   MessageContent,
-} from '@/components/prompt-kit/message';
+} from "@/components/prompt-kit/message";
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
-} from '@/components/prompt-kit/reasoning';
-import type { Message as MessageSchema } from '@/convex/schema/message';
-import { cn } from '@/lib/utils';
+} from "@/components/prompt-kit/reasoning";
+import type { Message as MessageSchema } from "@/convex/schema/message";
+import { cn } from "@/lib/utils";
 
 // Error part type for rendering
 type ErrorUIPart = {
-  type: 'error';
+  type: "error";
   error: {
     code: string;
     message: string;
@@ -36,17 +36,17 @@ type ErrorUIPart = {
 // Type guard for error parts
 const isErrorPart = (part: unknown): part is ErrorUIPart => {
   return (
-    typeof part === 'object' &&
+    typeof part === "object" &&
     part !== null &&
-    'type' in part &&
-    part.type === 'error' &&
-    'error' in part &&
-    typeof part.error === 'object' &&
+    "type" in part &&
+    part.type === "error" &&
+    "error" in part &&
+    typeof part.error === "object" &&
     part.error !== null &&
-    'code' in part.error &&
-    typeof part.error.code === 'string' &&
-    'message' in part.error &&
-    typeof part.error.message === 'string'
+    "code" in part.error &&
+    typeof part.error.code === "string" &&
+    "message" in part.error &&
+    typeof part.error.message === "string"
   );
 };
 
@@ -56,13 +56,13 @@ import {
   Copy,
   FilePdf,
   GitBranch,
-} from '@phosphor-icons/react';
-import dynamic from 'next/dynamic'; // Client component – required when using React hooks in the app router
-import Image from 'next/image';
+} from "@phosphor-icons/react";
+import dynamic from "next/dynamic"; // Client component – required when using React hooks in the app router
+import Image from "next/image";
 
-import { memo, useEffect, useRef, useState } from 'react'; // Import React to access memo
-import { ConnectorToolCall } from '@/app/components/tool/connector_tool_call';
-import { UnifiedSearch } from '@/app/components/tool/web_search';
+import { memo, useEffect, useRef, useState } from "react"; // Import React to access memo
+import { ConnectorToolCall } from "@/app/components/tool/connector_tool_call";
+import { UnifiedSearch } from "@/app/components/tool/web_search";
 import {
   MorphingDialog,
   MorphingDialogClose,
@@ -70,17 +70,17 @@ import {
   MorphingDialogContent,
   MorphingDialogImage,
   MorphingDialogTrigger,
-} from '@/components/motion-primitives/morphing-dialog';
+} from "@/components/motion-primitives/morphing-dialog";
 import {
   getConnectorTypeFromToolName,
   isConnectorTool,
-} from '@/lib/config/tools';
-import type { ConnectorType } from '@/lib/types';
-import { SourcesList } from './sources-list';
+} from "@/lib/config/tools";
+import type { ConnectorType } from "@/lib/types";
+import { SourcesList } from "./sources-list";
 
 // Helper function to format model display with reasoning effort
 const formatModelDisplayText = (modelName: string, effort?: string) => {
-  if (!effort || effort === 'none') {
+  if (!effort || effort === "none") {
     return modelName;
   }
   return `${modelName} (${effort})`;
@@ -88,7 +88,7 @@ const formatModelDisplayText = (modelName: string, effort?: string) => {
 
 // Helper function to extract sources from parts
 const extractSourcesFromParts = (
-  combinedParts: MessageType['parts']
+  combinedParts: MessageType["parts"]
 ): SourceUrlUIPart[] => {
   if (!combinedParts) {
     return [];
@@ -97,19 +97,19 @@ const extractSourcesFromParts = (
   // Process both 'source-url' and 'tool-search' parts
   return combinedParts.flatMap((part): SourceUrlUIPart[] => {
     // Handle standard source URLs
-    if (part.type === 'source-url') {
+    if (part.type === "source-url") {
       return [part];
     }
 
     // Handle search results from the search tool
     if (
-      part.type === 'tool-search' &&
-      'state' in part &&
-      part.state === 'output-available' &&
-      'output' in part &&
+      part.type === "tool-search" &&
+      "state" in part &&
+      part.state === "output-available" &&
+      "output" in part &&
       part.output &&
-      typeof part.output === 'object' &&
-      'results' in part.output &&
+      typeof part.output === "object" &&
+      "results" in part.output &&
       Array.isArray((part.output as { results: unknown }).results)
     ) {
       // Type assertion for safety
@@ -121,7 +121,7 @@ const extractSourcesFromParts = (
 
       return toolPart.output.results.map((result) => ({
         sourceId: result.url, // Use URL as sourceId
-        type: 'source-url',
+        type: "source-url",
         url: result.url,
         title: result.title, // Use title for display
       }));
@@ -134,7 +134,7 @@ const extractSourcesFromParts = (
 
 // Helper function to extract search query from parts
 const extractSearchQueryFromParts = (
-  combinedParts: MessageType['parts']
+  combinedParts: MessageType["parts"]
 ): string | null => {
   if (!combinedParts) {
     return null;
@@ -142,11 +142,11 @@ const extractSearchQueryFromParts = (
 
   for (const part of combinedParts) {
     if (
-      part.type === 'tool-search' &&
-      'input' in part &&
+      part.type === "tool-search" &&
+      "input" in part &&
       part.input &&
-      typeof part.input === 'object' &&
-      'query' in part.input
+      typeof part.input === "object" &&
+      "query" in part.input
     ) {
       return part.input.query as string;
     }
@@ -159,11 +159,11 @@ const extractSearchQueryFromParts = (
 const renderFilePart = (filePart: FileUIPart, index: number) => {
   const displayUrl = filePart.url;
   const filename = filePart.filename || `file-${index}`;
-  const mediaType = filePart.mediaType || 'application/octet-stream';
+  const mediaType = filePart.mediaType || "application/octet-stream";
 
-  if (mediaType.startsWith('image')) {
+  if (mediaType.startsWith("image")) {
     // If image was redacted on the server, render a fixed-size placeholder with overlay text
-    if (displayUrl === 'redacted') {
+    if (displayUrl === "redacted") {
       return (
         <div className="mb-1" key={`file-${index}`}>
           <div
@@ -178,7 +178,7 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
               className="absolute inset-0 opacity-40"
               style={{
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 10px, transparent 10px, transparent 20px)',
+                  "repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 10px, transparent 10px, transparent 20px)",
               }}
             />
             {/* Centered label */}
@@ -195,7 +195,7 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
       <MorphingDialog
         key={`file-${index}`}
         transition={{
-          type: 'spring',
+          type: "spring",
           stiffness: 280,
           damping: 18,
           mass: 0.3,
@@ -224,8 +224,8 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
     );
   }
 
-  if (mediaType.startsWith('text')) {
-    if (displayUrl === 'redacted') {
+  if (mediaType.startsWith("text")) {
+    if (displayUrl === "redacted") {
       return (
         <div className="mb-2 w-[300px] rounded-md border bg-muted p-3 text-center text-muted-foreground text-xs">
           Attachment redacted
@@ -240,7 +240,7 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
         href={displayUrl}
         key={`file-${index}`}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === "Enter" || e.key === " ") {
             (e.currentTarget as HTMLAnchorElement).click();
           }
         }}
@@ -252,7 +252,7 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
         <div className="flex items-center gap-2">
           <span
             className="overflow-hidden truncate whitespace-nowrap font-medium text-gray-900 text-sm dark:text-gray-100"
-            style={{ maxWidth: 'calc(100% - 28px)' }}
+            style={{ maxWidth: "calc(100% - 28px)" }}
             title={filename}
           >
             {filename}
@@ -262,8 +262,8 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
     );
   }
 
-  if (mediaType === 'application/pdf') {
-    if (displayUrl === 'redacted') {
+  if (mediaType === "application/pdf") {
+    if (displayUrl === "redacted") {
       return (
         <div className="mb-2 w-[120px] rounded-md border bg-muted px-4 py-2 text-center text-muted-foreground text-xs">
           Attachment redacted
@@ -278,7 +278,7 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
         href={displayUrl}
         key={`file-${index}`}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === "Enter" || e.key === " ") {
             (e.currentTarget as HTMLAnchorElement).click();
           }
         }}
@@ -306,7 +306,7 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
           />
           <span
             className="overflow-hidden truncate whitespace-nowrap font-medium text-gray-900 text-sm dark:text-gray-100"
-            style={{ maxWidth: 'calc(100% - 28px)' }}
+            style={{ maxWidth: "calc(100% - 28px)" }}
             title={filename}
           >
             {filename}
@@ -327,21 +327,21 @@ type MessageAssistantProps = {
   onReload?: () => void;
   onBranch?: () => void;
   model?: string;
-  parts?: MessageType['parts'];
-  status?: 'streaming' | 'ready' | 'submitted' | 'error';
+  parts?: MessageType["parts"];
+  status?: "streaming" | "ready" | "submitted" | "error";
   id: string;
-  metadata?: Infer<typeof MessageSchema>['metadata'];
+  metadata?: Infer<typeof MessageSchema>["metadata"];
   readOnly?: boolean;
 };
 
 const Markdown = dynamic(
-  () => import('@/components/prompt-kit/markdown').then((mod) => mod.Markdown),
+  () => import("@/components/prompt-kit/markdown").then((mod) => mod.Markdown),
   { ssr: false }
 );
 
 // Individual part renderers for sequential rendering
 const renderTextPart = (
-  part: { type: 'text'; text: string },
+  part: { type: "text"; text: string },
   index: number,
   id: string
 ) => {
@@ -391,14 +391,14 @@ const renderReasoningPart = (
 };
 
 const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
-  const toolName = part.type.replace('tool-', '');
+  const toolName = part.type.replace("tool-", "");
 
   // Handle search tools
-  if (toolName === 'search') {
+  if (toolName === "search") {
     const searchQuery = extractSearchQueryFromParts([part]);
 
     // For in-progress search tools, show loading state
-    if ('state' in part && part.state !== 'output-available') {
+    if ("state" in part && part.state !== "output-available") {
       if (searchQuery) {
         return (
           <UnifiedSearch
@@ -420,7 +420,7 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
     }
 
     // For completed search tools, render the unified search component with results
-    if ('state' in part && part.state === 'output-available') {
+    if ("state" in part && part.state === "output-available") {
       const sources = extractSourcesFromParts([part]);
 
       if (searchQuery) {
@@ -444,11 +444,11 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
     const connectorType = getConnectorTypeFromToolName(toolName);
 
     // Handle different tool states based on AI SDK v5 ToolUIPart states
-    if ('state' in part) {
+    if ("state" in part) {
       const isLoading =
-        part.state === 'input-streaming' || part.state === 'input-available';
-      const hasCompleted = part.state === 'output-available';
-      const hasError = part.state === 'output-error';
+        part.state === "input-streaming" || part.state === "input-available";
+      const hasCompleted = part.state === "output-available";
+      const hasError = part.state === "output-error";
 
       // Extract tool call data based on state
       const toolCallData: {
@@ -473,7 +473,7 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
       };
 
       // Extract input/arguments if available
-      if ('input' in part && part.input) {
+      if ("input" in part && part.input) {
         toolCallData.request = {
           action: toolName,
           parameters: part.input as Record<string, unknown>,
@@ -481,18 +481,18 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
       }
 
       // Extract output/result if available
-      if (hasCompleted && 'output' in part && part.output) {
+      if (hasCompleted && "output" in part && part.output) {
         toolCallData.response = {
           success: true,
           data: part.output,
         };
-      } else if (hasError && 'error' in part && part.error) {
+      } else if (hasError && "error" in part && part.error) {
         toolCallData.response = {
           success: false,
           error:
-            typeof part.error === 'string'
+            typeof part.error === "string"
               ? part.error
-              : 'Tool execution failed',
+              : "Tool execution failed",
         };
       }
 
@@ -604,14 +604,14 @@ function MessageAssistantInner({
 
           // Single pass through combinedParts to update both states
           combinedParts.forEach((part, index) => {
-            if (part.type === 'reasoning') {
+            if (part.type === "reasoning") {
               const key = `${id}-${index}`;
 
               // Handle reasoning states
               const hasContent = Boolean(
                 part.text && part.text.trim().length > 0
               );
-              const isCurrentlyStreaming = status === 'streaming';
+              const isCurrentlyStreaming = status === "streaming";
 
               if (!(key in newStates)) {
                 // Initialize new reasoning part - start closed if no content
@@ -629,7 +629,7 @@ function MessageAssistantInner({
 
               // Handle streaming states
               if (!(key in newStreamingStates)) {
-                const isInitiallyStreaming = status === 'streaming';
+                const isInitiallyStreaming = status === "streaming";
                 newStreamingStates[key] = isInitiallyStreaming;
                 // Store the initial status in ref to avoid re-initialization
                 initialStatusRef.current[key] = isInitiallyStreaming;
@@ -639,14 +639,14 @@ function MessageAssistantInner({
           });
 
           // During streaming, handle collapsing and loading states for reasoning parts that have non-reasoning content after them
-          if (status === 'streaming') {
+          if (status === "streaming") {
             combinedParts.forEach((part, index) => {
-              if (part.type === 'reasoning') {
+              if (part.type === "reasoning") {
                 const key = `${id}-${index}`;
                 // Check if there are non-reasoning parts after this reasoning part
                 const hasSubsequentNonReasoningParts = combinedParts
                   .slice(index + 1)
-                  .some((p) => p.type !== 'reasoning');
+                  .some((p) => p.type !== "reasoning");
 
                 if (hasSubsequentNonReasoningParts) {
                   // Collapse this specific reasoning block
@@ -666,7 +666,7 @@ function MessageAssistantInner({
           } else {
             // When not streaming, turn off all reasoning streaming states (loading indicators)
             combinedParts.forEach((part, index) => {
-              if (part.type === 'reasoning') {
+              if (part.type === "reasoning") {
                 const key = `${id}-${index}`;
                 // Turn off loading for this reasoning part if it's currently on
                 if (newStreamingStates[key]) {
@@ -691,8 +691,8 @@ function MessageAssistantInner({
   const reasoningEffort = metadata?.reasoningEffort;
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    if (typeof window !== "undefined") {
+      setIsTouch("ontouchstart" in window || navigator.maxTouchPoints > 0);
     }
   }, []);
 
@@ -708,25 +708,25 @@ function MessageAssistantInner({
   return (
     <Message
       className={cn(
-        'group flex w-full max-w-3xl flex-1 items-start gap-4 px-6 pb-2',
-        hasScrollAnchor && 'min-h-scroll-anchor'
+        "group flex w-full max-w-3xl flex-1 items-start gap-4 px-6 pb-2",
+        hasScrollAnchor && "min-h-scroll-anchor"
       )}
       id={id}
     >
-      <div className={cn('flex w-full flex-col gap-2', isLast && 'pb-8')}>
+      <div className={cn("flex w-full flex-col gap-2", isLast && "pb-8")}>
         {/* Sequential rendering of all parts in stream order */}
         {combinedParts?.map((part, index) => {
           const partKey = `${part.type}-${index}`;
 
           switch (part.type) {
-            case 'text':
+            case "text":
               return renderTextPart(
-                part as { type: 'text'; text: string },
+                part as { type: "text"; text: string },
                 index,
                 id
               );
 
-            case 'reasoning':
+            case "reasoning":
               return renderReasoningPart(
                 part as ReasoningUIPart,
                 index,
@@ -736,7 +736,7 @@ function MessageAssistantInner({
                 reasoningStreamingStates[`${id}-${index}`]
               );
 
-            case 'file':
+            case "file":
               return (
                 <div className="flex w-full flex-wrap gap-2" key={partKey}>
                   {renderFilePart(part as FileUIPart, index)}
@@ -745,7 +745,7 @@ function MessageAssistantInner({
 
             default:
               // Handle tool parts (tool-search, tool-*, etc.)
-              if (part.type.startsWith('tool-')) {
+              if (part.type.startsWith("tool-")) {
                 return renderToolPart(part as ToolUIPart, index, id);
               }
               // Handle error parts (not in UIMessage union type but may exist)
@@ -775,21 +775,21 @@ function MessageAssistantInner({
 
         <MessageActions
           className={cn(
-            'flex gap-0 transition-opacity',
+            "flex gap-0 transition-opacity",
             isTouch
-              ? 'opacity-100'
-              : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'
+              ? "opacity-100"
+              : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
           )}
         >
           <MessageAction
             delayDuration={0}
             side="bottom"
-            tooltip={copied ? 'Copied!' : 'Copy text'}
+            tooltip={copied ? "Copied!" : "Copy text"}
           >
             <button
               aria-label="Copy text"
               className="flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={status === 'streaming'}
+              disabled={status === "streaming"}
               onClick={copyToClipboard}
               type="button"
             >
@@ -809,7 +809,7 @@ function MessageAssistantInner({
               <button
                 aria-label="Branch chat"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={status === 'streaming'}
+                disabled={status === "streaming"}
                 onClick={onBranch}
                 type="button"
               >
@@ -822,7 +822,7 @@ function MessageAssistantInner({
               <button
                 aria-label="Regenerate"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={status === 'streaming'}
+                disabled={status === "streaming"}
                 onClick={onReload}
                 type="button"
               >

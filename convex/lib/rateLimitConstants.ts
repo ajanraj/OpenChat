@@ -1,4 +1,4 @@
-import { HOUR } from '@convex-dev/rate-limiter';
+import { HOUR } from "@convex-dev/rate-limiter";
 
 // Rate limit values - Single source of truth
 export const RATE_LIMITS = {

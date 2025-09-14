@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { Info } from '@phosphor-icons/react';
-import Image from 'next/image';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
+import { Info } from "@phosphor-icons/react";
+import Image from "next/image";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Drawer,
   DrawerContent,
@@ -18,10 +18,10 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@/components/ui/drawer';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { APP_NAME } from '@/lib/config';
-import { AppInfoContent } from './app-info-content';
+} from "@/components/ui/drawer";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { APP_NAME } from "@/lib/config";
+import { AppInfoContent } from "./app-info-content";
 
 type AppInfoTriggerProps = {
   trigger?: React.ReactNode;

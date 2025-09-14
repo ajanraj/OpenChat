@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { AnimatePresence, motion } from 'motion/react';
-import { memo, useMemo, useState } from 'react';
-import { useSidebar } from '@/app/providers/sidebar-provider';
-import { TRANSITION_LAYOUT } from '@/lib/motion';
-import { cn } from '@/lib/utils';
-import { Personas } from './personas';
-import { Suggestions } from './suggestions';
+import { AnimatePresence, motion } from "motion/react";
+import { memo, useMemo, useState } from "react";
+import { useSidebar } from "@/app/providers/sidebar-provider";
+import { TRANSITION_LAYOUT } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+import { Personas } from "./personas";
+import { Suggestions } from "./suggestions";
 
 type PromptSystemProps = {
   onValueChange: (value: string) => void;
@@ -29,21 +29,21 @@ export const PromptSystem = memo(function PromptSystemComponent({
   const tabs = useMemo(
     () => [
       {
-        id: 'personas',
-        label: 'Personas',
+        id: "personas",
+        label: "Personas",
         isActive: isPersonaMode,
         onClick: () => {
           setIsPersonaMode(true);
-          onSelectSystemPrompt('');
+          onSelectSystemPrompt("");
         },
       },
       {
-        id: 'suggestions',
-        label: 'Suggestions',
+        id: "suggestions",
+        label: "Suggestions",
         isActive: !isPersonaMode,
         onClick: () => {
           setIsPersonaMode(false);
-          onSelectSystemPrompt('');
+          onSelectSystemPrompt("");
         },
       },
     ],
@@ -70,11 +70,11 @@ export const PromptSystem = memo(function PromptSystemComponent({
       </div>
       <motion.div
         animate={{
-          transform: isSidebarOpen ? 'translateX(128px)' : 'translateX(0px)',
+          transform: isSidebarOpen ? "translateX(128px)" : "translateX(0px)",
         }}
         className="md:-translate-x-1/2 relative right-0 bottom-0 left-0 mx-auto mb-4 flex h-8 w-auto items-center justify-center rounded-lg p-1 md:fixed md:bottom-0 md:left-1/2"
         initial={{
-          transform: isSidebarOpen ? 'translateX(128px)' : 'translateX(0px)',
+          transform: isSidebarOpen ? "translateX(128px)" : "translateX(0px)",
         }}
         transition={TRANSITION_LAYOUT}
       >
@@ -82,8 +82,8 @@ export const PromptSystem = memo(function PromptSystemComponent({
           {tabs.map((tab) => (
             <button
               className={cn(
-                'relative z-10 flex h-full flex-1 items-center justify-center rounded-md px-2 py-1 font-medium text-xs transition-colors active:scale-[0.98]',
-                tab.isActive ? 'text-foreground' : 'text-muted-foreground'
+                "relative z-10 flex h-full flex-1 items-center justify-center rounded-md px-2 py-1 font-medium text-xs transition-colors active:scale-[0.98]",
+                tab.isActive ? "text-foreground" : "text-muted-foreground"
               )}
               key={tab.id}
               onClick={tab.onClick}
@@ -95,18 +95,18 @@ export const PromptSystem = memo(function PromptSystemComponent({
                     animate={{
                       opacity: 1,
                     }}
-                    className={cn('absolute inset-0 z-10 rounded-lg bg-muted')}
+                    className={cn("absolute inset-0 z-10 rounded-lg bg-muted")}
                     exit={{
                       opacity: 0,
                     }}
                     initial={{ opacity: 1 }}
-                    layoutId={'background'}
+                    layoutId={"background"}
                     style={{
-                      originY: '0px',
+                      originY: "0px",
                     }}
                     transition={{
                       duration: 0.25,
-                      type: 'spring',
+                      type: "spring",
                       bounce: 0,
                     }}
                   />

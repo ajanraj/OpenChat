@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { SignOut, X } from '@phosphor-icons/react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@/app/providers/user-provider';
-import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/toast';
+import { SignOut, X } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@/app/providers/user-provider";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 
 // The content previously inside settings.tsx
 export function SettingsContent({
@@ -20,15 +20,15 @@ export function SettingsContent({
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.push('/');
-      toast({ title: 'Logged out', status: 'success' });
+      router.push("/");
+      toast({ title: "Logged out", status: "success" });
     } catch {
-      toast({ title: 'Failed to sign out', status: 'error' });
+      toast({ title: "Failed to sign out", status: "error" });
     }
   };
 
   return (
-    <div className={isDrawer ? 'p-0 pb-16' : 'py-0'}>
+    <div className={isDrawer ? "p-0 pb-16" : "py-0"}>
       {isDrawer && (
         <div className="mb-2 flex items-center justify-between border-border border-b px-4 pb-2">
           <h2 className="font-medium text-lg">Settings</h2>

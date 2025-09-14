@@ -1,29 +1,29 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
+import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   calculateRateLimit,
   type RateLimitConfig,
-} from '@convex-dev/rate-limiter';
-import { ConvexError, v } from 'convex/values';
-import { MODEL_DEFAULT } from '../lib/config';
-import { ERROR_CODES } from '../lib/error-codes';
-import type { Id } from './_generated/dataModel';
+} from "@convex-dev/rate-limiter";
+import { ConvexError, v } from "convex/values";
+import { MODEL_DEFAULT } from "../lib/config";
+import { ERROR_CODES } from "../lib/error-codes";
+import type { Id } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
   mutation,
   query,
-} from './_generated/server';
-import { RATE_LIMITS } from './lib/rateLimitConstants';
-import { polar } from './polar';
-import { rateLimiter } from './rateLimiter';
-import { User } from './schema/user';
+} from "./_generated/server";
+import { RATE_LIMITS } from "./lib/rateLimitConstants";
+import { polar } from "./polar";
+import { rateLimiter } from "./rateLimiter";
+import { User } from "./schema/user";
 
 export const getCurrentUser = query({
   args: {},
   returns: v.union(
     v.null(),
     v.object({
-      _id: v.id('users'),
+      _id: v.id("users"),
       _creationTime: v.number(),
       ...User.fields,
     })
@@ -48,7 +48,7 @@ export const userHasPremium = query({
 
     try {
       const subscription = await polar.getCurrentSubscription(ctx, { userId });
-      return subscription?.status === 'active';
+      return subscription?.status === "active";
     } catch {
       return false;
     }
@@ -299,12 +299,12 @@ export const incrementMessageCount = mutation({
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
-    const isPremium = subscription?.status === 'active';
+    const isPremium = subscription?.status === "active";
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, deduct from premium credits
     if (isPremium && usesPremiumCredits) {
-      await rateLimiter.limit(ctx, 'premiumMonthly', {
+      await rateLimiter.limit(ctx, "premiumMonthly", {
         key: userId,
         throws: true,
       });
@@ -314,8 +314,8 @@ export const incrementMessageCount = mutation({
       // CONSUME daily limits for non-premium users
       if (!isPremium) {
         const dailyLimitName = isAnonymous
-          ? 'anonymousDaily'
-          : 'authenticatedDaily';
+          ? "anonymousDaily"
+          : "authenticatedDaily";
         await rateLimiter.limit(ctx, dailyLimitName, {
           key: userId,
           throws: true,
@@ -323,7 +323,7 @@ export const incrementMessageCount = mutation({
       }
 
       // CONSUME monthly limits for all users
-      await rateLimiter.limit(ctx, 'standardMonthly', {
+      await rateLimiter.limit(ctx, "standardMonthly", {
         key: userId,
         throws: true,
       });
@@ -351,12 +351,12 @@ export const assertNotOverLimit = mutation({
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
-    const isPremium = subscription?.status === 'active';
+    const isPremium = subscription?.status === "active";
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, check premium credits
     if (isPremium && usesPremiumCredits) {
-      const premiumStatus = await rateLimiter.check(ctx, 'premiumMonthly', {
+      const premiumStatus = await rateLimiter.check(ctx, "premiumMonthly", {
         key: userId,
       });
       if (!premiumStatus.ok) {
@@ -370,8 +370,8 @@ export const assertNotOverLimit = mutation({
       // CHECK daily limits for non-premium users (don't consume yet)
       if (!isPremium) {
         const dailyLimitName = isAnonymous
-          ? 'anonymousDaily'
-          : 'authenticatedDaily';
+          ? "anonymousDaily"
+          : "authenticatedDaily";
         checkPromises.push(
           rateLimiter.check(ctx, dailyLimitName, {
             key: userId,
@@ -381,7 +381,7 @@ export const assertNotOverLimit = mutation({
 
       // CHECK monthly limits for all users (don't consume yet)
       checkPromises.push(
-        rateLimiter.check(ctx, 'standardMonthly', {
+        rateLimiter.check(ctx, "standardMonthly", {
           key: userId,
         })
       );
@@ -451,14 +451,14 @@ export const getRateLimitStatus = query({
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
-    const isPremium = subscription?.status === 'active';
+    const isPremium = subscription?.status === "active";
     const isAnonymous = user.isAnonymous ?? false;
     const now = Date.now();
 
     // Determine daily limit name for non-premium users
     const dailyLimitName = isAnonymous
-      ? 'anonymousDaily'
-      : 'authenticatedDaily';
+      ? "anonymousDaily"
+      : "authenticatedDaily";
 
     // Parallel fetching of all rate limit data
     const [
@@ -475,13 +475,13 @@ export const getRateLimitStatus = query({
       isPremium
         ? Promise.resolve(null)
         : rateLimiter.getValue(ctx, dailyLimitName, { key: userId }),
-      rateLimiter.check(ctx, 'standardMonthly', { key: userId }),
-      rateLimiter.getValue(ctx, 'standardMonthly', { key: userId }),
+      rateLimiter.check(ctx, "standardMonthly", { key: userId }),
+      rateLimiter.getValue(ctx, "standardMonthly", { key: userId }),
       isPremium
-        ? rateLimiter.check(ctx, 'premiumMonthly', { key: userId })
+        ? rateLimiter.check(ctx, "premiumMonthly", { key: userId })
         : Promise.resolve(null),
       isPremium
-        ? rateLimiter.getValue(ctx, 'premiumMonthly', { key: userId })
+        ? rateLimiter.getValue(ctx, "premiumMonthly", { key: userId })
         : Promise.resolve(null),
     ]);
 
@@ -609,32 +609,32 @@ export const deleteAccount = mutation({
       authSessions,
     ] = await Promise.all([
       ctx.db
-        .query('chat_attachments')
-        .withIndex('by_userId', (q) => q.eq('userId', userId))
+        .query("chat_attachments")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query('messages')
-        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .query("messages")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query('chats')
-        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .query("chats")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query('feedback')
-        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .query("feedback")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query('usage_history')
-        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .query("usage_history")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query('authAccounts')
-        .withIndex('userIdAndProvider', (q) => q.eq('userId', userId))
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query('authSessions')
-        .withIndex('userId', (q) => q.eq('userId', userId))
+        .query("authSessions")
+        .withIndex("userId", (q) => q.eq("userId", userId))
         .collect(),
     ]);
 
@@ -642,8 +642,8 @@ export const deleteAccount = mutation({
     const deletionPromises: Promise<unknown>[] = [];
 
     // Delete attachments and their files
-    const { R2 } = await import('@convex-dev/r2');
-    const { components } = await import('./_generated/api');
+    const { R2 } = await import("@convex-dev/r2");
+    const { components } = await import("./_generated/api");
     const r2 = new R2(components.r2);
     for (const att of attachments) {
       deletionPromises.push(
@@ -672,13 +672,13 @@ export const deleteAccount = mutation({
 
     // Delete auth accounts
     deletionPromises.push(
-      ...authAccounts.map((acc) => ctx.db.delete(acc._id as Id<'authAccounts'>))
+      ...authAccounts.map((acc) => ctx.db.delete(acc._id as Id<"authAccounts">))
     );
 
     // Delete auth sessions
     deletionPromises.push(
       ...authSessions.map((sess) =>
-        ctx.db.delete(sess._id as Id<'authSessions'>)
+        ctx.db.delete(sess._id as Id<"authSessions">)
       )
     );
 
@@ -694,22 +694,22 @@ export const deleteAccount = mutation({
 // React hook API functions for rate limiting
 export const { getRateLimit: getRateLimitHook, getServerTime } =
   rateLimiter.hookAPI(
-    'authenticatedDaily', // Default rate limit
+    "authenticatedDaily", // Default rate limit
     {
       key: async (ctx) => {
         const userId = await getAuthUserId(ctx);
-        return userId || 'anonymous';
+        return userId || "anonymous";
       },
     }
   );
 
 // Internal query to get user by ID
 export const getUser = internalQuery({
-  args: { userId: v.id('users') },
+  args: { userId: v.id("users") },
   returns: v.union(
     v.null(),
     v.object({
-      _id: v.id('users'),
+      _id: v.id("users"),
       _creationTime: v.number(),
       ...User.fields,
     })
@@ -722,7 +722,7 @@ export const getUser = internalQuery({
 // Internal mutation to check rate limits for scheduled tasks
 export const assertNotOverLimitInternal = internalMutation({
   args: {
-    userId: v.id('users'),
+    userId: v.id("users"),
     usesPremiumCredits: v.optional(v.boolean()),
   },
   handler: async (ctx, { userId, usesPremiumCredits }) => {
@@ -734,12 +734,12 @@ export const assertNotOverLimitInternal = internalMutation({
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
-    const isPremium = subscription?.status === 'active';
+    const isPremium = subscription?.status === "active";
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, check premium credits
     if (isPremium && usesPremiumCredits) {
-      const premiumStatus = await rateLimiter.check(ctx, 'premiumMonthly', {
+      const premiumStatus = await rateLimiter.check(ctx, "premiumMonthly", {
         key: userId,
       });
       if (!premiumStatus.ok) {
@@ -752,8 +752,8 @@ export const assertNotOverLimitInternal = internalMutation({
       // CHECK daily limits for non-premium users (don't consume yet)
       if (!isPremium) {
         const dailyLimitName = isAnonymous
-          ? 'anonymousDaily'
-          : 'authenticatedDaily';
+          ? "anonymousDaily"
+          : "authenticatedDaily";
         checkPromises.push(
           rateLimiter.check(ctx, dailyLimitName, {
             key: userId,
@@ -763,7 +763,7 @@ export const assertNotOverLimitInternal = internalMutation({
 
       // CHECK monthly limits for all users (don't consume yet)
       checkPromises.push(
-        rateLimiter.check(ctx, 'standardMonthly', {
+        rateLimiter.check(ctx, "standardMonthly", {
           key: userId,
         })
       );
@@ -789,7 +789,7 @@ export const assertNotOverLimitInternal = internalMutation({
 // Internal mutation to increment message count for scheduled tasks
 export const incrementMessageCountInternal = internalMutation({
   args: {
-    userId: v.id('users'),
+    userId: v.id("users"),
     usesPremiumCredits: v.optional(v.boolean()),
   },
   returns: v.null(),
@@ -802,12 +802,12 @@ export const incrementMessageCountInternal = internalMutation({
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
-    const isPremium = subscription?.status === 'active';
+    const isPremium = subscription?.status === "active";
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, deduct from premium credits
     if (isPremium && usesPremiumCredits) {
-      await rateLimiter.limit(ctx, 'premiumMonthly', {
+      await rateLimiter.limit(ctx, "premiumMonthly", {
         key: userId,
         throws: true,
       });
@@ -817,8 +817,8 @@ export const incrementMessageCountInternal = internalMutation({
       // CONSUME daily limits for non-premium users
       if (!isPremium) {
         const dailyLimitName = isAnonymous
-          ? 'anonymousDaily'
-          : 'authenticatedDaily';
+          ? "anonymousDaily"
+          : "authenticatedDaily";
         await rateLimiter.limit(ctx, dailyLimitName, {
           key: userId,
           throws: true,
@@ -826,7 +826,7 @@ export const incrementMessageCountInternal = internalMutation({
       }
 
       // CONSUME monthly limits for all users
-      await rateLimiter.limit(ctx, 'standardMonthly', {
+      await rateLimiter.limit(ctx, "standardMonthly", {
         key: userId,
         throws: true,
       });
@@ -847,7 +847,7 @@ export const updateAllUsersPreferredModel = internalMutation({
   }),
   handler: async (ctx, { newPreferredModel }) => {
     // Get all users from the database
-    const allUsers = await ctx.db.query('users').collect();
+    const allUsers = await ctx.db.query("users").collect();
     const totalCount = allUsers.length;
 
     // Update each user's preferredModel in parallel
@@ -860,7 +860,7 @@ export const updateAllUsersPreferredModel = internalMutation({
     // Wait for all updates to complete and count successes
     const results = await Promise.allSettled(updatePromises);
     const updatedCount = results.filter(
-      (result) => result.status === 'fulfilled'
+      (result) => result.status === "fulfilled"
     ).length;
 
     return {

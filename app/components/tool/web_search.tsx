@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { CaretDown, Globe, SpinnerGap } from '@phosphor-icons/react';
-import type { SourceUrlUIPart } from 'ai';
-import { motion } from 'motion/react';
-import Image from 'next/image';
-import { memo, useCallback, useMemo, useState } from 'react';
-import { TRANSITION_LAYOUT } from '@/lib/motion';
-import { cn } from '@/lib/utils';
+import { CaretDown, Globe, SpinnerGap } from "@phosphor-icons/react";
+import type { SourceUrlUIPart } from "ai";
+import { motion } from "motion/react";
+import Image from "next/image";
+import { memo, useCallback, useMemo, useState } from "react";
+import { TRANSITION_LAYOUT } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 // Regex constants moved to top level for performance
 const WWW_REGEX = /^www\./;
@@ -28,19 +28,19 @@ const getFavicon = (url: string) => {
 const formatUrl = (url: string) => {
   try {
     const domain = new URL(url).hostname;
-    return domain.replace(WWW_REGEX, '');
+    return domain.replace(WWW_REGEX, "");
   } catch {
     return url
-      .replace(PROTOCOL_REGEX, '')
-      .replace(TRAILING_SLASH_REGEX, '')
-      .replace(WWW_REGEX, '');
+      .replace(PROTOCOL_REGEX, "")
+      .replace(TRAILING_SLASH_REGEX, "")
+      .replace(WWW_REGEX, "");
   }
 };
 
 const addUTM = (url: string) => {
   const u = new URL(url);
-  u.searchParams.set('utm_source', 'oschat.ai');
-  u.searchParams.set('utm_medium', 'web-search');
+  u.searchParams.set("utm_source", "oschat.ai");
+  u.searchParams.set("utm_medium", "web-search");
   return u.toString();
 };
 
@@ -71,8 +71,8 @@ const SearchResultItem = memo<{
               loading="lazy"
               src={faviconUrl}
               style={{
-                maxWidth: '16px',
-                maxHeight: '16px',
+                maxWidth: "16px",
+                maxHeight: "16px",
               }}
               unoptimized
               width={16}
@@ -90,7 +90,7 @@ const SearchResultItem = memo<{
   );
 });
 
-SearchResultItem.displayName = 'SearchResultItem';
+SearchResultItem.displayName = "SearchResultItem";
 
 export const UnifiedSearch = memo<UnifiedSearchProps>(
   ({ query, sources = [], className, isLoading = false }) => {
@@ -109,29 +109,29 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
 
     // Memoized values to prevent recalculation on every render
     const displayText = useMemo(() => {
-      return isLoading ? 'Searching the web...' : query;
+      return isLoading ? "Searching the web..." : query;
     }, [isLoading, query]);
 
     const resultText = useMemo(() => {
-      return `${sources.length} result${sources.length !== 1 ? 's' : ''}`;
+      return `${sources.length} result${sources.length !== 1 ? "s" : ""}`;
     }, [sources.length]);
 
     const buttonClassName = useMemo(() => {
       return cn(
-        'group/row flex h-[2.625rem] flex-row items-center justify-between gap-4 rounded-xl px-3 py-2 text-muted-foreground transition-colors duration-200',
-        isLoading ? 'cursor-default' : 'cursor-pointer hover:text-foreground'
+        "group/row flex h-[2.625rem] flex-row items-center justify-between gap-4 rounded-xl px-3 py-2 text-muted-foreground transition-colors duration-200",
+        isLoading ? "cursor-default" : "cursor-pointer hover:text-foreground"
       );
     }, [isLoading]);
 
     const caretClassName = useMemo(() => {
       return cn(
-        'flex transform items-center justify-center text-muted-foreground transition-transform duration-300 ease-out',
-        isExpanded ? 'rotate-180' : 'rotate-0'
+        "flex transform items-center justify-center text-muted-foreground transition-transform duration-300 ease-out",
+        isExpanded ? "rotate-180" : "rotate-0"
       );
     }, [isExpanded]);
 
     const resultsClassName = useMemo(() => {
-      return 'shrink-0 overflow-hidden';
+      return "shrink-0 overflow-hidden";
     }, []);
 
     // Memoized event handlers to prevent child rerenders
@@ -146,7 +146,7 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
     }
 
     return (
-      <div className={cn('my-3 w-full', className)}>
+      <div className={cn("my-3 w-full", className)}>
         <div className="flex min-h-[2.625rem] flex-col rounded-xl border bg-card leading-normal tracking-tight shadow-sm transition-all duration-300 ease-out">
           {/* Toggle Button Header */}
           <button
@@ -175,7 +175,7 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
                   </p>
                   <div
                     className={caretClassName}
-                    style={{ width: '16px', height: '16px' }}
+                    style={{ width: "16px", height: "16px" }}
                   >
                     <CaretDown size={20} />
                   </div>
@@ -188,12 +188,12 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
           {!isLoading && sources.length > 0 && (
             <motion.div
               animate={{
-                height: isExpanded ? 'auto' : 0,
+                height: isExpanded ? "auto" : 0,
                 opacity: isExpanded ? 1 : 0,
               }}
               className={resultsClassName}
               initial={{
-                height: isExpanded ? 'auto' : 0,
+                height: isExpanded ? "auto" : 0,
                 opacity: isExpanded ? 1 : 0,
               }}
               tabIndex={-1}
@@ -222,4 +222,4 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
   }
 );
 
-UnifiedSearch.displayName = 'UnifiedSearch';
+UnifiedSearch.displayName = "UnifiedSearch";

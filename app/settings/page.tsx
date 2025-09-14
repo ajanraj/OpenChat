@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { CircleNotch, Headset, Rocket, Sparkle } from '@phosphor-icons/react';
-import { useAction, useMutation } from 'convex/react';
-import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
-import { MessageUsageCard } from '@/app/components/layout/settings/message-usage-card';
-import { useUser } from '@/app/providers/user-provider';
-import { Button } from '@/components/ui/button';
+import { CircleNotch, Headset, Rocket, Sparkle } from "@phosphor-icons/react";
+import { useAction, useMutation } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
+import { MessageUsageCard } from "@/app/components/layout/settings/message-usage-card";
+import { useUser } from "@/app/providers/user-provider";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,9 +14,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/convex/_generated/api';
+} from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
+import { api } from "@/convex/_generated/api";
 
 export default function AccountSettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,10 +45,10 @@ export default function AccountSettingsPage() {
       window.location.href = url;
     } catch (_error) {
       toast({
-        title: 'Unable to start upgrade process',
+        title: "Unable to start upgrade process",
         description:
-          'Please try again or contact support if the problem persists.',
-        status: 'error',
+          "Please try again or contact support if the problem persists.",
+        status: "error",
       });
     }
   }, [products?.premium?.id, generateCheckoutLink]);
@@ -60,10 +60,10 @@ export default function AccountSettingsPage() {
       window.location.href = url;
     } catch (_error) {
       toast({
-        title: 'Unable to access customer portal',
+        title: "Unable to access customer portal",
         description:
-          'Please try again or contact support if the problem persists.',
-        status: 'error',
+          "Please try again or contact support if the problem persists.",
+        status: "error",
       });
     }
   }, [generateCustomerPortalUrl]);
@@ -78,12 +78,12 @@ export default function AccountSettingsPage() {
     try {
       await deleteAccount({});
       await signOut();
-      toast({ title: 'Account deleted', status: 'success' });
-      router.push('/');
+      toast({ title: "Account deleted", status: "success" });
+      router.push("/");
     } catch {
       toast({
-        title: 'Failed to delete account',
-        status: 'error',
+        title: "Failed to delete account",
+        status: "error",
       });
     } finally {
       setIsDeleting(false);
@@ -134,7 +134,7 @@ export default function AccountSettingsPage() {
         <section className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <h2 className="text-left font-bold text-2xl">
-              {hasPremium ? 'Pro Plan Benefits' : 'Upgrade to Pro'}
+              {hasPremium ? "Pro Plan Benefits" : "Upgrade to Pro"}
             </h2>
             {!hasPremium && (
               <div className="mt-2 flex items-baseline gap-1 md:mt-0">
@@ -162,14 +162,14 @@ export default function AccountSettingsPage() {
                 <span className="font-semibold text-base">Generous Limits</span>
               </div>
               <p className="text-muted-foreground/80 text-sm">
-                Receive{' '}
+                Receive{" "}
                 <span className="font-bold text-foreground">
                   1500 standard credits
-                </span>{' '}
-                per month, plus{' '}
+                </span>{" "}
+                per month, plus{" "}
                 <span className="font-bold text-foreground">
                   100 premium credits*
-                </span>{' '}
+                </span>{" "}
                 per month.
               </p>
             </div>
@@ -221,7 +221,7 @@ export default function AccountSettingsPage() {
               Deleting...
             </>
           ) : (
-            'Delete Account'
+            "Delete Account"
           )}
         </Button>
       </section>

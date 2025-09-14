@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useMutation } from 'convex/react';
-import { useCallback, useMemo } from 'react';
-import { api } from '../../convex/_generated/api';
-import { useUser } from '../providers/user-provider';
+import { useMutation } from "convex/react";
+import { useCallback, useMemo } from "react";
+import { api } from "../../convex/_generated/api";
+import { useUser } from "../providers/user-provider";
 
 export function useModelPreferences() {
   const { user } = useUser();
@@ -77,21 +77,21 @@ export function useModelPreferences() {
   const toggleFavoriteModel = useCallback(
     async (modelId: string) => {
       if (!user) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
 
       const isFavorite = favoriteModels.includes(modelId);
 
       // Prevent removing the last favorite model (business rule check)
       if (isFavorite && favoriteModels.length <= 1) {
-        throw new Error('Cannot remove the last favorite model');
+        throw new Error("Cannot remove the last favorite model");
       }
 
       try {
         await toggleFavoriteModelMutation({ modelId });
       } catch (error) {
         throw new Error(
-          `Failed to ${isFavorite ? 'unpin' : 'pin'} model: ${error instanceof Error ? error.message : 'Unknown error'}`
+          `Failed to ${isFavorite ? "unpin" : "pin"} model: ${error instanceof Error ? error.message : "Unknown error"}`
         );
       }
     },
@@ -101,19 +101,19 @@ export function useModelPreferences() {
   const bulkSetFavoriteModels = useCallback(
     async (modelIds: string[]) => {
       if (!user) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
 
       // Ensure at least one favorite model is provided
       if (modelIds.length === 0) {
-        throw new Error('At least one favorite model must be provided');
+        throw new Error("At least one favorite model must be provided");
       }
 
       try {
         await bulkSetFavoriteModelsMutation({ modelIds });
       } catch (error) {
         throw new Error(
-          `Failed to set favorite models: ${error instanceof Error ? error.message : 'Unknown error'}`
+          `Failed to set favorite models: ${error instanceof Error ? error.message : "Unknown error"}`
         );
       }
     },

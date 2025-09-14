@@ -1,6 +1,6 @@
-import { defaultThemeState } from '../config/theme';
-import type { ThemeStyles } from '../types/theme';
-import { defaultPresets } from './theme-presets';
+import { defaultThemeState } from "../config/theme";
+import type { ThemeStyles } from "../types/theme";
+import { defaultPresets } from "./theme-presets";
 
 export function getPresetThemeStyles(presetName?: string): ThemeStyles {
   if (!(presetName && defaultPresets[presetName])) {

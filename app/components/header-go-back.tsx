@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { ArrowLeft, Moon, SignOut, Sun } from '@phosphor-icons/react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@/app/providers/user-provider';
-import { useTheme } from '@/components/theme-provider';
-import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/toast';
+import { ArrowLeft, Moon, SignOut, Sun } from "@phosphor-icons/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useUser } from "@/app/providers/user-provider";
+import { useTheme } from "@/components/theme-provider";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 
 type HeaderGoBackProps = {
   href?: string;
@@ -14,7 +14,7 @@ type HeaderGoBackProps = {
 };
 
 export function HeaderGoBack({
-  href = '/',
+  href = "/",
   showControls = true,
 }: HeaderGoBackProps) {
   const { theme, setTheme } = useTheme();
@@ -24,11 +24,11 @@ export function HeaderGoBack({
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.push('/');
-      toast({ title: 'Logged out', status: 'success' });
+      router.push("/");
+      toast({ title: "Logged out", status: "success" });
     } catch (_e) {
       // console.error('Sign out failed:', e);
-      toast({ title: 'Failed to sign out', status: 'error' });
+      toast({ title: "Failed to sign out", status: "error" });
     }
   };
 
@@ -49,11 +49,11 @@ export function HeaderGoBack({
           <button
             aria-label="Switch theme"
             className="group flex items-center justify-center rounded-full p-2 outline-none hover:bg-accent focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             tabIndex={0}
             type="button"
           >
-            {theme === 'dark' ? (
+            {theme === "dark" ? (
               <Sun
                 className="size-5 text-muted-foreground transition-colors group-hover:text-foreground"
                 weight="bold"

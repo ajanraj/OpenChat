@@ -1,19 +1,19 @@
-import Exa from 'exa-js';
+import Exa from "exa-js";
 import {
   PROVIDER_LIMITS,
   SEARCH_CONFIG,
   type SearchAdapter,
   type SearchOptions,
   type SearchResult,
-} from '../types';
+} from "../types";
 
 export class ExaSearchProvider implements SearchAdapter {
-  readonly name = 'exa';
+  readonly name = "exa";
   private readonly client: Exa;
 
   constructor(apiKey: string) {
     if (!apiKey) {
-      throw new Error('Exa Search API key is required');
+      throw new Error("Exa Search API key is required");
     }
     this.client = new Exa(apiKey);
   }
@@ -50,7 +50,7 @@ export class ExaSearchProvider implements SearchAdapter {
     try {
       const searchOptions: Record<string, unknown> = {
         numResults: limit,
-        type: 'hybrid',
+        type: "hybrid",
       };
 
       // Add text content options ONLY when scraping is enabled
@@ -112,7 +112,7 @@ export class ExaSearchProvider implements SearchAdapter {
     } catch (error) {
       // console.error('[EXA] ❌ Search failed:', error);
       throw new Error(
-        `Failed to search with Exa: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to search with Exa: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
@@ -148,9 +148,9 @@ export class ExaSearchProvider implements SearchAdapter {
       // });
 
       return {
-        url: item.url || '',
-        title: item.title || '',
-        description: item.snippet || '',
+        url: item.url || "",
+        title: item.title || "",
+        description: item.snippet || "",
         content: willIncludeContent ? item.text : undefined,
         markdown: this.formatMarkdown(item, includeContent),
       };
@@ -173,7 +173,7 @@ export class ExaSearchProvider implements SearchAdapter {
       text?: string;
     };
 
-    let markdown = `### [${item.title || 'Untitled'}](${item.url || '#'})\n${item.snippet || ''}`;
+    let markdown = `### [${item.title || "Untitled"}](${item.url || "#"})\n${item.snippet || ""}`;
 
     if (includeContent && item.text) {
       // Truncate content if too long

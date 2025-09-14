@@ -1,7 +1,7 @@
-import type { ThemeStyleProps } from '../types/theme';
+import type { ThemeStyleProps } from "../types/theme";
 
 // Font type definitions following ultracite guidelines
-export type FontCategory = 'sans' | 'mono';
+export type FontCategory = "sans" | "mono";
 
 export type FontOption = {
   readonly label: string;
@@ -18,42 +18,42 @@ const SYSTEM_MONO_FONT =
 // Sans-serif font options as requested
 export const SANS_FONTS: readonly FontOption[] = [
   {
-    label: 'System Default',
+    label: "System Default",
     value: SYSTEM_SANS_FONT,
     isSystem: true,
   },
   {
-    label: 'Geist',
-    value: 'Geist, ui-sans-serif, system-ui, sans-serif',
+    label: "Geist",
+    value: "Geist, ui-sans-serif, system-ui, sans-serif",
     isSystem: false,
   },
   {
-    label: 'Inter',
-    value: 'Inter, ui-sans-serif, system-ui, sans-serif',
+    label: "Inter",
+    value: "Inter, ui-sans-serif, system-ui, sans-serif",
     isSystem: false,
   },
   {
-    label: 'Space Grotesk',
+    label: "Space Grotesk",
     value: "'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
     isSystem: false,
   },
   {
-    label: 'Open Sans',
+    label: "Open Sans",
     value: "'Open Sans', ui-sans-serif, system-ui, sans-serif",
     isSystem: false,
   },
   {
-    label: 'Atkinson Hyperlegible',
+    label: "Atkinson Hyperlegible",
     value: "'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif",
     isSystem: false,
   },
   {
-    label: 'Architects Daughter',
+    label: "Architects Daughter",
     value: "'Architects Daughter', ui-sans-serif, system-ui, sans-serif",
     isSystem: false,
   },
   {
-    label: 'DM Sans',
+    label: "DM Sans",
     value: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
     isSystem: false,
   },
@@ -62,32 +62,32 @@ export const SANS_FONTS: readonly FontOption[] = [
 // Monospace font options as requested
 export const MONO_FONTS: readonly FontOption[] = [
   {
-    label: 'System Mono',
+    label: "System Mono",
     value: SYSTEM_MONO_FONT,
     isSystem: true,
   },
   {
-    label: 'Geist Mono',
+    label: "Geist Mono",
     value: "'Geist Mono', ui-monospace, monospace",
     isSystem: false,
   },
   {
-    label: 'Fira Mono',
+    label: "Fira Mono",
     value: "'Fira Mono', ui-monospace, monospace",
     isSystem: false,
   },
   {
-    label: 'JetBrains Mono',
+    label: "JetBrains Mono",
     value: "'JetBrains Mono', ui-monospace, monospace",
     isSystem: false,
   },
   {
-    label: 'Atkinson Hyperlegible Mono',
+    label: "Atkinson Hyperlegible Mono",
     value: "'Atkinson Hyperlegible Mono', ui-monospace, monospace",
     isSystem: false,
   },
   {
-    label: 'IBM Plex Mono',
+    label: "IBM Plex Mono",
     value: "'IBM Plex Mono', ui-monospace, monospace",
     isSystem: false,
   },
@@ -96,9 +96,9 @@ export const MONO_FONTS: readonly FontOption[] = [
 // Get font options for a specific category
 export function getFontOptions(category: FontCategory): readonly FontOption[] {
   switch (category) {
-    case 'sans':
+    case "sans":
       return SANS_FONTS;
-    case 'mono':
+    case "mono":
       return MONO_FONTS;
     default:
       // Using exhaustive switch with default case as per ultracite rules
@@ -111,7 +111,7 @@ export function getCurrentFontSelection(
   themeStyles: Partial<ThemeStyleProps>,
   category: FontCategory
 ): FontOption {
-  const fontKey = category === 'sans' ? 'font-sans' : 'font-mono';
+  const fontKey = category === "sans" ? "font-sans" : "font-mono";
   const currentValue = themeStyles[fontKey];
   const fontOptions = getFontOptions(category);
 
@@ -133,8 +133,8 @@ export function getCurrentFontSelection(
 
 // Check if current theme has custom fonts (non-system fonts)
 export function hasCustomFonts(themeStyles: Partial<ThemeStyleProps>): boolean {
-  const sansFontSelection = getCurrentFontSelection(themeStyles, 'sans');
-  const monoFontSelection = getCurrentFontSelection(themeStyles, 'mono');
+  const sansFontSelection = getCurrentFontSelection(themeStyles, "sans");
+  const monoFontSelection = getCurrentFontSelection(themeStyles, "mono");
 
   return !(sansFontSelection.isSystem && monoFontSelection.isSystem);
 }
@@ -145,7 +145,7 @@ export function updateThemeFont(
   category: FontCategory,
   fontOption: FontOption
 ): Partial<ThemeStyleProps> {
-  const fontKey = category === 'sans' ? 'font-sans' : 'font-mono';
+  const fontKey = category === "sans" ? "font-sans" : "font-mono";
 
   return {
     ...currentStyles,
@@ -157,8 +157,8 @@ export function updateThemeFont(
 export function isUsingSystemFonts(
   themeStyles: Partial<ThemeStyleProps>
 ): boolean {
-  const sansFont = themeStyles['font-sans'];
-  const monoFont = themeStyles['font-mono'];
+  const sansFont = themeStyles["font-sans"];
+  const monoFont = themeStyles["font-mono"];
 
   return sansFont === SYSTEM_SANS_FONT && monoFont === SYSTEM_MONO_FONT;
 }

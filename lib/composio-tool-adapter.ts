@@ -10,8 +10,8 @@
  * - `execute` function with updated signature
  */
 
-import type { JSONSchema7, Tool } from 'ai';
-import { jsonSchema } from 'ai';
+import type { JSONSchema7, Tool } from "ai";
+import { jsonSchema } from "ai";
 
 /**
  * Tool execution response
@@ -42,7 +42,7 @@ function cleanJsonSchema(schema: JSONSchema7): JSONSchema7 {
 
   // Recursively clean the schema
   function cleanObject(obj: unknown): JSONSchema7 {
-    if (typeof obj !== 'object' || obj === null) {
+    if (typeof obj !== "object" || obj === null) {
       return obj as JSONSchema7;
     }
 
@@ -59,33 +59,33 @@ function cleanJsonSchema(schema: JSONSchema7): JSONSchema7 {
       }
 
       // Handle arrays - ensure items property exists
-      if (key === 'type' && value === 'array') {
+      if (key === "type" && value === "array") {
         result[key] = value;
         // Will be handled by the parent object
-      } else if (key === 'items' && value && typeof value === 'object') {
+      } else if (key === "items" && value && typeof value === "object") {
         // Ensure items has a valid structure
         const cleanedItems = cleanObject(value);
         if (
-          typeof cleanedItems === 'object' &&
+          typeof cleanedItems === "object" &&
           cleanedItems !== null &&
           !Array.isArray(cleanedItems) &&
           !cleanedItems.type
         ) {
           // If items doesn't have a type, default to object
-          (cleanedItems as Record<string, unknown>).type = 'object';
+          (cleanedItems as Record<string, unknown>).type = "object";
           if (!(cleanedItems as Record<string, unknown>).properties) {
             (cleanedItems as Record<string, unknown>).properties = {};
           }
         }
         result[key] = cleanedItems;
-      } else if (key === 'properties' && value && typeof value === 'object') {
+      } else if (key === "properties" && value && typeof value === "object") {
         // Clean all properties recursively
         const cleanedProps: Record<string, JSONSchema7> = {};
         for (const [propKey, propValue] of Object.entries(value)) {
           cleanedProps[propKey] = cleanObject(propValue);
         }
         result[key] = cleanedProps;
-      } else if (typeof value === 'object') {
+      } else if (typeof value === "object") {
         result[key] = cleanObject(value);
       } else {
         result[key] = value;
@@ -93,9 +93,9 @@ function cleanJsonSchema(schema: JSONSchema7): JSONSchema7 {
     }
 
     // Special handling for array types without items
-    if (result.type === 'array' && !result.items) {
+    if (result.type === "array" && !result.items) {
       // console.warn('Array type without items definition, adding default items');
-      result.items = { type: 'object', properties: {} };
+      result.items = { type: "object", properties: {} };
     }
 
     return result as JSONSchema7;
@@ -154,17 +154,17 @@ export function convertComposioTools(
 export function isComposioTool(obj: unknown): obj is ComposioTool {
   return (
     obj !== null &&
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== undefined &&
-    'description' in obj &&
-    typeof obj.description === 'string' &&
-    'parameters' in obj &&
+    "description" in obj &&
+    typeof obj.description === "string" &&
+    "parameters" in obj &&
     obj.parameters !== null &&
-    typeof obj.parameters === 'object' &&
-    'jsonSchema' in obj.parameters &&
-    typeof obj.parameters.jsonSchema === 'object' &&
-    'execute' in obj &&
-    typeof obj.execute === 'function'
+    typeof obj.parameters === "object" &&
+    "jsonSchema" in obj.parameters &&
+    typeof obj.parameters.jsonSchema === "object" &&
+    "execute" in obj &&
+    typeof obj.execute === "function"
   );
 }
 

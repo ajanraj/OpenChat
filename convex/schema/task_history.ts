@@ -1,19 +1,19 @@
-import { v } from 'convex/values';
+import { v } from "convex/values";
 
 export const TaskHistory = v.object({
-  taskId: v.id('scheduled_tasks'),
+  taskId: v.id("scheduled_tasks"),
   executionId: v.string(), // Unique identifier for this execution
   status: v.union(
-    v.literal('pending'),
-    v.literal('running'),
-    v.literal('success'),
-    v.literal('failure'),
-    v.literal('cancelled'),
-    v.literal('timeout')
+    v.literal("pending"),
+    v.literal("running"),
+    v.literal("success"),
+    v.literal("failure"),
+    v.literal("cancelled"),
+    v.literal("timeout")
   ),
   startTime: v.number(), // Execution start timestamp
   endTime: v.optional(v.number()), // Execution end timestamp
-  chatId: v.optional(v.id('chats')), // Link to generated chat (if successful)
+  chatId: v.optional(v.id("chats")), // Link to generated chat (if successful)
   errorMessage: v.optional(v.string()), // Capture failures and exceptions
   metadata: v.optional(
     v.object({

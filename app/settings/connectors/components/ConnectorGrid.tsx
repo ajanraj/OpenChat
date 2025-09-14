@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import type { Id } from '@/convex/_generated/dataModel';
-import { SUPPORTED_CONNECTORS } from '@/lib/config/tools';
-import type { ConnectorType } from '@/lib/types';
-import { ConnectorCard } from './ConnectorCard';
+import type { Id } from "@/convex/_generated/dataModel";
+import { SUPPORTED_CONNECTORS } from "@/lib/config/tools";
+import type { ConnectorType } from "@/lib/types";
+import { ConnectorCard } from "./ConnectorCard";
 
 type ConnectorData = {
-  _id?: Id<'connectors'>;
+  _id?: Id<"connectors">;
   type: ConnectorType;
   isConnected: boolean;
   enabled?: boolean;

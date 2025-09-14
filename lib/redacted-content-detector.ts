@@ -29,7 +29,7 @@ export function detectRedactedInParts(
   parts: any[]
 ): Pick<
   RedactedContentDetails,
-  'redactedFiles' | 'redactedTools' | 'redactedParts'
+  "redactedFiles" | "redactedTools" | "redactedParts"
 > {
   let redactedFiles = 0;
   let redactedTools = 0;
@@ -40,30 +40,30 @@ export function detectRedactedInParts(
   }
 
   for (const part of parts) {
-    if (!part || typeof part !== 'object') {
+    if (!part || typeof part !== "object") {
       continue;
     }
 
     // Check for redacted files
-    if (part.type === 'file' && part.url === 'redacted') {
+    if (part.type === "file" && part.url === "redacted") {
       redactedFiles++;
       continue;
     }
 
     // Check for redacted tool calls
     if (
-      typeof part.type === 'string' &&
-      part.type.startsWith('tool-') &&
-      (part.input === 'REDACTED' ||
-        part.output === 'REDACTED' ||
-        part.error === 'REDACTED')
+      typeof part.type === "string" &&
+      part.type.startsWith("tool-") &&
+      (part.input === "REDACTED" ||
+        part.output === "REDACTED" ||
+        part.error === "REDACTED")
     ) {
       redactedTools++;
       continue;
     }
 
     // Check for redacted message parts
-    if (part.type === 'redacted') {
+    if (part.type === "redacted") {
       redactedParts++;
     }
   }
@@ -91,13 +91,13 @@ export function detectRedactedContent(
       redactedFiles: 0,
       redactedTools: 0,
       redactedParts: 0,
-      description: 'No content to check',
+      description: "No content to check",
     };
   }
 
   // Check each message for redacted content
   for (const message of messages) {
-    if (!message || typeof message !== 'object') {
+    if (!message || typeof message !== "object") {
       continue;
     }
 
@@ -114,22 +114,22 @@ export function detectRedactedContent(
     totalRedactedFiles > 0 || totalRedactedTools > 0 || totalRedactedParts > 0;
 
   // Generate human-readable description
-  let description = 'Complete content available';
+  let description = "Complete content available";
   if (hasRedactedContent) {
     const items: string[] = [];
     if (totalRedactedFiles > 0) {
       items.push(
-        `${totalRedactedFiles} file${totalRedactedFiles === 1 ? '' : 's'}`
+        `${totalRedactedFiles} file${totalRedactedFiles === 1 ? "" : "s"}`
       );
     }
     if (totalRedactedTools > 0) {
       items.push(
-        `${totalRedactedTools} tool call${totalRedactedTools === 1 ? '' : 's'}`
+        `${totalRedactedTools} tool call${totalRedactedTools === 1 ? "" : "s"}`
       );
     }
     if (totalRedactedParts > 0) {
       items.push(
-        `${totalRedactedParts} message part${totalRedactedParts === 1 ? '' : 's'}`
+        `${totalRedactedParts} message part${totalRedactedParts === 1 ? "" : "s"}`
       );
     }
 
@@ -138,7 +138,7 @@ export function detectRedactedContent(
     } else if (items.length === 2) {
       description = `Contains private ${items[0]} and ${items[1]}`;
     } else {
-      description = `Contains private ${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
+      description = `Contains private ${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
     }
   }
 

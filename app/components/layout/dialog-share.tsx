@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
+import { convexQuery } from "@convex-dev/react-query";
 import {
   Check,
   Copy,
@@ -10,38 +10,38 @@ import {
   RedditLogo,
   SpinnerGap,
   XLogo as XLogoIcon,
-} from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useMutation } from 'convex/react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useMemo, useState } from 'react';
-import { useChatSession } from '@/app/providers/chat-session-provider';
-import { Button } from '@/components/ui/button';
+} from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useChatSession } from "@/app/providers/chat-session-provider";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import { APP_BASE_URL } from '@/lib/config/constants';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { APP_BASE_URL } from "@/lib/config/constants";
 
 export function DialogShare() {
   const { chatId } = useChatSession();
   const pathname = usePathname();
   const canShare = useMemo(
-    () => Boolean(chatId) && pathname?.startsWith('/c/'),
+    () => Boolean(chatId) && pathname?.startsWith("/c/"),
     [chatId, pathname]
   );
 
@@ -49,7 +49,7 @@ export function DialogShare() {
   const { data: currentChat } = useTanStackQuery({
     ...convexQuery(
       api.chats.getChat,
-      chatId ? ({ chatId } as unknown as { chatId: Id<'chats'> }) : 'skip'
+      chatId ? ({ chatId } as unknown as { chatId: Id<"chats"> }) : "skip"
     ),
     enabled: Boolean(chatId),
   });
@@ -61,7 +61,7 @@ export function DialogShare() {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [step, setStep] = useState<'confirm' | 'link'>('confirm');
+  const [step, setStep] = useState<"confirm" | "link">("confirm");
   // Default OFF (do not include attachments/images)
   const [includeImages, setIncludeImages] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
@@ -71,15 +71,15 @@ export function DialogShare() {
   }
 
   const publicLink = `${APP_BASE_URL}/share/${chatId}`;
-  const shareTitle = currentChat?.title || 'Chat';
+  const shareTitle = currentChat?.title || "Chat";
 
   const onOpenDialog = () => {
     // If already shared, go to link/settings view; else confirm first
     if (isShared) {
-      setStep('link');
+      setStep("link");
       setIncludeImages(currentChat?.shareAttachments ?? false);
     } else {
-      setStep('confirm');
+      setStep("confirm");
       setIncludeImages(false);
     }
     setOpen(true);
@@ -92,10 +92,10 @@ export function DialogShare() {
     setIsLoading(true);
     try {
       await publishChat({
-        chatId: chatId as Id<'chats'>,
+        chatId: chatId as Id<"chats">,
         hideImages: !includeImages,
       });
-      setStep('link');
+      setStep("link");
     } finally {
       setIsLoading(false);
     }
@@ -107,11 +107,11 @@ export function DialogShare() {
       return;
     }
     // Only update backend live when already shared (link step)
-    if (step === 'link') {
+    if (step === "link") {
       try {
         setIsToggling(true);
         await publishChat({
-          chatId: chatId as Id<'chats'>,
+          chatId: chatId as Id<"chats">,
           hideImages: !value,
         });
       } finally {
@@ -126,9 +126,9 @@ export function DialogShare() {
     }
     setIsLoading(true);
     try {
-      await unpublishChat({ chatId: chatId as Id<'chats'> });
+      await unpublishChat({ chatId: chatId as Id<"chats"> });
       // Return to confirm step with defaults
-      setStep('confirm');
+      setStep("confirm");
       setIncludeImages(false);
     } finally {
       setIsLoading(false);
@@ -167,7 +167,7 @@ export function DialogShare() {
 
       <Dialog onOpenChange={setOpen} open={open}>
         <DialogContent className="sm:max-w-[500px]">
-          {step === 'confirm' ? (
+          {step === "confirm" ? (
             <>
               <DialogHeader>
                 <DialogTitle>Share conversation</DialogTitle>
@@ -205,7 +205,7 @@ export function DialogShare() {
                       Creating...
                     </>
                   ) : (
-                    'Create link'
+                    "Create link"
                   )}
                 </Button>
               </div>
@@ -218,7 +218,7 @@ export function DialogShare() {
                   {isShared ? (
                     <>
                       A publicly accessible link to this conversation has been
-                      created. You can manage your shared links in{' '}
+                      created. You can manage your shared links in{" "}
                       <Link
                         className="underline underline-offset-4"
                         href="/settings/history"
@@ -228,7 +228,7 @@ export function DialogShare() {
                       .
                     </>
                   ) : (
-                    'Anyone with the link can view a sanitized version of this chat.'
+                    "Anyone with the link can view a sanitized version of this chat."
                   )}
                 </DialogDescription>
               </DialogHeader>
@@ -270,8 +270,8 @@ export function DialogShare() {
                     onClick={() =>
                       window.open(
                         `https://x.com/intent/tweet?url=${encodeURIComponent(publicLink)}&text=${encodeURIComponent(shareTitle)}`,
-                        '_blank',
-                        'noopener,noreferrer'
+                        "_blank",
+                        "noopener,noreferrer"
                       )
                     }
                     variant="outline"
@@ -284,8 +284,8 @@ export function DialogShare() {
                     onClick={() =>
                       window.open(
                         `https://www.reddit.com/submit?url=${encodeURIComponent(publicLink)}&title=${encodeURIComponent(shareTitle)}`,
-                        '_blank',
-                        'noopener,noreferrer'
+                        "_blank",
+                        "noopener,noreferrer"
                       )
                     }
                     variant="outline"
@@ -298,8 +298,8 @@ export function DialogShare() {
                     onClick={() =>
                       window.open(
                         `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(publicLink)}`,
-                        '_blank',
-                        'noopener,noreferrer'
+                        "_blank",
+                        "noopener,noreferrer"
                       )
                     }
                     variant="outline"
@@ -312,8 +312,8 @@ export function DialogShare() {
                     onClick={() =>
                       window.open(
                         `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicLink)}`,
-                        '_blank',
-                        'noopener,noreferrer'
+                        "_blank",
+                        "noopener,noreferrer"
                       )
                     }
                     variant="outline"

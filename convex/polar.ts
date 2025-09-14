@@ -1,7 +1,7 @@
-import { Polar } from '@convex-dev/polar';
-import { ConvexError } from 'convex/values';
-import { ERROR_CODES } from '../lib/error-codes';
-import { api, components } from './_generated/api';
+import { Polar } from "@convex-dev/polar";
+import { ConvexError } from "convex/values";
+import { ERROR_CODES } from "../lib/error-codes";
+import { api, components } from "./_generated/api";
 
 export const polar = new Polar(components.polar, {
   getUserInfo: async (
@@ -13,7 +13,7 @@ export const polar = new Polar(components.polar, {
     }
 
     // Get the user's display name (preferredName > name > fallback)
-    const displayName = user.preferredName || user.name || 'User';
+    const displayName = user.preferredName || user.name || "User";
 
     return {
       userId: user._id,

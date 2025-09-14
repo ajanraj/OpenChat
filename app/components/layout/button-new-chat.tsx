@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { NotePencil } from '@phosphor-icons/react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { NotePencil } from "@phosphor-icons/react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 
 export function ButtonNewChat() {
   const pathname = usePathname();
-  if (pathname === '/') {
+  if (pathname === "/") {
     return null;
   }
 

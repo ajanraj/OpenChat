@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useMutation } from 'convex/react';
-import { useMemo } from 'react';
-import { api } from '@/convex/_generated/api';
-import { MODEL_DEFAULT } from '@/lib/config';
-import { useUser } from '../providers/user-provider';
+import { useMutation } from "convex/react";
+import { useMemo } from "react";
+import { api } from "@/convex/_generated/api";
+import { MODEL_DEFAULT } from "@/lib/config";
+import { useUser } from "../providers/user-provider";
 
 /**
  * Hook specifically for the settings page to manage model enable/disable state

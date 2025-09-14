@@ -1,12 +1,12 @@
-import { tool } from 'ai';
-import { z } from 'zod';
-import { searchWithFallback } from './search-provider-factory';
+import { tool } from "ai";
+import { z } from "zod";
+import { searchWithFallback } from "./search-provider-factory";
 import {
   type ExaSearchCategory,
   SEARCH_CONFIG,
   type SearchOptions,
   type SearchResult,
-} from './types';
+} from "./types";
 
 // Result processing utilities
 export const truncateContent = (
@@ -41,24 +41,24 @@ export const processResults = (results: SearchResult[]): SearchResult[] => {
 // Main search tool
 export const searchTool = tool({
   description:
-    'Search the web for current information and facts. Use this when you need to verify current facts, find recent events, or get real-time data.',
+    "Search the web for current information and facts. Use this when you need to verify current facts, find recent events, or get real-time data.",
   inputSchema: z.object({
     query: z
       .string()
-      .describe('The search query string to find relevant web content'),
+      .describe("The search query string to find relevant web content"),
     maxResults: z
       .number()
       .optional()
       .default(SEARCH_CONFIG.maxResults)
       .describe(
-        'Maximum number of search results to return (default: 3). Use higher values (5-10) for comprehensive research, lower values (1-2) for quick facts'
+        "Maximum number of search results to return (default: 3). Use higher values (5-10) for comprehensive research, lower values (1-2) for quick facts"
       ),
     scrapeContent: z
       .boolean()
       .optional()
       .default(SEARCH_CONFIG.scrapeContent)
       .describe(
-        'Whether to fetch and include the full text content from web pages (default: true). Enable for detailed analysis, disable for faster searches when only titles/descriptions are needed'
+        "Whether to fetch and include the full text content from web pages (default: true). Enable for detailed analysis, disable for faster searches when only titles/descriptions are needed"
       ),
     includeDomains: z
       .array(z.string())
@@ -76,27 +76,27 @@ export const searchTool = tool({
       .string()
       .optional()
       .describe(
-        'Filter results published after this date (YYYY-MM-DD format). Use for recent events, news, or time-sensitive information'
+        "Filter results published after this date (YYYY-MM-DD format). Use for recent events, news, or time-sensitive information"
       ),
     endPublishedDate: z
       .string()
       .optional()
       .describe(
-        'Filter results published before this date (YYYY-MM-DD format). Use to find historical information or exclude very recent unverified content'
+        "Filter results published before this date (YYYY-MM-DD format). Use to find historical information or exclude very recent unverified content"
       ),
     category: z
       .enum([
-        'company',
-        'research paper',
-        'news',
-        'linkedin profile',
-        'github',
-        'tweet',
-        'movie',
-        'song',
-        'personal site',
-        'pdf',
-        'financial report',
+        "company",
+        "research paper",
+        "news",
+        "linkedin profile",
+        "github",
+        "tweet",
+        "movie",
+        "song",
+        "personal site",
+        "pdf",
+        "financial report",
       ] as const)
       .optional()
       .describe(
@@ -142,7 +142,7 @@ export const searchTool = tool({
         results: [],
         count: 0,
         error:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+          error instanceof Error ? error.message : "Unknown error occurred",
       };
     }
   },

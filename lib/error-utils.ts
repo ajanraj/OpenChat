@@ -2,18 +2,18 @@
  * Error classification and handling utilities
  */
 
-import { ConvexError } from 'convex/values';
-import { z } from 'zod';
-import { ERROR_CODES, type ErrorCode, getErrorMessage } from './error-codes';
+import { ConvexError } from "convex/values";
+import { z } from "zod";
+import { ERROR_CODES, type ErrorCode, getErrorMessage } from "./error-codes";
 
-export type ErrorDisplayType = 'conversation' | 'toast' | 'both';
+export type ErrorDisplayType = "conversation" | "toast" | "both";
 
 /**
  * Zod schema for Convex rate limit errors
  */
 const ConvexRateLimitErrorSchema = z.object({
   data: z.object({
-    kind: z.literal('RateLimitError'),
+    kind: z.literal("RateLimitError"),
     name: z.string().optional(),
   }),
 });
@@ -88,48 +88,48 @@ function getResponseTypeForErrorCode(code: string): string {
   switch (code) {
     // Auth errors
     case ERROR_CODES.NOT_AUTHENTICATED:
-      return 'auth_error';
+      return "auth_error";
     case ERROR_CODES.UNAUTHORIZED:
-      return 'unauthorized';
+      return "unauthorized";
     case ERROR_CODES.TOKEN_EXPIRED:
-      return 'token_expired';
+      return "token_expired";
 
     // Business errors
     case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED:
-      return 'premium_access_denied';
+      return "premium_access_denied";
     case ERROR_CODES.USER_KEY_REQUIRED:
-      return 'api_key_required';
+      return "api_key_required";
     case ERROR_CODES.PREMIUM_LIMIT_REACHED:
     case ERROR_CODES.DAILY_LIMIT_REACHED:
     case ERROR_CODES.MONTHLY_LIMIT_REACHED:
-      return 'usage_limit';
+      return "usage_limit";
 
     // Validation errors
     case ERROR_CODES.INVALID_INPUT:
     case ERROR_CODES.MISSING_REQUIRED_FIELD:
-      return 'validation_error';
+      return "validation_error";
     case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
-      return 'unsupported_file_type';
+      return "unsupported_file_type";
     case ERROR_CODES.FILE_TOO_LARGE:
-      return 'file_too_large';
+      return "file_too_large";
 
     // Resource errors
     case ERROR_CODES.USER_NOT_FOUND:
     case ERROR_CODES.CHAT_NOT_FOUND:
     case ERROR_CODES.MESSAGE_NOT_FOUND:
     case ERROR_CODES.FILE_NOT_FOUND:
-      return 'not_found';
+      return "not_found";
 
     // Operation errors
     case ERROR_CODES.UNSUPPORTED_MODEL:
-      return 'unsupported_model';
+      return "unsupported_model";
     case ERROR_CODES.UNSUPPORTED_OPERATION:
-      return 'unsupported_operation';
+      return "unsupported_operation";
     case ERROR_CODES.UPLOAD_FAILED:
-      return 'upload_failed';
+      return "upload_failed";
 
     default:
-      return 'unknown_error';
+      return "unknown_error";
   }
 }
 
@@ -147,8 +147,8 @@ export function classifyError(error: unknown): ClassifiedError {
       errorCode === ERROR_CODES.NOT_AUTHENTICATED ||
       errorCode === ERROR_CODES.INVALID_INPUT ||
       errorCode === ERROR_CODES.MISSING_REQUIRED_FIELD
-        ? 'toast'
-        : 'conversation';
+        ? "toast"
+        : "conversation";
 
     return {
       displayType,
@@ -167,14 +167,14 @@ export function classifyError(error: unknown): ClassifiedError {
     const {
       data: { name },
     } = rateLimitParseResult.data;
-    const code = 'RATE_LIMIT';
+    const code = "RATE_LIMIT";
     return {
-      displayType: 'conversation',
+      displayType: "conversation",
       code,
-      message: `Rate limit exceeded. ${name || 'Unknown limit'}`,
+      message: `Rate limit exceeded. ${name || "Unknown limit"}`,
       userFriendlyMessage: `You've reached your usage limit. Please try again in a moment.`,
       httpStatus: 429,
-      responseType: 'rate_limit',
+      responseType: "rate_limit",
       originalError: error,
     };
   }
@@ -183,7 +183,7 @@ export function classifyError(error: unknown): ClassifiedError {
   let errorMsg: string;
   if (error && error instanceof Error) {
     errorMsg = error.message;
-  } else if (error && typeof error === 'object' && 'message' in error) {
+  } else if (error && typeof error === "object" && "message" in error) {
     errorMsg = String((error as { message: unknown }).message);
   } else {
     errorMsg = String(error);
@@ -191,12 +191,12 @@ export function classifyError(error: unknown): ClassifiedError {
 
   // Default: treat as system error
   return {
-    displayType: 'conversation',
-    code: 'SYSTEM_ERROR',
+    displayType: "conversation",
+    code: "SYSTEM_ERROR",
     message: errorMsg,
-    userFriendlyMessage: 'An unexpected error occurred. Please try again.',
+    userFriendlyMessage: "An unexpected error occurred. Please try again.",
     httpStatus: 500,
-    responseType: 'unknown_error',
+    responseType: "unknown_error",
     originalError: error,
   };
 }
@@ -217,7 +217,7 @@ export function createErrorResponse(error: unknown): Response {
 
   return new Response(JSON.stringify(errorPayload), {
     status: classified.httpStatus,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -244,8 +244,8 @@ export function createStreamingError(error: unknown): {
 
   return {
     shouldSaveToConversation:
-      classified.displayType === 'conversation' ||
-      classified.displayType === 'both',
+      classified.displayType === "conversation" ||
+      classified.displayType === "both",
     errorPayload,
   };
 }
@@ -259,7 +259,7 @@ export function createErrorPart(
   rawError?: string
 ) {
   return {
-    type: 'error' as const,
+    type: "error" as const,
     error: {
       code,
       message,
@@ -274,8 +274,8 @@ export function createErrorPart(
 export function shouldShowInConversation(error: unknown): boolean {
   const classified = classifyError(error);
   return (
-    classified.displayType === 'conversation' ||
-    classified.displayType === 'both'
+    classified.displayType === "conversation" ||
+    classified.displayType === "both"
   );
 }
 
@@ -285,6 +285,6 @@ export function shouldShowInConversation(error: unknown): boolean {
 export function shouldShowAsToast(error: unknown): boolean {
   const classified = classifyError(error);
   return (
-    classified.displayType === 'toast' || classified.displayType === 'both'
+    classified.displayType === "toast" || classified.displayType === "both"
   );
 }

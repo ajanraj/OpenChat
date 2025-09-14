@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from 'react';
+import { type RefObject, useEffect } from "react";
 
 /**
  * Custom click-outside hook for edit components that ignores clicks on portal elements
@@ -29,13 +29,13 @@ export function useEditClickOutside<T extends HTMLElement>(
         // Radix UI popover elements
         target.closest('[data-slot*="popover"]') ||
         // Generic Radix portal container
-        target.closest('[data-radix-portal]') ||
+        target.closest("[data-radix-portal]") ||
         // ARIA menu/dialog/listbox roles
         target.closest('[role="menu"]') ||
         target.closest('[role="dialog"]') ||
         target.closest('[role="listbox"]') ||
         // Radix UI select elements
-        target.closest('[data-radix-select-viewport]') ||
+        target.closest("[data-radix-select-viewport]") ||
         // Tooltip elements (in case tooltips should not close edit)
         target.closest('[role="tooltip"]');
 
@@ -46,13 +46,13 @@ export function useEditClickOutside<T extends HTMLElement>(
     };
 
     // Add event listeners
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
 
     // Cleanup
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
     };
   }, [ref, handler]);
 }

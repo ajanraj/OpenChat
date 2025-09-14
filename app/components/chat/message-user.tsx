@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   CheckIcon,
@@ -7,12 +7,12 @@ import {
   PencilSimpleIcon,
   PencilSimpleSlashIcon,
   TrashIcon,
-} from '@phosphor-icons/react';
-import type { FileUIPart, UIMessage as MessageType } from 'ai';
-import Image from 'next/image';
-import type React from 'react';
-import { memo, useEffect, useRef, useState } from 'react';
-import { EditInput } from '@/app/components/chat-input/edit-input';
+} from "@phosphor-icons/react";
+import type { FileUIPart, UIMessage as MessageType } from "ai";
+import Image from "next/image";
+import type React from "react";
+import { memo, useEffect, useRef, useState } from "react";
+import { EditInput } from "@/app/components/chat-input/edit-input";
 import {
   MorphingDialog,
   MorphingDialogClose,
@@ -20,24 +20,24 @@ import {
   MorphingDialogContent,
   MorphingDialogImage,
   MorphingDialogTrigger,
-} from '@/components/motion-primitives/morphing-dialog';
+} from "@/components/motion-primitives/morphing-dialog";
 import {
   MessageAction,
   MessageActions,
   Message as MessageContainer,
   MessageContent,
-} from '@/components/prompt-kit/message';
-import { cn } from '@/lib/utils';
+} from "@/components/prompt-kit/message";
+import { cn } from "@/lib/utils";
 
 const getTextFromDataUrl = (dataUrl: string) => {
-  const base64 = dataUrl.split(',')[1];
+  const base64 = dataUrl.split(",")[1];
   return base64;
 };
 
 // Helper function to render different file parts
 const renderFilePart = (filePart: FileUIPart) => {
-  if (filePart.mediaType?.startsWith('image')) {
-    if (filePart.url === 'redacted') {
+  if (filePart.mediaType?.startsWith("image")) {
+    if (filePart.url === "redacted") {
       return (
         <div className="mb-1">
           <div
@@ -51,7 +51,7 @@ const renderFilePart = (filePart: FileUIPart) => {
               className="absolute inset-0 opacity-40"
               style={{
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 10px, transparent 10px, transparent 20px)',
+                  "repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 10px, transparent 10px, transparent 20px)",
               }}
             />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -66,7 +66,7 @@ const renderFilePart = (filePart: FileUIPart) => {
     return (
       <MorphingDialog
         transition={{
-          type: 'spring',
+          type: "spring",
           stiffness: 280,
           damping: 18,
           mass: 0.3,
@@ -74,7 +74,7 @@ const renderFilePart = (filePart: FileUIPart) => {
       >
         <MorphingDialogTrigger className="z-10">
           <Image
-            alt={filePart.filename ?? ''}
+            alt={filePart.filename ?? ""}
             className="mb-1 rounded-md"
             height={160}
             key={filePart.filename}
@@ -85,7 +85,7 @@ const renderFilePart = (filePart: FileUIPart) => {
         <MorphingDialogContainer>
           <MorphingDialogContent className="relative rounded-lg">
             <MorphingDialogImage
-              alt={filePart.filename || ''}
+              alt={filePart.filename || ""}
               className="max-h-[90vh] max-w-[90vw] object-contain"
               src={filePart.url}
             />
@@ -96,8 +96,8 @@ const renderFilePart = (filePart: FileUIPart) => {
     );
   }
 
-  if (filePart.mediaType?.startsWith('text')) {
-    if (filePart.url === 'redacted') {
+  if (filePart.mediaType?.startsWith("text")) {
+    if (filePart.url === "redacted") {
       return (
         <div className="mb-2 w-40 rounded-md border bg-muted p-2 text-center text-muted-foreground text-xs">
           Attachment redacted
@@ -111,8 +111,8 @@ const renderFilePart = (filePart: FileUIPart) => {
     );
   }
 
-  if (filePart.mediaType === 'application/pdf') {
-    if (filePart.url === 'redacted') {
+  if (filePart.mediaType === "application/pdf") {
+    if (filePart.url === "redacted") {
       return (
         <div className="mb-2 w-[120px] rounded-md border bg-muted px-4 py-2 text-center text-muted-foreground text-xs">
           Attachment redacted
@@ -126,7 +126,7 @@ const renderFilePart = (filePart: FileUIPart) => {
         download={filePart.filename}
         href={filePart.url}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === "Enter" || e.key === " ") {
             (e.currentTarget as HTMLAnchorElement).click();
           }
         }}
@@ -154,7 +154,7 @@ const renderFilePart = (filePart: FileUIPart) => {
           />
           <span
             className="overflow-hidden truncate whitespace-nowrap font-medium text-gray-900 text-sm dark:text-gray-100"
-            style={{ maxWidth: 'calc(100% - 28px)' }}
+            style={{ maxWidth: "calc(100% - 28px)" }}
             title={filePart.filename}
           >
             {filePart.filename}
@@ -169,7 +169,7 @@ const renderFilePart = (filePart: FileUIPart) => {
 
 export type MessageUserProps = {
   hasScrollAnchor?: boolean;
-  parts?: MessageType['parts'];
+  parts?: MessageType["parts"];
   copied: boolean;
   copyToClipboard: () => void;
   readOnly?: boolean;
@@ -180,18 +180,18 @@ export type MessageUserProps = {
       model: string;
       enableSearch: boolean;
       files: File[];
-      reasoningEffort: 'low' | 'medium' | 'high';
+      reasoningEffort: "low" | "medium" | "high";
       removedFileUrls?: string[];
     }
   ) => void;
   onDelete: (id: string) => void;
   id: string;
-  status?: 'streaming' | 'ready' | 'submitted' | 'error';
+  status?: "streaming" | "ready" | "submitted" | "error";
   selectedModel: string;
   isUserAuthenticated: boolean;
   editFiles?: File[];
   isReasoningModel?: boolean;
-  reasoningEffort?: 'low' | 'medium' | 'high';
+  reasoningEffort?: "low" | "medium" | "high";
   isSearchEnabled?: boolean;
 };
 
@@ -209,24 +209,24 @@ function MessageUserInner({
   isUserAuthenticated,
   editFiles = [],
   isReasoningModel = false,
-  reasoningEffort = 'medium',
+  reasoningEffort = "medium",
   isSearchEnabled = false,
 }: MessageUserProps): React.ReactElement {
   // Extract text content from parts
   const textContent =
     parts
-      ?.filter((part) => part.type === 'text')
-      .map((part) => ('text' in part ? part.text : ''))
-      .join('') || '';
+      ?.filter((part) => part.type === "text")
+      .map((part) => ("text" in part ? part.text : ""))
+      .join("") || "";
 
   const [isEditing, setIsEditing] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const displayContent = textContent.replace(/\n{2,}/g, '\n\n');
+  const displayContent = textContent.replace(/\n{2,}/g, "\n\n");
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    if (typeof window !== "undefined") {
+      setIsTouch("ontouchstart" in window || navigator.maxTouchPoints > 0);
     }
   }, []);
 
@@ -237,13 +237,13 @@ function MessageUserInner({
   return (
     <MessageContainer
       className={cn(
-        'group flex w-full max-w-3xl flex-col items-end gap-2 px-6 pb-2',
-        hasScrollAnchor && 'min-h-scroll-anchor'
+        "group flex w-full max-w-3xl flex-col items-end gap-2 px-6 pb-2",
+        hasScrollAnchor && "min-h-scroll-anchor"
       )}
       id={id}
     >
       {parts
-        ?.filter((part): part is FileUIPart => part.type === 'file')
+        ?.filter((part): part is FileUIPart => part.type === "file")
         .map((filePart, index) => (
           <div
             className="flex flex-row gap-2"
@@ -256,7 +256,7 @@ function MessageUserInner({
         <EditInput
           existingFiles={
             parts
-              ?.filter((part): part is FileUIPart => part.type === 'file')
+              ?.filter((part): part is FileUIPart => part.type === "file")
               .map((f) => ({
                 url: f.url,
                 filename: f.filename,
@@ -290,21 +290,21 @@ function MessageUserInner({
       )}
       <MessageActions
         className={cn(
-          'flex gap-0 transition-opacity',
+          "flex gap-0 transition-opacity",
           isTouch || isEditing
-            ? 'opacity-100'
-            : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'
+            ? "opacity-100"
+            : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
         )}
       >
         <MessageAction
           delayDuration={0}
           side="bottom"
-          tooltip={copied ? 'Copied!' : 'Copy text'}
+          tooltip={copied ? "Copied!" : "Copy text"}
         >
           <button
             aria-label="Copy text"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={status === 'streaming'}
+            disabled={status === "streaming"}
             onClick={copyToClipboard}
             type="button"
           >
@@ -319,13 +319,13 @@ function MessageUserInner({
           <MessageAction
             delayDuration={0}
             side="bottom"
-            tooltip={isEditing ? 'Cancel Edit' : 'Edit'}
+            tooltip={isEditing ? "Cancel Edit" : "Edit"}
           >
             <button
-              aria-label={isEditing ? 'Cancel edit' : 'Edit'}
+              aria-label={isEditing ? "Cancel edit" : "Edit"}
               aria-pressed={isEditing}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={status === 'streaming'}
+              disabled={status === "streaming"}
               onClick={() => {
                 if (readOnly) {
                   return;
@@ -347,7 +347,7 @@ function MessageUserInner({
             <button
               aria-label="Delete"
               className="flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={status === 'streaming'}
+              disabled={status === "streaming"}
               onClick={handleDelete}
               type="button"
             >

@@ -14,17 +14,17 @@ export type SearchResult = {
 
 // Exa search category types for targeted content filtering
 export type ExaSearchCategory =
-  | 'company'
-  | 'research paper'
-  | 'news'
-  | 'linkedin profile'
-  | 'github'
-  | 'tweet'
-  | 'movie'
-  | 'song'
-  | 'personal site'
-  | 'pdf'
-  | 'financial report';
+  | "company"
+  | "research paper"
+  | "news"
+  | "linkedin profile"
+  | "github"
+  | "tweet"
+  | "movie"
+  | "song"
+  | "personal site"
+  | "pdf"
+  | "financial report";
 
 export type SearchOptions = {
   maxResults?: number;
@@ -36,7 +36,7 @@ export type SearchOptions = {
   category?: ExaSearchCategory;
 };
 
-export type SearchProvider = 'exa' | 'tavily' | 'brave';
+export type SearchProvider = "exa" | "tavily" | "brave";
 
 // Provider-specific limits from documentation
 export const PROVIDER_LIMITS = {
@@ -49,13 +49,13 @@ export const PROVIDER_LIMITS = {
 function isValidSearchProvider(
   value: string | undefined
 ): value is SearchProvider {
-  return value === 'exa' || value === 'tavily' || value === 'brave';
+  return value === "exa" || value === "tavily" || value === "brave";
 }
 
 // Get validated search provider from environment variable
 function getValidatedSearchProvider(): SearchProvider {
   const envProvider = process.env.DEFAULT_SEARCH_PROVIDER;
-  return isValidSearchProvider(envProvider) ? envProvider : 'brave';
+  return isValidSearchProvider(envProvider) ? envProvider : "brave";
 }
 
 // Search configuration

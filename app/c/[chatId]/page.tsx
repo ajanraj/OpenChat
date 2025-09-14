@@ -1,10 +1,10 @@
-import { convexAuthNextjsToken } from '@convex-dev/auth/nextjs/server';
-import { fetchQuery } from 'convex/nextjs';
-import { redirect } from 'next/navigation';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { fetchQuery } from "convex/nextjs";
+import { redirect } from "next/navigation";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
-import Chat from '../../components/chat/chat';
+import Chat from "../../components/chat/chat";
 
 export default async function ChatPage({
   params,
@@ -23,19 +23,19 @@ export default async function ChatPage({
 
   if (!chatId) {
     // If no chatId is provided, redirect to the home page.
-    redirect('/');
+    redirect("/");
   }
 
   try {
     const chat = await fetchQuery(
       api.chats.getChat,
-      { chatId: chatId as Id<'chats'> },
+      { chatId: chatId as Id<"chats"> },
       { token }
     );
 
     if (!chat) {
       // Chat either does not exist or is not owned by the user.
-      redirect('/');
+      redirect("/");
     }
 
     // Render the regular chat shell. The Chat component is a client component
@@ -43,6 +43,6 @@ export default async function ChatPage({
     return <Chat />;
   } catch (_error) {
     // Handle ArgumentValidationError or any other errors gracefully
-    redirect('/');
+    redirect("/");
   }
 }

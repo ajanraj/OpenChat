@@ -1,53 +1,53 @@
-'use client';
+"use client";
 
 import {
   ChatCircleDotsIcon,
   Eye,
   EyeSlash,
   SignOut,
-} from '@phosphor-icons/react';
-import { useRouter } from 'next/navigation';
-import React from 'react';
-import { useUser } from '@/app/providers/user-provider';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+} from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
+import React from "react";
+import { useUser } from "@/app/providers/user-provider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { toast } from '@/components/ui/toast';
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import type { Doc } from '../../../convex/_generated/dataModel';
+} from "@/components/ui/tooltip";
+import type { Doc } from "../../../convex/_generated/dataModel";
 // import dynamic from "next/dynamic"
 // import { APP_NAME } from "../../../lib/config"
-import { AppInfoTrigger } from './app-info/app-info-trigger';
-import { SettingsTrigger } from './settings/settings-trigger';
+import { AppInfoTrigger } from "./app-info/app-info-trigger";
+import { SettingsTrigger } from "./settings/settings-trigger";
 
-export function UserMenu({ user }: { user: Doc<'users'> }) {
+export function UserMenu({ user }: { user: Doc<"users"> }) {
   const { signOut } = useUser();
   const router = useRouter();
   const [isMenuOpen, setMenuOpen] = React.useState(false);
   const [isSettingsOpen, setSettingsOpen] = React.useState(false);
 
   const [showEmail, setShowEmail] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return false;
     }
-    return localStorage.getItem('showEmail') === 'true';
+    return localStorage.getItem("showEmail") === "true";
   });
 
   const maskEmail = (email?: string) => {
     if (!email) {
-      return '';
+      return "";
     }
-    const [local, domain] = email.split('@');
-    const tld = domain.substring(domain.lastIndexOf('.'));
+    const [local, domain] = email.split("@");
+    const tld = domain.substring(domain.lastIndexOf("."));
     const prefix = local.slice(0, 2);
     return `${prefix}*****${tld}`;
   };
@@ -62,10 +62,10 @@ export function UserMenu({ user }: { user: Doc<'users'> }) {
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast({ title: 'Logged out', status: 'success' });
-      router.push('/');
+      toast({ title: "Logged out", status: "success" });
+      router.push("/");
     } catch {
-      toast({ title: 'Failed to sign out', status: 'error' });
+      toast({ title: "Failed to sign out", status: "error" });
     }
   };
 
@@ -78,7 +78,7 @@ export function UserMenu({ user }: { user: Doc<'users'> }) {
               <AvatarImage src={user?.image ?? undefined} />
               <AvatarFallback>
                 {user?.name?.charAt(0) ||
-                  (user?.email ? user.email.charAt(0) : '')}
+                  (user?.email ? user.email.charAt(0) : "")}
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
@@ -111,7 +111,7 @@ export function UserMenu({ user }: { user: Doc<'users'> }) {
             onClick={(e) => {
               e.stopPropagation();
               setShowEmail((prev) => {
-                localStorage.setItem('showEmail', (!prev).toString());
+                localStorage.setItem("showEmail", (!prev).toString());
                 return !prev;
               });
             }}
@@ -133,9 +133,9 @@ export function UserMenu({ user }: { user: Doc<'users'> }) {
         <DropdownMenuItem
           onSelect={() => {
             window.open(
-              'https://oschat.userjot.com',
-              '_blank',
-              'noopener,noreferrer'
+              "https://oschat.userjot.com",
+              "_blank",
+              "noopener,noreferrer"
             );
           }}
         >

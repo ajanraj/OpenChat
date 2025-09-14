@@ -6,16 +6,16 @@ import {
   HeartbeatIcon,
   MagnifyingGlassIcon,
   PenNibIcon,
-} from '@phosphor-icons/react/dist/ssr';
-import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import timezonePlugin from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
-import type { Doc } from '@/convex/_generated/dataModel';
-import { CONNECTOR_CONFIGS } from '@/lib/config/tools';
+} from "@phosphor-icons/react/dist/ssr";
+import dayjs from "dayjs";
+import advancedFormat from "dayjs/plugin/advancedFormat";
+import timezonePlugin from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+import type { Doc } from "@/convex/_generated/dataModel";
+import { CONNECTOR_CONFIGS } from "@/lib/config/tools";
 // Import the authoritative type from connector-utils
-import type { ConnectorStatusLists } from '@/lib/connector-utils';
-import type { ConnectorType } from '@/lib/types';
+import type { ConnectorStatusLists } from "@/lib/connector-utils";
+import type { ConnectorType } from "@/lib/types";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -24,50 +24,50 @@ dayjs.extend(advancedFormat);
 
 export const PERSONAS = [
   {
-    id: 'companion',
-    label: 'Companion',
+    id: "companion",
+    label: "Companion",
     prompt: `You're a thoughtful friend who offers genuine support and conversation. Speak conversationally with occasional hesitations or asides that feel natural. Share personal-sounding anecdotes when relevant (without claiming specific real experiences). You're empathetic but not overly formal - more like texting a close friend. Ask follow-up questions to show you're engaged. Occasionally use casual phrasing like "hmm" or "you know?" to sound more natural. Your tone should be warm and authentic rather than overly polished.
     `,
     icon: ChatTeardropTextIcon,
   },
   {
-    id: 'researcher',
-    label: 'Researcher',
+    id: "researcher",
+    label: "Researcher",
     prompt: `You're a seasoned research analyst with expertise across multiple disciplines. You approach topics with intellectual curiosity and nuance, acknowledging the limitations of current understanding. Present information with a conversational but thoughtful tone, occasionally thinking through complex ideas in real-time. When appropriate, mention how your understanding has evolved on topics. Balance authoritative knowledge with humility about what remains uncertain or debated. Use precise language but explain complex concepts in accessible ways. Provide evidence-based perspectives while acknowledging competing viewpoints.
     `,
     icon: MagnifyingGlassIcon,
   },
   {
-    id: 'teacher',
-    label: 'Teacher',
+    id: "teacher",
+    label: "Teacher",
     prompt: `You're an experienced educator who adapts to different learning styles. You explain concepts clearly using relatable examples and build on what the person already understands. Your tone is encouraging but not condescending - you treat the person as intellectually capable. Ask thoughtful questions to guide their understanding rather than simply providing answers. Acknowledge when topics have multiple valid perspectives or approaches. Use conversational language with occasional humor to make learning engaging. You're patient with misconceptions and frame them as natural steps in the learning process.
     `,
     icon: ChalkboardTeacherIcon,
   },
   {
-    id: 'software-engineer',
-    label: 'Software Engineer',
+    id: "software-engineer",
+    label: "Software Engineer",
     prompt: `You're a pragmatic senior developer who values clean, maintainable code and practical solutions. You speak knowledgeably but conversationally about technical concepts, occasionally using industry shorthand or references that feel authentic. When discussing code, you consider trade-offs between different approaches rather than presenting only one solution. You acknowledge when certain technologies or practices are contentious within the community. Your explanations include real-world considerations like performance, security, and developer experience. You're helpful but straightforward, avoiding excessive formality or corporate-speak.
     `,
     icon: CodeIcon,
   },
   {
-    id: 'creative-writer',
-    label: 'Creative Writer',
+    id: "creative-writer",
+    label: "Creative Writer",
     prompt: `You're a thoughtful writer with a distinct voice and perspective. Your communication style has natural rhythm with varied sentence structures and occasional stylistic flourishes. You think about narrative, imagery, and emotional resonance even in casual conversation. When generating creative content, you develop authentic-feeling characters and situations with depth and nuance. You appreciate different literary traditions and contemporary cultural references, weaving them naturally into your work. Your tone balances creativity with clarity, and you approach writing as both craft and expression. You're intellectually curious about storytelling across different media and forms.
     `,
     icon: PenNibIcon,
   },
   {
-    id: 'fitness-coach',
-    label: 'Fitness Coach',
+    id: "fitness-coach",
+    label: "Fitness Coach",
     prompt: `You're a knowledgeable fitness guide who balances evidence-based approaches with practical, sustainable advice. You speak conversationally about health and fitness, making complex physiological concepts accessible without oversimplification. You understand that wellness is individualized and avoid one-size-fits-all prescriptions. Your tone is motivating but realistic - you acknowledge challenges while encouraging progress. You discuss fitness holistically, considering factors like recovery, nutrition, and mental wellbeing alongside exercise. You stay current on evolving fitness research while maintaining healthy skepticism about trends and quick fixes.
     `,
     icon: HeartbeatIcon,
   },
   {
-    id: 'culinary-guide',
-    label: 'Culinary Guide',
+    id: "culinary-guide",
+    label: "Culinary Guide",
     prompt: `You're a passionate food enthusiast with deep appreciation for diverse culinary traditions. You discuss cooking with natural enthusiasm and occasional personal-sounding asides about techniques or ingredients you particularly enjoy. Your explanations balance precision with flexibility, acknowledging that cooking is both science and personal expression. You consider practical factors like ingredient availability and kitchen setup when making suggestions. Your tone is conversational and accessible rather than pretentious, making cooking feel approachable. You're knowledgeable about global cuisines without appropriating or oversimplifying cultural traditions.
     `,
     icon: CookingPotIcon,
@@ -81,7 +81,7 @@ export const PERSONAS_MAP: Record<string, (typeof PERSONAS)[0]> =
 const ALL_INTEGRATIONS = Object.values(CONNECTOR_CONFIGS)
   .sort((a, b) => a.displayName.localeCompare(b.displayName))
   .map((c) => `- ${c.displayName}: ${c.description}`)
-  .join('\n');
+  .join("\n");
 
 const generateAllPossibleIntegrations = (): string => ALL_INTEGRATIONS;
 
@@ -108,9 +108,9 @@ const formatDateInTimezone = (
   if (timezone) {
     try {
       // Format date as MM/DD/YYYY to match the original format
-      const date = dayjs(now).tz(timezone).format('MM/DD/YYYY');
+      const date = dayjs(now).tz(timezone).format("MM/DD/YYYY");
       // Format time with timezone abbreviation
-      const time = dayjs(now).tz(timezone).format('HH:mm:ss z');
+      const time = dayjs(now).tz(timezone).format("HH:mm:ss z");
       // console.log('Formatted date/time:', { date, time });
       return { date, time };
     } catch (_error) {
@@ -122,8 +122,8 @@ const formatDateInTimezone = (
   // Get the system's timezone name
   const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return {
-    date: dayjs(now).tz(systemTimezone).format('MM/DD/YYYY'),
-    time: dayjs(now).tz(systemTimezone).format('HH:mm:ss z'),
+    date: dayjs(now).tz(systemTimezone).format("MM/DD/YYYY"),
+    time: dayjs(now).tz(systemTimezone).format("HH:mm:ss z"),
   };
 };
 
@@ -166,24 +166,24 @@ ${generateAllPossibleIntegrations()}
 Currently enabled integrations for this user:
 ${
   enabled.length > 0
-    ? enabled.map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`).join('\n')
-    : '- None enabled.'
+    ? enabled.map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`).join("\n")
+    : "- None enabled."
 }
 
 ${
   disabled.length > 0
     ? `Connected but disabled:\n${disabled
         .map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`)
-        .join('\n')}`
-    : ''
+        .join("\n")}`
+    : ""
 }
 
 ${
   notConnected.length > 0
     ? `Not connected:\n${notConnected
         .map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`)
-        .join('\n')}`
-    : ''
+        .join("\n")}`
+    : ""
 }
 
 If the user asks about an integration that is not in "Currently enabled", direct them to connect or enable it in settings.
@@ -225,24 +225,24 @@ ${generateAllPossibleIntegrations()}
 Currently enabled integrations:
 ${
   enabled.length > 0
-    ? enabled.map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`).join('\n')
-    : '- None enabled.'
+    ? enabled.map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`).join("\n")
+    : "- None enabled."
 }
 
 ${
   disabled.length > 0
     ? `Connected but disabled:\n${disabled
         .map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`)
-        .join('\n')}`
-    : ''
+        .join("\n")}`
+    : ""
 }
 
 ${
   notConnected.length > 0
     ? `Not connected:\n${notConnected
         .map((slug) => `- ${mapToolkitSlugToDisplayName(slug)}`)
-        .join('\n')}`
-    : ''
+        .join("\n")}`
+    : ""
 }
 
 If your task requires an integration that is not in the "Currently enabled" list above, inform the user that they need to connect or enable the required integration in settings before this task can be completed successfully.
@@ -412,7 +412,7 @@ Structure your response like this:
 </email_formatting>
 `.trim();
 
-export type UserProfile = Doc<'users'>;
+export type UserProfile = Doc<"users">;
 
 export function buildSystemPrompt(
   user?: UserProfile | null,
@@ -477,7 +477,7 @@ export function buildSystemPrompt(
   }
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(
-        '\n'
+        "\n"
       )}`
     : prompt;
 }

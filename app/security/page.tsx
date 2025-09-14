@@ -1,10 +1,10 @@
-import type { Metadata } from 'next';
-import { LegalHeader } from '@/app/components/layout/legal/legal-header';
+import type { Metadata } from "next";
+import { LegalHeader } from "@/app/components/layout/legal/legal-header";
 
 export const metadata: Metadata = {
-  title: 'Security Policy - OS Chat',
+  title: "Security Policy - OS Chat",
   description:
-    'OS Chat Security Policy - Our commitment to protecting your data and ensuring secure AI interactions',
+    "OS Chat Security Policy - Our commitment to protecting your data and ensuring secure AI interactions",
 };
 
 export default function SecurityPage() {
@@ -179,7 +179,7 @@ export default function SecurityPage() {
           <p>If you discover a security vulnerability:</p>
           <ul>
             <li>
-              Please report it to:{' '}
+              Please report it to:{" "}
               <a href="mailto:support@oschat.ai">support@oschat.ai</a>
             </li>
             <li>Include details about the issue and how to reproduce it</li>
@@ -202,10 +202,10 @@ export default function SecurityPage() {
 
           <p>For security questions or concerns:</p>
           <p>
-            <strong>Email:</strong>{' '}
+            <strong>Email:</strong>{" "}
             <a href="mailto:support@oschat.ai">support@oschat.ai</a>
             <br />
-            <strong>Website:</strong>{' '}
+            <strong>Website:</strong>{" "}
             <a href="https://oschat.ai">https://oschat.ai</a>
           </p>
         </div>

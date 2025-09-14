@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { ConvexError } from 'convex/values';
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { ConnectorIcon } from '@/app/components/common/connector-icon';
-import { Button } from '@/components/ui/button';
+import { ConvexError } from "convex/values";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ConnectorIcon } from "@/app/components/common/connector-icon";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,15 +12,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
-import type { Id } from '@/convex/_generated/dataModel';
-import { getConnectorConfig } from '@/lib/config/tools';
-import { ERROR_CODES } from '@/lib/error-codes';
-import type { ConnectorType } from '@/lib/types';
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import type { Id } from "@/convex/_generated/dataModel";
+import { getConnectorConfig } from "@/lib/config/tools";
+import { ERROR_CODES } from "@/lib/error-codes";
+import type { ConnectorType } from "@/lib/types";
 
 type ConnectorData = {
-  _id?: Id<'connectors'>;
+  _id?: Id<"connectors">;
   type: ConnectorType;
   isConnected: boolean;
   enabled?: boolean;
@@ -80,14 +80,14 @@ export function ConnectorCard({
     try {
       await onToggleEnabled(connector.type, checked);
       toast.success(
-        `${config.displayName} ${checked ? 'enabled' : 'disabled'} successfully`
+        `${config.displayName} ${checked ? "enabled" : "disabled"} successfully`
       );
     } catch (error: unknown) {
       const errorMessage =
         error instanceof ConvexError &&
         error.data === ERROR_CODES.CONNECTOR_NOT_FOUND
           ? `${config.displayName} connection not found. Please reconnect this service first.`
-          : `Failed to ${checked ? 'enable' : 'disable'} ${config.displayName}`;
+          : `Failed to ${checked ? "enable" : "disable"} ${config.displayName}`;
       toast.error(errorMessage);
     } finally {
       setIsToggling(false);
@@ -132,7 +132,7 @@ export function ConnectorCard({
             type="button"
             variant="destructive"
           >
-            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+            {isDisconnecting ? "Disconnecting..." : "Disconnect"}
           </Button>
         ) : (
           <Button
@@ -141,7 +141,7 @@ export function ConnectorCard({
             size="sm"
             type="button"
           >
-            {isConnecting ? 'Connecting...' : 'Connect'}
+            {isConnecting ? "Connecting..." : "Connect"}
           </Button>
         )}
       </div>

@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useAuthActions } from '@convex-dev/auth/react';
-import Image from 'next/image';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { PopoverContent } from '@/components/ui/popover';
-import { APP_NAME } from '../../../lib/config';
+import { useAuthActions } from "@convex-dev/auth/react";
+import Image from "next/image";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { PopoverContent } from "@/components/ui/popover";
+import { APP_NAME } from "../../../lib/config";
 
 export function PopoverContentAuth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,10 +18,10 @@ export function PopoverContentAuth() {
       setIsLoading(true);
       setError(null);
 
-      await signIn('google');
+      await signIn("google");
     } catch (_err: unknown) {
       // console.error('Error signing in with Google:', err);
-      setError('Unable to sign in at the moment. Please try again later.');
+      setError("Unable to sign in at the moment. Please try again later.");
       // TODO: send `err` to Sentry / console for diagnostics
     } finally {
       setIsLoading(false);
@@ -67,7 +67,7 @@ export function PopoverContentAuth() {
             src="https://www.google.com/favicon.ico"
             width={20}
           />
-          <span>{isLoading ? 'Connecting...' : 'Continue with Google'}</span>
+          <span>{isLoading ? "Connecting..." : "Continue with Google"}</span>
         </Button>
       </div>
     </PopoverContent>

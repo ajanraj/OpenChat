@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { convexQuery } from '@convex-dev/react-query';
+import { convexQuery } from "@convex-dev/react-query";
 import {
   ClockCounterClockwise,
   Copy,
@@ -8,14 +8,14 @@ import {
   Trash,
   UploadSimple,
   XCircle,
-} from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useConvex, useMutation } from 'convex/react';
-import { useRef, useState } from 'react';
-import superjson from 'superjson';
-import { z } from 'zod';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+} from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useConvex, useMutation } from "convex/react";
+import { useRef, useState } from "react";
+import superjson from "superjson";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,18 +23,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { toast } from '@/components/ui/toast';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
-import { APP_BASE_URL, MESSAGE_MAX_LENGTH } from '@/lib/config';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { APP_BASE_URL, MESSAGE_MAX_LENGTH } from "@/lib/config";
 
 // Schema to validate imported history files (supports both old and new formats)
 const ImportSchema = z
@@ -51,7 +51,7 @@ const ImportSchema = z
         messages: z
           .array(
             z.object({
-              role: z.enum(['user', 'assistant', 'system']).optional(),
+              role: z.enum(["user", "assistant", "system"]).optional(),
               content: z.string().min(1).max(MESSAGE_MAX_LENGTH),
               parentMessageId: z.string().optional(),
               _id: z.string().optional(),
@@ -82,24 +82,24 @@ const ImportSchema = z
 
 function formatDateLines(timestamp?: number | null) {
   if (!timestamp) {
-    return { dateTime: 'Unknown', ampm: '' };
+    return { dateTime: "Unknown", ampm: "" };
   }
   try {
     const d = new Date(timestamp);
-    const dateStr = d.toLocaleDateString('en-US', {
-      month: 'numeric',
-      day: 'numeric',
-      year: '2-digit',
+    const dateStr = d.toLocaleDateString("en-US", {
+      month: "numeric",
+      day: "numeric",
+      year: "2-digit",
     });
-    const timeStr = d.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
+    const timeStr = d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: true,
     });
-    const [time, ampm] = timeStr.split(' ');
+    const [time, ampm] = timeStr.split(" ");
     return { dateTime: `${dateStr} ${time}`, ampm };
   } catch {
-    return { dateTime: 'Invalid', ampm: '' };
+    return { dateTime: "Invalid", ampm: "" };
   }
 }
 
@@ -113,14 +113,14 @@ export default function HistoryPage() {
   const deleteAllChats = useMutation(api.chats.deleteAllChatsForUser);
   const convex = useConvex();
 
-  const [selectedIds, setSelectedIds] = useState<Set<Id<'chats'>>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<Id<"chats">>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] =
     useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
-  const [revokeChatId, setRevokeChatId] = useState<Id<'chats'> | null>(null);
+  const [revokeChatId, setRevokeChatId] = useState<Id<"chats"> | null>(null);
   const [isRevoking, setIsRevoking] = useState(false);
   const [importChatCount, setImportChatCount] = useState(0);
   const [importData, setImportData] = useState<
@@ -140,8 +140,8 @@ export default function HistoryPage() {
     }>
   >([]);
 
-  const isSelected = (id: Id<'chats'>) => selectedIds.has(id);
-  const toggleSelect = (id: Id<'chats'>) => {
+  const isSelected = (id: Id<"chats">) => selectedIds.has(id);
+  const toggleSelect = (id: Id<"chats">) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -156,7 +156,7 @@ export default function HistoryPage() {
     if (!chats) {
       return;
     }
-    setSelectedIds(new Set(chats.map((c) => c._id as Id<'chats'>)));
+    setSelectedIds(new Set(chats.map((c) => c._id as Id<"chats">)));
   };
   const clearSelection = () => {
     setSelectedIds(new Set());
@@ -180,10 +180,10 @@ export default function HistoryPage() {
         // Multiple chats - use the new bulk delete mutation
         await deleteBulkChats({ chatIds: Array.from(selectedIds) });
       }
-      toast({ title: 'Selected chats deleted', status: 'success' });
+      toast({ title: "Selected chats deleted", status: "success" });
       setSelectedIds(new Set());
     } catch {
-      toast({ title: 'Failed to delete some chats', status: 'error' });
+      toast({ title: "Failed to delete some chats", status: "error" });
     } finally {
       setShowDeleteSelectedDialog(false);
     }
@@ -193,15 +193,15 @@ export default function HistoryPage() {
     if (selectedIds.size === 0) {
       return;
     }
-    toast({ title: 'Preparing export…', status: 'info' });
+    toast({ title: "Preparing export…", status: "info" });
     try {
       // Use proper Convex types
       const data: Array<{
         chat: Pick<
-          Doc<'chats'>,
-          '_id' | 'title' | 'model' | 'createdAt' | 'updatedAt' | 'personaId'
+          Doc<"chats">,
+          "_id" | "title" | "model" | "createdAt" | "updatedAt" | "personaId"
         >;
-        messages: Doc<'messages'>[];
+        messages: Doc<"messages">[];
       }> = [];
 
       await Promise.all(
@@ -216,8 +216,8 @@ export default function HistoryPage() {
           data.push({
             chat: {
               _id: chat._id,
-              title: chat.title ?? '',
-              model: chat.model ?? '',
+              title: chat.title ?? "",
+              model: chat.model ?? "",
               personaId: chat.personaId,
               createdAt: chat.createdAt,
               updatedAt: chat.updatedAt,
@@ -229,18 +229,18 @@ export default function HistoryPage() {
       const blob = new Blob(
         [superjson.stringify({ exportedAt: Date.now(), data })],
         {
-          type: 'application/json',
+          type: "application/json",
         }
       );
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `oschat-history-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast({ title: 'Export complete', status: 'success' });
+      toast({ title: "Export complete", status: "success" });
     } catch {
-      toast({ title: 'Failed to export chats', status: 'error' });
+      toast({ title: "Failed to export chats", status: "error" });
     }
   };
 
@@ -253,7 +253,7 @@ export default function HistoryPage() {
 
   async function processImportFile(file: File) {
     if (file.size > MAX_IMPORT_SIZE_BYTES) {
-      toast({ title: 'Import file too large (max 2 MB)', status: 'error' });
+      toast({ title: "Import file too large (max 2 MB)", status: "error" });
       return;
     }
 
@@ -261,14 +261,14 @@ export default function HistoryPage() {
     const data = superjson.parse(text);
     const parsed = ImportSchema.safeParse(data);
     if (!parsed.success) {
-      throw new Error('Invalid file format');
+      throw new Error("Invalid file format");
     }
 
     const dataArr = parsed.data.data;
     const chatCount = dataArr.length;
 
     if (chatCount === 0) {
-      throw new Error('No chats found in file');
+      throw new Error("No chats found in file");
     }
 
     // Store data and chat count, then show confirmation dialog
@@ -279,7 +279,7 @@ export default function HistoryPage() {
 
   const confirmImport = async () => {
     try {
-      toast({ title: `Importing ${importChatCount} chat(s)…`, status: 'info' });
+      toast({ title: `Importing ${importChatCount} chat(s)…`, status: "info" });
 
       // Use the new bulk import mutation
       await Promise.all(
@@ -289,15 +289,15 @@ export default function HistoryPage() {
             .filter(
               (msg) =>
                 msg &&
-                typeof msg.content === 'string' &&
+                typeof msg.content === "string" &&
                 msg.content.length > 0 &&
                 msg.content.length <= MESSAGE_MAX_LENGTH
             )
             .map((msg) => ({
-              role: (msg.role || 'assistant') as
-                | 'user'
-                | 'assistant'
-                | 'system',
+              role: (msg.role || "assistant") as
+                | "user"
+                | "assistant"
+                | "system",
               content: msg.content,
               parts: msg.parts,
               metadata:
@@ -306,7 +306,7 @@ export default function HistoryPage() {
               originalId: msg._id || msg.id,
               parentOriginalId: msg.parentMessageId,
               createdAt:
-                typeof msg.createdAt === 'number' ? msg.createdAt : undefined,
+                typeof msg.createdAt === "number" ? msg.createdAt : undefined,
             }));
 
           if (messages.length === 0) {
@@ -316,12 +316,12 @@ export default function HistoryPage() {
           await convex.mutation(api.import_export.bulkImportChat, {
             chat: {
               title:
-                typeof chatMeta.title === 'string' &&
+                typeof chatMeta.title === "string" &&
                 chatMeta.title.length <= 100
                   ? chatMeta.title
                   : undefined,
               model:
-                typeof chatMeta.model === 'string' &&
+                typeof chatMeta.model === "string" &&
                 chatMeta.model.length <= 50
                   ? chatMeta.model
                   : undefined,
@@ -331,10 +331,10 @@ export default function HistoryPage() {
         })
       );
 
-      toast({ title: 'Import completed', status: 'success' });
+      toast({ title: "Import completed", status: "success" });
       setSelectedIds(new Set());
     } catch (_error) {
-      toast({ title: 'Import failed', status: 'error' });
+      toast({ title: "Import failed", status: "error" });
     } finally {
       setShowImportDialog(false);
       setImportData([]);
@@ -351,12 +351,12 @@ export default function HistoryPage() {
       await processImportFile(file);
     } catch (error) {
       toast({
-        title: error instanceof Error ? error.message : 'Import failed',
-        status: 'error',
+        title: error instanceof Error ? error.message : "Import failed",
+        status: "error",
       });
     } finally {
       // Clear the input value so the same file can be selected again
-      e.currentTarget.value = '';
+      e.currentTarget.value = "";
     }
   };
 
@@ -369,9 +369,9 @@ export default function HistoryPage() {
     setIsDeletingAll(true);
     try {
       await deleteAllChats({});
-      toast({ title: 'All chats deleted', status: 'success' });
+      toast({ title: "All chats deleted", status: "success" });
     } catch {
-      toast({ title: 'Failed to delete chats', status: 'error' });
+      toast({ title: "Failed to delete chats", status: "error" });
     } finally {
       setShowDeleteAllDialog(false);
       setIsDeletingAll(false);
@@ -382,7 +382,7 @@ export default function HistoryPage() {
     <div className="w-full space-y-12">
       <div className="space-y-6">
         <h1 className="flex items-center gap-2 font-bold text-2xl">
-          Message History{' '}
+          Message History{" "}
           <ClockCounterClockwise className="size-5 text-muted-foreground" />
         </h1>
         <p className="text-muted-foreground text-sm">
@@ -426,7 +426,7 @@ export default function HistoryPage() {
                   type="button"
                   variant="secondary"
                 >
-                  Clear{' '}
+                  Clear{" "}
                   <span className="hidden text-sm sm:inline">Selection</span>
                 </Button>
               )}
@@ -439,7 +439,7 @@ export default function HistoryPage() {
                 size="sm"
                 variant="secondary"
               >
-                <DownloadSimple className="size-4" />{' '}
+                <DownloadSimple className="size-4" />{" "}
                 <span className="hidden sm:inline">Export</span>
                 {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </Button>
@@ -450,7 +450,7 @@ export default function HistoryPage() {
                 size="sm"
                 variant="destructive"
               >
-                <Trash className="size-4" />{' '}
+                <Trash className="size-4" />{" "}
                 <span className="hidden sm:inline">Delete</span>
                 {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </Button>
@@ -460,7 +460,7 @@ export default function HistoryPage() {
                 size="sm"
                 variant="secondary"
               >
-                <UploadSimple className="size-4" />{' '}
+                <UploadSimple className="size-4" />{" "}
                 <span className="hidden sm:inline">Import</span>
               </Button>
               <input
@@ -480,17 +480,17 @@ export default function HistoryPage() {
               <div className="max-h-[21vh] divide-y overflow-y-auto rounded-lg border">
                 {chats.map((chat) => (
                   <div
-                    className={`flex items-center gap-4 px-4 py-1 text-sm ${isSelected(chat._id as Id<'chats'>) ? 'bg-muted/50' : ''}`}
+                    className={`flex items-center gap-4 px-4 py-1 text-sm ${isSelected(chat._id as Id<"chats">) ? "bg-muted/50" : ""}`}
                     key={chat._id}
                   >
                     <Checkbox
-                      checked={isSelected(chat._id as Id<'chats'>)}
+                      checked={isSelected(chat._id as Id<"chats">)}
                       onCheckedChange={() =>
-                        toggleSelect(chat._id as Id<'chats'>)
+                        toggleSelect(chat._id as Id<"chats">)
                       }
                     />
                     <span className="flex-1 truncate font-medium">
-                      {chat.title || 'Untitled Chat'}
+                      {chat.title || "Untitled Chat"}
                     </span>
                     <div className="ml-auto flex items-center gap-1">
                       {chat.public ? (
@@ -507,13 +507,13 @@ export default function HistoryPage() {
                                         `${APP_BASE_URL}/share/${chat._id}`
                                       );
                                       toast({
-                                        title: 'Link copied',
-                                        status: 'success',
+                                        title: "Link copied",
+                                        status: "success",
                                       });
                                     } catch {
                                       toast({
-                                        title: 'Failed to copy link',
-                                        status: 'error',
+                                        title: "Failed to copy link",
+                                        status: "error",
                                       });
                                     }
                                   }}
@@ -537,7 +537,7 @@ export default function HistoryPage() {
                                   aria-label="Unshare conversation"
                                   className="rounded-md transition-[border-radius] duration-200 hover:rounded-full"
                                   onClick={() =>
-                                    setRevokeChatId(chat._id as Id<'chats'>)
+                                    setRevokeChatId(chat._id as Id<"chats">)
                                   }
                                   size="icon"
                                   type="button"
@@ -628,9 +628,9 @@ export default function HistoryPage() {
           <DialogHeader>
             <DialogTitle>Delete selected chats?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete{' '}
+              This action cannot be undone. This will permanently delete{" "}
               {selectedIds.size} selected chat
-              {selectedIds.size === 1 ? '' : 's'}.
+              {selectedIds.size === 1 ? "" : "s"}.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -652,11 +652,11 @@ export default function HistoryPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Import {importChatCount} chat{importChatCount === 1 ? '' : 's'}?
+              Import {importChatCount} chat{importChatCount === 1 ? "" : "s"}?
             </DialogTitle>
             <DialogDescription>
               This will import {importChatCount} chat
-              {importChatCount === 1 ? '' : 's'} into your account. Importing
+              {importChatCount === 1 ? "" : "s"} into your account. Importing
               will NOT delete existing messages.
             </DialogDescription>
           </DialogHeader>
@@ -709,7 +709,7 @@ export default function HistoryPage() {
               onClick={confirmDeleteAll}
               variant="destructive"
             >
-              {isDeletingAll ? 'Deleting...' : 'Delete All'}
+              {isDeletingAll ? "Deleting..." : "Delete All"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -745,9 +745,9 @@ export default function HistoryPage() {
                 setIsRevoking(true);
                 try {
                   await unpublishChat({ chatId: revokeChatId });
-                  toast({ title: 'Conversation unshared', status: 'success' });
+                  toast({ title: "Conversation unshared", status: "success" });
                 } catch {
-                  toast({ title: 'Failed to unshare', status: 'error' });
+                  toast({ title: "Failed to unshare", status: "error" });
                 } finally {
                   setIsRevoking(false);
                   setRevokeChatId(null);

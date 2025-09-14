@@ -1,18 +1,18 @@
-import { Composio } from '@composio/core';
-import { VercelProvider } from '@composio/vercel';
-import type { JSONSchema7, Tool } from 'ai';
-import { jsonSchema } from 'ai';
+import { Composio } from "@composio/core";
+import { VercelProvider } from "@composio/vercel";
+import type { JSONSchema7, Tool } from "ai";
+import { jsonSchema } from "ai";
 import {
   getCachedConvertedTools,
   invalidateUserToolsCache,
   setCachedConvertedTools,
-} from './composio-cache';
+} from "./composio-cache";
 import {
   convertComposioTools,
   validateComposioTools,
-} from './composio-tool-adapter';
-import { getAuthConfigId } from './composio-utils';
-import type { ConnectorType } from './types';
+} from "./composio-tool-adapter";
+import { getAuthConfigId } from "./composio-utils";
+import type { ConnectorType } from "./types";
 
 // Interface for cached tool's inputSchema structure
 type CachedInputSchema = {
@@ -22,7 +22,7 @@ type CachedInputSchema = {
 // Server-side Composio client initialization (following official example)
 const apiKey = process.env.COMPOSIO_API_KEY;
 if (!apiKey) {
-  throw new Error('COMPOSIO_API_KEY environment variable is not set');
+  throw new Error("COMPOSIO_API_KEY environment variable is not set");
 }
 
 const composio = new Composio({
@@ -90,7 +90,7 @@ export const initiateConnection = async (
       (account) => account.toolkit.slug.toUpperCase() === toolkitSlug
     );
 
-    if (existingConnection && existingConnection.status !== 'ACTIVE') {
+    if (existingConnection && existingConnection.status !== "ACTIVE") {
       // Only delete if connection is not active to avoid breaking working connections
       await composio.connectedAccounts.delete(existingConnection.id);
     }
@@ -105,7 +105,7 @@ export const initiateConnection = async (
   );
 
   return {
-    redirectUrl: connectionRequest.redirectUrl || '',
+    redirectUrl: connectionRequest.redirectUrl || "",
     connectionRequestId: connectionRequest.id,
   };
 };
@@ -123,7 +123,7 @@ export const waitForConnection = async (
     timeoutSeconds * 1000 // Convert seconds to milliseconds
   );
 
-  const isConnected = connectedAccount.status === 'ACTIVE';
+  const isConnected = connectedAccount.status === "ACTIVE";
 
   // If connection is successful and we have userId, refresh caches
   if (isConnected && userId) {
@@ -231,7 +231,7 @@ export const validateEnvironment = (): {
   if (!process.env.COMPOSIO_API_KEY) {
     return {
       isValid: false,
-      message: 'COMPOSIO_API_KEY environment variable is not set',
+      message: "COMPOSIO_API_KEY environment variable is not set",
     };
   }
 
@@ -254,7 +254,7 @@ export const refreshCache = async (userId: string): Promise<void> => {
 
     // Get active toolkits for cache pre-warming
     const activeToolkits = connectedAccounts.items
-      .filter((account) => account.status === 'ACTIVE')
+      .filter((account) => account.status === "ACTIVE")
       .map((account) => account.toolkit.slug.toUpperCase());
 
     // Pre-warm tools cache if there are active tools

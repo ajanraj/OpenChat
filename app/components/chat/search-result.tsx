@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
 import {
   ArrowSquareOut,
   CaretDown,
   CaretUp,
   Globe,
-} from '@phosphor-icons/react';
-import Image from 'next/image';
-import { useState } from 'react';
-import { Markdown } from '@/components/prompt-kit/markdown';
-import { cn } from '@/lib/utils';
+} from "@phosphor-icons/react";
+import Image from "next/image";
+import { useState } from "react";
+import { Markdown } from "@/components/prompt-kit/markdown";
+import { cn } from "@/lib/utils";
 
 // Regex pattern defined at top level for performance
 const WWW_PREFIX_REGEX = /^www\./;
@@ -98,14 +98,14 @@ export function SearchResults({
           const isExpanded = expandedResults.has(result.url);
           const domain = new URL(result.url).hostname.replace(
             WWW_PREFIX_REGEX,
-            ''
+            ""
           );
 
           return (
             <div
               className={cn(
-                'group rounded-lg border bg-card transition-all hover:shadow-sm',
-                isExpanded && 'shadow-sm'
+                "group rounded-lg border bg-card transition-all hover:shadow-sm",
+                isExpanded && "shadow-sm"
               )}
               key={result.url}
             >

@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import { PushPinSimpleIcon } from '@phosphor-icons/react';
-import { memo, useCallback, useMemo } from 'react';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
-import type { TimeGroup } from '@/lib/chat-utils/time-grouping';
-import { ChatItem } from './chat-item';
+import { PushPinSimpleIcon } from "@phosphor-icons/react";
+import { memo, useCallback, useMemo } from "react";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { TimeGroup } from "@/lib/chat-utils/time-grouping";
+import { ChatItem } from "./chat-item";
 
 // Helper function for conditional classes
 
 type ChatListProps = {
-  pinnedChats: Doc<'chats'>[];
-  groupedChats: Record<string, Doc<'chats'>[]>;
+  pinnedChats: Doc<"chats">[];
+  groupedChats: Record<string, Doc<"chats">[]>;
   orderedGroupKeys: TimeGroup[];
-  handleSaveEdit: (id: Id<'chats'>, title: string) => void;
-  handleConfirmDelete: (id: Id<'chats'>) => void;
-  handleTogglePin: (id: Id<'chats'>) => void;
+  handleSaveEdit: (id: Id<"chats">, title: string) => void;
+  handleConfirmDelete: (id: Id<"chats">) => void;
+  handleTogglePin: (id: Id<"chats">) => void;
   hasChatsInGroup: (
-    groupedChats: Record<string, Doc<'chats'>[]>,
+    groupedChats: Record<string, Doc<"chats">[]>,
     groupKey: TimeGroup
   ) => boolean;
   activeChatId?: string | null;
@@ -34,7 +34,7 @@ export const ChatList = memo(function ChatListComponent({
 }: ChatListProps) {
   // Pre-compute chat lookup map for O(1) access instead of O(n) searches
   const chatLookupMap = useMemo(() => {
-    const map = new Map<Id<'chats'>, string>();
+    const map = new Map<Id<"chats">, string>();
 
     // Add pinned chats to the map
     for (const chat of pinnedChats) {
@@ -57,7 +57,7 @@ export const ChatList = memo(function ChatListComponent({
 
   // Helper function to get parent chat title for reuse across both sections (memoized)
   const getParentChatTitle = useCallback(
-    (originalChatId: Id<'chats'> | undefined): string | undefined => {
+    (originalChatId: Id<"chats"> | undefined): string | undefined => {
       return originalChatId ? chatLookupMap.get(originalChatId) : undefined;
     },
     [chatLookupMap]

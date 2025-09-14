@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import { MODELS_OPTIONS, PROVIDERS_OPTIONS } from '@/lib/config';
-import { useUser } from '../providers/user-provider';
-import { useModelPreferences } from './use-model-preferences';
+import { useMemo } from "react";
+import { MODELS_OPTIONS, PROVIDERS_OPTIONS } from "@/lib/config";
+import { useUser } from "../providers/user-provider";
+import { useModelPreferences } from "./use-model-preferences";
 
 export type EnrichedModel = {
   id: string;

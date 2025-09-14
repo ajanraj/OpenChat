@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { User } from '@phosphor-icons/react';
-import Link from 'next/link';
-import { useState } from 'react';
-import { DrawerSettings } from '@/app/components/layout/settings/drawer-settings';
-import { useBreakpoint } from '@/app/hooks/use-breakpoint';
-import { useUser } from '@/app/providers/user-provider';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { User } from "@phosphor-icons/react";
+import Link from "next/link";
+import { useState } from "react";
+import { DrawerSettings } from "@/app/components/layout/settings/drawer-settings";
+import { useBreakpoint } from "@/app/hooks/use-breakpoint";
+import { useUser } from "@/app/providers/user-provider";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 type SettingsTriggerProps = {
   isMenuItem?: boolean;

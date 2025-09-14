@@ -1,26 +1,26 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
-import { ConvexError, v } from 'convex/values';
-import { ERROR_CODES } from '../lib/error-codes';
-import { detectRedactedContent } from '../lib/redacted-content-detector';
-import type { Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError, v } from "convex/values";
+import { ERROR_CODES } from "../lib/error-codes";
+import { detectRedactedContent } from "../lib/redacted-content-detector";
+import type { Id } from "./_generated/dataModel";
+import { internalMutation, mutation, query } from "./_generated/server";
 // Import helper functions
 import {
   ensureAuthenticated,
   ensureChatAccess,
   tryEnsureChatAccess,
   validateChatOwnership,
-} from './lib/auth_helper';
+} from "./lib/auth_helper";
 import {
   deleteChatCompletely,
   deleteMultipleChats,
-} from './lib/cleanup_helper';
-import { sanitizeMessageParts } from './lib/sanitization_helper';
-import { Chat } from './schema/chat';
+} from "./lib/cleanup_helper";
+import { sanitizeMessageParts } from "./lib/sanitization_helper";
+import { Chat } from "./schema/chat";
 
 // New: Publish a chat and set share policy
 export const publishChat = mutation({
-  args: { chatId: v.id('chats'), hideImages: v.optional(v.boolean()) },
+  args: { chatId: v.id("chats"), hideImages: v.optional(v.boolean()) },
   returns: v.null(),
   handler: async (ctx, { chatId, hideImages }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
@@ -39,7 +39,7 @@ export const publishChat = mutation({
 
 // New: Unpublish a chat
 export const unpublishChat = mutation({
-  args: { chatId: v.id('chats') },
+  args: { chatId: v.id("chats") },
   returns: v.null(),
   handler: async (ctx, { chatId }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
@@ -57,11 +57,11 @@ export const unpublishChat = mutation({
 
 // New: Get minimal public chat metadata if chat is shared
 export const getPublicChat = query({
-  args: { chatId: v.id('chats') },
+  args: { chatId: v.id("chats") },
   returns: v.union(
     v.null(),
     v.object({
-      _id: v.id('chats'),
+      _id: v.id("chats"),
       _creationTime: v.number(),
       title: v.optional(v.string()),
       createdAt: v.optional(v.number()),
@@ -89,8 +89,8 @@ export const getPublicChat = query({
 
 // New: Fork a shared chat to the current user's account with sanitized content
 export const forkFromShared = mutation({
-  args: { sourceChatId: v.id('chats') },
-  returns: v.object({ chatId: v.id('chats') }),
+  args: { sourceChatId: v.id("chats") },
+  returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, { sourceChatId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -103,9 +103,9 @@ export const forkFromShared = mutation({
     }
 
     const now = Date.now();
-    const newChatId = await ctx.db.insert('chats', {
+    const newChatId = await ctx.db.insert("chats", {
       userId,
-      title: source.title || 'Forked Chat',
+      title: source.title || "Forked Chat",
       model: source.model,
       personaId: source.personaId,
       createdAt: now,
@@ -118,9 +118,9 @@ export const forkFromShared = mutation({
     const hideFiles = !(source.shareAttachments ?? false);
 
     const msgs = await ctx.db
-      .query('messages')
-      .withIndex('by_chat_and_created', (q) => q.eq('chatId', sourceChatId))
-      .order('asc')
+      .query("messages")
+      .withIndex("by_chat_and_created", (q) => q.eq("chatId", sourceChatId))
+      .order("asc")
       .collect();
 
     // Sanitize first so detection operates on the actual shared view
@@ -136,7 +136,7 @@ export const forkFromShared = mutation({
     }
 
     // Create ID mapping for threading
-    const idMap = new Map<Id<'messages'>, Id<'messages'>>();
+    const idMap = new Map<Id<"messages">, Id<"messages">>();
 
     // Insert messages sequentially to preserve threading using sanitized parts
     for (const m of sanitizedMsgs) {
@@ -147,7 +147,7 @@ export const forkFromShared = mutation({
         ? idMap.get(m.parentMessageId)
         : undefined;
 
-      const newMessageId = await ctx.db.insert('messages', {
+      const newMessageId = await ctx.db.insert("messages", {
         chatId: newChatId,
         userId,
         role: m.role,
@@ -172,13 +172,13 @@ export const createChat = mutation({
     model: v.optional(v.string()),
     personaId: v.optional(v.string()),
   },
-  returns: v.object({ chatId: v.id('chats') }),
+  returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
     const now = Date.now();
-    const chatId = await ctx.db.insert('chats', {
+    const chatId = await ctx.db.insert("chats", {
       userId,
-      title: args.title ?? 'New Chat',
+      title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
       createdAt: now,
@@ -195,7 +195,7 @@ export const listChatsForUser = query({
   args: {},
   returns: v.array(
     v.object({
-      _id: v.id('chats'),
+      _id: v.id("chats"),
       _creationTime: v.number(),
       ...Chat.fields,
     })
@@ -206,19 +206,19 @@ export const listChatsForUser = query({
       return [];
     }
     return await ctx.db
-      .query('chats')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .order('desc')
+      .query("chats")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
       .collect();
   },
 });
 
 export const getChat = query({
-  args: { chatId: v.id('chats') },
+  args: { chatId: v.id("chats") },
   returns: v.union(
     v.null(),
     v.object({
-      _id: v.id('chats'),
+      _id: v.id("chats"),
       _creationTime: v.number(),
       ...Chat.fields,
     })
@@ -230,7 +230,7 @@ export const getChat = query({
 });
 
 export const updateChatModel = mutation({
-  args: { chatId: v.id('chats'), model: v.string() },
+  args: { chatId: v.id("chats"), model: v.string() },
   returns: v.null(),
   handler: async (ctx, { chatId, model }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
@@ -243,7 +243,7 @@ export const updateChatModel = mutation({
 });
 
 export const updateChatTitle = mutation({
-  args: { chatId: v.id('chats'), title: v.string() },
+  args: { chatId: v.id("chats"), title: v.string() },
   returns: v.null(),
   handler: async (ctx, { chatId, title }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
@@ -256,7 +256,7 @@ export const updateChatTitle = mutation({
 });
 
 export const deleteChat = mutation({
-  args: { chatId: v.id('chats') },
+  args: { chatId: v.id("chats") },
   returns: v.null(),
   handler: async (ctx, { chatId }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
@@ -279,8 +279,8 @@ export const deleteAllChatsForUser = mutation({
     }
 
     const chats = await ctx.db
-      .query('chats')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .query("chats")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     await deleteMultipleChats(ctx, chats, userId);
@@ -289,7 +289,7 @@ export const deleteAllChatsForUser = mutation({
 });
 
 export const deleteBulkChats = mutation({
-  args: { chatIds: v.array(v.id('chats')) },
+  args: { chatIds: v.array(v.id("chats")) },
   returns: v.null(),
   handler: async (ctx, { chatIds }) => {
     if (chatIds.length === 0) {
@@ -311,10 +311,10 @@ export const deleteBulkChats = mutation({
 
 export const branchChat = mutation({
   args: {
-    originalChatId: v.id('chats'),
-    branchFromMessageId: v.id('messages'),
+    originalChatId: v.id("chats"),
+    branchFromMessageId: v.id("messages"),
   },
-  returns: v.object({ chatId: v.id('chats') }),
+  returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
     // Verify user owns the original chat
     const { chat: originalChat, userId } = await ensureChatAccess(
@@ -329,7 +329,7 @@ export const branchChat = mutation({
     }
 
     // Only allow branching from assistant messages
-    if (branchMessage.role !== 'assistant') {
+    if (branchMessage.role !== "assistant") {
       throw new ConvexError(ERROR_CODES.UNSUPPORTED_OPERATION);
     }
 
@@ -339,9 +339,9 @@ export const branchChat = mutation({
 
     // Create new chat with same properties as original but mark as branched
     const now = Date.now();
-    const newChatId = await ctx.db.insert('chats', {
+    const newChatId = await ctx.db.insert("chats", {
       userId,
-      title: originalChat.title || 'New Chat',
+      title: originalChat.title || "New Chat",
       model: originalChat.model,
       personaId: originalChat.personaId,
       originalChatId: args.originalChatId,
@@ -354,22 +354,22 @@ export const branchChat = mutation({
 
     // Get all messages up to and including the branch point
     const messagesToCopy = await ctx.db
-      .query('messages')
-      .withIndex('by_chat_and_created', (q) =>
-        q.eq('chatId', args.originalChatId)
+      .query("messages")
+      .withIndex("by_chat_and_created", (q) =>
+        q.eq("chatId", args.originalChatId)
       )
-      .order('asc')
+      .order("asc")
       .collect();
 
     // Copy messages up to and including the branch message in parallel
-    const messageInsertPromises: Promise<Id<'messages'>>[] = [];
+    const messageInsertPromises: Promise<Id<"messages">>[] = [];
     for (const message of messagesToCopy) {
       const messageTimestamp = message.createdAt ?? message._creationTime;
 
       // Include messages up to and including the branch message
       if (messageTimestamp <= branchTimestamp) {
         messageInsertPromises.push(
-          ctx.db.insert('messages', {
+          ctx.db.insert("messages", {
             chatId: newChatId,
             userId: message.userId,
             role: message.role,
@@ -396,7 +396,7 @@ export const branchChat = mutation({
 });
 
 export const pinChatToggle = mutation({
-  args: { chatId: v.id('chats') },
+  args: { chatId: v.id("chats") },
   returns: v.null(),
   handler: async (ctx, { chatId }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
@@ -420,17 +420,17 @@ export const pinChatToggle = mutation({
 // Internal mutation to create a chat (for scheduled tasks)
 export const createChatInternal = internalMutation({
   args: {
-    userId: v.id('users'),
+    userId: v.id("users"),
     title: v.optional(v.string()),
     model: v.optional(v.string()),
     personaId: v.optional(v.string()),
   },
-  returns: v.object({ chatId: v.id('chats') }),
+  returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
     const now = Date.now();
-    const chatId = await ctx.db.insert('chats', {
+    const chatId = await ctx.db.insert("chats", {
       userId: args.userId,
-      title: args.title ?? 'New Chat',
+      title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
       createdAt: now,

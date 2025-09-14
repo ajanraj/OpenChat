@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { CaretDown, Globe, Link } from '@phosphor-icons/react';
-import type { SourceUrlUIPart } from 'ai';
-import { AnimatePresence, motion, type Transition } from 'motion/react';
-import Image from 'next/image';
-import { memo, useCallback, useMemo, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { CaretDown, Globe, Link } from "@phosphor-icons/react";
+import type { SourceUrlUIPart } from "ai";
+import { AnimatePresence, motion, type Transition } from "motion/react";
+import Image from "next/image";
+import { memo, useCallback, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 
 // Regex patterns defined at top level for performance
 const WWW_PREFIX_REGEX = /^www\./;
@@ -29,13 +29,13 @@ const getOpenGraphImage = (url: string) => {
 
 const addUTM = (url: string) => {
   const u = new URL(url);
-  u.searchParams.set('utm_source', 'oschat.ai');
-  u.searchParams.set('utm_medium', 'web-search');
+  u.searchParams.set("utm_source", "oschat.ai");
+  u.searchParams.set("utm_medium", "web-search");
   return u.toString();
 };
 
 const TRANSITION: Transition = {
-  type: 'spring',
+  type: "spring",
   duration: 0.2,
   bounce: 0,
 };
@@ -48,12 +48,12 @@ export const SourcesList = memo<SourcesListProps>(
     const formatUrl = useCallback((url: string) => {
       try {
         const domain = new URL(url).hostname;
-        return domain.replace(WWW_PREFIX_REGEX, '');
+        return domain.replace(WWW_PREFIX_REGEX, "");
       } catch {
         return url
-          .replace(PROTOCOL_REGEX, '')
-          .replace(TRAILING_SLASH_REGEX, '')
-          .replace(WWW_PREFIX_REGEX, '');
+          .replace(PROTOCOL_REGEX, "")
+          .replace(TRAILING_SLASH_REGEX, "")
+          .replace(WWW_PREFIX_REGEX, "");
       }
     }, []);
 
@@ -85,7 +85,7 @@ export const SourcesList = memo<SourcesListProps>(
     );
 
     return (
-      <div className={cn('my-4', className)}>
+      <div className={cn("my-4", className)}>
         <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card">
           <button
             className="flex w-full flex-row items-center px-4 py-3 transition-colors hover:bg-accent"
@@ -119,8 +119,8 @@ export const SourcesList = memo<SourcesListProps>(
             </div>
             <CaretDown
               className={cn(
-                'h-4 w-4 text-muted-foreground transition-transform',
-                isExpanded ? 'rotate-180 transform' : ''
+                "h-4 w-4 text-muted-foreground transition-transform",
+                isExpanded ? "rotate-180 transform" : ""
               )}
             />
           </button>
@@ -128,7 +128,7 @@ export const SourcesList = memo<SourcesListProps>(
           <AnimatePresence initial={false}>
             {isExpanded && (
               <motion.div
-                animate={{ height: 'auto', opacity: 1 }}
+                animate={{ height: "auto", opacity: 1 }}
                 className="overflow-hidden"
                 exit={{ height: 0, opacity: 0 }}
                 initial={{ height: 0, opacity: 0 }}

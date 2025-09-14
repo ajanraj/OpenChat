@@ -1,15 +1,15 @@
-import { MODELS_RAW } from './models';
-import type { Model } from './schemas';
+import { MODELS_RAW } from "./models";
+import type { Model } from "./schemas";
 
 // Define the provider type to match the API keys page requirements
 export type ApiKeyProvider =
-  | 'openrouter'
-  | 'openai'
-  | 'anthropic'
-  | 'mistral'
-  | 'meta'
-  | 'Qwen'
-  | 'gemini';
+  | "openrouter"
+  | "openai"
+  | "anthropic"
+  | "mistral"
+  | "meta"
+  | "Qwen"
+  | "gemini";
 
 // API key validation patterns
 export const API_KEY_PATTERNS = {
@@ -22,22 +22,22 @@ export const API_KEY_PATTERNS = {
 // Provider configuration with metadata for API keys page
 const PROVIDER_CONFIGS = [
   {
-    id: 'anthropic' as const,
-    title: 'Anthropic API Key',
-    placeholder: 'sk-ant...',
-    docs: 'https://console.anthropic.com/account/keys',
+    id: "anthropic" as const,
+    title: "Anthropic API Key",
+    placeholder: "sk-ant...",
+    docs: "https://console.anthropic.com/account/keys",
   },
   {
-    id: 'openai' as const,
-    title: 'OpenAI API Key',
-    placeholder: 'sk-...',
-    docs: 'https://platform.openai.com/api-keys',
+    id: "openai" as const,
+    title: "OpenAI API Key",
+    placeholder: "sk-...",
+    docs: "https://platform.openai.com/api-keys",
   },
   {
-    id: 'gemini' as const,
-    title: 'Google API Key',
-    placeholder: 'AIza...',
-    docs: 'https://console.cloud.google.com/apis/credentials',
+    id: "gemini" as const,
+    title: "Google API Key",
+    placeholder: "AIza...",
+    docs: "https://console.cloud.google.com/apis/credentials",
   },
 ] as const;
 
@@ -90,7 +90,7 @@ export function validateApiKey(
   key: string
 ): { isValid: boolean; error?: string } {
   if (!key.trim()) {
-    return { isValid: false, error: 'API key is required' };
+    return { isValid: false, error: "API key is required" };
   }
 
   const pattern = API_KEY_PATTERNS[provider as keyof typeof API_KEY_PATTERNS];
@@ -100,26 +100,26 @@ export function validateApiKey(
 
   if (!pattern.test(key)) {
     switch (provider) {
-      case 'openai':
+      case "openai":
         return {
           isValid: false,
           error:
             "OpenAI API keys should start with 'sk-' followed by at least 20 characters",
         };
-      case 'anthropic':
+      case "anthropic":
         return {
           isValid: false,
           error:
             "Anthropic API keys should start with 'sk-ant-' followed by at least 8 characters (letters, numbers, hyphens, underscores)",
         };
-      case 'gemini':
+      case "gemini":
         return {
           isValid: false,
           error:
             "Google API keys should start with 'AIza' followed by 35+ characters",
         };
       default:
-        return { isValid: false, error: 'Invalid API key format' };
+        return { isValid: false, error: "Invalid API key format" };
     }
   }
 

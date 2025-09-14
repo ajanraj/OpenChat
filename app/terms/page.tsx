@@ -1,10 +1,10 @@
-import type { Metadata } from 'next';
-import { LegalHeader } from '@/app/components/layout/legal/legal-header';
+import type { Metadata } from "next";
+import { LegalHeader } from "@/app/components/layout/legal/legal-header";
 
 export const metadata: Metadata = {
-  title: 'Terms of Service - OS Chat',
+  title: "Terms of Service - OS Chat",
   description:
-    'OS Chat Terms of Service - Legal terms and conditions for using our AI application',
+    "OS Chat Terms of Service - Legal terms and conditions for using our AI application",
 };
 
 export default function TermsPage() {
@@ -187,10 +187,10 @@ export default function TermsPage() {
           <h3>15. Contact Us</h3>
           <p>Questions about these terms? Contact us:</p>
           <p>
-            <strong>Email:</strong>{' '}
+            <strong>Email:</strong>{" "}
             <a href="mailto:support@oschat.ai">support@oschat.ai</a>
             <br />
-            <strong>Website:</strong>{' '}
+            <strong>Website:</strong>{" "}
             <a href="https://oschat.ai">https://oschat.ai</a>
           </p>
         </div>

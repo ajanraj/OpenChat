@@ -3,9 +3,9 @@
  * Replicates the useUploadFile hook pattern for server-side usage (API routes)
  */
 
-import { fetchAction, fetchMutation } from 'convex/nextjs';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { fetchAction, fetchMutation } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
 /**
  * Server-side equivalent of useUploadFile hook
@@ -14,7 +14,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 export async function uploadBlobToR2(
   blob: Blob,
   options: {
-    chatId: Id<'chats'>;
+    chatId: Id<"chats">;
     fileName?: string;
     token: string;
     isGenerated?: boolean;
@@ -33,11 +33,11 @@ export async function uploadBlobToR2(
 
   // Step 2: Upload to R2 (same as useUploadFile does)
   const uploadResponse = await fetch(uploadUrl, {
-    method: 'PUT',
+    method: "PUT",
     body: blob,
     headers: {
       // This header will be stored by R2 as ContentType; server-side will still validate on save
-      'Content-Type': blob.type || 'application/octet-stream',
+      "Content-Type": blob.type || "application/octet-stream",
     },
   });
 
@@ -62,7 +62,7 @@ export async function uploadBlobToR2(
     {
       key,
       chatId: options.chatId,
-      fileName: options.fileName ?? 'file',
+      fileName: options.fileName ?? "file",
     },
     { token: options.token }
   );

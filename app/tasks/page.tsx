@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { ScheduledTasksPage } from '@/app/components/scheduled-tasks/scheduled-tasks-page';
-import { useUser } from '@/app/providers/user-provider';
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { ScheduledTasksPage } from "@/app/components/scheduled-tasks/scheduled-tasks-page";
+import { useUser } from "@/app/providers/user-provider";
 
 export default function TasksPage() {
   const { user, isLoading } = useUser();
@@ -16,7 +16,7 @@ export default function TasksPage() {
     }
 
     if (!user || user.isAnonymous) {
-      router.replace('/auth');
+      router.replace("/auth");
     }
   }, [user, isLoading, router]);
 

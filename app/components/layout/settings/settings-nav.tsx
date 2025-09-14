@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import React from 'react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import React from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const NAV_ITEMS = [
-  { name: 'Account', href: '/settings' },
-  { name: 'Customization', href: '/settings/customization' },
-  { name: 'History & Sync', href: '/settings/history' },
-  { name: 'Models', href: '/settings/models' },
-  { name: 'API Keys', href: '/settings/api-keys' },
-  { name: 'Connectors', href: '/settings/connectors' },
-  { name: 'Attachments', href: '/settings/attachments' },
+  { name: "Account", href: "/settings" },
+  { name: "Customization", href: "/settings/customization" },
+  { name: "History & Sync", href: "/settings/history" },
+  { name: "Models", href: "/settings/models" },
+  { name: "API Keys", href: "/settings/api-keys" },
+  { name: "Connectors", href: "/settings/connectors" },
+  { name: "Attachments", href: "/settings/attachments" },
 ] as const;
 
 function SettingsNavComponent() {
@@ -25,7 +25,7 @@ function SettingsNavComponent() {
     .find(
       (item) =>
         pathname === item.href ||
-        (item.href !== '/settings' && pathname.startsWith(item.href))
+        (item.href !== "/settings" && pathname.startsWith(item.href))
     )?.href;
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 export function useBreakpoint(breakpoint: number) {
   const [isBelowBreakpoint, setIsBelowBreakpoint] = useState<
@@ -10,9 +10,9 @@ export function useBreakpoint(breakpoint: number) {
     const onChange = () => {
       setIsBelowBreakpoint(window.innerWidth < breakpoint);
     };
-    mql.addEventListener('change', onChange);
+    mql.addEventListener("change", onChange);
     setIsBelowBreakpoint(window.innerWidth < breakpoint);
-    return () => mql.removeEventListener('change', onChange);
+    return () => mql.removeEventListener("change", onChange);
   }, [breakpoint]);
 
   return Boolean(isBelowBreakpoint);

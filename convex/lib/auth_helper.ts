@@ -1,8 +1,8 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
-import { ConvexError } from 'convex/values';
-import { ERROR_CODES } from '../../lib/error-codes';
-import type { Doc, Id } from '../_generated/dataModel';
-import type { MutationCtx, QueryCtx } from '../_generated/server';
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError } from "convex/values";
+import { ERROR_CODES } from "../../lib/error-codes";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 /**
  * Ensures the user is authenticated and returns their userId.
@@ -13,7 +13,7 @@ import type { MutationCtx, QueryCtx } from '../_generated/server';
  */
 export async function ensureAuthenticated(
   ctx: QueryCtx | MutationCtx
-): Promise<Id<'users'>> {
+): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
@@ -31,8 +31,8 @@ export async function ensureAuthenticated(
  */
 export async function ensureChatAccess(
   ctx: QueryCtx | MutationCtx,
-  chatId: Id<'chats'>
-): Promise<{ chat: Doc<'chats'>; userId: Id<'users'> }> {
+  chatId: Id<"chats">
+): Promise<{ chat: Doc<"chats">; userId: Id<"users"> }> {
   const userId = await ensureAuthenticated(ctx);
   const chat = await ctx.db.get(chatId);
 
@@ -55,8 +55,8 @@ export async function ensureChatAccess(
  */
 export async function tryEnsureChatAccess(
   ctx: QueryCtx | MutationCtx,
-  chatId: Id<'chats'>
-): Promise<{ chat: Doc<'chats'>; userId: Id<'users'> } | null> {
+  chatId: Id<"chats">
+): Promise<{ chat: Doc<"chats">; userId: Id<"users"> } | null> {
   try {
     return await ensureChatAccess(ctx, chatId);
   } catch {
@@ -74,11 +74,11 @@ export async function tryEnsureChatAccess(
  */
 export async function ensureMessageAccess(
   ctx: QueryCtx | MutationCtx,
-  messageId: Id<'messages'>
+  messageId: Id<"messages">
 ): Promise<{
-  message: Doc<'messages'>;
-  chat: Doc<'chats'>;
-  userId: Id<'users'>;
+  message: Doc<"messages">;
+  chat: Doc<"chats">;
+  userId: Id<"users">;
 }> {
   const userId = await ensureAuthenticated(ctx);
   const message = await ctx.db.get(messageId);
@@ -106,7 +106,7 @@ export async function ensureMessageAccess(
  */
 export async function getCurrentUserOrNull(
   ctx: QueryCtx | MutationCtx
-): Promise<Doc<'users'> | null> {
+): Promise<Doc<"users"> | null> {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     return null;
@@ -123,7 +123,7 @@ export async function getCurrentUserOrNull(
  */
 export async function getCurrentUserOrThrow(
   ctx: QueryCtx | MutationCtx
-): Promise<Doc<'users'>> {
+): Promise<Doc<"users">> {
   const userId = await ensureAuthenticated(ctx);
   const user = await ctx.db.get(userId);
 
@@ -143,8 +143,8 @@ export async function getCurrentUserOrThrow(
  */
 export async function validateChatOwnership(
   ctx: QueryCtx | MutationCtx,
-  chatIds: Id<'chats'>[]
-): Promise<Doc<'chats'>[]> {
+  chatIds: Id<"chats">[]
+): Promise<Doc<"chats">[]> {
   if (chatIds.length === 0) {
     return [];
   }
@@ -158,6 +158,6 @@ export async function validateChatOwnership(
 
   // Filter to only valid chats owned by the user
   return chatResults.filter(
-    (chat): chat is Doc<'chats'> => chat !== null && chat.userId === userId
+    (chat): chat is Doc<"chats"> => chat !== null && chat.userId === userId
   );
 }

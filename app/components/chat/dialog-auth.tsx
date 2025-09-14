@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useAuthActions } from '@convex-dev/auth/react';
-import Image from 'next/image';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useAuthActions } from "@convex-dev/auth/react";
+import Image from "next/image";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 type DialogAuthProps = {
   open: boolean;
@@ -28,17 +28,17 @@ export function DialogAuth({ open, setOpen }: DialogAuthProps) {
     try {
       setIsLoading(true);
       setError(null);
-      await signIn('google');
+      await signIn("google");
       setOpen(false);
     } catch (err: unknown) {
       if (err instanceof Error) {
         // console.error('Error signing in with Google:', err);
         setError(
-          err.message || 'An unexpected error occurred. Please try again.'
+          err.message || "An unexpected error occurred. Please try again."
         );
       } else {
         // console.error('Unexpected non-Error thrown:', err);
-        setError('An unexpected error occurred. Please try again.');
+        setError("An unexpected error occurred. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -79,7 +79,7 @@ export function DialogAuth({ open, setOpen }: DialogAuthProps) {
               src="https://www.google.com/favicon.ico"
               width={20}
             />
-            <span>{isLoading ? 'Connecting...' : 'Continue with Google'}</span>
+            <span>{isLoading ? "Connecting..." : "Continue with Google"}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

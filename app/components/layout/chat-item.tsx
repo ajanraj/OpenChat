@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Check,
@@ -8,31 +8,31 @@ import {
   PushPinSimpleSlash,
   TrashSimple,
   X,
-} from '@phosphor-icons/react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from "@phosphor-icons/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import type { Id } from '@/convex/_generated/dataModel';
+} from "@/components/ui/tooltip";
+import type { Id } from "@/convex/_generated/dataModel";
 
 // Helper function for conditional classes
 const cn = (...classes: (string | boolean | undefined)[]) =>
-  classes.filter(Boolean).join(' ');
+  classes.filter(Boolean).join(" ");
 
 type ChatItemProps = {
-  id: Id<'chats'>;
+  id: Id<"chats">;
   title: string | undefined;
-  originalChatId?: Id<'chats'>;
+  originalChatId?: Id<"chats">;
   parentChatTitle?: string;
-  handleSaveEdit: (id: Id<'chats'>, title: string) => void;
-  handleConfirmDelete: (id: Id<'chats'>) => void;
-  handleTogglePin: (id: Id<'chats'>) => void;
+  handleSaveEdit: (id: Id<"chats">, title: string) => void;
+  handleConfirmDelete: (id: Id<"chats">) => void;
+  handleTogglePin: (id: Id<"chats">) => void;
   isPinned: boolean;
   isActive?: boolean;
 };
@@ -50,7 +50,7 @@ const ChatItemComponent = function ChatItemComponent({
 }: ChatItemProps): React.ReactElement {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(title || '');
+  const [editedTitle, setEditedTitle] = useState(title || "");
   const [isDeleting, setIsDeleting] = useState(false);
   const [showActions, setShowActions] = useState(false);
 
@@ -146,10 +146,10 @@ const ChatItemComponent = function ChatItemComponent({
     return (
       <Link
         className={cn(
-          'group/link relative flex h-9 w-full items-center overflow-hidden rounded-lg px-2 py-1 text-sm outline-none',
-          'hover:bg-accent hover:text-accent-foreground focus-visible:text-accent-foreground',
-          'focus-visible:ring-2 focus-visible:ring-primary',
-          isActive && 'bg-accent text-accent-foreground'
+          "group/link relative flex h-9 w-full items-center overflow-hidden rounded-lg px-2 py-1 text-sm outline-none",
+          "hover:bg-accent hover:text-accent-foreground focus-visible:text-accent-foreground",
+          "focus-visible:ring-2 focus-visible:ring-primary",
+          isActive && "bg-accent text-accent-foreground"
         )}
         href={`/c/${id}`}
         key={id}
@@ -180,7 +180,7 @@ const ChatItemComponent = function ChatItemComponent({
                 </button>
               </TooltipTrigger>
               <TooltipContent className="z-[9999]" side="top">
-                Branched From: {parentChatTitle ?? 'Parent Chat'}
+                Branched From: {parentChatTitle ?? "Parent Chat"}
               </TooltipContent>
             </Tooltip>
           )}
@@ -214,7 +214,7 @@ const ChatItemComponent = function ChatItemComponent({
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="z-[9999]" side="bottom">
-                {isPinned ? 'Unpin' : 'Pin Chat'}
+                {isPinned ? "Unpin" : "Pin Chat"}
               </TooltipContent>
             </Tooltip>
             <Tooltip>

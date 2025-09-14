@@ -1,4 +1,4 @@
-import { convexQuery } from '@convex-dev/react-query';
+import { convexQuery } from "@convex-dev/react-query";
 import {
   Check,
   MagnifyingGlass,
@@ -7,13 +7,13 @@ import {
   PushPinSimpleSlashIcon,
   TrashSimple,
   X,
-} from '@phosphor-icons/react';
-import { useQuery as useTanStackQuery } from '@tanstack/react-query';
-import { useMutation } from 'convex/react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+} from "@phosphor-icons/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Drawer,
   DrawerContent,
@@ -21,21 +21,21 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@/components/ui/drawer';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { api } from '@/convex/_generated/api';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
+} from "@/components/ui/tooltip";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   getOrderedGroupKeys,
   groupChatsByTime,
   hasChatsInGroup,
-} from '@/lib/chat-utils/time-grouping';
+} from "@/lib/chat-utils/time-grouping";
 
 type DrawerHistoryProps = {
   trigger: React.ReactNode;
@@ -44,18 +44,18 @@ type DrawerHistoryProps = {
 };
 
 type DrawerHistoryItemProps = {
-  chat: Doc<'chats'>;
+  chat: Doc<"chats">;
   pinned: boolean;
-  editingId: Id<'chats'> | null;
+  editingId: Id<"chats"> | null;
   editTitle: string;
-  deletingId: Id<'chats'> | null;
-  handleEdit: (chat: Doc<'chats'>) => void;
-  handleSaveEdit: (id: Id<'chats'>) => void;
+  deletingId: Id<"chats"> | null;
+  handleEdit: (chat: Doc<"chats">) => void;
+  handleSaveEdit: (id: Id<"chats">) => void;
   handleCancelEdit: () => void;
-  handleDelete: (id: Id<'chats'>) => void;
-  handleConfirmDelete: (id: Id<'chats'>) => void;
+  handleDelete: (id: Id<"chats">) => void;
+  handleConfirmDelete: (id: Id<"chats">) => void;
   handleCancelDelete: () => void;
-  handleTogglePin: (chat: Doc<'chats'>) => void;
+  handleTogglePin: (chat: Doc<"chats">) => void;
   setEditTitle: (title: string) => void;
   currentChatId?: string;
   closeDrawer: () => void;
@@ -138,7 +138,7 @@ function DrawerHistoryItem({
               autoFocus
               className="sr-only"
               onKeyDown={(e) => {
-                if (e.key === 'Escape') {
+                if (e.key === "Escape") {
                   e.preventDefault();
                   handleCancelDelete();
                 }
@@ -173,12 +173,12 @@ function DrawerHistoryItem({
   return (
     <div
       className={`group flex items-center justify-between rounded-lg px-2 py-1.5 ${
-        isCurrent ? 'bg-accent/50' : ''
+        isCurrent ? "bg-accent/50" : ""
       }`}
     >
       <Link
         className="flex flex-1 flex-col items-start"
-        href={isCurrent ? '#' : `/c/${chat._id}`}
+        href={isCurrent ? "#" : `/c/${chat._id}`}
         onClick={(e) => {
           if (isCurrent) {
             e.preventDefault();
@@ -253,27 +253,27 @@ export function DrawerHistory({
   const updateChatTitle = useMutation(api.chats.updateChatTitle);
   const pinChatToggle = useMutation(api.chats.pinChatToggle);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [editingId, setEditingId] = useState<Id<'chats'> | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [deletingId, setDeletingId] = useState<Id<'chats'> | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId] = useState<Id<"chats"> | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [deletingId, setDeletingId] = useState<Id<"chats"> | null>(null);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      setSearchQuery('');
+      setSearchQuery("");
       setEditingId(null);
-      setEditTitle('');
+      setEditTitle("");
       setDeletingId(null);
     }
   };
 
-  const handleEdit = (chat: Doc<'chats'>) => {
+  const handleEdit = (chat: Doc<"chats">) => {
     setEditingId(chat._id);
-    setEditTitle(chat.title || '');
+    setEditTitle(chat.title || "");
   };
 
-  const handleSaveEdit = async (id: Id<'chats'>) => {
+  const handleSaveEdit = async (id: Id<"chats">) => {
     setEditingId(null);
     await updateChatTitle({ chatId: id, title: editTitle });
   };
@@ -282,11 +282,11 @@ export function DrawerHistory({
     setEditingId(null);
   };
 
-  const handleDelete = (id: Id<'chats'>) => {
+  const handleDelete = (id: Id<"chats">) => {
     setDeletingId(id);
   };
 
-  const handleConfirmDelete = async (id: Id<'chats'>) => {
+  const handleConfirmDelete = async (id: Id<"chats">) => {
     setDeletingId(null);
     await deleteChat({ chatId: id });
   };
@@ -295,13 +295,13 @@ export function DrawerHistory({
     setDeletingId(null);
   };
 
-  const handleTogglePin = async (chat: Doc<'chats'>) => {
+  const handleTogglePin = async (chat: Doc<"chats">) => {
     await pinChatToggle({ chatId: chat._id });
   };
 
   const filteredChat =
     chatHistory?.filter((chat) =>
-      (chat.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+      (chat.title || "").toLowerCase().includes(searchQuery.toLowerCase())
     ) ?? [];
 
   // Separate pinned and unpinned chats

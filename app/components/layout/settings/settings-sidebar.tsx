@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { Eye, EyeSlash, User } from '@phosphor-icons/react';
-import React, { useCallback } from 'react';
-import { MessageUsageCard } from '@/app/components/layout/settings/message-usage-card';
-import { useUser } from '@/app/providers/user-provider';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Kbd } from '@/components/ui/kbd';
-import { Pill } from '@/components/ui/pill';
-import type { Doc } from '@/convex/_generated/dataModel';
+import { Eye, EyeSlash, User } from "@phosphor-icons/react";
+import React, { useCallback } from "react";
+import { MessageUsageCard } from "@/app/components/layout/settings/message-usage-card";
+import { useUser } from "@/app/providers/user-provider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Kbd } from "@/components/ui/kbd";
+import { Pill } from "@/components/ui/pill";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 // Regex patterns for Google OAuth image URL parameters
 const SIZE_PARAM_REGEX = /sz=\d+/;
@@ -21,16 +21,16 @@ const getHighResolutionAvatarUrl = (imageUrl?: string, size = 192) => {
   }
 
   // Handle Google OAuth profile pictures
-  if (imageUrl.includes('googleusercontent.com')) {
+  if (imageUrl.includes("googleusercontent.com")) {
     // Replace common size parameters with higher resolution
-    if (imageUrl.includes('sz=')) {
+    if (imageUrl.includes("sz=")) {
       return imageUrl.replace(SIZE_PARAM_REGEX, `sz=${size}`);
     }
-    if (imageUrl.includes('s96-c')) {
+    if (imageUrl.includes("s96-c")) {
       return imageUrl.replace(S96_PARAM_REGEX, `s${size}-c`);
     }
     // If no size parameter, add one
-    const separator = imageUrl.includes('?') ? '&' : '?';
+    const separator = imageUrl.includes("?") ? "&" : "?";
     return `${imageUrl}${separator}sz=${size}`;
   }
 
@@ -39,26 +39,26 @@ const getHighResolutionAvatarUrl = (imageUrl?: string, size = 192) => {
 };
 
 // Get the display name - prefer preferredName over full name
-const getDisplayName = (user: Doc<'users'> | null): string => {
+const getDisplayName = (user: Doc<"users"> | null): string => {
   if (!user) {
-    return 'User';
+    return "User";
   }
 
   if (user.preferredName) {
     return user.preferredName;
   }
 
-  return user.name || 'User';
+  return user.name || "User";
 };
 
 function SettingsSidebarComponent() {
   const { user, hasPremium } = useUser();
 
   const [showEmail, setShowEmail] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return false;
     }
-    return localStorage.getItem('showEmail') === 'true';
+    return localStorage.getItem("showEmail") === "true";
   });
 
   // Memoize the high-resolution avatar URL
@@ -70,10 +70,10 @@ function SettingsSidebarComponent() {
   // Memoize the email masking function
   const maskEmail = useCallback((email?: string) => {
     if (!email) {
-      return '';
+      return "";
     }
-    const [local, domain] = email.split('@');
-    const tld = domain.substring(domain.lastIndexOf('.'));
+    const [local, domain] = email.split("@");
+    const tld = domain.substring(domain.lastIndexOf("."));
     const prefix = local.slice(0, 2);
     return `${prefix}*****${tld}`;
   }, []);
@@ -81,7 +81,7 @@ function SettingsSidebarComponent() {
   // Memoize the email toggle handler
   const toggleEmailVisibility = useCallback(() => {
     setShowEmail((prev) => {
-      localStorage.setItem('showEmail', (!prev).toString());
+      localStorage.setItem("showEmail", (!prev).toString());
       return !prev;
     });
   }, []);
@@ -117,7 +117,7 @@ function SettingsSidebarComponent() {
         </button>
         <div className="mt-2">
           <Pill className="px-2 py-0.5 font-medium text-xs" variant="secondary">
-            {hasPremium ? 'Pro Plan' : 'Free Plan'}
+            {hasPremium ? "Pro Plan" : "Free Plan"}
           </Pill>
         </div>
       </div>
