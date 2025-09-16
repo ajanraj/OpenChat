@@ -13,6 +13,7 @@ import {
   smoothStream,
   stepCountIs,
   streamText,
+  type Tool,
   type UIMessage,
 } from "ai";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
@@ -21,9 +22,9 @@ import { searchTool } from "@/app/api/tools/search";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { Message } from "@/convex/schema/message";
-import { getComposioTools } from "@/lib/composio-server";
 import { MODELS_MAP } from "@/lib/config";
 import { calculateConnectorStatus } from "@/lib/connector-utils";
+import { createAgentTool } from "@/lib/create-agent-tool";
 import { limitDepth } from "@/lib/depth-limiter";
 import { ERROR_CODES } from "@/lib/error-codes";
 import {
@@ -530,26 +531,6 @@ export async function POST(req: Request) {
     // Calculate connector status from database (server is authoritative)
     const connectorsStatus = calculateConnectorStatus(userConnectors);
 
-    // Get Composio tools based on enabled connectors
-    let composioTools = {};
-    if (
-      supportsToolCalling(selectedModel) &&
-      user &&
-      connectorsStatus.enabled.length > 0
-    ) {
-      try {
-        composioTools = await getComposioTools(
-          user._id,
-          connectorsStatus.enabled
-        );
-      } catch {
-        // If Composio tools fail to load, continue without them
-        composioTools = {};
-      }
-    }
-
-    // const userId = user?._id;
-
     // --- API Key and Model Configuration ---
     const { apiKeyUsage } = selectedModel;
     let userApiKey: string | null = null;
@@ -686,8 +667,7 @@ export async function POST(req: Request) {
 
     const basePrompt = personaId ? PERSONAS_MAP[personaId]?.prompt : undefined;
     const enableTools =
-      supportsToolCalling(selectedModel) &&
-      Object.keys(composioTools).length > 0;
+      supportsToolCalling(selectedModel) && connectorsStatus.enabled.length > 0;
     const finalSystemPrompt = buildSystemPrompt(
       user,
       basePrompt,
@@ -841,14 +821,35 @@ export async function POST(req: Request) {
 
     // Create reusable streamText function with shared logic
     const createStreamTextCall = (useUser: boolean) => {
+      const providerOptions = makeOptions(useUser) as
+        | Record<string, Record<string, JSONValue>>
+        | undefined;
+
+      const toolset: Record<string, Tool> = {};
+
+      if (enableSearch) {
+        toolset.search = searchTool;
+      }
+
+      if (
+        supportsToolCalling(selectedModel) &&
+        user &&
+        connectorsStatus.enabled.length > 0
+      ) {
+        toolset.create_agent = createAgentTool({
+          userId: user._id,
+          availableToolkits: connectorsStatus.enabled,
+          model: selectedModel.api_sdk,
+          providerOptions,
+          connectorsStatus,
+        });
+      }
+
       return streamText({
         model: selectedModel.api_sdk,
         system: finalSystemPrompt,
         messages: convertToModelMessages(messages),
-        tools: {
-          ...(enableSearch ? { search: searchTool } : {}),
-          ...(supportsToolCalling(selectedModel) ? composioTools : {}),
-        },
+        tools: toolset,
         stopWhen: stepCountIs(20),
         experimental_transform: smoothStream({
           delayInMs: 20, // optional: defaults to 10ms
@@ -870,9 +871,7 @@ export async function POST(req: Request) {
         //
         // This follows AI SDK v5 best practices for handling client disconnects
         // abortSignal: req.signal,
-        providerOptions: makeOptions(useUser) as
-          | Record<string, Record<string, JSONValue>>
-          | undefined,
+        providerOptions,
         onError: async (error) => {
           // Save conversation errors as messages
           if (shouldShowInConversation(error) && token) {

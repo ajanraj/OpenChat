@@ -75,6 +75,7 @@ import {
   getConnectorTypeFromToolName,
   isConnectorTool,
 } from "@/lib/config/tools";
+import type { CreateAgentResult } from "@/lib/create-agent-tool";
 import type { ConnectorType } from "@/lib/types";
 import { SourcesList } from "./sources-list";
 
@@ -130,6 +131,100 @@ const extractSourcesFromParts = (
     // Return empty for other part types
     return [];
   });
+};
+
+const renderCreateAgentPart = (part: ToolUIPart, index: number) => {
+  if ("state" in part && part.state === "output-error") {
+    return (
+      <div
+        className="my-3 w-full rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-destructive text-sm"
+        key={`create-agent-error-${index}`}
+      >
+        Delegated agent failed to run. Try again after reconnecting the required
+        connectors.
+      </div>
+    );
+  }
+
+  if (!("output" in part && part.output)) {
+    return null;
+  }
+
+  const result = part.output as CreateAgentResult;
+  const connectorLabels = result.requestedTools?.join(", ") || "None";
+
+  return (
+    <div className="my-3 w-full" key={`create-agent-${index}`}>
+      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-1">
+          <p className="font-semibold text-sm">Delegated agent</p>
+          <p className="text-muted-foreground text-xs">
+            Tools requested: {connectorLabels}
+          </p>
+          {!result.success && result.error ? (
+            <p className="text-destructive text-xs">{result.error}</p>
+          ) : null}
+        </div>
+
+        {result.toolCalls.length > 0 ? (
+          <div className="space-y-3">
+            {result.toolCalls.map((call, callIndex) => {
+              let connectorType: ConnectorType | null = null;
+              try {
+                connectorType = getConnectorTypeFromToolName(call.toolName);
+              } catch {
+                connectorType = null;
+              }
+
+              if (!connectorType) {
+                return null;
+              }
+
+              return (
+                <ConnectorToolCall
+                  data={{
+                    toolName: call.toolName,
+                    connectorType,
+                    request: call.input
+                      ? {
+                          action: call.toolName,
+                          parameters: call.input,
+                        }
+                      : undefined,
+                    response:
+                      call.status === "success"
+                        ? {
+                            success: true,
+                            data: call.output,
+                          }
+                        : {
+                            success: false,
+                            error: call.error ?? "Connector execution failed.",
+                          },
+                    metadata: {
+                      timestamp: new Date().toISOString(),
+                    },
+                  }}
+                  isLoading={false}
+                  key={`create-agent-call-${call.toolCallId}-${callIndex}`}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            No connector tool calls were required for this task.
+          </p>
+        )}
+
+        {result.finalText ? (
+          <div className="rounded-md bg-muted p-3 text-muted-foreground text-xs">
+            {result.finalText}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 };
 
 // Helper function to extract search query from parts
@@ -392,6 +487,10 @@ const renderReasoningPart = (
 
 const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
   const toolName = part.type.replace("tool-", "");
+
+  if (toolName === "create_agent") {
+    return renderCreateAgentPart(part, index);
+  }
 
   // Handle search tools
   if (toolName === "search") {

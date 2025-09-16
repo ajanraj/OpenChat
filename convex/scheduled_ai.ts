@@ -6,6 +6,7 @@ import {
   convertToModelMessages,
   stepCountIs,
   streamText,
+  type Tool,
   type UIMessage,
 } from "ai";
 import { ConvexError, v } from "convex/values";
@@ -13,9 +14,9 @@ import dayjs from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { searchTool } from "@/app/api/tools/search";
-import { getComposioTools } from "@/lib/composio-server";
 import { MODELS_MAP } from "@/lib/config";
 import type { ConnectorStatusLists } from "@/lib/connector-utils";
+import { createAgentTool } from "@/lib/create-agent-tool";
 import { limitDepth } from "@/lib/depth-limiter";
 import { ERROR_CODES } from "@/lib/error-codes";
 import { buildSystemPrompt } from "@/lib/prompt_config";
@@ -115,7 +116,6 @@ export const executeTask = internalAction({
       // 1. The enabledToolSlugs field is not yet implemented in the UI
       // 2. Connectors table tracks actual user connections to external services
       // 3. This ensures only connected services are available as tools
-      let composioTools = {};
       let toolkitSlugs: string[] = [];
       let connectorsStatus: ConnectorStatusLists | undefined;
       try {
@@ -139,17 +139,6 @@ export const executeTask = internalAction({
             .filter((connector) => connector.enabled !== false)
             .map((connector) => connector.type.toUpperCase());
           // console.log('Derived toolkit slugs:', toolkitSlugs);
-          composioTools = await getComposioTools(task.userId, toolkitSlugs);
-
-          // console.log(composioTools);
-
-          // Log the number of tools selected for monitoring
-          const toolCount = Object.keys(composioTools).length;
-          if (toolCount > 0) {
-            // console.log(
-            //   `Semantic search selected ${toolCount} relevant tools from ${toolkitSlugs.join(', ')} for task: "${task.title}"`
-            // );
-          }
         }
 
         // Compute connectors status lists for prompt clarity
@@ -192,7 +181,7 @@ export const executeTask = internalAction({
         user,
         undefined, // No persona for scheduled tasks
         task.enableSearch,
-        Object.keys(composioTools).length > 0,
+        toolkitSlugs.length > 0,
         task.timezone,
         task.emailNotifications, // Enable email mode when notifications are enabled
         true, // Enable task mode for autonomous execution
@@ -281,23 +270,38 @@ export const executeTask = internalAction({
         cachedInputTokens: 0,
       };
 
+      const providerOptions = {
+        openai: {
+          textVerbosity: "low",
+          reasoningEffort: "medium",
+          reasoningSummary: "detailed",
+        } satisfies OpenAIResponsesProviderOptions,
+      };
+
+      const toolset: Record<string, Tool> = {};
+
+      if (task.enableSearch) {
+        toolset.search = searchTool;
+      }
+
+      if (toolkitSlugs.length > 0) {
+        toolset.create_agent = createAgentTool({
+          userId: task.userId,
+          availableToolkits: toolkitSlugs,
+          model: selectedModel.api_sdk,
+          providerOptions,
+          connectorsStatus,
+        });
+      }
+
       const result = streamText({
         model: selectedModel.api_sdk,
         system: systemPrompt,
         messages: convertToModelMessages([userMessage]),
         toolChoice: "auto",
-        tools: {
-          ...(task.enableSearch ? { search: searchTool } : {}),
-          ...composioTools,
-        },
+        tools: toolset,
         stopWhen: stepCountIs(10),
-        providerOptions: {
-          openai: {
-            textVerbosity: "low",
-            reasoningEffort: "medium",
-            reasoningSummary: "detailed",
-          } satisfies OpenAIResponsesProviderOptions,
-        },
+        providerOptions,
         onFinish({ usage }) {
           // Capture usage data (runs on successful completion) - same as chat route
           finalUsage = {
