@@ -44,6 +44,8 @@ export type CreateAgentInput = RawCreateAgentInput & {
   tool: string | string[];
 };
 
+export type AgentToolCallStatus = "pending" | "success" | "error";
+
 export type AgentToolCall = {
   toolCallId: string;
   toolName: string;
@@ -51,10 +53,13 @@ export type AgentToolCall = {
   input?: Record<string, JSONValue>;
   output?: JSONValue;
   error?: string;
-  status: "success" | "error";
+  status: AgentToolCallStatus;
 };
 
+export type CreateAgentRunStatus = "in-progress" | "succeeded" | "failed";
+
 export type CreateAgentResult = {
+  status: CreateAgentRunStatus;
   success: boolean;
   task: string;
   requestedTools: string[];
@@ -157,7 +162,7 @@ export const createAgentTool = ({
   return tool({
     description: `Create a temporary agent that can use specific connectors to complete a task. Provide the connectors via the \`tool\` field and the high-level goal via \`task\`. Available connectors: ${connectorListDescription}.`,
     inputSchema: createAgentInputSchema,
-    execute: async (input) => {
+    async *execute(input) {
       const toolValues = Array.isArray(input.tool) ? input.tool : [input.tool];
 
       const requestedToolkits = Array.from(
@@ -171,6 +176,7 @@ export const createAgentTool = ({
 
       if (requestedToolkits.length === 0) {
         return {
+          status: "failed",
           success: false,
           task: input.task,
           requestedTools: [],
@@ -181,6 +187,7 @@ export const createAgentTool = ({
 
       if (!userId) {
         return {
+          status: "failed",
           success: false,
           task: input.task,
           requestedTools: requestedToolkits,
@@ -198,6 +205,7 @@ export const createAgentTool = ({
 
       if (unavailable.length > 0) {
         return {
+          status: "failed",
           success: false,
           task: input.task,
           requestedTools: requestedToolkits,
@@ -223,6 +231,7 @@ export const createAgentTool = ({
         composioTools = filteredTools;
       } catch (error) {
         return {
+          status: "failed",
           success: false,
           task: input.task,
           requestedTools: requestedToolkits,
@@ -236,6 +245,7 @@ export const createAgentTool = ({
 
       if (Object.keys(composioTools).length === 0) {
         return {
+          status: "failed",
           success: false,
           task: input.task,
           requestedTools: requestedToolkits,
@@ -243,6 +253,18 @@ export const createAgentTool = ({
           error: "No connector tools available for the requested selection.",
         } satisfies CreateAgentResult;
       }
+
+      const toolCallOrder: string[] = [];
+      const toolCallsMap = new Map<string, AgentToolCall>();
+      let aggregatedText = "";
+
+      const snapshotToolCalls = (): AgentToolCall[] =>
+        toolCallOrder
+          .map((id) => toolCallsMap.get(id))
+          .filter((entry): entry is AgentToolCall => Boolean(entry));
+
+      const shouldEmitProgress = (): boolean =>
+        toolCallOrder.length > 0 || aggregatedText.trim().length > 0;
 
       try {
         const innerSystem =
@@ -268,6 +290,146 @@ export const createAgentTool = ({
           providerOptions,
         });
 
+        try {
+          for await (const chunk of result.fullStream) {
+            if (chunk.type === "text-delta") {
+              aggregatedText += chunk.text;
+              if (shouldEmitProgress()) {
+                yield {
+                  status: "in-progress",
+                  success: false,
+                  task: input.task,
+                  requestedTools: requestedToolkits,
+                  toolCalls: snapshotToolCalls(),
+                  finalText: aggregatedText.trim() || undefined,
+                } satisfies CreateAgentResult;
+              }
+              continue;
+            }
+
+            if (chunk.type === "tool-call") {
+              const connectorType = (() => {
+                try {
+                  return getConnectorTypeFromToolName(chunk.toolName);
+                } catch {
+                  return chunk.toolName;
+                }
+              })();
+
+              const existing = toolCallsMap.get(chunk.toolCallId);
+              const updated: AgentToolCall = {
+                toolCallId: chunk.toolCallId,
+                toolName: chunk.toolName,
+                connectorType,
+                input:
+                  chunk.input && typeof chunk.input === "object"
+                    ? (chunk.input as Record<string, JSONValue>)
+                    : undefined,
+                output: existing?.output,
+                error: existing?.error,
+                status: existing?.status ?? "pending",
+              };
+
+              if (!existing) {
+                toolCallOrder.push(chunk.toolCallId);
+              }
+
+              toolCallsMap.set(chunk.toolCallId, updated);
+
+              if (shouldEmitProgress()) {
+                yield {
+                  status: "in-progress",
+                  success: false,
+                  task: input.task,
+                  requestedTools: requestedToolkits,
+                  toolCalls: snapshotToolCalls(),
+                  finalText: aggregatedText.trim() || undefined,
+                } satisfies CreateAgentResult;
+              }
+
+              continue;
+            }
+
+            if (chunk.type === "tool-result") {
+              const existing = toolCallsMap.get(chunk.toolCallId);
+              if (!existing) {
+                continue;
+              }
+
+              const isPreliminary =
+                "preliminary" in chunk && chunk.preliminary === true;
+              existing.output = chunk.output as JSONValue;
+              existing.error = undefined;
+              existing.status = isPreliminary ? "pending" : "success";
+              toolCallsMap.set(chunk.toolCallId, existing);
+
+              if (shouldEmitProgress()) {
+                yield {
+                  status: "in-progress",
+                  success: false,
+                  task: input.task,
+                  requestedTools: requestedToolkits,
+                  toolCalls: snapshotToolCalls(),
+                  finalText: aggregatedText.trim() || undefined,
+                } satisfies CreateAgentResult;
+              }
+
+              continue;
+            }
+
+            if (chunk.type === "tool-error") {
+              const existing = toolCallsMap.get(chunk.toolCallId);
+              const errorMessage =
+                typeof chunk.error === "string"
+                  ? chunk.error
+                  : "Tool execution failed.";
+
+              if (existing) {
+                existing.status = "error";
+                existing.error = errorMessage;
+                toolCallsMap.set(chunk.toolCallId, existing);
+              }
+
+              const failureSnapshot = snapshotToolCalls();
+
+              yield {
+                status: "failed",
+                success: false,
+                task: input.task,
+                requestedTools: requestedToolkits,
+                toolCalls: failureSnapshot,
+                finalText: aggregatedText.trim() || undefined,
+                error: errorMessage,
+              } satisfies CreateAgentResult;
+
+              return {
+                status: "failed",
+                success: false,
+                task: input.task,
+                requestedTools: requestedToolkits,
+                toolCalls: failureSnapshot,
+                finalText: aggregatedText.trim() || undefined,
+                error: errorMessage,
+              } satisfies CreateAgentResult;
+            }
+          }
+        } catch (streamError) {
+          const failureSnapshot = snapshotToolCalls();
+
+          return {
+            status: "failed",
+            success: false,
+            task: input.task,
+            requestedTools: requestedToolkits,
+            toolCalls: failureSnapshot,
+            finalText: aggregatedText.trim() || undefined,
+            error:
+              streamError instanceof Error
+                ? streamError.message
+                : "Delegated agent execution failed.",
+          } satisfies CreateAgentResult;
+        }
+
         const [finalTextRaw, steps, usage] = await Promise.all([
           result.text,
           result.steps,
@@ -277,6 +439,7 @@ export const createAgentTool = ({
         const toolCalls = mapToolCallsFromSteps(steps);
 
         return {
+          status: "succeeded",
           success: true,
           task: input.task,
           requestedTools: requestedToolkits,
@@ -286,10 +449,12 @@ export const createAgentTool = ({
         } satisfies CreateAgentResult;
       } catch (error) {
         return {
+          status: "failed",
           success: false,
           task: input.task,
           requestedTools: requestedToolkits,
-          toolCalls: [],
+          toolCalls: snapshotToolCalls(),
+          finalText: aggregatedText.trim() || undefined,
           error:
             error instanceof Error
               ? error.message

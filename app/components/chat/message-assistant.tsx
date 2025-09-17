@@ -151,79 +151,104 @@ const renderCreateAgentPart = (part: ToolUIPart, index: number) => {
   }
 
   const result = part.output as CreateAgentResult;
-  const connectorLabels = result.requestedTools?.join(", ") || "None";
+  const isRunning = result.status === "in-progress";
+  const hasFailed = result.status === "failed";
+
+  const connectorCalls = result.toolCalls
+    .map((call, callIndex) => {
+      let connectorType: ConnectorType | null = null;
+      try {
+        connectorType = getConnectorTypeFromToolName(call.toolName);
+      } catch {
+        connectorType = null;
+      }
+
+      if (!connectorType) {
+        return null;
+      }
+
+      const isCallLoading = call.status === "pending";
+      let response:
+        | {
+            success: boolean;
+            data?: unknown;
+            error?: string;
+          }
+        | undefined;
+
+      if (call.status === "success") {
+        response = {
+          success: true,
+          data: call.output,
+        };
+      } else if (call.status === "error") {
+        response = {
+          success: false,
+          error: call.error ?? "Connector execution failed.",
+        };
+      }
+
+      return (
+        <ConnectorToolCall
+          data={{
+            toolName: call.toolName,
+            connectorType,
+            request: call.input
+              ? {
+                  action: call.toolName,
+                  parameters: call.input,
+                }
+              : undefined,
+            response,
+            metadata: {
+              timestamp: new Date().toISOString(),
+            },
+          }}
+          isLoading={isCallLoading}
+          key={`create-agent-call-${call.toolCallId}-${callIndex}`}
+        />
+      );
+    })
+    .filter(Boolean);
+
+  if (connectorCalls.length === 0) {
+    if (isRunning) {
+      return (
+        <div
+          className="my-3 text-muted-foreground text-xs"
+          key={`create-agent-waiting-${index}`}
+        >
+          Preparing connectors...
+        </div>
+      );
+    }
+
+    if (hasFailed && result.error) {
+      return (
+        <div
+          className="my-3 text-destructive text-xs"
+          key={`create-agent-failed-${index}`}
+        >
+          {result.error}
+        </div>
+      );
+    }
+
+    return null;
+  }
 
   return (
-    <div className="my-3 w-full" key={`create-agent-${index}`}>
-      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
-        <div className="flex flex-col gap-1">
-          <p className="font-semibold text-sm">Delegated agent</p>
-          <p className="text-muted-foreground text-xs">
-            Tools requested: {connectorLabels}
-          </p>
-          {!result.success && result.error ? (
-            <p className="text-destructive text-xs">{result.error}</p>
-          ) : null}
+    <>
+      {connectorCalls}
+      {hasFailed && result.error ? (
+        <div className="my-2 text-destructive text-sm">{result.error}</div>
+      ) : null}
+      {result.status === "succeeded" && result.finalText ? (
+        <div className="my-2 rounded-md bg-muted p-3 text-muted-foreground text-xs">
+          {result.finalText}
         </div>
-
-        {result.toolCalls.length > 0 ? (
-          <div className="space-y-3">
-            {result.toolCalls.map((call, callIndex) => {
-              let connectorType: ConnectorType | null = null;
-              try {
-                connectorType = getConnectorTypeFromToolName(call.toolName);
-              } catch {
-                connectorType = null;
-              }
-
-              if (!connectorType) {
-                return null;
-              }
-
-              return (
-                <ConnectorToolCall
-                  data={{
-                    toolName: call.toolName,
-                    connectorType,
-                    request: call.input
-                      ? {
-                          action: call.toolName,
-                          parameters: call.input,
-                        }
-                      : undefined,
-                    response:
-                      call.status === "success"
-                        ? {
-                            success: true,
-                            data: call.output,
-                          }
-                        : {
-                            success: false,
-                            error: call.error ?? "Connector execution failed.",
-                          },
-                    metadata: {
-                      timestamp: new Date().toISOString(),
-                    },
-                  }}
-                  isLoading={false}
-                  key={`create-agent-call-${call.toolCallId}-${callIndex}`}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-xs">
-            No connector tool calls were required for this task.
-          </p>
-        )}
-
-        {result.finalText ? (
-          <div className="rounded-md bg-muted p-3 text-muted-foreground text-xs">
-            {result.finalText}
-          </div>
-        ) : null}
-      </div>
-    </div>
+      ) : null}
+    </>
   );
 };
 
