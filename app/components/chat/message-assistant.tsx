@@ -1093,7 +1093,7 @@ function MessageAssistantInner({
         const shouldAutoClose =
           Boolean(end || error) &&
           (status !== "streaming" || hasNextStreamingText);
-        const desiredState = shouldAutoClose ? false : true;
+        const desiredState = !shouldAutoClose;
 
         if (prevStates[agentId] === undefined) {
           if (!hasChanges) {
@@ -1133,7 +1133,7 @@ function MessageAssistantInner({
 
       return hasChanges ? nextStates : prevStates;
     });
-  }, [orderedParts]);
+  }, [orderedParts, status]);
 
   // Initialize reasoning states - only run once when reasoning parts are first detected
   useEffect(() => {
@@ -1304,34 +1304,34 @@ function MessageAssistantInner({
             }
           }
 
-            const { group } = item;
-            const { agentId, start, steps: agentSteps, error, end } = group;
+          const { group } = item;
+          const { agentId, start, steps: agentSteps, error, end } = group;
 
-            const agentContentParts = reconstructAgentContentParts(agentSteps);
-            const hasCompleted = Boolean(end || error);
-            const agentState = agentOpenStates[agentId];
-            const effectiveAgentOpen = agentState ?? !hasCompleted;
-            const autoScrollKey = hasCompleted ? undefined : agentSteps.length;
+          const agentContentParts = reconstructAgentContentParts(agentSteps);
+          const hasCompleted = Boolean(end || error);
+          const agentState = agentOpenStates[agentId];
+          const effectiveAgentOpen = agentState ?? !hasCompleted;
+          const autoScrollKey = hasCompleted ? undefined : agentSteps.length;
 
-            return (
-              <ChainOfThought
-                key={agentId}
-                onOpenChange={(open) => {
-                  agentManualOverrideRef.current[agentId] = true;
-                  setAgentOpenStates((prev) => ({
-                    ...prev,
-                    [agentId]: open,
-                  }));
-                }}
-                open={effectiveAgentOpen}
-                tools={start.data.tool}
-              >
+          return (
+            <ChainOfThought
+              key={agentId}
+              onOpenChange={(open) => {
+                agentManualOverrideRef.current[agentId] = true;
+                setAgentOpenStates((prev) => ({
+                  ...prev,
+                  [agentId]: open,
+                }));
+              }}
+              open={effectiveAgentOpen}
+              tools={start.data.tool}
+            >
               <ChainOfThoughtHeader tools={start.data.tool}>
                 {start.data.task.length > 50
                   ? `${start.data.task.slice(0, 50)}...`
                   : start.data.task}
               </ChainOfThoughtHeader>
-                <ChainOfThoughtContent autoScrollKey={autoScrollKey}>
+              <ChainOfThoughtContent autoScrollKey={autoScrollKey}>
                 {agentContentParts.map((part, contentIndex) => {
                   const partKey = `${agentId}-content-${contentIndex}`;
 

@@ -1,6 +1,5 @@
 "use node";
 
-import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import {
   consumeStream,
   convertToModelMessages,
@@ -292,6 +291,8 @@ export const executeTask = internalAction({
           model: selectedModel.api_sdk,
           connectorsStatus,
           writer: noopWriter,
+          searchTool: task.enableSearch ? searchTool : undefined,
+          enableSearch: task.enableSearch,
         });
       }
 
