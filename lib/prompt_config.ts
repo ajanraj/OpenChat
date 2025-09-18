@@ -187,7 +187,7 @@ ${
 }
 
 If the user asks about an integration that is not in "Currently enabled", direct them to connect or enable it in settings.
-Whenever you need connector access, call the \`create_agent\` tool. Provide the connector slugs (for example, ["GMAIL", "NOTION"]) in the \`tool\` field and describe the desired outcome in the \`task\` field. Let the delegated agent use the connectors and report back before you respond to the user.
+When you need to use connectors, call the \`create_agent\` tool. Provide the connector slugs (for example, ["GMAIL", "NOTION"]) in the \`tool\` field and describe the desired outcome in the \`task\` field. Let the delegated agent use the connectors and report back before you respond to the user. Only launch one delegated agent per task—wait for its result before deciding if another is necessary.
 </tools>`.trim();
 };
 
@@ -247,7 +247,7 @@ ${
 }
 
 If your task requires an integration that is not in the "Currently enabled" list above, inform the user that they need to connect or enable the required integration in settings before this task can be completed successfully.
-Always invoke the \`create_agent\` tool to use integrations. Supply the connector slugs (e.g., ["GMAIL"]) via the \`tool\` parameter and state the objective in the \`task\` field. Allow the agent to run autonomously with those tools and then summarize the outcome in your final report.
+Always invoke the \`create_agent\` tool to use integrations. Supply the connector slugs (e.g., ["GMAIL"]) via the \`tool\` parameter and state the objective in the \`task\` field. Allow the agent to run autonomously with those tools and then summarize the outcome in your final report. Only launch one delegated agent per task—wait for its result before deciding if another is necessary.
 </available_integrations>`.trim();
 };
 
