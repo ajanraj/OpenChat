@@ -8,6 +8,7 @@ import {
   streamText,
   type Tool,
   type UIMessage,
+  type UIMessageStreamWriter,
 } from "ai";
 import { ConvexError, v } from "convex/values";
 import dayjs from "dayjs";
@@ -94,7 +95,7 @@ export const executeTask = internalAction({
         {
           userId: task.userId,
           title: `${task.title} - ${currentDate} ${currentTime}`,
-          model: "gpt-5-mini",
+          model: "moonshotai/kimi-k2-0905",
         }
       );
 
@@ -188,10 +189,10 @@ export const executeTask = internalAction({
         connectorsStatus
       );
 
-      // Get GPT-5 Mini model
-      const selectedModel = MODELS_MAP["gpt-5-mini"];
+      // Get Kimi K2 0905 model
+      const selectedModel = MODELS_MAP["moonshotai/kimi-k2-0905"];
       if (!selectedModel) {
-        // console.log('GPT-5 Mini model not found');
+        // console.log('Kimi K2 0905 model not found');
         return null;
       }
 
@@ -258,7 +259,6 @@ export const executeTask = internalAction({
         modelId: selectedModel.id,
         modelName: selectedModel.name,
         includeSearch: task.enableSearch,
-        reasoningEffort: "medium" as const,
       };
 
       // Initialize usage tracking (same as chat route)
@@ -270,14 +270,6 @@ export const executeTask = internalAction({
         cachedInputTokens: 0,
       };
 
-      const providerOptions = {
-        openai: {
-          textVerbosity: "low",
-          reasoningEffort: "medium",
-          reasoningSummary: "detailed",
-        } satisfies OpenAIResponsesProviderOptions,
-      };
-
       const toolset: Record<string, Tool> = {};
 
       if (task.enableSearch) {
@@ -285,12 +277,21 @@ export const executeTask = internalAction({
       }
 
       if (toolkitSlugs.length > 0) {
+        const noopWriter: UIMessageStreamWriter = {
+          write: () => {
+            // no-op writer for scheduled executions
+          },
+          merge: () => {
+            // scheduled runs do not stream to a client
+          },
+          onError: undefined,
+        };
         toolset.create_agent = createAgentTool({
           userId: task.userId,
           availableToolkits: toolkitSlugs,
           model: selectedModel.api_sdk,
-          providerOptions,
           connectorsStatus,
+          writer: noopWriter,
         });
       }
 
@@ -301,7 +302,6 @@ export const executeTask = internalAction({
         toolChoice: "auto",
         tools: toolset,
         stopWhen: stepCountIs(10),
-        providerOptions,
         onFinish({ usage }) {
           // Capture usage data (runs on successful completion) - same as chat route
           finalUsage = {

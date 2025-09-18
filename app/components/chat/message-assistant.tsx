@@ -8,6 +8,12 @@ import type {
   ToolUIPart,
 } from "ai";
 import type { Infer } from "convex/values";
+import {
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought";
 import { Loader } from "@/components/prompt-kit/loader";
 import {
   Message,
@@ -33,6 +39,71 @@ type ErrorUIPart = {
   };
 };
 
+// Agent data part types for custom streaming
+type AgentStartDataPart = {
+  type: "data-agent-start";
+  id: string;
+  data: {
+    task: string;
+    tool: string[];
+    agentId: string;
+  };
+};
+
+type AgentStepDataPart = {
+  type: "data-agent-step";
+  id: string;
+  data: {
+    type: "text" | "tool" | "reasoning" | "step";
+    status: "start" | "end" | "input-available" | "output-available" | "finish";
+    stepId: string;
+    // Optional fields based on step type
+    contentId?: string;
+    toolCallId?: string;
+    toolName?: string;
+    input?: unknown;
+    output?: unknown;
+  };
+};
+
+type AgentStepUpdateDataPart = {
+  type: "data-agent-step-update";
+  id: string;
+  data: {
+    type: "text" | "reasoning" | "tool";
+    delta: string;
+    contentId?: string;
+    toolCallId?: string;
+    stepId: string;
+  };
+};
+
+type AgentEndDataPart = {
+  type: "data-agent-end";
+  id: string;
+  data: {
+    result: string;
+    agentId: string;
+  };
+};
+
+type AgentErrorDataPart = {
+  type: "data-agent-error";
+  id: string;
+  data: {
+    error: string;
+    agentId: string;
+  };
+};
+
+// Union type for all agent data parts
+type AgentDataPart =
+  | AgentStartDataPart
+  | AgentStepDataPart
+  | AgentStepUpdateDataPart
+  | AgentEndDataPart
+  | AgentErrorDataPart;
+
 // Type guard for error parts
 const isErrorPart = (part: unknown): part is ErrorUIPart => {
   return (
@@ -50,6 +121,39 @@ const isErrorPart = (part: unknown): part is ErrorUIPart => {
   );
 };
 
+// Type guards for agent data parts
+const isAgentDataPart = (part: unknown): part is AgentDataPart => {
+  return (
+    typeof part === "object" &&
+    part !== null &&
+    "type" in part &&
+    typeof part.type === "string" &&
+    part.type.startsWith("data-agent-")
+  );
+};
+
+const isAgentStartPart = (part: unknown): part is AgentStartDataPart => {
+  return isAgentDataPart(part) && part.type === "data-agent-start";
+};
+
+const isAgentStepPart = (part: unknown): part is AgentStepDataPart => {
+  return isAgentDataPart(part) && part.type === "data-agent-step";
+};
+
+const isAgentStepUpdatePart = (
+  part: unknown
+): part is AgentStepUpdateDataPart => {
+  return isAgentDataPart(part) && part.type === "data-agent-step-update";
+};
+
+const isAgentEndPart = (part: unknown): part is AgentEndDataPart => {
+  return isAgentDataPart(part) && part.type === "data-agent-end";
+};
+
+const isAgentErrorPart = (part: unknown): part is AgentErrorDataPart => {
+  return isAgentDataPart(part) && part.type === "data-agent-error";
+};
+
 import {
   ArrowClockwise,
   Check,
@@ -60,7 +164,7 @@ import {
 import dynamic from "next/dynamic"; // Client component – required when using React hooks in the app router
 import Image from "next/image";
 
-import { memo, useEffect, useRef, useState } from "react"; // Import React to access memo
+import { memo, useEffect, useMemo, useRef, useState } from "react"; // Import React to access memo
 import { ConnectorToolCall } from "@/app/components/tool/connector_tool_call";
 import { UnifiedSearch } from "@/app/components/tool/web_search";
 import {
@@ -75,7 +179,6 @@ import {
   getConnectorTypeFromToolName,
   isConnectorTool,
 } from "@/lib/config/tools";
-import type { CreateAgentResult } from "@/lib/create-agent-tool";
 import type { ConnectorType } from "@/lib/types";
 import { SourcesList } from "./sources-list";
 
@@ -131,125 +234,6 @@ const extractSourcesFromParts = (
     // Return empty for other part types
     return [];
   });
-};
-
-const renderCreateAgentPart = (part: ToolUIPart, index: number) => {
-  if ("state" in part && part.state === "output-error") {
-    return (
-      <div
-        className="my-3 w-full rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-destructive text-sm"
-        key={`create-agent-error-${index}`}
-      >
-        Delegated agent failed to run. Try again after reconnecting the required
-        connectors.
-      </div>
-    );
-  }
-
-  if (!("output" in part && part.output)) {
-    return null;
-  }
-
-  const result = part.output as CreateAgentResult;
-  const isRunning = result.status === "in-progress";
-  const hasFailed = result.status === "failed";
-
-  const connectorCalls = result.toolCalls
-    .map((call, callIndex) => {
-      let connectorType: ConnectorType | null = null;
-      try {
-        connectorType = getConnectorTypeFromToolName(call.toolName);
-      } catch {
-        connectorType = null;
-      }
-
-      if (!connectorType) {
-        return null;
-      }
-
-      const isCallLoading = call.status === "pending";
-      let response:
-        | {
-            success: boolean;
-            data?: unknown;
-            error?: string;
-          }
-        | undefined;
-
-      if (call.status === "success") {
-        response = {
-          success: true,
-          data: call.output,
-        };
-      } else if (call.status === "error") {
-        response = {
-          success: false,
-          error: call.error ?? "Connector execution failed.",
-        };
-      }
-
-      return (
-        <ConnectorToolCall
-          data={{
-            toolName: call.toolName,
-            connectorType,
-            request: call.input
-              ? {
-                  action: call.toolName,
-                  parameters: call.input,
-                }
-              : undefined,
-            response,
-            metadata: {
-              timestamp: new Date().toISOString(),
-            },
-          }}
-          isLoading={isCallLoading}
-          key={`create-agent-call-${call.toolCallId}-${callIndex}`}
-        />
-      );
-    })
-    .filter(Boolean);
-
-  if (connectorCalls.length === 0) {
-    if (isRunning) {
-      return (
-        <div
-          className="my-3 text-muted-foreground text-xs"
-          key={`create-agent-waiting-${index}`}
-        >
-          Preparing connectors...
-        </div>
-      );
-    }
-
-    if (hasFailed && result.error) {
-      return (
-        <div
-          className="my-3 text-destructive text-xs"
-          key={`create-agent-failed-${index}`}
-        >
-          {result.error}
-        </div>
-      );
-    }
-
-    return null;
-  }
-
-  return (
-    <>
-      {connectorCalls}
-      {hasFailed && result.error ? (
-        <div className="my-2 text-destructive text-sm">{result.error}</div>
-      ) : null}
-      {result.status === "succeeded" && result.finalText ? (
-        <div className="my-2 rounded-md bg-muted p-3 text-muted-foreground text-xs">
-          {result.finalText}
-        </div>
-      ) : null}
-    </>
-  );
 };
 
 // Helper function to extract search query from parts
@@ -514,7 +498,8 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
   const toolName = part.type.replace("tool-", "");
 
   if (toolName === "create_agent") {
-    return renderCreateAgentPart(part, index);
+    // Don't render any UI for create_agent tool - the Chain of Thought UI handles everything
+    return null;
   }
 
   // Handle search tools
@@ -683,6 +668,362 @@ const renderErrorPart = (part: ErrorUIPart, index: number) => {
   );
 };
 
+// Helper function to reconstruct content parts from agent steps
+const reconstructAgentContentParts = (
+  steps: (AgentStepDataPart | AgentStepUpdateDataPart)[]
+): MessageType["parts"] => {
+  const contentParts: (MessageType["parts"][number] | null)[] = [];
+  const textAccumulator: Record<
+    string,
+    { text: string; isStreaming: boolean; index?: number }
+  > = {};
+  const reasoningAccumulator: Record<
+    string,
+    { text: string; isStreaming: boolean; index?: number }
+  > = {};
+  const toolParts: Record<string, ToolUIPart> = {};
+
+  // Process steps to reconstruct content
+  for (const step of steps) {
+    if (isAgentStepPart(step)) {
+      const stepData = step.data;
+
+      switch (stepData.type) {
+        case "text":
+          if (stepData.status === "start" && stepData.contentId) {
+            const existing = textAccumulator[stepData.contentId];
+            if (existing && typeof existing.index === "number") {
+              textAccumulator[stepData.contentId] = {
+                ...existing,
+                isStreaming: true,
+              };
+            } else {
+              const placeholderIndex = contentParts.length;
+              contentParts.push({ type: "text", text: "" });
+              textAccumulator[stepData.contentId] = {
+                text: existing?.text ?? "",
+                isStreaming: true,
+                index: placeholderIndex,
+              };
+            }
+          } else if (
+            stepData.status === "end" &&
+            stepData.contentId &&
+            textAccumulator[stepData.contentId]
+          ) {
+            const accumulator = textAccumulator[stepData.contentId];
+            accumulator.isStreaming = false;
+            if (
+              typeof accumulator.index === "number" &&
+              accumulator.index < contentParts.length
+            ) {
+              if (accumulator.text.trim()) {
+                contentParts[accumulator.index] = {
+                  type: "text",
+                  text: accumulator.text,
+                };
+              } else {
+                contentParts[accumulator.index] = null;
+              }
+            }
+          }
+          break;
+
+        case "reasoning":
+          if (stepData.status === "start" && stepData.contentId) {
+            const existing = reasoningAccumulator[stepData.contentId];
+            if (existing && typeof existing.index === "number") {
+              reasoningAccumulator[stepData.contentId] = {
+                ...existing,
+                isStreaming: true,
+              };
+            } else {
+              const placeholderIndex = contentParts.length;
+              contentParts.push({ type: "reasoning", text: "" });
+              reasoningAccumulator[stepData.contentId] = {
+                text: existing?.text ?? "",
+                isStreaming: true,
+                index: placeholderIndex,
+              };
+            }
+          } else if (
+            stepData.status === "end" &&
+            stepData.contentId &&
+            reasoningAccumulator[stepData.contentId]
+          ) {
+            const accumulator = reasoningAccumulator[stepData.contentId];
+            accumulator.isStreaming = false;
+            if (
+              typeof accumulator.index === "number" &&
+              accumulator.index < contentParts.length
+            ) {
+              if (accumulator.text.trim()) {
+                contentParts[accumulator.index] = {
+                  type: "reasoning",
+                  text: accumulator.text,
+                };
+              } else {
+                contentParts[accumulator.index] = null;
+              }
+            }
+          }
+          break;
+
+        case "tool":
+          if (stepData.toolCallId && stepData.toolName) {
+            // Update based on status
+            if (stepData.status === "input-available" && stepData.input) {
+              // Check if this tool part already exists
+              if (!toolParts[stepData.toolCallId]) {
+                // Create tool part with input and add to contentParts immediately
+                const inputToolPart = {
+                  type: `tool-${stepData.toolName.toLowerCase().replace(/_/g, "-")}`,
+                  toolCallId: stepData.toolCallId,
+                  state: "input-available",
+                  input: stepData.input,
+                } as ToolUIPart;
+
+                toolParts[stepData.toolCallId] = inputToolPart;
+                contentParts.push(inputToolPart);
+              }
+            } else if (
+              stepData.status === "output-available" &&
+              stepData.output
+            ) {
+              // Handle output-available: always update/create the tool part
+              const toolType = `tool-${stepData.toolName.toLowerCase().replace(/_/g, "-")}`;
+
+              if (toolParts[stepData.toolCallId]) {
+                // Update existing tool part
+                const updatedToolPart = {
+                  type: toolType,
+                  toolCallId: stepData.toolCallId,
+                  state: "output-available",
+                  input:
+                    toolParts[stepData.toolCallId].input ||
+                    stepData.input ||
+                    {},
+                  output: stepData.output,
+                } as ToolUIPart & {
+                  state: "output-available";
+                  input: unknown;
+                  output: unknown;
+                };
+
+                // Update the toolParts record
+                toolParts[stepData.toolCallId] = updatedToolPart;
+
+                // Find and replace in contentParts
+                const existingIndex = contentParts.findIndex(
+                  (part) =>
+                    part?.type.startsWith("tool-") &&
+                    "toolCallId" in part &&
+                    part.toolCallId === stepData.toolCallId
+                );
+
+                if (existingIndex !== -1) {
+                  contentParts[existingIndex] = updatedToolPart;
+                } else {
+                  // Not found in contentParts, add it
+                  contentParts.push(updatedToolPart);
+                }
+              } else {
+                // No tool part exists yet, create a complete one
+                const completeToolPart = {
+                  type: toolType,
+                  toolCallId: stepData.toolCallId,
+                  state: "output-available",
+                  input: stepData.input || {},
+                  output: stepData.output,
+                } as ToolUIPart & {
+                  state: "output-available";
+                  input: unknown;
+                  output: unknown;
+                };
+
+                toolParts[stepData.toolCallId] = completeToolPart;
+                contentParts.push(completeToolPart);
+              }
+            }
+          }
+          break;
+
+        default:
+          // Unknown step type, skip
+          break;
+      }
+    } else if (isAgentStepUpdatePart(step)) {
+      const updateData = step.data;
+
+      if (
+        updateData.type === "text" &&
+        updateData.contentId &&
+        updateData.delta
+      ) {
+        if (textAccumulator[updateData.contentId]) {
+          const accumulator = textAccumulator[updateData.contentId];
+          accumulator.text += updateData.delta;
+          const index = accumulator.index;
+          if (typeof index === "number" && index < contentParts.length) {
+            contentParts[index] = {
+              type: "text",
+              text: accumulator.text,
+            };
+          }
+        } else {
+          const placeholderIndex = contentParts.length;
+          const text = updateData.delta;
+          contentParts.push({ type: "text", text });
+          textAccumulator[updateData.contentId] = {
+            text,
+            isStreaming: true,
+            index: placeholderIndex,
+          };
+        }
+      } else if (
+        updateData.type === "reasoning" &&
+        updateData.contentId &&
+        updateData.delta &&
+        reasoningAccumulator[updateData.contentId]
+      ) {
+        const accumulator = reasoningAccumulator[updateData.contentId];
+        accumulator.text += updateData.delta;
+        const index = accumulator.index;
+        if (typeof index === "number" && index < contentParts.length) {
+          contentParts[index] = {
+            type: "reasoning",
+            text: accumulator.text,
+          };
+        }
+        // Note: Tool deltas are not used in current sub-agent implementation
+      } else if (
+        updateData.type === "reasoning" &&
+        updateData.contentId &&
+        updateData.delta
+      ) {
+        const placeholderIndex = contentParts.length;
+        const text = updateData.delta;
+        contentParts.push({ type: "reasoning", text });
+        reasoningAccumulator[updateData.contentId] = {
+          text,
+          isStreaming: true,
+          index: placeholderIndex,
+        };
+      }
+    }
+  }
+
+  // Add any streaming content that's still in progress
+  for (const acc of Object.values(textAccumulator)) {
+    if (acc.isStreaming && acc.text.trim() && typeof acc.index !== "number") {
+      contentParts.push({ type: "text", text: acc.text });
+    }
+  }
+
+  for (const acc of Object.values(reasoningAccumulator)) {
+    if (acc.isStreaming && acc.text.trim() && typeof acc.index !== "number") {
+      contentParts.push({ type: "reasoning", text: acc.text });
+    }
+  }
+
+  return contentParts.filter(
+    (part): part is MessageType["parts"][number] => part !== null
+  );
+};
+
+// Helper function to group agent data parts while preserving stream order
+type AgentGroup = {
+  agentId: string;
+  startIndex: number;
+  start: AgentStartDataPart;
+  steps: (AgentStepDataPart | AgentStepUpdateDataPart)[];
+  end?: AgentEndDataPart;
+  error?: AgentErrorDataPart;
+};
+
+type OrderedPart =
+  | {
+      kind: "regular";
+      index: number;
+      part: MessageType["parts"][number];
+    }
+  | {
+      kind: "agent";
+      index: number;
+      group: AgentGroup;
+    };
+
+const resolveAgentIdForStep = (
+  groups: Record<string, AgentGroup>,
+  part: AgentStepDataPart | AgentStepUpdateDataPart
+) => {
+  const candidates = Object.keys(groups);
+  for (const candidate of candidates) {
+    if (part.id.startsWith(candidate)) {
+      return candidate;
+    }
+    if ("stepId" in part.data && part.data.stepId.startsWith(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};
+
+const groupAgentDataParts = (parts: MessageType["parts"]) => {
+  if (!parts) {
+    return [] as OrderedPart[];
+  }
+
+  const agentGroups: Record<string, AgentGroup> = {};
+  const orderedParts: OrderedPart[] = [];
+
+  parts.forEach((part, index) => {
+    if (isAgentStartPart(part)) {
+      const agentId = part.data.agentId;
+      const group: AgentGroup = {
+        agentId,
+        startIndex: index,
+        start: part,
+        steps: [],
+      };
+
+      agentGroups[agentId] = group;
+      orderedParts.push({ kind: "agent", index, group });
+      return;
+    }
+
+    if (isAgentStepPart(part) || isAgentStepUpdatePart(part)) {
+      const agentId = resolveAgentIdForStep(agentGroups, part);
+      if (agentId) {
+        agentGroups[agentId].steps.push(part);
+      }
+      return;
+    }
+
+    if (isAgentEndPart(part)) {
+      const group = agentGroups[part.data.agentId];
+      if (group) {
+        group.end = part;
+      }
+      return;
+    }
+
+    if (isAgentErrorPart(part)) {
+      const group = agentGroups[part.data.agentId];
+      if (group) {
+        group.error = part;
+      }
+      return;
+    }
+
+    if (!isAgentDataPart(part)) {
+      orderedParts.push({ kind: "regular", index, part });
+    }
+  });
+
+  return orderedParts.sort((a, b) => a.index - b.index);
+};
+
 function MessageAssistantInner({
   isLast,
   hasScrollAnchor,
@@ -700,6 +1041,11 @@ function MessageAssistantInner({
   // Prefer `parts` prop, but fall back to `attachments` if `parts` is undefined.
   const combinedParts = parts || [];
 
+  const orderedParts = useMemo(
+    () => groupAgentDataParts(combinedParts),
+    [combinedParts]
+  );
+
   // State for reasoning collapse/expand functionality - track each reasoning part individually
   const [reasoningStates, setReasoningStates] = useState<
     Record<string, boolean>
@@ -710,6 +1056,84 @@ function MessageAssistantInner({
   >({});
   const initialStatusRef = useRef<Record<string, boolean>>({});
   const [isTouch, setIsTouch] = useState(false);
+
+  const [agentOpenStates, setAgentOpenStates] = useState<
+    Record<string, boolean>
+  >({});
+  const agentManualOverrideRef = useRef<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setAgentOpenStates((prevStates) => {
+      let nextStates = prevStates;
+      let hasChanges = false;
+      const presentAgents = new Set<string>();
+
+      orderedParts.forEach((item, orderedIndex) => {
+        if (item.kind !== "agent") {
+          return;
+        }
+
+        const { agentId, end, error } = item.group;
+        presentAgents.add(agentId);
+
+        if (agentManualOverrideRef.current[agentId] === undefined) {
+          agentManualOverrideRef.current[agentId] = false;
+        }
+
+        const hasNextStreamingText =
+          status === "streaming" &&
+          orderedParts.slice(orderedIndex + 1).some((nextItem) => {
+            if (nextItem.kind !== "regular") {
+              return false;
+            }
+            const nextPart = nextItem.part;
+            return nextPart.type === "text";
+          });
+
+        const shouldAutoClose =
+          Boolean(end || error) &&
+          (status !== "streaming" || hasNextStreamingText);
+        const desiredState = shouldAutoClose ? false : true;
+
+        if (prevStates[agentId] === undefined) {
+          if (!hasChanges) {
+            nextStates = { ...prevStates };
+            hasChanges = true;
+          }
+          nextStates[agentId] = desiredState;
+        }
+
+        if (
+          agentManualOverrideRef.current[agentId] === false &&
+          prevStates[agentId] !== desiredState
+        ) {
+          if (!hasChanges) {
+            nextStates = { ...prevStates };
+            hasChanges = true;
+          }
+          nextStates[agentId] = desiredState;
+        }
+      });
+
+      if (
+        Object.keys(prevStates).some((agentId) => !presentAgents.has(agentId))
+      ) {
+        if (!hasChanges) {
+          nextStates = { ...prevStates };
+          hasChanges = true;
+        }
+
+        for (const agentId of Object.keys(prevStates)) {
+          if (!presentAgents.has(agentId)) {
+            delete nextStates[agentId];
+            delete agentManualOverrideRef.current[agentId];
+          }
+        }
+      }
+
+      return hasChanges ? nextStates : prevStates;
+    });
+  }, [orderedParts]);
 
   // Initialize reasoning states - only run once when reasoning parts are first detected
   useEffect(() => {
@@ -838,46 +1262,183 @@ function MessageAssistantInner({
       id={id}
     >
       <div className={cn("flex w-full flex-col gap-2", isLast && "pb-8")}>
-        {/* Sequential rendering of all parts in stream order */}
-        {combinedParts?.map((part, index) => {
-          const partKey = `${part.type}-${index}`;
+        {/* Render agent data parts and regular parts */}
+        {orderedParts.map((item) => {
+          if (item.kind === "regular") {
+            const { part, index } = item;
+            const partKey = `${part.type}-${index}`;
 
-          switch (part.type) {
-            case "text":
-              return renderTextPart(
-                part as { type: "text"; text: string },
-                index,
-                id
-              );
+            switch (part.type) {
+              case "text":
+                return renderTextPart(
+                  part as { type: "text"; text: string },
+                  index,
+                  id
+                );
 
-            case "reasoning":
-              return renderReasoningPart(
-                part as ReasoningUIPart,
-                index,
-                id,
-                reasoningStates[`${id}-${index}`],
-                () => toggleReasoning(index),
-                reasoningStreamingStates[`${id}-${index}`]
-              );
+              case "reasoning":
+                return renderReasoningPart(
+                  part as ReasoningUIPart,
+                  index,
+                  id,
+                  reasoningStates[`${id}-${index}`],
+                  () => toggleReasoning(index),
+                  reasoningStreamingStates[`${id}-${index}`]
+                );
 
-            case "file":
-              return (
-                <div className="flex w-full flex-wrap gap-2" key={partKey}>
-                  {renderFilePart(part as FileUIPart, index)}
-                </div>
-              );
+              case "file":
+                return (
+                  <div className="flex w-full flex-wrap gap-2" key={partKey}>
+                    {renderFilePart(part as FileUIPart, index)}
+                  </div>
+                );
 
-            default:
-              // Handle tool parts (tool-search, tool-*, etc.)
-              if (part.type.startsWith("tool-")) {
-                return renderToolPart(part as ToolUIPart, index, id);
-              }
-              // Handle error parts (not in UIMessage union type but may exist)
-              if (isErrorPart(part)) {
-                return renderErrorPart(part, index);
-              }
-              return null;
+              default:
+                if (part.type.startsWith("tool-")) {
+                  return renderToolPart(part as ToolUIPart, index, id);
+                }
+                if (isErrorPart(part)) {
+                  return renderErrorPart(part, index);
+                }
+                return null;
+            }
           }
+
+            const { group } = item;
+            const { agentId, start, steps: agentSteps, error, end } = group;
+
+            const agentContentParts = reconstructAgentContentParts(agentSteps);
+            const hasCompleted = Boolean(end || error);
+            const agentState = agentOpenStates[agentId];
+            const effectiveAgentOpen = agentState ?? !hasCompleted;
+            const autoScrollKey = hasCompleted ? undefined : agentSteps.length;
+
+            return (
+              <ChainOfThought
+                key={agentId}
+                onOpenChange={(open) => {
+                  agentManualOverrideRef.current[agentId] = true;
+                  setAgentOpenStates((prev) => ({
+                    ...prev,
+                    [agentId]: open,
+                  }));
+                }}
+                open={effectiveAgentOpen}
+                tools={start.data.tool}
+              >
+              <ChainOfThoughtHeader tools={start.data.tool}>
+                {start.data.task.length > 50
+                  ? `${start.data.task.slice(0, 50)}...`
+                  : start.data.task}
+              </ChainOfThoughtHeader>
+                <ChainOfThoughtContent autoScrollKey={autoScrollKey}>
+                {agentContentParts.map((part, contentIndex) => {
+                  const partKey = `${agentId}-content-${contentIndex}`;
+
+                  switch (part.type) {
+                    case "text":
+                      return (
+                        <ChainOfThoughtStep
+                          key={partKey}
+                          label="Agent response"
+                          status="complete"
+                        >
+                          {renderTextPart(
+                            part as { type: "text"; text: string },
+                            contentIndex,
+                            `${id}-agent-${agentId}`
+                          )}
+                        </ChainOfThoughtStep>
+                      );
+
+                    case "reasoning":
+                      return (
+                        <ChainOfThoughtStep
+                          key={partKey}
+                          label="Agent reasoning"
+                          status="complete"
+                        >
+                          {renderReasoningPart(
+                            part as ReasoningUIPart,
+                            contentIndex,
+                            `${id}-agent-${agentId}`,
+                            reasoningStates[
+                              `${id}-agent-${agentId}-${contentIndex}`
+                            ],
+                            () => {
+                              const key = `${id}-agent-${agentId}-${contentIndex}`;
+                              setReasoningStates((prev) => ({
+                                ...prev,
+                                [key]: !prev[key],
+                              }));
+                            },
+                            reasoningStreamingStates[
+                              `${id}-agent-${agentId}-${contentIndex}`
+                            ]
+                          )}
+                        </ChainOfThoughtStep>
+                      );
+
+                    case "file":
+                      return (
+                        <ChainOfThoughtStep
+                          key={partKey}
+                          label="File attachment"
+                          status="complete"
+                        >
+                          <div className="flex w-full flex-wrap gap-2">
+                            {renderFilePart(part as FileUIPart, contentIndex)}
+                          </div>
+                        </ChainOfThoughtStep>
+                      );
+
+                    default:
+                      if (part.type.startsWith("tool-")) {
+                        const toolPart = part as ToolUIPart & {
+                          toolName?: string;
+                        };
+                        const toolLabel = toolPart.toolName
+                          ? `Using ${toolPart.toolName} tool`
+                          : "Using tool";
+
+                        return (
+                          <ChainOfThoughtStep
+                            key={partKey}
+                            label={toolLabel}
+                            status="complete"
+                          >
+                            {renderToolPart(
+                              toolPart,
+                              contentIndex,
+                              `${id}-agent-${agentId}`
+                            )}
+                          </ChainOfThoughtStep>
+                        );
+                      }
+                      if (isErrorPart(part)) {
+                        return (
+                          <ChainOfThoughtStep
+                            key={partKey}
+                            label="Error occurred"
+                            status="complete"
+                          >
+                            {renderErrorPart(part, contentIndex)}
+                          </ChainOfThoughtStep>
+                        );
+                      }
+                      return null;
+                  }
+                })}
+
+                {error && (
+                  <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-red-800 text-sm dark:bg-red-900/20 dark:text-red-300">
+                    <div className="font-medium">Error:</div>
+                    <div className="mt-1">{error.data.error}</div>
+                  </div>
+                )}
+              </ChainOfThoughtContent>
+            </ChainOfThought>
+          );
         })}
 
         {/* Render sources list for non-search sources only */}
