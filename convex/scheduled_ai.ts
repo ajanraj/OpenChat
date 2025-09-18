@@ -291,8 +291,6 @@ export const executeTask = internalAction({
           model: selectedModel.api_sdk,
           connectorsStatus,
           writer: noopWriter,
-          searchTool: task.enableSearch ? searchTool : undefined,
-          enableSearch: task.enableSearch,
         });
       }
 

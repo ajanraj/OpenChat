@@ -179,7 +179,7 @@ export const getComposioTools = async (
     try {
       const tools = await composio.tools.get(userId, {
         toolkits: [toolkit], // Single toolkit per request
-        limit: 10, // Limit to 10 tools per toolkit
+        limit: 15, // Limit to 15 tools per toolkit
       });
       return tools;
     } catch (_error) {

@@ -176,6 +176,7 @@ import {
   MorphingDialogTrigger,
 } from "@/components/motion-primitives/morphing-dialog";
 import {
+  getConnectorConfig,
   getConnectorTypeFromToolName,
   isConnectorTool,
 } from "@/lib/config/tools";
@@ -494,16 +495,46 @@ const renderReasoningPart = (
   );
 };
 
-const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
-  const toolName = part.type.replace("tool-", "");
+type ExtendedToolUIPart = ToolUIPart & { toolName?: string };
 
-  if (toolName === "create_agent") {
+const CONNECTOR_ACTION_LABELS: Partial<Record<ConnectorType, string>> = {
+  googlecalendar: "Consulting",
+  googledocs: "Drafting in",
+  googledrive: "Syncing with",
+  googlesheets: "Updating",
+  slack: "Messaging via",
+  linear: "Triaging in",
+  github: "Reviewing on",
+  twitter: "Broadcasting to",
+};
+
+const buildConnectorLabel = (
+  connectorType: ConnectorType,
+  displayName: string
+): string => {
+  const prefix = CONNECTOR_ACTION_LABELS[connectorType];
+  if (prefix) {
+    return `${prefix} ${displayName}`;
+  }
+  return `Working with ${displayName}`;
+};
+
+const buildGenericToolLabel = (toolName: string): string => {
+  const cleaned = toolName.replace(/[_-]+/g, " ");
+  return `Engaging ${cleaned}`;
+};
+
+const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
+  const extendedPart = part as ExtendedToolUIPart;
+  const toolType = part.type.replace("tool-", "");
+
+  if (toolType === "create_agent") {
     // Don't render any UI for create_agent tool - the Chain of Thought UI handles everything
     return null;
   }
 
   // Handle search tools
-  if (toolName === "search") {
+  if (toolType === "search") {
     const searchQuery = extractSearchQueryFromParts([part]);
 
     // For in-progress search tools, show loading state
@@ -546,11 +577,13 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
   }
 
   // Handle connector tool calls (Composio tools)
-  const isConnectorToolCall = isConnectorTool(toolName);
+  const isConnectorToolCall = isConnectorTool(toolType);
 
   if (isConnectorToolCall) {
     // Determine connector type from tool name
-    const connectorType = getConnectorTypeFromToolName(toolName);
+    const connectorType = getConnectorTypeFromToolName(toolType);
+    const connectorConfig = getConnectorConfig(connectorType);
+    const connectorDisplayName = connectorConfig.displayName;
 
     // Handle different tool states based on AI SDK v5 ToolUIPart states
     if ("state" in part) {
@@ -577,14 +610,14 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
           timestamp?: string;
         };
       } = {
-        toolName,
+        toolName: connectorDisplayName,
         connectorType,
       };
 
       // Extract input/arguments if available
       if ("input" in part && part.input) {
         toolCallData.request = {
-          action: toolName,
+          action: extendedPart.toolName ?? toolType,
           parameters: part.input as Record<string, unknown>,
         };
       }
@@ -637,7 +670,7 @@ const renderToolPart = (part: ToolUIPart, index: number, _id: string) => {
         timestamp?: string;
       };
     } = {
-      toolName,
+      toolName: connectorDisplayName,
       connectorType,
       metadata: {
         timestamp: new Date().toISOString(),
@@ -681,7 +714,7 @@ const reconstructAgentContentParts = (
     string,
     { text: string; isStreaming: boolean; index?: number }
   > = {};
-  const toolParts: Record<string, ToolUIPart> = {};
+  const toolParts: Record<string, ExtendedToolUIPart> = {};
 
   // Process steps to reconstruct content
   for (const step of steps) {
@@ -781,7 +814,8 @@ const reconstructAgentContentParts = (
                   toolCallId: stepData.toolCallId,
                   state: "input-available",
                   input: stepData.input,
-                } as ToolUIPart;
+                  toolName: stepData.toolName,
+                } as ExtendedToolUIPart;
 
                 toolParts[stepData.toolCallId] = inputToolPart;
                 contentParts.push(inputToolPart);
@@ -791,20 +825,25 @@ const reconstructAgentContentParts = (
               stepData.output
             ) {
               // Handle output-available: always update/create the tool part
-              const toolType = `tool-${stepData.toolName.toLowerCase().replace(/_/g, "-")}`;
+              const toolType = `tool-${stepData.toolName
+                .toLowerCase()
+                .replace(/_/g, "-")}`;
 
-              if (toolParts[stepData.toolCallId]) {
+              const existingToolPart = toolParts[stepData.toolCallId];
+
+              if (existingToolPart) {
                 // Update existing tool part
+                const resolvedToolName =
+                  existingToolPart.toolName ?? stepData.toolName;
                 const updatedToolPart = {
+                  ...existingToolPart,
                   type: toolType,
                   toolCallId: stepData.toolCallId,
                   state: "output-available",
-                  input:
-                    toolParts[stepData.toolCallId].input ||
-                    stepData.input ||
-                    {},
+                  input: existingToolPart.input ?? stepData.input ?? {},
                   output: stepData.output,
-                } as ToolUIPart & {
+                  toolName: resolvedToolName,
+                } as ExtendedToolUIPart & {
                   state: "output-available";
                   input: unknown;
                   output: unknown;
@@ -835,7 +874,8 @@ const reconstructAgentContentParts = (
                   state: "output-available",
                   input: stepData.input || {},
                   output: stepData.output,
-                } as ToolUIPart & {
+                  toolName: stepData.toolName,
+                } as ExtendedToolUIPart & {
                   state: "output-available";
                   input: unknown;
                   output: unknown;
@@ -1327,9 +1367,7 @@ function MessageAssistantInner({
               tools={start.data.tool}
             >
               <ChainOfThoughtHeader tools={start.data.tool}>
-                {start.data.task.length > 50
-                  ? `${start.data.task.slice(0, 50)}...`
-                  : start.data.task}
+                {start.data.task.trim()}
               </ChainOfThoughtHeader>
               <ChainOfThoughtContent autoScrollKey={autoScrollKey}>
                 {agentContentParts.map((part, contentIndex) => {
@@ -1340,7 +1378,7 @@ function MessageAssistantInner({
                       return (
                         <ChainOfThoughtStep
                           key={partKey}
-                          label="Agent response"
+                          label="Field report"
                           status="complete"
                         >
                           {renderTextPart(
@@ -1355,7 +1393,7 @@ function MessageAssistantInner({
                       return (
                         <ChainOfThoughtStep
                           key={partKey}
-                          label="Agent reasoning"
+                          label="Thought process"
                           status="complete"
                         >
                           {renderReasoningPart(
@@ -1394,12 +1432,28 @@ function MessageAssistantInner({
 
                     default:
                       if (part.type.startsWith("tool-")) {
-                        const toolPart = part as ToolUIPart & {
-                          toolName?: string;
-                        };
-                        const toolLabel = toolPart.toolName
-                          ? `Using ${toolPart.toolName} tool`
-                          : "Using tool";
+                        const toolPart = part as ExtendedToolUIPart;
+                        const toolType = part.type.replace("tool-", "");
+                        let toolLabel: string;
+
+                        if (isConnectorTool(toolType)) {
+                          try {
+                            const connectorType =
+                              getConnectorTypeFromToolName(toolType);
+                            const connectorConfig =
+                              getConnectorConfig(connectorType);
+                            toolLabel = buildConnectorLabel(
+                              connectorType,
+                              connectorConfig.displayName
+                            );
+                          } catch (_error) {
+                            const fallbackName = toolPart.toolName ?? toolType;
+                            toolLabel = buildGenericToolLabel(fallbackName);
+                          }
+                        } else {
+                          const fallbackName = toolPart.toolName ?? toolType;
+                          toolLabel = buildGenericToolLabel(fallbackName);
+                        }
 
                         return (
                           <ChainOfThoughtStep
