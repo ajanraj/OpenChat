@@ -80,6 +80,24 @@ export const executeTask = internalAction({
         }
       );
 
+      // Check if this is a template-based task
+      const templateInstance = await ctx.runQuery(
+        internal.templates.getTemplateInstanceByTaskId,
+        { scheduledTaskId: args.taskId }
+      );
+
+      // If this is a template-based task, route to the appropriate agent
+      if (templateInstance) {
+        await executeTemplateAgent(ctx, {
+          templateInstance,
+          task,
+          user,
+          chatId,
+          historyRecordId,
+        });
+        return null;
+      }
+
       // Create a new chat for each task execution
       const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       const currentTime = new Date().toLocaleTimeString('en-US', {
@@ -572,3 +590,170 @@ export const executeTask = internalAction({
     }
   },
 });
+
+// Template agent execution router
+async function executeTemplateAgent(
+  ctx: any,
+  {
+    templateInstance,
+    task,
+    user,
+    chatId,
+    historyRecordId,
+  }: {
+    templateInstance: any;
+    task: any;
+    user: any;
+    chatId: string;
+    historyRecordId: string;
+  }
+) {
+  try {
+    // Set task status to running
+    await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
+      taskId: task._id,
+      lastExecuted: Date.now(),
+      newStatus: 'running',
+    });
+
+    // Route to appropriate template agent based on template ID
+    switch (templateInstance.templateId) {
+      case 'gmail-waiting-on-agent':
+        await ctx.runAction(internal.agents.gmail_waiting_on.executeGmailWaitingOnAgent, {
+          userId: user._id,
+          templateInstanceId: templateInstance._id,
+          scheduledTaskId: task._id,
+          taskHistoryId: historyRecordId,
+          prompt: task.prompt,
+          enabledConnectors: task.enabledToolSlugs || [],
+        });
+        break;
+
+      // Add more template agents here as they're created
+      // case 'content-publishing-agent':
+      //   await ctx.runAction(internal.agents.content_publishing.executeContentPublishingAgent, {...});
+      //   break;
+
+      default:
+        throw new Error(`Unknown template agent: ${templateInstance.templateId}`);
+    }
+
+    // Handle task rescheduling (same logic as regular tasks)
+    await handleTaskRescheduling(ctx, task, false);
+
+    // Update execution history with success
+    await ctx.runMutation(internal.task_history.updateExecutionHistory, {
+      executionId: historyRecordId.split('_')[1], // Extract execution ID from history record ID
+      status: 'success',
+      endTime: Date.now(),
+      chatId,
+      metadata: {
+        templateId: templateInstance.templateId,
+        templateAgent: true,
+      },
+    });
+  } catch (error) {
+    // Update execution history with failure
+    await ctx.runMutation(internal.task_history.updateExecutionHistory, {
+      executionId: historyRecordId.split('_')[1],
+      status: 'failure',
+      endTime: Date.now(),
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    // Reset task status to active
+    await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
+      taskId: task._id,
+      lastExecuted: Date.now(),
+      newStatus: 'active',
+    });
+
+    throw error;
+  }
+}
+
+// Helper function to handle task rescheduling
+async function handleTaskRescheduling(ctx: any, task: any, isManualTrigger: boolean) {
+  const now = Date.now();
+
+  if (task.scheduleType === 'onetime') {
+    // One-time task - mark as archived
+    await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
+      taskId: task._id,
+      lastExecuted: now,
+      newStatus: 'archived',
+    });
+  } else if (isManualTrigger) {
+    // Manual trigger - don't reschedule
+    await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
+      taskId: task._id,
+      lastExecuted: now,
+      newStatus: 'active',
+    });
+  } else {
+    // Recurring task - calculate next execution
+    let nextExecution: number;
+
+    if (task.scheduleType === 'daily') {
+      const [hours, minutes] = task.scheduledTime.split(':').map(Number);
+      const nowInUserTz = new Date();
+      const userDate = new Date(
+        nowInUserTz.getFullYear(),
+        nowInUserTz.getMonth(),
+        nowInUserTz.getDate(),
+        hours,
+        minutes,
+        0,
+        0
+      );
+
+      let utcDate = dayjs.tz(userDate, task.timezone).utc().toDate();
+      while (utcDate.getTime() <= now) {
+        userDate.setDate(userDate.getDate() + 1);
+        utcDate = dayjs.tz(userDate, task.timezone).utc().toDate();
+      }
+      nextExecution = utcDate.getTime();
+    } else {
+      // Weekly
+      const parts = task.scheduledTime.split(':');
+      const targetDay = Number.parseInt(parts[0], 10);
+      const hours = Number.parseInt(parts[1], 10);
+      const minutes = Number.parseInt(parts[2], 10);
+
+      const nowInUserTz = new Date();
+      const currentDay = nowInUserTz.getDay();
+      const daysToTarget = (targetDay - currentDay + 7) % 7;
+
+      const userDate = new Date(
+        nowInUserTz.getFullYear(),
+        nowInUserTz.getMonth(),
+        nowInUserTz.getDate() + daysToTarget,
+        hours,
+        minutes,
+        0,
+        0
+      );
+
+      let utcDate = dayjs.tz(userDate, task.timezone).utc().toDate();
+      if (utcDate.getTime() <= now) {
+        userDate.setDate(userDate.getDate() + 7);
+        utcDate = dayjs.tz(userDate, task.timezone).utc().toDate();
+      }
+      nextExecution = utcDate.getTime();
+    }
+
+    const scheduledFunctionId = await ctx.scheduler.runAt(
+      nextExecution,
+      internal.scheduled_ai.executeTask,
+      { taskId: task._id }
+    );
+
+    await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
+      taskId: task._id,
+      lastExecuted: now,
+      nextExecution,
+      scheduledFunctionId,
+      newStatus: 'active',
+    });
+  }
+}

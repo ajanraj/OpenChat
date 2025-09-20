@@ -1,7 +1,7 @@
 'use client';
 
 import { convexQuery } from '@convex-dev/react-query';
-import { Plus } from '@phosphor-icons/react';
+import { Plus, Sparkle } from '@phosphor-icons/react';
 import { useQuery as useTanStackQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useBreakpoint } from '@/app/hooks/use-breakpoint';
@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/convex/_generated/api';
 import { TaskCard } from './task-card';
 import { TaskTrigger } from './task-trigger';
+import { TemplateCards } from './template-cards';
 import type { TaskStatus } from './types';
 
 // Static constants moved outside component for better performance
@@ -22,7 +23,7 @@ const SCROLL_CONTAINER_STYLES = {
 const SKELETON_ARRAY = Array.from({ length: 1 });
 
 export function ScheduledTasksPage() {
-  const [activeTab, setActiveTab] = useState<TaskStatus>('active');
+  const [activeTab, setActiveTab] = useState<TaskStatus | 'templates'>('active');
   const isMobile = useBreakpoint(896); // Consistent breakpoint with TaskTrigger
 
   // Memoized query configuration to prevent recreation on every render
@@ -38,6 +39,8 @@ export function ScheduledTasksPage() {
 
   // Memoized task filtering to prevent recalculation on every render
   const filteredTasks = useMemo(() => {
+    if (activeTab === 'templates') return [];
+
     return tasks.filter((task) => {
       if (activeTab === 'active') {
         return (
@@ -52,7 +55,7 @@ export function ScheduledTasksPage() {
 
   // Memoized tab change handler to prevent recreation on every render
   const handleTabChange = useCallback((value: string) => {
-    setActiveTab(value as TaskStatus);
+    setActiveTab(value as TaskStatus | 'templates');
   }, []);
 
   return (
@@ -70,8 +73,12 @@ export function ScheduledTasksPage() {
               onValueChange={handleTabChange}
               value={activeTab}
             >
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active">Active</TabsTrigger>
+                <TabsTrigger value="templates" className="gap-1">
+                  <Sparkle className="h-3 w-3" />
+                  Templates
+                </TabsTrigger>
                 <TabsTrigger value="archived">Archived</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -86,8 +93,12 @@ export function ScheduledTasksPage() {
                 onValueChange={handleTabChange}
                 value={activeTab}
               >
-                <TabsList className="grid w-[180px] grid-cols-2">
+                <TabsList className="grid w-[300px] grid-cols-3">
                   <TabsTrigger value="active">Active</TabsTrigger>
+                  <TabsTrigger value="templates" className="gap-1">
+                    <Sparkle className="h-3 w-3" />
+                    Templates
+                  </TabsTrigger>
                   <TabsTrigger value="archived">Archived</TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -125,7 +136,7 @@ export function ScheduledTasksPage() {
           </div>
         )}
 
-        {!isLoading && filteredTasks.length === 0 && (
+        {!isLoading && filteredTasks.length === 0 && activeTab !== 'templates' && (
           <div
             className={`flex min-h-[138px] items-center justify-center rounded-xl border border-border bg-card/50 ${isMobile ? '' : 'mr-4'}`}
           >
@@ -148,7 +159,7 @@ export function ScheduledTasksPage() {
           </div>
         )}
 
-        {!isLoading && filteredTasks.length > 0 && (
+        {!isLoading && filteredTasks.length > 0 && activeTab !== 'templates' && (
           <div
             className={`space-y-3 ${isMobile ? 'pb-2' : 'pr-4'}`}
             style={isMobile ? {} : SCROLL_CONTAINER_STYLES}
@@ -158,10 +169,17 @@ export function ScheduledTasksPage() {
             ))}
           </div>
         )}
+
+        {/* Template Cards */}
+        {activeTab === 'templates' && (
+          <div className={`${isMobile ? 'pb-2' : 'pr-4'}`}>
+            <TemplateCards />
+          </div>
+        )}
       </div>
 
       {/* Mobile FAB for Add New Task */}
-      {isMobile && (
+      {isMobile && activeTab !== 'templates' && (
         <div className="fixed right-6 bottom-6 z-50">
           <TaskTrigger
             trigger={
