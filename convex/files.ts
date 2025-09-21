@@ -19,8 +19,8 @@ export const { generateUploadUrl, syncMetadata, onSyncMetadata } = r2.clientApi(
     // Provide callbacks reference so the component can invoke onSyncMetadata
     callbacks,
     checkUpload: async (ctx) => {
-      const authUser = await ctx.auth.getUserIdentity();
-      if (authUser === null) {
+      const authUser = await authComponent.safeGetAuthUser(ctx);
+      if (!authUser?.userId) {
         throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
       }
     },
