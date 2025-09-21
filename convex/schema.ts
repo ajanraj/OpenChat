@@ -1,9 +1,7 @@
-import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { Chat } from "./schema/chat";
 import { ChatAttachment } from "./schema/chat_attachment";
 import { Connector } from "./schema/connectors";
-import { Feedback } from "./schema/feedback";
 import { Message } from "./schema/message";
 import { ScheduledTask } from "./schema/scheduled_task";
 import { TaskHistory } from "./schema/task_history";
@@ -13,7 +11,6 @@ import { User } from "./schema/user";
 import { UserApiKey } from "./schema/user_api_key";
 
 export default defineSchema({
-  ...authTables,
   users: defineTable(User).index("email", ["email"]),
   chats: defineTable(Chat).index("by_user", ["userId"]),
   messages: defineTable(Message)
@@ -23,7 +20,6 @@ export default defineSchema({
       searchField: "content",
       filterFields: ["userId", "chatId"],
     }),
-  feedback: defineTable(Feedback).index("by_user", ["userId"]),
   chat_attachments: defineTable(ChatAttachment)
     .index("by_chatId", ["chatId"])
     .index("by_userId", ["userId"])

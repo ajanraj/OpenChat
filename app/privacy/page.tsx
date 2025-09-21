@@ -127,7 +127,7 @@ export default function PrivacyPage() {
               responses
             </li>
             <li>
-              <strong>Authentication:</strong> Convex Auth for secure login
+              <strong>Authentication:</strong> Better Auth for secure login
             </li>
             <li>
               <strong>Payments:</strong> Polar for subscription billing

@@ -195,13 +195,13 @@ Configure the required and optional Convex environment variables for your applic
 
 #### A. Authentication (Required)
 
-OS Chat uses Convex Auth for authentication with Google OAuth.
+OS Chat uses Better Auth for authentication with Google OAuth.
 
-1. **Initialize Convex Auth:**
+1. **Configure Better Auth:**
 
    ```bash
-   # Initialize Convex Auth setup
-   bunx @convex-dev/auth
+   # Better Auth is already configured in the codebase
+   # Set up your Google OAuth credentials in the Convex dashboard
    ```
 
 2. **Set up Google OAuth:**
@@ -274,7 +274,7 @@ bunx convex env set POLAR_WEBHOOK_SECRET your-polar-webhook-secret
 
 **Reference Documentation:**
 
-- [Convex Auth Setup Guide](https://labs.convex.dev/auth/setup)
+- [Convex Better Auth Documentation](https://convex-better-auth.netlify.app/)
 - [Google OAuth Configuration](https://labs.convex.dev/auth/config/oauth/google)
 - [Cloudflare R2 Component](https://www.convex.dev/components/cloudflare-r2)
 - [Polar Component Documentation](https://www.convex.dev/components/polar)
@@ -336,7 +336,7 @@ For production deployment:
 
 - Verify OAuth credentials in Convex dashboard
 - Check `SITE_URL` matches your development/production URL
-- Ensure Convex Auth is properly configured
+- Ensure Better Auth is properly configured
 
 **API Key Issues**:
 
@@ -353,7 +353,7 @@ For production deployment:
 **Need Help?**
 
 - Check the [Convex Documentation](https://docs.convex.dev)
-- Review the [Convex Auth Setup Guide](https://labs.convex.dev/auth/setup)
+- Review the [Convex Better Auth Documentation](https://convex-better-auth.netlify.app/)
 - See [Google OAuth Configuration](https://labs.convex.dev/auth/config/oauth/google) for authentication
 - Configure [Cloudflare R2](https://www.convex.dev/components/cloudflare-r2) for file storage
 - Get an [Exa API key](https://exa.ai/) for web search functionality

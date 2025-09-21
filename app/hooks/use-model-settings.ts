@@ -27,7 +27,7 @@ export function useModelSettings() {
 
     if (enabled) {
       // Enabling model - remove from disabled list
-      newDisabled = currentDisabled.filter((id) => id !== modelId);
+      newDisabled = currentDisabled.filter((id: string) => id !== modelId);
     } else {
       // Disabling model - add to disabled list and remove from favorites
       if (modelId === MODEL_DEFAULT) {
@@ -37,13 +37,13 @@ export function useModelSettings() {
       newDisabled = currentDisabled.includes(modelId)
         ? currentDisabled
         : [...currentDisabled, modelId];
-      newFavorites = currentFavorites.filter((id) => id !== modelId);
+      newFavorites = currentFavorites.filter((id: string) => id !== modelId);
 
       // Ensure at least one favorite remains
       if (newFavorites.length === 0 && currentFavorites.length > 0) {
         const firstFavorite = currentFavorites[0];
         newFavorites = [firstFavorite];
-        newDisabled = newDisabled.filter((id) => id !== firstFavorite);
+        newDisabled = newDisabled.filter((id: string) => id !== firstFavorite);
       }
     }
 
@@ -70,11 +70,13 @@ export function useModelSettings() {
     const currentDisabled = currentUser.disabledModels ?? [];
 
     // Filter out MODEL_DEFAULT from the models to disable
-    const modelsToDisable = modelIds.filter((id) => id !== MODEL_DEFAULT);
+    const modelsToDisable = modelIds.filter(
+      (id: string) => id !== MODEL_DEFAULT
+    );
 
     // Remove disabled models from favorites
     let newFavorites = currentFavorites.filter(
-      (id) => !modelsToDisable.includes(id)
+      (id: string) => !modelsToDisable.includes(id)
     );
     // Merge with existing disabled models
     let newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
@@ -83,7 +85,7 @@ export function useModelSettings() {
     if (newFavorites.length === 0 && currentFavorites.length > 0) {
       const firstFavorite = currentFavorites[0];
       newFavorites = [firstFavorite];
-      newDisabled = newDisabled.filter((id) => id !== firstFavorite);
+      newDisabled = newDisabled.filter((id: string) => id !== firstFavorite);
     }
 
     localStore.setQuery(

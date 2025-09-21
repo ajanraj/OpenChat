@@ -24,7 +24,7 @@ export function useModelPreferences() {
     }
 
     const newFavorites = isFavorite
-      ? favorites.filter((id) => id !== modelId)
+      ? favorites.filter((id: string) => id !== modelId)
       : [...favorites, modelId];
 
     localStore.setQuery(
@@ -50,7 +50,7 @@ export function useModelPreferences() {
 
     // Remove favorite models from disabled list (auto-enable favorites)
     const newDisabled = currentDisabled.filter(
-      (id) => !newFavorites.includes(id)
+      (id: string) => !newFavorites.includes(id)
     );
 
     localStore.setQuery(

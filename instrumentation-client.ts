@@ -7,6 +7,6 @@ if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
     capture_pageview: "history_change",
     capture_pageleave: true, // Enable pageleave capture
     capture_exceptions: true, // This enables capturing exceptions using Error Tracking
-    debug: process.env.NODE_ENV === "development",
+    debug: false,
   });
 }

@@ -1,11 +1,12 @@
 import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
-import { auth } from "./auth";
+import { authComponent, createAuth } from "./auth";
 import { polar } from "./polar";
 
 const http = httpRouter();
 
-auth.addHttpRoutes(http);
+// Register Better Auth routes
+authComponent.registerRoutes(http, createAuth);
 
 // Register Polar webhook with subscription event callbacks
 polar.registerRoutes(http, {

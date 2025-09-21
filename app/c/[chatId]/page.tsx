@@ -1,8 +1,8 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { redirect } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { getToken } from "@/lib/auth-server";
 
 import Chat from "../../components/chat/chat";
 
@@ -12,7 +12,7 @@ export default async function ChatPage({
   params: Promise<{ chatId: string }>;
 }) {
   // Validate the chat on the server to avoid client-side flashes.
-  const token = await convexAuthNextjsToken();
+  const token = await getToken();
 
   // If we fail to obtain a token (anonymous visitor with cookies disabled, etc.)
   // we still attempt the query – Convex will treat it as anonymous and only

@@ -48,7 +48,7 @@ export default function SecurityPage() {
             <strong>Access Controls:</strong>
           </p>
           <ul>
-            <li>Authentication via Google OAuth through Convex Auth</li>
+            <li>Authentication via Google OAuth through Better Auth</li>
             <li>Users can only access their own data</li>
             <li>Server-side validation for all data access requests</li>
             <li>
