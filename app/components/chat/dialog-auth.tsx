@@ -1,6 +1,5 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import Image from "next/image";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { authClient } from "@/lib/auth-client";
 
 type DialogAuthProps = {
   open: boolean;
@@ -22,13 +22,13 @@ export function DialogAuth({ open, setOpen }: DialogAuthProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { signIn } = useAuthActions();
-
   const handleSignInWithGoogle = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      await signIn("google");
+      await authClient.signIn.social({
+        provider: "google",
+      });
       setOpen(false);
     } catch (err: unknown) {
       if (err instanceof Error) {

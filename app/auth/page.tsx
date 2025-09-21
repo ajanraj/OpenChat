@@ -1,11 +1,11 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TextHoverEffect } from "@/components/ui/text-hover-effect";
+import { authClient } from "@/lib/auth-client";
 import { APP_NAME } from "@/lib/config";
 import { HeaderGoBack } from "../components/header-go-back";
 
@@ -13,14 +13,14 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { signIn } = useAuthActions();
-
   async function handleSignInWithGoogle() {
     try {
       setIsLoading(true);
       setError(null);
 
-      await signIn("google");
+      await authClient.signIn.social({
+        provider: "google",
+      });
     } catch (err: unknown) {
       setIsLoading(false);
       // console.error('Error signing in with Google:', err);

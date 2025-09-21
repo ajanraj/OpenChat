@@ -1,24 +1,22 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import Image from "next/image";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
+import { authClient } from "@/lib/auth-client";
 import { APP_NAME } from "../../../lib/config";
 
 export function PopoverContentAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { signIn } = useAuthActions();
-
   const handleSignInWithGoogle = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      await signIn("google");
+      await authClient.signIn.social({ provider: "google" });
     } catch (_err: unknown) {
       // console.error('Error signing in with Google:', err);
       setError("Unable to sign in at the moment. Please try again later.");
