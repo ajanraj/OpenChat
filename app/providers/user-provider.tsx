@@ -1,9 +1,9 @@
 "use client";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { createContext, useCallback, useContext, useMemo } from "react";
+import { authClient } from "@/lib/auth-client";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 
@@ -67,8 +67,7 @@ export function UserProvider({
   children: React.ReactNode;
   initialUser?: null;
 }) {
-  // isLoading will always be false here
-  const { signIn, signOut } = useAuthActions();
+  // Auth actions from Better Auth
   const { data: user = null, isLoading: isUserLoading } = useTanStackQuery({
     ...convexQuery(api.users.getCurrentUser, {}),
     // Extended cache for user data to prevent auth flickering
@@ -85,30 +84,35 @@ export function UserProvider({
   // and proper error handling rather than preventing the subscription entirely.
 
   const { data: hasPremium, isLoading: isPremiumLoading } = useTanStackQuery({
-    ...convexQuery(api.users.userHasPremium, {}),
-    enabled: Boolean(user) && !user?.isAnonymous,
+    ...convexQuery(
+      api.users.userHasPremium,
+      user && !user?.isAnonymous ? {} : "skip"
+    ),
     // Premium status changes infrequently, cache longer
     gcTime: 15 * 60 * 1000, // 15 minutes
   });
 
   const { data: products, isLoading: isProductsLoading } = useTanStackQuery({
-    ...convexQuery(api.polar.getConfiguredProducts, {}),
-    enabled: Boolean(user) && !user?.isAnonymous,
+    ...convexQuery(
+      api.polar.getConfiguredProducts,
+      user && !user?.isAnonymous ? {} : "skip"
+    ),
     // Product configurations are very stable, cache aggressively
     gcTime: 60 * 60 * 1000, // 60 minutes
   });
 
   const { data: rateLimitStatus, isLoading: isRateLimitLoading } =
     useTanStackQuery({
-      ...convexQuery(api.users.getRateLimitStatus, {}),
-      enabled: Boolean(user),
+      ...convexQuery(api.users.getRateLimitStatus, user ? {} : "skip"),
       // Rate limits update more frequently, shorter cache
       gcTime: 5 * 60 * 1000, // 5 minutes
     });
 
   const { data: apiKeysQuery, isLoading: isApiKeysLoading } = useTanStackQuery({
-    ...convexQuery(api.api_keys.getApiKeys, {}),
-    enabled: Boolean(user) && !user?.isAnonymous,
+    ...convexQuery(
+      api.api_keys.getApiKeys,
+      user && !user?.isAnonymous ? {} : "skip"
+    ),
     // API keys are relatively stable, cache reasonably
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
@@ -119,7 +123,6 @@ export function UserProvider({
         api.connectors.listUserConnectors,
         user && !user?.isAnonymous ? {} : "skip"
       ),
-      enabled: Boolean(user) && !user?.isAnonymous,
       // Connectors are relatively stable, cache reasonably
       gcTime: 10 * 60 * 1000, // 10 minutes
     });
@@ -129,8 +132,8 @@ export function UserProvider({
   // User creation and account linking is handled by the createOrUpdateUser callback in auth.ts
 
   const signInGoogle = useCallback(async () => {
-    await signIn("google");
-  }, [signIn]);
+    await authClient.signIn.social({ provider: "google" });
+  }, []);
 
   const updateUser = useCallback(
     async (updates: Partial<UserProfile>) => {
@@ -178,12 +181,16 @@ export function UserProvider({
           isConnectorsLoading))
   );
 
+  const signOutUser = useCallback(async () => {
+    await authClient.signOut();
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       user,
       isLoading: combinedLoading,
       signInGoogle,
-      signOut,
+      signOut: signOutUser,
       updateUser,
       // User capabilities and settings
       hasPremium: (hasPremium ?? false) as boolean,
@@ -221,7 +228,7 @@ export function UserProvider({
       user,
       combinedLoading,
       signInGoogle,
-      signOut,
+      signOutUser,
       updateUser,
       hasPremium,
       products,

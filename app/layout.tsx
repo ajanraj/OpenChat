@@ -132,8 +132,6 @@ export const metadata: Metadata = {
   },
 };
 
-import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -164,17 +162,15 @@ export default function RootLayout({
           )}
         <LayoutClient />
         <TooltipProvider>
-          <ConvexAuthNextjsServerProvider>
-            <ConvexClientProvider>
-              <AuthGuard>
-                <SidebarProvider>
-                  <LayoutApp>{children}</LayoutApp>
-                </SidebarProvider>
-                <Analytics />
-                <SpeedInsights />
-              </AuthGuard>
-            </ConvexClientProvider>
-          </ConvexAuthNextjsServerProvider>
+          <ConvexClientProvider>
+            <AuthGuard>
+              <SidebarProvider>
+                <LayoutApp>{children}</LayoutApp>
+              </SidebarProvider>
+              <Analytics />
+              <SpeedInsights />
+            </AuthGuard>
+          </ConvexClientProvider>
         </TooltipProvider>
       </body>
     </html>

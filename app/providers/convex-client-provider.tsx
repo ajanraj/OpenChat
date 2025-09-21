@@ -1,10 +1,11 @@
 "use client";
-import { ConvexAuthNextjsProvider } from "@convex-dev/auth/nextjs";
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ConvexReactClient } from "convex/react";
 import { useState } from "react";
+import { authClient } from "@/lib/auth-client";
 
 // Validate environment variable early for clearer error messaging
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -15,7 +16,10 @@ if (!convexUrl) {
   );
 }
 
-const client = new ConvexReactClient(convexUrl);
+const client = new ConvexReactClient(convexUrl, {
+  expectAuth: false,
+  verbose: false,
+});
 
 export function ConvexClientProvider({
   children,
@@ -44,11 +48,11 @@ export function ConvexClientProvider({
   });
 
   return (
-    <ConvexAuthNextjsProvider client={client}>
+    <ConvexBetterAuthProvider authClient={authClient} client={client}>
       <QueryClientProvider client={queryClient}>
         {children}
         {process.env.NODE_ENV === "development" && <ReactQueryDevtools />}
       </QueryClientProvider>
-    </ConvexAuthNextjsProvider>
+    </ConvexBetterAuthProvider>
   );
 }
