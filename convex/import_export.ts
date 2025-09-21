@@ -1,8 +1,8 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../lib/error-codes";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
+import { authComponent } from "./auth";
 
 export const bulkImportChat = mutation({
   args: {
@@ -44,10 +44,11 @@ export const bulkImportChat = mutation({
     messageCount: v.number(),
   }),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     // Create chat
     const now = Date.now();

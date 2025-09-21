@@ -1,7 +1,8 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../lib/error-codes";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { authComponent } from "./auth";
 
 const API_KEY_SECRET = process.env.API_KEY_SECRET;
 if (!API_KEY_SECRET) {
@@ -173,11 +174,12 @@ export const getApiKeys = query({
     })
   ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       // Return empty array for unauthenticated users
       return [];
     }
+    const userId = authUser.userId as Id<"users">;
     const keys = await ctx.db
       .query("user_api_keys")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId))
@@ -211,10 +213,11 @@ export const saveApiKey = mutation({
   },
   returns: v.null(),
   handler: async (ctx, { provider, key, mode }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
     const [encrypted, existing] = await Promise.all([
       encrypt(key, userId),
       ctx.db
@@ -262,10 +265,11 @@ export const deleteApiKey = mutation({
   },
   returns: v.null(),
   handler: async (ctx, { provider }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
     const existing = await ctx.db
       .query("user_api_keys")
       .withIndex("by_user_provider", (q) =>
@@ -294,10 +298,11 @@ export const updateApiKeyMode = mutation({
   },
   returns: v.null(),
   handler: async (ctx, { provider, mode }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
     const existing = await ctx.db
       .query("user_api_keys")
       .withIndex("by_user_provider", (q) =>
@@ -324,10 +329,11 @@ export const getDecryptedKey = query({
     ),
   },
   handler: async (ctx, { provider }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
     const existing = await ctx.db
       .query("user_api_keys")
       .withIndex("by_user_provider", (q) =>
@@ -349,10 +355,11 @@ export const incrementUserApiKeyUsage = mutation({
   args: { provider: v.string() },
   returns: v.null(),
   handler: async (ctx, { provider }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
     const existing = await ctx.db
       .query("user_api_keys")
       .withIndex("by_user_provider", (q) =>

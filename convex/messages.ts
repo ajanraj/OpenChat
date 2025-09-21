@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
@@ -9,6 +8,7 @@ import {
   mutation,
   query,
 } from "./_generated/server";
+import { authComponent } from "./auth";
 // Import helper functions
 import { ensureChatAccess, ensureMessageAccess } from "./lib/auth_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
@@ -389,10 +389,11 @@ export const deleteMessageAndDescendants = mutation({
   returns: v.object({ chatDeleted: v.boolean() }),
   handler: async (ctx, { messageId, deleteOnlyDescendants = false }) => {
     // Try to get message access
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       return { chatDeleted: false };
     }
+    const userId = authUser.userId as Id<"users">;
     const message = await ctx.db.get(messageId);
     if (!message) {
       return { chatDeleted: false };
@@ -526,10 +527,11 @@ export const searchMessages = query({
   ),
   handler: async (ctx, { query: search, limit = 20 }) => {
     const safeLimit = Math.min(Math.max(1, limit), 100); // Cap between 1-100
-    const userId = await getAuthUserId(ctx);
-    if (!userId || search.trim() === "") {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId || search.trim() === "") {
       return [];
     }
+    const userId = authUser.userId as Id<"users">;
 
     const results = await ctx.db
       .query("messages")

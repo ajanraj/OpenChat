@@ -16,7 +16,8 @@ export const onSubscriptionUpdated = internalMutation({
     if (directUserId) {
       const user = await ctx.db.get(directUserId as Id<"users">);
       if (user) {
-        await resetUserRateLimits(ctx, user._id, user.isAnonymous ?? false);
+        // Subscription users are always authenticated
+        await resetUserRateLimits(ctx, user._id);
         return null;
       }
     }
@@ -28,18 +29,12 @@ export const onSubscriptionUpdated = internalMutation({
 /**
  * Helper function to reset all rate limits for a user
  */
-async function resetUserRateLimits(
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  isAnonymous: boolean
-) {
-  // Reset daily limits (for non-premium tracking)
-  const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-
+async function resetUserRateLimits(ctx: MutationCtx, userId: Id<"users">) {
+  // Reset daily limits (subscription users are always authenticated)
   // Run all rate limiter operations concurrently
   const operations = [
-    rateLimiter.reset(ctx, dailyLimitName, { key: userId }),
-    rateLimiter.limit(ctx, dailyLimitName, { key: userId, count: 0 }),
+    rateLimiter.reset(ctx, "authenticatedDaily", { key: userId }),
+    rateLimiter.limit(ctx, "authenticatedDaily", { key: userId, count: 0 }),
     rateLimiter.reset(ctx, "standardMonthly", { key: userId }),
     rateLimiter.limit(ctx, "standardMonthly", { key: userId, count: 0 }),
     rateLimiter.reset(ctx, "premiumMonthly", { key: userId }),

@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import {
   calculateRateLimit,
@@ -15,6 +14,7 @@ import {
   mutation,
   query,
 } from "./_generated/server";
+import { authComponent } from "./auth";
 import { RATE_LIMITS } from "./lib/rateLimitConstants";
 import { polar } from "./polar";
 import { rateLimiter } from "./rateLimiter";
@@ -31,11 +31,28 @@ export const getCurrentUser = query({
     })
   ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       return null;
     }
-    return await ctx.db.get(userId);
+
+    const customUser = await ctx.db.get(authUser.userId as Id<"users">);
+    if (!customUser) {
+      return null;
+    }
+
+    // Merge Better Auth user data with custom user data
+    // Better Auth fields override custom table fields
+    return {
+      ...customUser,
+      _id: authUser.userId as Id<"users">,
+      // Use Better Auth fields instead of custom table duplicates
+      name: authUser.name,
+      email: authUser.email,
+      image: authUser.image ?? undefined,
+      isAnonymous: authUser.isAnonymous ?? undefined,
+      // Note: Better Auth uses emailVerified (boolean), not emailVerificationTime (number)
+    };
   },
 });
 
@@ -43,13 +60,15 @@ export const userHasPremium = query({
   args: {},
   returns: v.boolean(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       return false;
     }
 
     try {
-      const subscription = await polar.getCurrentSubscription(ctx, { userId });
+      const subscription = await polar.getCurrentSubscription(ctx, {
+        userId: authUser.userId as Id<"users">,
+      });
       return subscription?.status === "active";
     } catch {
       return false;
@@ -78,17 +97,17 @@ export const updateUserProfile = mutation({
   },
   returns: v.null(),
   handler: async (ctx, { updates }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return null;
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
+      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get(authUser.userId as Id<"users">);
     if (!user) {
       return null;
     }
 
     // Apply the updates
-    await ctx.db.patch(userId, { ...updates });
+    await ctx.db.patch(authUser.userId as Id<"users">, { ...updates });
 
     return null;
   },
@@ -98,12 +117,12 @@ export const toggleFavoriteModel = mutation({
   args: { modelId: v.string() },
   returns: v.null(),
   handler: async (ctx, { modelId }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get(authUser.userId as Id<"users">);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
@@ -128,7 +147,7 @@ export const toggleFavoriteModel = mutation({
       newDisabled = currentDisabled.filter((id) => id !== modelId);
     }
 
-    await ctx.db.patch(userId, {
+    await ctx.db.patch(user._id, {
       favoriteModels: newFavorites,
       disabledModels: newDisabled,
     });
@@ -141,10 +160,11 @@ export const setModelEnabled = mutation({
   args: { modelId: v.string(), enabled: v.boolean() },
   returns: v.null(),
   handler: async (ctx, { modelId, enabled }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     const user = await ctx.db.get(userId);
     if (!user) {
@@ -195,10 +215,11 @@ export const bulkSetModelsDisabled = mutation({
   args: { modelIds: v.array(v.string()) },
   returns: v.null(),
   handler: async (ctx, { modelIds }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     const user = await ctx.db.get(userId);
     if (!user) {
@@ -248,10 +269,11 @@ export const bulkSetFavoriteModels = mutation({
   args: { modelIds: v.array(v.string()) },
   returns: v.null(),
   handler: async (ctx, { modelIds }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     const user = await ctx.db.get(userId);
     if (!user) {
@@ -288,21 +310,24 @@ export const incrementMessageCount = mutation({
   },
   returns: v.null(),
   handler: async (ctx, { usesPremiumCredits }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
+    // Use the authUser we already fetched to check isAnonymous status
+    const isAnonymous = authUser?.isAnonymous ?? false;
+
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
     const isPremium = subscription?.status === "active";
-    const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, deduct from premium credits
     if (isPremium && usesPremiumCredits) {
@@ -340,21 +365,24 @@ export const assertNotOverLimit = mutation({
     usesPremiumCredits: v.optional(v.boolean()),
   },
   handler: async (ctx, { usesPremiumCredits }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
+    // Use the authUser we already fetched to check isAnonymous status
+    const isAnonymous = authUser?.isAnonymous ?? false;
+
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
     const isPremium = subscription?.status === "active";
-    const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, check premium credits
     if (isPremium && usesPremiumCredits) {
@@ -426,9 +454,8 @@ export const getRateLimitStatus = query({
     premiumReset: v.optional(v.number()),
   }),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    // console.log('getRateLimitStatus called for userId:', userId);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       // Return safe defaults for unauthenticated users
       return {
         isPremium: false,
@@ -445,16 +472,18 @@ export const getRateLimitStatus = query({
       };
     }
 
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get(authUser.userId as Id<"users">);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
+
+    // Use the authUser we already fetched to check isAnonymous status
+    const isAnonymous = authUser?.isAnonymous ?? false;
 
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
     const isPremium = subscription?.status === "active";
-    const isAnonymous = user.isAnonymous ?? false;
     const now = Date.now();
 
     // Determine daily limit name for non-premium users
@@ -473,17 +502,17 @@ export const getRateLimitStatus = query({
     ] = await Promise.all([
       isPremium
         ? Promise.resolve(null)
-        : rateLimiter.check(ctx, dailyLimitName, { key: userId }),
+        : rateLimiter.check(ctx, dailyLimitName, { key: authUser.userId }),
       isPremium
         ? Promise.resolve(null)
-        : rateLimiter.getValue(ctx, dailyLimitName, { key: userId }),
-      rateLimiter.check(ctx, "standardMonthly", { key: userId }),
-      rateLimiter.getValue(ctx, "standardMonthly", { key: userId }),
+        : rateLimiter.getValue(ctx, dailyLimitName, { key: authUser.userId }),
+      rateLimiter.check(ctx, "standardMonthly", { key: authUser.userId }),
+      rateLimiter.getValue(ctx, "standardMonthly", { key: authUser.userId }),
       isPremium
-        ? rateLimiter.check(ctx, "premiumMonthly", { key: userId })
+        ? rateLimiter.check(ctx, "premiumMonthly", { key: authUser.userId })
         : Promise.resolve(null),
       isPremium
-        ? rateLimiter.getValue(ctx, "premiumMonthly", { key: userId })
+        ? rateLimiter.getValue(ctx, "premiumMonthly", { key: authUser.userId })
         : Promise.resolve(null),
     ]);
 
@@ -595,21 +624,14 @@ export const deleteAccount = mutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     // --- Step 1: Fetch all documents that need to be deleted in parallel ---
-    const [
-      attachments,
-      messages,
-      chats,
-      feedback,
-      usage,
-      authAccounts,
-      authSessions,
-    ] = await Promise.all([
+    const [attachments, messages, chats, usage] = await Promise.all([
       ctx.db
         .query("chat_attachments")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -623,20 +645,8 @@ export const deleteAccount = mutation({
         .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query("feedback")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
         .query("usage_history")
         .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("authAccounts")
-        .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("authSessions")
-        .withIndex("userId", (q) => q.eq("userId", userId))
         .collect(),
     ]);
 
@@ -664,23 +674,11 @@ export const deleteAccount = mutation({
     // Delete chats
     deletionPromises.push(...chats.map((chat) => ctx.db.delete(chat._id)));
 
-    // Delete feedback
-    deletionPromises.push(...feedback.map((f) => ctx.db.delete(f._id)));
-
     // Delete usage history
     deletionPromises.push(...usage.map((u) => ctx.db.delete(u._id)));
 
-    // Delete auth accounts
-    deletionPromises.push(
-      ...authAccounts.map((acc) => ctx.db.delete(acc._id as Id<"authAccounts">))
-    );
-
-    // Delete auth sessions
-    deletionPromises.push(
-      ...authSessions.map((sess) =>
-        ctx.db.delete(sess._id as Id<"authSessions">)
-      )
-    );
+    // Note: Better Auth manages its own user deletion through the onDelete trigger
+    // in convex/auth.ts, so we don't need to manually delete auth tables
 
     // Execute all deletions concurrently
     await Promise.allSettled(deletionPromises);
@@ -690,18 +688,6 @@ export const deleteAccount = mutation({
     return null;
   },
 });
-
-// React hook API functions for rate limiting
-export const { getRateLimit: getRateLimitHook, getServerTime } =
-  rateLimiter.hookAPI(
-    "authenticatedDaily", // Default rate limit
-    {
-      key: async (ctx) => {
-        const userId = await getAuthUserId(ctx);
-        return userId || "anonymous";
-      },
-    }
-  );
 
 // Internal query to get user by ID
 export const getUser = internalQuery({
@@ -731,11 +717,14 @@ export const assertNotOverLimitInternal = internalMutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
+    // Internal functions are only called for authenticated users (scheduled tasks require auth)
+    // Anonymous users cannot create scheduled tasks, so isAnonymous = false
+    const isAnonymous = false;
+
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
     const isPremium = subscription?.status === "active";
-    const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, check premium credits
     if (isPremium && usesPremiumCredits) {
@@ -799,11 +788,14 @@ export const incrementMessageCountInternal = internalMutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
+    // Internal functions are only called for authenticated users (scheduled tasks require auth)
+    // Anonymous users cannot create scheduled tasks, so isAnonymous = false
+    const isAnonymous = false;
+
     const subscription = await polar.getCurrentSubscription(ctx, {
       userId: user._id,
     });
     const isPremium = subscription?.status === "active";
-    const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, deduct from premium credits
     if (isPremium && usesPremiumCredits) {

@@ -1,9 +1,9 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../lib/error-codes";
 import { detectRedactedContent } from "../lib/redacted-content-detector";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
+import { authComponent } from "./auth";
 // Import helper functions
 import {
   ensureAuthenticated,
@@ -92,10 +92,11 @@ export const forkFromShared = mutation({
   args: { sourceChatId: v.id("chats") },
   returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, { sourceChatId }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     const source = await ctx.db.get(sourceChatId);
     if (!(source && (source.public ?? false))) {
@@ -201,10 +202,11 @@ export const listChatsForUser = query({
     })
   ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       return [];
     }
+    const userId = authUser.userId as Id<"users">;
     return await ctx.db
       .query("chats")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -273,10 +275,11 @@ export const deleteAllChatsForUser = mutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       return null;
     }
+    const userId = authUser.userId as Id<"users">;
 
     const chats = await ctx.db
       .query("chats")

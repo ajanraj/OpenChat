@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2, type R2Callbacks } from "@convex-dev/r2";
 import { ConvexError, v } from "convex/values";
 import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BYTES } from "@/lib/config/upload";
@@ -7,6 +6,7 @@ import { ERROR_CODES } from "../lib/error-codes";
 import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, mutation, query } from "./_generated/server";
+import { authComponent } from "./auth";
 
 // R2 client and client API exports (used by React upload hook and server routes)
 const r2 = new R2(components.r2);
@@ -19,17 +19,18 @@ export const { generateUploadUrl, syncMetadata, onSyncMetadata } = r2.clientApi(
     // Provide callbacks reference so the component can invoke onSyncMetadata
     callbacks,
     checkUpload: async (ctx) => {
-      const userId = await getAuthUserId(ctx);
-      if (!userId) {
+      const authUser = await ctx.auth.getUserIdentity();
+      if (authUser === null) {
         throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
       }
     },
     // Create a pending attachment row on upload start
     onUpload: async (ctx, _bucket, key) => {
-      const userId = await getAuthUserId(ctx);
-      if (!userId) {
+      const authUser = await authComponent.safeGetAuthUser(ctx);
+      if (!authUser?.userId) {
         throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
       }
+      const userId = authUser.userId as Id<"users">;
 
       // If a row for this key already exists for this user, skip insert
       const existing = await ctx.db
@@ -146,10 +147,11 @@ export const saveFileAttachment = action({
     fileName: v.string(),
   },
   handler: async (ctx, args): Promise<SavedAttachment> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
     // Ensure we have fresh metadata from R2
     // await ctx.runMutation(api.files.syncMetadata, { key: args.key });
 
@@ -216,8 +218,8 @@ export const saveGeneratedImage = action({
     fileName: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<SavedAttachment> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await ctx.auth.getUserIdentity();
+    if (authUser === null) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
@@ -270,10 +272,11 @@ export const internalSave = internalMutation({
     url: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     // Verify that the key belongs to the current user via the pending row.
     const existing = await ctx.db
@@ -343,10 +346,11 @@ export const internalSaveGenerated = internalMutation({
     url: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     // Verify ownership of the key to this user
     const existing = await ctx.db
@@ -389,10 +393,11 @@ export const internalSaveGenerated = internalMutation({
 export const getAttachment = query({
   args: { attachmentId: v.id("chat_attachments") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     const attachment = await ctx.db.get(args.attachmentId);
     if (!attachment || attachment.userId !== userId) {
@@ -406,10 +411,11 @@ export const getAttachment = query({
 export const findAttachmentByKey = query({
   args: { key: v.string() },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
     const row = await ctx.db
       .query("chat_attachments")
       .withIndex("by_key", (q) => q.eq("key", args.key))
@@ -428,8 +434,8 @@ export const getStorageUrl = query({
   args: { key: v.string() },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await ctx.auth.getUserIdentity();
+    if (authUser === null) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
@@ -452,10 +458,11 @@ export const getStorageUrl = query({
 export const getAttachmentsForUser = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
+      return [];
     }
+    const userId = authUser.userId as Id<"users">;
 
     const attachments = await ctx.db
       .query("chat_attachments")
@@ -475,10 +482,11 @@ export const getAttachmentsForUser = query({
 export const deleteAttachments = mutation({
   args: { attachmentIds: v.array(v.id("chat_attachments")) },
   handler: async (ctx, { attachmentIds }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     // Create a Set for O(1) lookup of attachment IDs to delete
     const attachmentIdsToDelete = new Set(attachmentIds);
@@ -508,10 +516,11 @@ export const deleteAttachments = mutation({
 export const getAttachmentsForChat = query({
   args: { chatId: v.id("chats") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    const userId = authUser.userId as Id<"users">;
 
     // Verify ownership of the chat
     const chat = await ctx.db.get(args.chatId);

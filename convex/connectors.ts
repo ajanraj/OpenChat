@@ -1,12 +1,13 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../lib/error-codes";
+import type { Id } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
   mutation,
   query,
 } from "./_generated/server";
+import { authComponent } from "./auth";
 import { ensureAuthenticated } from "./lib/auth_helper";
 
 // Type for connector types
@@ -41,10 +42,11 @@ export const listUserConnectors = query({
     })
   ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       return [];
     }
+    const userId = authUser.userId as Id<"users">;
     const connectors = await ctx.db
       .query("connectors")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -75,10 +77,11 @@ export const getConnectorByType = query({
     v.null()
   ),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser?.userId) {
       return null;
     }
+    const userId = authUser.userId as Id<"users">;
     const connector = await ctx.db
       .query("connectors")
       .withIndex("by_user_and_type", (q) =>

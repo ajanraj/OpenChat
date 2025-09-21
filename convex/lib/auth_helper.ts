@@ -1,8 +1,8 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import { ERROR_CODES } from "../../lib/error-codes";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { authComponent } from "../auth";
 
 /**
  * Ensures the user is authenticated and returns their userId.
@@ -14,11 +14,11 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 export async function ensureAuthenticated(
   ctx: QueryCtx | MutationCtx
 ): Promise<Id<"users">> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
+  const authUser = await authComponent.safeGetAuthUser(ctx);
+  if (!authUser?.userId) {
     throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
   }
-  return userId;
+  return authUser.userId as Id<"users">;
 }
 
 /**
@@ -107,11 +107,11 @@ export async function ensureMessageAccess(
 export async function getCurrentUserOrNull(
   ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users"> | null> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
+  const authUser = await authComponent.safeGetAuthUser(ctx);
+  if (!authUser?.userId) {
     return null;
   }
-  return await ctx.db.get(userId);
+  return await ctx.db.get(authUser.userId as Id<"users">);
 }
 
 /**
