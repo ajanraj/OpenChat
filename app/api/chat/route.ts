@@ -2,7 +2,6 @@
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 // import { withTracing } from '@posthog/ai';
 import {
   consumeStream,
@@ -24,6 +23,7 @@ import { searchTool } from "@/app/api/tools/search";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { Message } from "@/convex/schema/message";
+import { getToken } from "@/lib/auth-server";
 import { MODELS_MAP } from "@/lib/config";
 import { calculateConnectorStatus } from "@/lib/connector-utils";
 import { createAgentTool } from "@/lib/create-agent-tool";
@@ -507,7 +507,7 @@ export async function POST(req: Request) {
       return createErrorResponse(new Error("Invalid 'model' provided."));
     }
 
-    const token = await convexAuthNextjsToken();
+    const token = await getToken();
 
     // Get current user first (needed for multiple operations below)
     const user = await fetchQuery(api.users.getCurrentUser, {}, { token });

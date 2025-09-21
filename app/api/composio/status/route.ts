@@ -1,13 +1,13 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { NextResponse } from "next/server";
 import { api } from "@/convex/_generated/api";
+import { getToken } from "@/lib/auth-server";
 import { waitForConnection } from "@/lib/composio-server";
 import { createErrorResponse } from "@/lib/error-utils";
 
 export async function GET(request: Request) {
   try {
-    const token = await convexAuthNextjsToken();
+    const token = await getToken();
     if (!token) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

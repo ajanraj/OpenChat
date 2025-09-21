@@ -1,8 +1,8 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { PostHog } from "posthog-node";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
+import { getToken } from "@/lib/auth-server";
 import { createErrorResponse } from "@/lib/error-utils";
 
 export async function POST(request: Request) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     const { title, model, personaId } = parseResult.data;
 
-    const token = await convexAuthNextjsToken();
+    const token = await getToken();
 
     const user = await fetchQuery(api.users.getCurrentUser, {}, { token });
 

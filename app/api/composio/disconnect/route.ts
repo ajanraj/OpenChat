@@ -1,7 +1,7 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { NextResponse } from "next/server";
 import { api } from "@/convex/_generated/api";
+import { getToken } from "@/lib/auth-server";
 import { disconnectAccount } from "@/lib/composio-server";
 import { SUPPORTED_CONNECTORS } from "@/lib/config/tools";
 import { createErrorResponse } from "@/lib/error-utils";
@@ -9,7 +9,7 @@ import type { ConnectorType } from "@/lib/types";
 
 export async function POST(request: Request) {
   try {
-    const token = await convexAuthNextjsToken();
+    const token = await getToken();
     if (!token) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

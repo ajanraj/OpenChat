@@ -1,11 +1,11 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { getToken } from "@/lib/auth-server";
 import { createErrorResponse } from "@/lib/error-utils";
 
 export async function GET() {
   try {
-    const token = await convexAuthNextjsToken();
+    const token = await getToken();
 
     // If no valid token, the user is not authenticated
     if (!token) {
