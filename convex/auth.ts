@@ -1,106 +1,144 @@
-import Google from "@auth/core/providers/google";
-import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
-import { convexAuth } from "@convex-dev/auth/server";
+import {
+  type AuthFunctions,
+  createClient,
+  type GenericCtx,
+} from "@convex-dev/better-auth";
+import { convex } from "@convex-dev/better-auth/plugins";
+import { betterAuth } from "better-auth";
+import { anonymous } from "better-auth/plugins";
 import { MODEL_DEFAULT, RECOMMENDED_MODELS } from "../lib/config";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import { components, internal } from "./_generated/api";
+import type { DataModel, Id } from "./_generated/dataModel";
 import { rateLimiter } from "./rateLimiter";
 
-// Helper function to initialize user fields
-const initializeUserFields = () => ({
-  preferredModel: MODEL_DEFAULT,
-  // By default no models are disabled – an empty array means all are enabled
-  disabledModels: [],
-  // Initialize with recommended models as favorites
-  favoriteModels: [...RECOMMENDED_MODELS],
-});
+const siteUrl = process.env.SITE_URL || "http://localhost:3000";
 
-// Helper function to initialize rate limits for new user
-const initializeRateLimits = async (
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  isAnonymous: boolean
-): Promise<void> => {
-  try {
-    const rateLimitPromises: Promise<unknown>[] = [];
+// Auth functions for Better Auth internal use
+const authFunctions: AuthFunctions = internal.auth;
 
-    // Daily limits based on user type
-    const dailyLimitName = isAnonymous
-      ? "anonymousDaily"
-      : "authenticatedDaily";
-    rateLimitPromises.push(
-      rateLimiter.limit(ctx, dailyLimitName, {
-        key: userId,
-        count: 0,
-      })
-    );
+// The component client has methods needed for integrating Convex with Better Auth,
+// as well as helper methods for general use.
+export const authComponent = createClient<DataModel>(components.betterAuth, {
+  verbose: false,
+  authFunctions,
+  triggers: {
+    user: {
+      onCreate: async (ctx, authUser) => {
+        // CRITICAL: Check if user already exists by email to preserve existing data
+        // This is essential for production users with subscriptions and chat history
+        if (authUser.email) {
+          const existingUser = await ctx.db
+            .query("users")
+            .filter((q) => q.eq(q.field("email"), authUser.email))
+            .first();
 
-    // Monthly limits for all users
-    rateLimitPromises.push(
-      rateLimiter.limit(ctx, "standardMonthly", {
-        key: userId,
-        count: 0,
-      })
-    );
+          if (existingUser) {
+            // Link Better Auth user to existing user (preserves subscriptions and data!)
+            await authComponent.setUserId(ctx, authUser._id, existingUser._id);
+            return;
+          }
+        }
 
-    // Initialize premium credits counter for all users (will only be used by premium users)
-    rateLimitPromises.push(
-      rateLimiter.limit(ctx, "premiumMonthly", {
-        key: userId,
-        count: 0,
-      })
-    );
+        // Only create new user if no existing one found
+        // Create new user in our users table with app-specific preferences only
+        // Identity fields (name, email, image, isAnonymous) are managed by Better Auth
+        const userId = await ctx.db.insert("users", {
+          // Initialize user preferences only
+          preferredModel: MODEL_DEFAULT,
+          disabledModels: [],
+          favoriteModels: [...RECOMMENDED_MODELS],
+        });
 
-    await Promise.all(rateLimitPromises);
-  } catch (_error) {
-    // Non-fatal: rate-limit initialisation failure should never block the
-    // user flow. The rate-limiter will lazily create windows on first use.
-  }
-};
+        // Link Better Auth user to our user
+        await authComponent.setUserId(ctx, authUser._id, userId);
 
-export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [
-    Google,
-    Anonymous({
-      profile: () => ({ isAnonymous: true }),
-    }),
-  ],
-  callbacks: {
-    async createOrUpdateUser(ctx, args) {
-      const { existingUserId, type, profile } = args;
+        // Initialize rate limits for new user
+        try {
+          const rateLimitPromises: Promise<unknown>[] = [];
 
-      // If user already exists, just return their ID - no updates needed
-      if (existingUserId) {
-        return existingUserId;
-      }
+          // Daily limits based on user type from Better Auth
+          const isAnonymous = authUser.isAnonymous ?? false;
+          const dailyLimitName = isAnonymous
+            ? "anonymousDaily"
+            : "authenticatedDaily";
+          rateLimitPromises.push(
+            rateLimiter.limit(ctx, dailyLimitName, {
+              key: userId,
+              count: 0,
+            })
+          );
 
-      // Create new user (either anonymous or OAuth)
-      const isAnonymous = type !== "oauth";
+          // Monthly limits for all users
+          rateLimitPromises.push(
+            rateLimiter.limit(ctx, "standardMonthly", {
+              key: userId,
+              count: 0,
+            })
+          );
 
-      // Build user fields with OAuth profile information if available
-      const baseFields = {
-        isAnonymous,
-        ...initializeUserFields(),
-      };
+          // Initialize premium credits counter for all users (will only be used by premium users)
+          rateLimitPromises.push(
+            rateLimiter.limit(ctx, "premiumMonthly", {
+              key: userId,
+              count: 0,
+            })
+          );
 
-      const userFields =
-        type === "oauth" && profile
-          ? {
-              ...baseFields,
-              name: profile.name as string | undefined,
-              email: profile.email as string | undefined,
-              image: (profile.picture || profile.image) as string | undefined,
-              // OAuth providers have already verified the email
-              emailVerificationTime: Date.now(),
-            }
-          : baseFields;
-
-      const userId = await ctx.db.insert("users", userFields);
-
-      // Initialize rate limits for new user
-      await initializeRateLimits(ctx, userId, isAnonymous);
-
-      return userId;
+          await Promise.all(rateLimitPromises);
+        } catch (_error) {
+          // Non-fatal: rate-limit initialization failure should never block the user flow
+        }
+      },
+      onUpdate: async (_ctx, _oldUser, _newUser) => {
+        // Handle user updates if needed
+      },
+      onDelete: async (ctx, authUser) => {
+        // Clean up when user is deleted
+        if (authUser.userId) {
+          await ctx.db.delete(authUser.userId as Id<"users">);
+        }
+      },
     },
   },
 });
+
+export const createAuth = (
+  ctx: GenericCtx<DataModel>,
+  { optionsOnly } = { optionsOnly: false }
+) => {
+  return betterAuth({
+    // Disable logging when createAuth is called just to generate options.
+    // This is not required, but there's a lot of noise in logs without it.
+    logger: {
+      disabled: optionsOnly,
+    },
+    baseURL: siteUrl,
+    database: authComponent.adapter(ctx),
+    socialProviders: {
+      google: {
+        clientId: process.env.AUTH_GOOGLE_ID || "",
+        clientSecret: process.env.AUTH_GOOGLE_SECRET || "",
+      },
+    },
+    session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: 60 * 60, // Cache duration in seconds (1 hour)
+      },
+    },
+    plugins: [
+      // Anonymous authentication
+      anonymous({
+        onLinkAccount: () => {
+          // When anonymous user links to Google account,
+          // the onCreate trigger will handle merging the data
+        },
+      }),
+      // The Convex plugin is required for Convex compatibility (NO crossDomain for Next.js!)
+      convex(),
+    ],
+  });
+};
+
+// Export trigger functions for use in other Convex functions
+export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
