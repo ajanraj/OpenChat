@@ -1,4 +1,3 @@
-import { R2 } from "@convex-dev/r2";
 import {
   calculateRateLimit,
   type RateLimitConfig,
@@ -6,7 +5,6 @@ import {
 import { ConvexError, v } from "convex/values";
 import { MODEL_DEFAULT } from "../lib/config";
 import { ERROR_CODES } from "../lib/error-codes";
-import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   internalMutation,
@@ -619,75 +617,9 @@ export const getRateLimitStatus = query({
 // The application no longer automatically merges anonymous accounts with Google accounts
 // for security and simplicity. Users who sign in with Google will start with fresh accounts.
 
-// Delete account and all associated data
-export const deleteAccount = mutation({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    const authUser = await authComponent.safeGetAuthUser(ctx);
-    if (!authUser?.userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-    const userId = authUser.userId as Id<"users">;
-
-    // --- Step 1: Fetch all documents that need to be deleted in parallel ---
-    const [attachments, messages, chats, usage] = await Promise.all([
-      ctx.db
-        .query("chat_attachments")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("messages")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("chats")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("usage_history")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-    ]);
-
-    // --- Step 2: Collect all deletion promises and execute them concurrently ---
-    const deletionPromises: Promise<unknown>[] = [];
-
-    // Delete attachments and their files
-    const r2 = new R2(components.r2);
-    for (const att of attachments) {
-      deletionPromises.push(
-        r2.deleteObject(ctx, att.key).catch(() => {
-          // Silently handle storage deletion errors
-        })
-      );
-      deletionPromises.push(
-        ctx.db.delete(att._id).catch(() => {
-          // Silently handle database deletion errors
-        })
-      );
-    }
-
-    // Delete messages
-    deletionPromises.push(...messages.map((msg) => ctx.db.delete(msg._id)));
-
-    // Delete chats
-    deletionPromises.push(...chats.map((chat) => ctx.db.delete(chat._id)));
-
-    // Delete usage history
-    deletionPromises.push(...usage.map((u) => ctx.db.delete(u._id)));
-
-    // Note: Better Auth manages its own user deletion through the onDelete trigger
-    // in convex/auth.ts, so we don't need to manually delete auth tables
-
-    // Execute all deletions concurrently
-    await Promise.allSettled(deletionPromises);
-
-    // Finally delete user record
-    await ctx.db.delete(userId);
-    return null;
-  },
-});
+// Note: User account deletion is now handled by Better Auth's deleteUser() method.
+// This triggers the onDelete trigger in convex/auth.ts which performs comprehensive
+// cleanup of all user data including chats, messages, attachments, API keys, etc.
 
 // Internal query to get user by ID
 export const getUser = internalQuery({

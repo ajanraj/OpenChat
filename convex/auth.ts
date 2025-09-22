@@ -4,6 +4,7 @@ import {
   type GenericCtx,
 } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
+import { R2 } from "@convex-dev/r2";
 import { betterAuth } from "better-auth";
 import { anonymous } from "better-auth/plugins";
 import { MODEL_DEFAULT, RECOMMENDED_MODELS } from "../lib/config";
@@ -93,10 +94,98 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         // Handle user updates if needed
       },
       onDelete: async (ctx, authUser) => {
-        // Clean up when user is deleted
-        if (authUser.userId) {
-          await ctx.db.delete(authUser.userId as Id<"users">);
+        // Comprehensive cleanup when user is deleted via Better Auth
+        if (!authUser.userId) {
+          return;
         }
+
+        const userId = authUser.userId as Id<"users">;
+
+        // --- Step 1: Fetch all documents that need to be deleted in parallel ---
+        const [
+          attachments,
+          messages,
+          chats,
+          usage,
+          apiKeys,
+          connectors,
+          scheduledTasks,
+        ] = await Promise.all([
+          ctx.db
+            .query("chat_attachments")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .collect(),
+          ctx.db
+            .query("messages")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect(),
+          ctx.db
+            .query("chats")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect(),
+          ctx.db
+            .query("usage_history")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect(),
+          ctx.db
+            .query("user_api_keys")
+            .withIndex("by_user_provider", (q) => q.eq("userId", userId))
+            .collect(),
+          ctx.db
+            .query("connectors")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect(),
+          ctx.db
+            .query("scheduled_tasks")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect(),
+        ]);
+
+        // --- Step 2: Collect all deletion promises and execute them concurrently ---
+        const deletionPromises: Promise<unknown>[] = [];
+
+        // Delete attachments and their files
+        const r2 = new R2(components.r2);
+        for (const att of attachments) {
+          deletionPromises.push(
+            r2.deleteObject(ctx, att.key).catch(() => {
+              // Silently handle storage deletion errors
+            })
+          );
+          deletionPromises.push(
+            ctx.db.delete(att._id).catch(() => {
+              // Silently handle database deletion errors
+            })
+          );
+        }
+
+        // Delete messages
+        deletionPromises.push(...messages.map((msg) => ctx.db.delete(msg._id)));
+
+        // Delete chats
+        deletionPromises.push(...chats.map((chat) => ctx.db.delete(chat._id)));
+
+        // Delete usage history
+        deletionPromises.push(...usage.map((u) => ctx.db.delete(u._id)));
+
+        // Delete API keys
+        deletionPromises.push(...apiKeys.map((key) => ctx.db.delete(key._id)));
+
+        // Delete connectors
+        deletionPromises.push(
+          ...connectors.map((conn) => ctx.db.delete(conn._id))
+        );
+
+        // Delete scheduled tasks (task history will be cleaned up via cascade)
+        deletionPromises.push(
+          ...scheduledTasks.map((task) => ctx.db.delete(task._id))
+        );
+
+        // Execute all deletions concurrently
+        await Promise.allSettled(deletionPromises);
+
+        // Finally delete user record
+        await ctx.db.delete(userId);
       },
     },
   },
@@ -124,6 +213,11 @@ export const createAuth = (
       cookieCache: {
         enabled: true,
         maxAge: 60 * 60, // Cache duration in seconds (1 hour)
+      },
+    },
+    user: {
+      deleteUser: {
+        enabled: true,
       },
     },
     plugins: [

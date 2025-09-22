@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleNotch, Headset, Rocket, Sparkle } from "@phosphor-icons/react";
-import { useAction, useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { MessageUsageCard } from "@/app/components/layout/settings/message-usage-card";
@@ -17,16 +17,16 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/convex/_generated/api";
+import { authClient } from "@/lib/auth-client";
 
 export default function AccountSettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
-  const deleteAccount = useMutation(api.users.deleteAccount);
   const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
   const generateCustomerPortalUrl = useAction(
     api.polar.generateCustomerPortalUrl
   );
-  const { signOut, hasPremium, products } = useUser();
+  const { hasPremium, products } = useUser();
   const router = useRouter();
 
   // Handle upgrade button click
@@ -76,20 +76,25 @@ export default function AccountSettingsPage() {
   const confirmDeleteAccount = useCallback(async () => {
     setIsDeleting(true);
     try {
-      await deleteAccount({});
-      await signOut();
+      // Use Better Auth's user deletion which will trigger the onDelete trigger
+      // This handles comprehensive cleanup automatically
+      await authClient.deleteUser();
+
+      // No need to manually sign out as Better Auth handles session cleanup
       toast({ title: "Account deleted", status: "success" });
       router.push("/");
-    } catch {
+    } catch (_error) {
       toast({
         title: "Failed to delete account",
+        description:
+          "Please try again or contact support if the problem persists.",
         status: "error",
       });
     } finally {
       setIsDeleting(false);
       setShowDeleteAccountDialog(false);
     }
-  }, [deleteAccount, signOut, router]);
+  }, [router]);
 
   // Render the subscription button - memoize to prevent unnecessary re-renders
   const renderSubscriptionButton = useCallback(() => {
