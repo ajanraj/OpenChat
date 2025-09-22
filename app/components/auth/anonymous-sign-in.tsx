@@ -22,7 +22,9 @@ export function AnonymousSignIn() {
   if (error) {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background">
-        <p className="text-destructive">{error}</p>
+        <p className="text-destructive" role="alert">
+          {error}
+        </p>
         <button
           className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
           onClick={() => window.location.reload()}
