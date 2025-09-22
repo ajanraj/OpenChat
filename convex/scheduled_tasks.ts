@@ -183,8 +183,9 @@ export const createScheduledTask = mutation({
     // Validate user limits - only count 'active' tasks
     const activeTasks = await ctx.db
       .query("scheduled_tasks")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .filter((q) => q.eq(q.field("status"), "active"))
+      .withIndex("by_user_and_status", (q) =>
+        q.eq("userId", userId).eq("status", "active")
+      )
       .collect();
 
     const counts = {
@@ -597,8 +598,9 @@ export const getTaskLimits = query({
     // Get all active tasks for the user (only 'active' status counts toward limits)
     const activeTasks = await ctx.db
       .query("scheduled_tasks")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .filter((q) => q.eq(q.field("status"), "active"))
+      .withIndex("by_user_and_status", (q) =>
+        q.eq("userId", userId).eq("status", "active")
+      )
       .collect();
 
     const counts = {

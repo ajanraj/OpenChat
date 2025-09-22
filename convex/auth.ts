@@ -30,7 +30,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         if (authUser.email) {
           const existingUser = await ctx.db
             .query("users")
-            .filter((q) => q.eq(q.field("email"), authUser.email))
+            .withIndex("email", (q) => q.eq("email", authUser.email))
             .first();
 
           if (existingUser) {

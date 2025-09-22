@@ -12,7 +12,9 @@ import { UserApiKey } from "./schema/user_api_key";
 
 export default defineSchema({
   users: defineTable(User).index("email", ["email"]),
-  chats: defineTable(Chat).index("by_user", ["userId"]),
+  chats: defineTable(Chat)
+    .index("by_user", ["userId"])
+    .index("by_originalChatId", ["originalChatId"]),
   messages: defineTable(Message)
     .index("by_chat_and_created", ["chatId", "createdAt"])
     .index("by_user", ["userId"])
@@ -37,6 +39,7 @@ export default defineSchema({
   scheduled_tasks: defineTable(ScheduledTask)
     .index("by_user", ["userId"])
     .index("by_user_and_type", ["userId", "scheduleType"])
+    .index("by_user_and_status", ["userId", "status"])
     .index("by_next_execution", ["status", "nextExecution"]),
   task_history: defineTable(TaskHistory)
     .index("by_task", ["taskId"])

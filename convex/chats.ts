@@ -265,8 +265,7 @@ export const deleteChat = mutation({
     if (!result) {
       return null;
     }
-    const { userId } = result;
-    await deleteChatCompletely(ctx, chatId, userId);
+    await deleteChatCompletely(ctx, chatId);
     return null;
   },
 });
@@ -286,7 +285,7 @@ export const deleteAllChatsForUser = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    await deleteMultipleChats(ctx, chats, userId);
+    await deleteMultipleChats(ctx, chats);
     return null;
   },
 });
@@ -305,9 +304,7 @@ export const deleteBulkChats = mutation({
       return null;
     }
 
-    // Get userId from the first valid chat (all have same owner)
-    const userId = validChats[0].userId;
-    await deleteMultipleChats(ctx, validChats, userId);
+    await deleteMultipleChats(ctx, validChats);
     return null;
   },
 });

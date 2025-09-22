@@ -145,17 +145,10 @@ async function cleanupSingleAttachment(
 /**
  * Helper function to clean up branched chats
  */
-async function cleanupBranchedChats(
-  ctx: MutationCtx,
-  chatId: Id<"chats">,
-  userId: Id<"users">
-) {
-  // This uses .filter() correctly - first narrows by index (by_user), then filters by originalChatId
-  // See: https://docs.convex.dev/database/indexes/ - "For all other filtering you can use the .filter method"
+async function cleanupBranchedChats(ctx: MutationCtx, chatId: Id<"chats">) {
   const branchedChats = await ctx.db
     .query("chats")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .filter((q) => q.eq(q.field("originalChatId"), chatId))
+    .withIndex("by_originalChatId", (q) => q.eq("originalChatId", chatId))
     .collect();
 
   const updatePromises = branchedChats.map((branchedChat: Doc<"chats">) =>
@@ -436,7 +429,7 @@ export const deleteMessageAndDescendants = mutation({
 
     if (!remaining) {
       // Clean up branched chats
-      await cleanupBranchedChats(ctx, chat._id, userId);
+      await cleanupBranchedChats(ctx, chat._id);
 
       // Clean up any remaining orphaned attachments for this chat
       await cleanupOrphanedAttachments(ctx, chat._id);
