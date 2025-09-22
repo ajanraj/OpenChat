@@ -27,9 +27,14 @@ export async function POST(request: Request) {
 
     const token = await getToken();
 
+    // If no valid token, the user is not authenticated
+    if (!token) {
+      return createErrorResponse(new Error("Unauthorized"));
+    }
+
     const user = await fetchQuery(api.users.getCurrentUser, {}, { token });
 
-    // If the user is not authenticated or the token is invalid, short-circuit early
+    // If the user is not found, return unauthorized
     if (!user) {
       return createErrorResponse(new Error("Unauthorized"));
     }

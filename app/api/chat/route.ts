@@ -509,6 +509,11 @@ export async function POST(req: Request) {
 
     const token = await getToken();
 
+    // If no valid token, the user is not authenticated
+    if (!token) {
+      return createErrorResponse(new Error("Unauthorized"));
+    }
+
     // Get current user first (needed for multiple operations below)
     const user = await fetchQuery(api.users.getCurrentUser, {}, { token });
 
