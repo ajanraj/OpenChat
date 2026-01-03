@@ -1039,7 +1039,6 @@ const agentSegmentHasEnd = (segment: AgentSegment): boolean =>
 	);
 
 function MessageAssistantInner({
-	isLast,
 	hasScrollAnchor,
 	copied,
 	copyToClipboard,
@@ -1274,7 +1273,7 @@ function MessageAssistantInner({
 			)}
 			id={id}
 		>
-			<div className={cn("flex w-full flex-col gap-2", isLast ? "pb-8" : "")}>
+			<div className={cn("flex w-full flex-col gap-2")}>
 				{/* Show loader when streaming but no content yet */}
 				{status === "streaming" && segments.length === 0 && (
 					<div className="flex items-center gap-2 text-muted-foreground">

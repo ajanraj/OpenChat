@@ -1,9 +1,13 @@
 import type { UIMessage } from "@ai-sdk/react";
 import { useChatMessages, useChatStatus } from "@ai-sdk-tools/store";
 import type { Infer } from "convex/values";
-import React, { useRef } from "react";
-import { ScrollButton } from "@/components/motion-primitives/scroll-button";
-import { ChatContainer } from "@/components/prompt-kit/chat-container";
+import React, { useEffect, useRef, useState } from "react";
+import { ScrollButton } from "@/components/ui/scroll-button";
+import {
+	ChatContainerContent,
+	ChatContainerRoot,
+	ChatContainerScrollAnchor,
+} from "@/components/ui/chat-container";
 import { ImageSkeleton } from "@/components/prompt-kit/image-skeleton";
 import { Loader } from "@/components/prompt-kit/loader";
 import { MODELS_MAP } from "@/lib/config";
@@ -13,6 +17,8 @@ import { Message } from "./message";
 export type MessageWithExtras = UIMessage & {
 	model?: string;
 	metadata?: Infer<typeof MessageSchema>["metadata"];
+	clientId?: string;
+	serverId?: string;
 };
 
 type ConversationProps = {
@@ -43,40 +49,61 @@ const Conversation = React.memo(
 		onEdit,
 		onReload,
 		onBranch,
-		autoScroll = true,
 		selectedModel,
 		isUserAuthenticated = false,
 		isReasoningModel = false,
 		reasoningEffort = "medium",
 	}: ConversationProps) => {
-		const messages = useChatMessages<MessageWithExtras>();
-		const status = useChatStatus();
-		const initialMessageCount = useRef(messages.length);
-		const containerRef = useRef<HTMLDivElement>(null);
+	const messages = useChatMessages<MessageWithExtras>();
+	const status = useChatStatus();
+	const initialMessageCount = useRef(messages.length);
+	const [resizeMode, setResizeMode] = useState<"instant" | "smooth">(
+		"instant",
+	);
+	const didSetSmooth = useRef(false);
 
-		// Check if the selected model is an image generation model
-		const isImageGenerationModel =
-			selectedModel &&
-			MODELS_MAP[selectedModel]?.features?.some(
-				(feature) => feature.id === "image-generation" && feature.enabled,
-			);
+	// Check if the selected model is an image generation model
+	const isImageGenerationModel =
+		selectedModel &&
+		MODELS_MAP[selectedModel]?.features?.some(
+			(feature) => feature.id === "image-generation" && feature.enabled,
+		);
 
-		if (!messages || messages.length === 0) {
-			return <div className="h-full w-full" />;
+	useEffect(() => {
+		if (messages.length === 0 || didSetSmooth.current) {
+			return;
 		}
+		didSetSmooth.current = true;
+		let raf2 = 0;
+		const raf1 = requestAnimationFrame(() => {
+			raf2 = requestAnimationFrame(() => {
+				setResizeMode("smooth");
+			});
+		});
+		return () => {
+			cancelAnimationFrame(raf1);
+			if (raf2) {
+				cancelAnimationFrame(raf2);
+			}
+		};
+	}, [messages.length]);
 
-		// console.log('Rendering messages:', messages);
+	if (!messages || messages.length === 0) {
+		return <div className="h-full w-full" />;
+	}
 
-		return (
-			<div className="relative flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden">
-				<ChatContainer
-					autoScroll={autoScroll}
-					className="relative flex w-full flex-col items-center pt-20 pb-4"
-					ref={containerRef}
-					style={{
-						scrollbarGutter: "stable both-edges",
-					}}
-				>
+	// console.log('Rendering messages:', messages);
+
+	return (
+		<div className="relative flex h-full min-h-0 w-full flex-col items-center">
+			<ChatContainerRoot
+				className="relative flex-1 min-h-0 w-full flex-col items-center overflow-x-hidden"
+				resize={resizeMode}
+				style={{
+					scrollbarGutter: "stable both-edges",
+				}}
+			>
+				<ChatContainerContent className="relative flex w-full flex-col items-center pt-20 pb-4">
 					{messages?.map((message, index) => {
 						const isLast =
 							index === messages.length - 1 && status !== "submitted";
@@ -84,6 +111,8 @@ const Conversation = React.memo(
 							? messages.length > initialMessageCount.current
 							: false;
 						const messageStatus = isLast ? status : "ready";
+						const stableKey =
+							(message as MessageWithExtras).clientId ?? message.id;
 
 						return (
 							<Message
@@ -92,7 +121,7 @@ const Conversation = React.memo(
 								isLast={isLast}
 								isReasoningModel={isReasoningModel}
 								isUserAuthenticated={isUserAuthenticated}
-								key={message.id}
+								key={stableKey}
 								metadata={message.metadata}
 								model={message.model}
 								onBranch={() => onBranch(message.id)}
@@ -130,15 +159,16 @@ const Conversation = React.memo(
 							</div>
 						) : null;
 					})()}
-				</ChatContainer>
+				</ChatContainerContent>
+
+				<ChatContainerScrollAnchor />
+
 				<div className="absolute bottom-0 w-full max-w-3xl">
-					<ScrollButton
-						className="absolute top-[-50px] right-[30px]"
-						containerRef={containerRef}
-					/>
+					<ScrollButton className="absolute top-[-50px] right-[30px]" />
 				</div>
-			</div>
-		);
+			</ChatContainerRoot>
+		</div>
+	);
 	},
 );
 

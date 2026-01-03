@@ -1,5 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { useSidebar } from "@/providers/sidebar-provider";
 import ChatSidebar from "./chat-sidebar";
 import { Header } from "./header";
@@ -16,6 +17,7 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 		pathname?.startsWith("/privacy") ||
 		pathname?.startsWith("/security") ||
 		pathname?.startsWith("/legal");
+	const isChat = pathname === "/" || pathname?.startsWith("/c/");
 
 	// Helper functions to reduce complexity
 	const isInputElementFocused = useCallback((target: EventTarget | null) => {
@@ -106,7 +108,14 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 				{/* Header is fixed, overlays this div */}
 				<Header />
 				{/* Scrollable main content */}
-				<main className="flex-1 overflow-y-auto">{children}</main>
+				<main
+					className={cn(
+						"flex-1 min-h-0",
+						isChat ? "overflow-hidden" : "overflow-y-auto",
+					)}
+				>
+					{children}
+				</main>
 			</div>
 		</div>
 	);
