@@ -59,6 +59,8 @@ const storeRegistry = new Map<
 	string,
 	ReturnType<typeof createChatStore<MessageWithExtras>>
 >();
+const storeIdentityRegistry = new WeakMap<object, number>();
+let storeIdentityCounter = 0;
 
 function getChatStoreForKey(key: string) {
 	const existingStore = storeRegistry.get(key);
@@ -81,6 +83,18 @@ function promoteDraftStoreToChat(chatId: string) {
 	draftStore.getState().setId(chatId);
 	storeRegistry.set(chatId, draftStore);
 	storeRegistry.set(DRAFT_STORE_KEY, createChatStore<MessageWithExtras>());
+}
+
+function getStoreIdentity(
+	store: ReturnType<typeof createChatStore<MessageWithExtras>>,
+) {
+	const existing = storeIdentityRegistry.get(store);
+	if (existing) {
+		return existing;
+	}
+	storeIdentityCounter += 1;
+	storeIdentityRegistry.set(store, storeIdentityCounter);
+	return storeIdentityCounter;
 }
 
 // Schema for chat body
@@ -240,7 +254,7 @@ function ChatContent() {
 			return;
 		}
 
-		const mappedDb = messagesFromDB.map((msg, index) => {
+		const mappedDb: MessageWithExtras[] = messagesFromDB.map((msg, index) => {
 			const mappedMessage = mapMessage(msg) as MessageWithExtras;
 
 			if (msg.role === "user") {
@@ -272,33 +286,53 @@ function ChatContent() {
 				return currentMessages;
 			}
 
-			// Check if we need to update at all by comparing lengths and IDs
+			const getCurrentServerId = (msg?: UIMessage) =>
+				(msg as MessageWithExtras | undefined)?.serverId ?? msg?.id;
+
+			// Check if we need to update at all by comparing lengths and server IDs
 			if (
 				mappedDb.length === currentMessages.length &&
-				mappedDb.every((dbMsg, idx) => dbMsg.id === currentMessages[idx]?.id)
+				mappedDb.every(
+					(dbMsg, idx) =>
+						dbMsg.id === getCurrentServerId(currentMessages[idx]),
+				)
 			) {
 				return currentMessages; // No change needed - prevents unnecessary re-renders
 			}
 
 			if (mappedDb.length >= currentMessages.length) {
-				// DB is up-to-date or ahead – merge to preserve streaming properties
-				const merged = mappedDb.map((dbMsg: UIMessage, idx: number) => {
-					const prev = currentMessages[idx];
-					if (prev?.parts && !dbMsg.parts) {
-						return { ...dbMsg, parts: prev.parts };
+				// DB is up-to-date or ahead – merge to preserve client IDs and parts
+				const merged = mappedDb.map((dbMsg, idx: number) => {
+					const prev = currentMessages[idx] as MessageWithExtras | undefined;
+					if (!prev) {
+						return {
+							...dbMsg,
+							clientId: dbMsg.id,
+							serverId: dbMsg.id,
+						};
 					}
-					return dbMsg;
+					const clientId = prev.clientId ?? prev.id;
+					return {
+						...dbMsg,
+						id: clientId,
+						clientId,
+						serverId: prev.serverId ?? dbMsg.id,
+						parts: prev.parts ?? dbMsg.parts,
+					};
 				});
 				return merged;
 			}
 			if (mappedDb.length > 0) {
-				// DB is behind: merge IDs for the portion we have without dropping optimistic messages
+				// DB is behind: merge server IDs without replacing client IDs or parts
 				const merged = currentMessages.map((msg, idx) => {
 					if (idx < mappedDb.length) {
 						const dbMsg = mappedDb[idx];
+						const clientId = (msg as MessageWithExtras).clientId ?? msg.id;
 						return {
 							...msg,
-							id: dbMsg.id,
+							id: clientId,
+							clientId,
+							serverId: (msg as MessageWithExtras).serverId ?? dbMsg.id,
 							parts: msg.parts ?? dbMsg.parts,
 						};
 					}
@@ -424,7 +458,7 @@ function ChatContent() {
 					);
 					if (newChatId) {
 						promoteDraftStoreToChat(newChatId);
-						window.history.pushState(null, "", `/c/${newChatId}`);
+						void router.navigate({ to: `/c/${newChatId}` });
 						await sendMessageHelper(trimmedQuery, newChatId, {
 							enableSearch: false,
 						});
@@ -479,7 +513,7 @@ function ChatContent() {
 				}
 
 				promoteDraftStoreToChat(currentChatId);
-				window.history.pushState(null, "", `/c/${currentChatId}`);
+				void router.navigate({ to: `/c/${currentChatId}` });
 				setTempSelectedModel(undefined);
 				setTempPersonaId(undefined);
 			}
@@ -525,6 +559,10 @@ function ChatContent() {
 	// Message handlers
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
+	const getServerId = useCallback((id: string) => {
+		const msg = messagesRef.current.find((m) => m.id === id);
+		return (msg as MessageWithExtras | undefined)?.serverId ?? id;
+	}, []);
 
 	const handleDelete = useCallback(
 		async (id: string) => {
@@ -541,7 +579,7 @@ function ChatContent() {
 			setIsDeleting(true);
 
 			try {
-				const result = await handleDeleteMessage(id);
+				const result = await handleDeleteMessage(getServerId(id));
 				if (result?.chatDeleted) {
 					router.navigate({ to: "/" });
 				} else {
@@ -552,7 +590,7 @@ function ChatContent() {
 				setIsDeleting(false);
 			}
 		},
-		[handleDeleteMessage, router, setIsDeleting, setMessages],
+		[handleDeleteMessage, router, setIsDeleting, setMessages, getServerId],
 	);
 
 	const handleReload = useCallback(
@@ -576,7 +614,7 @@ function ChatContent() {
 			if (firstFollowing) {
 				setIsDeleting(true);
 				try {
-					await handleDeleteMessage(firstFollowing.id);
+					await handleDeleteMessage(getServerId(firstFollowing.id));
 				} catch {
 					setMessages(originalMessages);
 					toast({
@@ -590,13 +628,14 @@ function ChatContent() {
 
 			const isReasoningModel = supportsReasoningEffort(selectedModel);
 			const timezone = getUserTimezone();
+			const serverMessageId = getServerId(messageId);
 
 			const options = {
 				body: {
 					chatId,
 					model: selectedModel,
 					personaId,
-					reloadAssistantMessageId: messageId,
+					reloadAssistantMessageId: serverMessageId,
 					...(typeof opts?.enableSearch !== "undefined"
 						? { enableSearch: opts.enableSearch }
 						: {}),
@@ -616,6 +655,7 @@ function ChatContent() {
 			handleDeleteMessage,
 			setIsDeleting,
 			regenerate,
+			getServerId,
 		],
 	);
 
@@ -775,13 +815,14 @@ function ChatContent() {
 				// 3. Trigger AI regeneration using the edit-specific model and settings
 				const isEditReasoningModel = supportsReasoningEffort(editOptions.model);
 				const timezone = getUserTimezone();
+				const serverMessageId = getServerId(id);
 
 				const options = {
 					body: {
 						chatId,
 						model: editOptions.model, // Use the model selected in edit mode
 						personaId,
-						editMessageId: id,
+						editMessageId: serverMessageId,
 						enableSearch: editOptions.enableSearch, // Use edit-specific search setting
 						...(isEditReasoningModel
 							? { reasoningEffort: editOptions.reasoningEffort }
@@ -809,6 +850,7 @@ function ChatContent() {
 			saveFileAttachment,
 			selectedModel,
 			reasoningEffort,
+			getServerId,
 		],
 	);
 
@@ -836,7 +878,13 @@ function ChatContent() {
 		if (!targetMessageId || hasScrolledRef.current || messages.length === 0) {
 			return;
 		}
-		const el = document.getElementById(targetMessageId);
+		const target =
+			messages.find(
+				(message) =>
+					(message as MessageWithExtras).serverId === targetMessageId ||
+					message.id === targetMessageId,
+			) ?? null;
+		const el = document.getElementById(target?.id ?? targetMessageId);
 		if (el) {
 			el.scrollIntoView({ block: "center", behavior: "smooth" });
 			hasScrolledRef.current = true;
@@ -851,7 +899,7 @@ function ChatContent() {
 	return (
 		<div
 			className={cn(
-				"@container/main relative flex h-full flex-col items-center justify-end md:justify-center",
+				"@container/main relative flex h-full min-h-0 flex-col items-center justify-end md:justify-center",
 			)}
 		>
 			<DialogAuth open={hasDialogAuth} setOpenAction={setHasDialogAuth} />
@@ -887,7 +935,7 @@ function ChatContent() {
 							if (!chatId) {
 								return;
 							}
-							handleBranch(chatId, messageId, user);
+							handleBranch(chatId, getServerId(messageId), user);
 						}}
 						onDelete={handleDelete}
 						onEdit={handleEdit}
@@ -941,10 +989,11 @@ export default function Chat() {
 	const { chatId } = useChatSession();
 	const storeKey = chatId ?? DRAFT_STORE_KEY;
 	const chatStore = useMemo(() => getChatStoreForKey(storeKey), [storeKey]);
+	const storeIdentity = useMemo(() => getStoreIdentity(chatStore), [chatStore]);
 
 	return (
 		<Provider store={chatStore}>
-			<ChatContent />
+			<ChatContent key={storeIdentity} />
 		</Provider>
 	);
 }

@@ -1,7 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import Chat from "@/components/chat/chat";
 
-export const Route = createFileRoute("/c/$chatId")({
+export const Route = createFileRoute("/_chat/c/$chatId")({
   ssr: false,
   beforeLoad: ({ params }) => {
     // If no chatId is provided, redirect to home
@@ -13,7 +12,5 @@ export const Route = createFileRoute("/c/$chatId")({
 });
 
 function ChatPage() {
-  const { chatId } = Route.useParams();
-  // Key ensures component remounts when chatId changes
-  return <Chat key={chatId} />;
+  return null;
 }

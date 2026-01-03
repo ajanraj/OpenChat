@@ -14,9 +14,10 @@ import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChatRouteRouteImport } from './routes/_chat/route'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as ChatIndexRouteImport } from './routes/_chat/index'
 import { Route as ShareChatIdRouteImport } from './routes/share.$chatId'
 import { Route as SettingsModelsRouteImport } from './routes/settings/models'
 import { Route as SettingsHistoryRouteImport } from './routes/settings/history'
@@ -25,7 +26,6 @@ import { Route as SettingsContactRouteImport } from './routes/settings/contact'
 import { Route as SettingsConnectorsRouteImport } from './routes/settings/connectors'
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsApiKeysRouteImport } from './routes/settings/api-keys'
-import { Route as CChatIdRouteImport } from './routes/c.$chatId'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as ApiRateLimitsRouteImport } from './routes/api.rate-limits'
@@ -34,6 +34,7 @@ import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as ApiComposioStatusRouteImport } from './routes/api.composio.status'
 import { Route as ApiComposioDisconnectRouteImport } from './routes/api.composio.disconnect'
 import { Route as ApiComposioConnectRouteImport } from './routes/api.composio.connect'
+import { Route as ChatCChatIdRouteImport } from './routes/_chat/c.$chatId'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -60,9 +61,8 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ChatRouteRoute = ChatRouteRouteImport.update({
+  id: '/_chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
@@ -74,6 +74,11 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/auth/',
   path: '/auth/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ChatRouteRoute,
 } as any)
 const ShareChatIdRoute = ShareChatIdRouteImport.update({
   id: '/share/$chatId',
@@ -115,11 +120,6 @@ const SettingsApiKeysRoute = SettingsApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => SettingsRoute,
 } as any)
-const CChatIdRoute = CChatIdRouteImport.update({
-  id: '/c/$chatId',
-  path: '/c/$chatId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthErrorRoute = AuthErrorRouteImport.update({
   id: '/auth/error',
   path: '/auth/error',
@@ -160,9 +160,13 @@ const ApiComposioConnectRoute = ApiComposioConnectRouteImport.update({
   path: '/api/composio/connect',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatCChatIdRoute = ChatCChatIdRouteImport.update({
+  id: '/c/$chatId',
+  path: '/c/$chatId',
+  getParentRoute: () => ChatRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -173,7 +177,6 @@ export interface FileRoutesByFullPath {
   '/api/rate-limits': typeof ApiRateLimitsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/error': typeof AuthErrorRoute
-  '/c/$chatId': typeof CChatIdRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/connectors': typeof SettingsConnectorsRoute
@@ -182,14 +185,15 @@ export interface FileRoutesByFullPath {
   '/settings/history': typeof SettingsHistoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/share/$chatId': typeof ShareChatIdRoute
+  '/': typeof ChatIndexRoute
   '/auth': typeof AuthIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/c/$chatId': typeof ChatCChatIdRoute
   '/api/composio/connect': typeof ApiComposioConnectRoute
   '/api/composio/disconnect': typeof ApiComposioDisconnectRoute
   '/api/composio/status': typeof ApiComposioStatusRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/security': typeof SecurityRoute
   '/tasks': typeof TasksRoute
@@ -199,7 +203,6 @@ export interface FileRoutesByTo {
   '/api/rate-limits': typeof ApiRateLimitsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/error': typeof AuthErrorRoute
-  '/c/$chatId': typeof CChatIdRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/connectors': typeof SettingsConnectorsRoute
@@ -208,15 +211,17 @@ export interface FileRoutesByTo {
   '/settings/history': typeof SettingsHistoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/share/$chatId': typeof ShareChatIdRoute
+  '/': typeof ChatIndexRoute
   '/auth': typeof AuthIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/c/$chatId': typeof ChatCChatIdRoute
   '/api/composio/connect': typeof ApiComposioConnectRoute
   '/api/composio/disconnect': typeof ApiComposioDisconnectRoute
   '/api/composio/status': typeof ApiComposioStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_chat': typeof ChatRouteRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -227,7 +232,6 @@ export interface FileRoutesById {
   '/api/rate-limits': typeof ApiRateLimitsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/error': typeof AuthErrorRoute
-  '/c/$chatId': typeof CChatIdRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/connectors': typeof SettingsConnectorsRoute
@@ -236,8 +240,10 @@ export interface FileRoutesById {
   '/settings/history': typeof SettingsHistoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/share/$chatId': typeof ShareChatIdRoute
+  '/_chat/': typeof ChatIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/_chat/c/$chatId': typeof ChatCChatIdRoute
   '/api/composio/connect': typeof ApiComposioConnectRoute
   '/api/composio/disconnect': typeof ApiComposioDisconnectRoute
   '/api/composio/status': typeof ApiComposioStatusRoute
@@ -245,7 +251,6 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/privacy'
     | '/security'
     | '/settings'
@@ -256,7 +261,6 @@ export interface FileRouteTypes {
     | '/api/rate-limits'
     | '/auth/callback'
     | '/auth/error'
-    | '/c/$chatId'
     | '/settings/api-keys'
     | '/settings/attachments'
     | '/settings/connectors'
@@ -265,14 +269,15 @@ export interface FileRouteTypes {
     | '/settings/history'
     | '/settings/models'
     | '/share/$chatId'
+    | '/'
     | '/auth'
     | '/settings/'
+    | '/c/$chatId'
     | '/api/composio/connect'
     | '/api/composio/disconnect'
     | '/api/composio/status'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/privacy'
     | '/security'
     | '/tasks'
@@ -282,7 +287,6 @@ export interface FileRouteTypes {
     | '/api/rate-limits'
     | '/auth/callback'
     | '/auth/error'
-    | '/c/$chatId'
     | '/settings/api-keys'
     | '/settings/attachments'
     | '/settings/connectors'
@@ -291,14 +295,16 @@ export interface FileRouteTypes {
     | '/settings/history'
     | '/settings/models'
     | '/share/$chatId'
+    | '/'
     | '/auth'
     | '/settings'
+    | '/c/$chatId'
     | '/api/composio/connect'
     | '/api/composio/disconnect'
     | '/api/composio/status'
   id:
     | '__root__'
-    | '/'
+    | '/_chat'
     | '/privacy'
     | '/security'
     | '/settings'
@@ -309,7 +315,6 @@ export interface FileRouteTypes {
     | '/api/rate-limits'
     | '/auth/callback'
     | '/auth/error'
-    | '/c/$chatId'
     | '/settings/api-keys'
     | '/settings/attachments'
     | '/settings/connectors'
@@ -318,15 +323,17 @@ export interface FileRouteTypes {
     | '/settings/history'
     | '/settings/models'
     | '/share/$chatId'
+    | '/_chat/'
     | '/auth/'
     | '/settings/'
+    | '/_chat/c/$chatId'
     | '/api/composio/connect'
     | '/api/composio/disconnect'
     | '/api/composio/status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  ChatRouteRoute: typeof ChatRouteRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   SecurityRoute: typeof SecurityRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -337,7 +344,6 @@ export interface RootRouteChildren {
   ApiRateLimitsRoute: typeof ApiRateLimitsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthErrorRoute: typeof AuthErrorRoute
-  CChatIdRoute: typeof CChatIdRoute
   ShareChatIdRoute: typeof ShareChatIdRoute
   AuthIndexRoute: typeof AuthIndexRoute
   ApiComposioConnectRoute: typeof ApiComposioConnectRoute
@@ -382,11 +388,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/_chat': {
+      id: '/_chat'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof ChatRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/': {
@@ -402,6 +408,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth'
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_chat/': {
+      id: '/_chat/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof ChatIndexRouteImport
+      parentRoute: typeof ChatRouteRoute
     }
     '/share/$chatId': {
       id: '/share/$chatId'
@@ -459,13 +472,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsApiKeysRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/c/$chatId': {
-      id: '/c/$chatId'
-      path: '/c/$chatId'
-      fullPath: '/c/$chatId'
-      preLoaderRoute: typeof CChatIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth/error': {
       id: '/auth/error'
       path: '/auth/error'
@@ -522,8 +528,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiComposioConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_chat/c/$chatId': {
+      id: '/_chat/c/$chatId'
+      path: '/c/$chatId'
+      fullPath: '/c/$chatId'
+      preLoaderRoute: typeof ChatCChatIdRouteImport
+      parentRoute: typeof ChatRouteRoute
+    }
   }
 }
+
+interface ChatRouteRouteChildren {
+  ChatIndexRoute: typeof ChatIndexRoute
+  ChatCChatIdRoute: typeof ChatCChatIdRoute
+}
+
+const ChatRouteRouteChildren: ChatRouteRouteChildren = {
+  ChatIndexRoute: ChatIndexRoute,
+  ChatCChatIdRoute: ChatCChatIdRoute,
+}
+
+const ChatRouteRouteWithChildren = ChatRouteRoute._addFileChildren(
+  ChatRouteRouteChildren,
+)
 
 interface SettingsRouteChildren {
   SettingsApiKeysRoute: typeof SettingsApiKeysRoute
@@ -552,7 +579,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  ChatRouteRoute: ChatRouteRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   SecurityRoute: SecurityRoute,
   SettingsRoute: SettingsRouteWithChildren,
@@ -563,7 +590,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRateLimitsRoute: ApiRateLimitsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthErrorRoute: AuthErrorRoute,
-  CChatIdRoute: CChatIdRoute,
   ShareChatIdRoute: ShareChatIdRoute,
   AuthIndexRoute: AuthIndexRoute,
   ApiComposioConnectRoute: ApiComposioConnectRoute,
