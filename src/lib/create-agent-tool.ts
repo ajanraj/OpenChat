@@ -30,7 +30,7 @@ export const createAgentInputSchema = z.object({
 
 export type CreateAgentInput = z.input<typeof createAgentInputSchema>;
 
-type JSONValue = string | number | boolean | null | { [key: string]: JSONValue } | JSONValue[];
+type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOptions"]>;
 
 interface CreateAgentToolOptions {
   userId?: string;
@@ -38,7 +38,7 @@ interface CreateAgentToolOptions {
   model: string;
   systemPrompt?: string;
   maxSteps?: number;
-  providerOptions?: Record<string, Record<string, JSONValue>>;
+  providerOptions?: ProviderOptions;
   connectorsStatus?: ConnectorStatusLists;
   writer: UIMessageStreamWriter;
 }
@@ -146,9 +146,9 @@ export const createAgentTool = ({
   return tool<CreateAgentInput, string>({
     description: `Create a temporary agent that can use specific connectors to complete a task. Provide the connectors via the \`tool\` field, the high-level goal via \`task\`, and optional context from previous operations via \`context\`. Available connectors: ${connectorListDescription}.`,
     inputSchema: createAgentInputSchema,
-    toModelOutput: (result: string) => {
+    toModelOutput: ({ output }) => {
       try {
-        const analysis: SubAgentAnalysis = JSON.parse(result);
+        const analysis: SubAgentAnalysis = JSON.parse(output);
 
         if (!analysis.success) {
           const issueDetails = analysis.issues.join("; ");
@@ -166,7 +166,7 @@ export const createAgentTool = ({
         console.error("Failed to parse sub-agent result:", error);
         return {
           type: "text",
-          value: `Sub-agent execution completed but analysis failed. Raw result: ${result.slice(0, 200)}${result.length > 200 ? "..." : ""}`,
+          value: `Sub-agent execution completed but analysis failed. Raw result: ${output.slice(0, 200)}${output.length > 200 ? "..." : ""}`,
         };
       }
     },
@@ -255,7 +255,7 @@ export const createAgentTool = ({
       const result = streamText({
         model,
         system: innerSystem,
-        messages: convertToModelMessages(messages),
+        messages: await convertToModelMessages(messages),
         tools: filteredTools,
         stopWhen: stepCountIs(maxSteps),
         providerOptions,

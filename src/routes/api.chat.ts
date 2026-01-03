@@ -152,47 +152,6 @@ const REASONING_EFFORT_CONFIG = {
   },
 } as const;
 
-/**
- * Maps reasoning effort to provider-specific configuration
- * Uses feature-based detection instead of hardcoded patterns
- */
-const mapReasoningEffortToProviderConfig = (
-  provider: string,
-  effort: ReasoningEffort,
-): Record<string, unknown> => {
-  const config = REASONING_EFFORT_CONFIG[effort];
-
-  switch (provider) {
-    case "openai":
-      return { reasoningEffort: config.effort };
-
-    case "anthropic":
-      return {
-        thinking: {
-          budgetTokens: config.tokens,
-        },
-      };
-
-    case "google":
-    case "gemini":
-      return {
-        thinkingConfig: {
-          thinkingBudget: config.tokens,
-        },
-      };
-
-    case "openrouter":
-      return {
-        reasoning: {
-          effort: config.effort,
-        },
-      };
-
-    default:
-      return {};
-  }
-};
-
 interface ChatRequest {
   messages: UIMessage[];
   chatId: Id<"chats">;
@@ -228,83 +187,74 @@ const supportsToolCalling = (selectedModel: (typeof MODELS_MAP)[string]): boolea
     (feature) => feature.id === "tool-calling" && feature.enabled === true,
   ) ?? false;
 
+type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOptions"]>;
+
 const buildGoogleProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): GoogleGenerativeAIProviderOptions => {
-  const options: GoogleGenerativeAIProviderOptions = {};
-
-  // Check if model supports reasoning using feature-based detection
+): Record<string, JSONValue> => {
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("google", reasoningEffort);
-
-    if (reasoningConfig.thinkingConfig) {
-      options.thinkingConfig = {
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    const options = {
+      thinkingConfig: {
         includeThoughts: true,
-        ...reasoningConfig.thinkingConfig,
-      } as GoogleGenerativeAIProviderOptions["thinkingConfig"];
-    }
+        thinkingBudget: config.tokens,
+      },
+    } satisfies GoogleGenerativeAIProviderOptions;
+    return options;
   }
 
-  return options;
+  return {};
 };
 
 const buildOpenAIProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): OpenAIResponsesProviderOptions => {
-  const options: OpenAIResponsesProviderOptions = {};
-
-  // Check if model supports reasoning using feature-based detection
+): Record<string, JSONValue> => {
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("openai", reasoningEffort);
-
-    if (reasoningConfig.reasoningEffort) {
-      options.reasoningEffort = reasoningConfig.reasoningEffort as ReasoningEffort;
-      options.reasoningSummary = "detailed";
-    }
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    const options = {
+      reasoningEffort: config.effort,
+      reasoningSummary: "detailed",
+    } satisfies OpenAIResponsesProviderOptions;
+    return options;
   }
 
-  return options;
+  return {};
 };
 
 const buildAnthropicProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): AnthropicProviderOptions => {
-  const options: AnthropicProviderOptions = {};
-
-  // Check if model supports reasoning using feature-based detection
+): Record<string, JSONValue> => {
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("anthropic", reasoningEffort);
-
-    if (reasoningConfig.thinking) {
-      options.thinking = {
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    const options = {
+      thinking: {
         type: "enabled",
-        ...reasoningConfig.thinking,
-      } as AnthropicProviderOptions["thinking"];
-    }
+        budgetTokens: config.tokens,
+      },
+    } satisfies AnthropicProviderOptions;
+    return options;
   }
 
-  return options;
+  return {};
 };
 
 const buildOpenRouterProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): Record<string, unknown> => {
-  const options: Record<string, unknown> = {};
-
-  // Check if model supports reasoning using feature-based detection
+): Record<string, JSONValue> => {
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("openrouter", reasoningEffort);
-
-    if (reasoningConfig.reasoning) {
-      options.reasoning = reasoningConfig.reasoning;
-    }
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    return {
+      reasoning: {
+        effort: config.effort,
+      },
+    };
   }
 
-  return options;
+  return {};
 };
 
 /**
@@ -686,43 +636,49 @@ export const Route = createFileRoute("/api/chat")({
             userMsgId = await saveUserMessage(messages, chatId, client, reloadAssistantMessageId);
           }
 
-          const makeOptions = (useUser: boolean) => {
+          const makeOptions = (useUser: boolean): ProviderOptions | undefined => {
             const key = useUser ? userApiKey : undefined;
+            const apiKey = typeof key === "string" && key.length > 0 ? key : undefined;
+            const userTag = user?._id ? `user_${user._id}` : undefined;
 
             if (selectedModel.provider === "gemini") {
+              const options = buildGoogleProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 google: {
-                  ...buildGoogleProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
                 },
               };
             }
             if (selectedModel.provider === "openai") {
+              const options = buildOpenAIProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 openai: {
-                  ...buildOpenAIProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
                 },
               };
             }
             if (selectedModel.provider === "anthropic") {
+              const options = buildAnthropicProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 anthropic: {
-                  ...buildAnthropicProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
                 },
               };
             }
             if (selectedModel.provider === "openrouter") {
+              const options = buildOpenRouterProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 openrouter: {
-                  ...buildOpenRouterProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
-                  user: user?._id ? `user_${user._id}` : undefined,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
+                  ...(userTag ? { user: userTag } : {}),
                 },
               };
             }
-            return;
+            return undefined;
           };
 
           const startTime = Date.now();
@@ -748,10 +704,8 @@ export const Route = createFileRoute("/api/chat")({
           const stream = createUIMessageStream({
             originalMessages: messages,
             async execute({ writer }) {
-              const runStream = (useUserKeyOverride: boolean) => {
-                const providerOptions = makeOptions(useUserKeyOverride) as
-                  | Record<string, Record<string, JSONValue>>
-                  | undefined;
+              const runStream = async (useUserKeyOverride: boolean) => {
+                const providerOptions = makeOptions(useUserKeyOverride);
 
                 const toolset: Record<string, Tool> = {};
 
@@ -777,7 +731,7 @@ export const Route = createFileRoute("/api/chat")({
                 const streamResult = streamText({
                   model: selectedModel.api_sdk,
                   system: finalSystemPrompt,
-                  messages: convertToModelMessages(messages),
+                  messages: await convertToModelMessages(messages),
                   tools: toolset,
                   stopWhen: stepCountIs(20),
                   experimental_transform: smoothStream({
@@ -918,7 +872,7 @@ export const Route = createFileRoute("/api/chat")({
                   const primaryIsUserKey = useUserKey;
                   try {
                     wasUserKeyUsed = primaryIsUserKey;
-                    result = runStream(primaryIsUserKey);
+                    result = await runStream(primaryIsUserKey);
                     return;
                   } catch (primaryError) {
                     if (shouldShowInConversation(primaryError)) {
@@ -944,7 +898,7 @@ export const Route = createFileRoute("/api/chat")({
                     const fallbackIsUserKey = !primaryIsUserKey;
                     try {
                       wasUserKeyUsed = fallbackIsUserKey;
-                      result = runStream(fallbackIsUserKey);
+                      result = await runStream(fallbackIsUserKey);
                       return;
                     } catch (fallbackError) {
                       if (shouldShowInConversation(fallbackError)) {
@@ -966,7 +920,7 @@ export const Route = createFileRoute("/api/chat")({
 
                 wasUserKeyUsed = false;
                 try {
-                  result = runStream(false);
+                  result = await runStream(false);
                 } catch (streamError) {
                   if (shouldShowInConversation(streamError)) {
                     await saveErrorMessage(
