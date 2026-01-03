@@ -2,12 +2,12 @@ import type { UIMessage } from "@ai-sdk/react";
 import { useChatMessages, useChatStatus } from "@ai-sdk-tools/store";
 import type { Infer } from "convex/values";
 import React, { useEffect, useRef, useState } from "react";
-import { ScrollButton } from "@/components/ui/scroll-button";
+import { ScrollButton } from "@/components/prompt-kit/scroll-button";
 import {
 	ChatContainerContent,
 	ChatContainerRoot,
 	ChatContainerScrollAnchor,
-} from "@/components/ui/chat-container";
+} from "@/components/prompt-kit/chat-container";
 import { ImageSkeleton } from "@/components/prompt-kit/image-skeleton";
 import { Loader } from "@/components/prompt-kit/loader";
 import { MODELS_MAP } from "@/lib/config";
