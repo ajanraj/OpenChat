@@ -228,6 +228,8 @@ const supportsToolCalling = (selectedModel: (typeof MODELS_MAP)[string]): boolea
     (feature) => feature.id === "tool-calling" && feature.enabled === true,
   ) ?? false;
 
+type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOptions"]>;
+
 const buildGoogleProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
@@ -292,15 +294,15 @@ const buildAnthropicProviderOptions = (
 const buildOpenRouterProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): Record<string, unknown> => {
-  const options: Record<string, unknown> = {};
+): Record<string, JSONValue> => {
+  const options: Record<string, JSONValue> = {};
 
   // Check if model supports reasoning using feature-based detection
   if (shouldEnableThinking(modelId) && reasoningEffort) {
     const reasoningConfig = mapReasoningEffortToProviderConfig("openrouter", reasoningEffort);
 
     if (reasoningConfig.reasoning) {
-      options.reasoning = reasoningConfig.reasoning;
+      options.reasoning = reasoningConfig.reasoning as JSONValue;
     }
   }
 
@@ -686,43 +688,58 @@ export const Route = createFileRoute("/api/chat")({
             userMsgId = await saveUserMessage(messages, chatId, client, reloadAssistantMessageId);
           }
 
-          const makeOptions = (useUser: boolean) => {
+          const makeOptions = (useUser: boolean): ProviderOptions | undefined => {
             const key = useUser ? userApiKey : undefined;
+            const apiKey = typeof key === "string" && key.length > 0 ? key : undefined;
+            const userTag = user?._id ? `user_${user._id}` : undefined;
 
             if (selectedModel.provider === "gemini") {
+              const options = buildGoogleProviderOptions(
+                selectedModel.id,
+                reasoningEffort,
+              ) as Record<string, JSONValue>;
               return {
                 google: {
-                  ...buildGoogleProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
                 },
               };
             }
             if (selectedModel.provider === "openai") {
+              const options = buildOpenAIProviderOptions(
+                selectedModel.id,
+                reasoningEffort,
+              ) as Record<string, JSONValue>;
               return {
                 openai: {
-                  ...buildOpenAIProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
                 },
               };
             }
             if (selectedModel.provider === "anthropic") {
+              const options = buildAnthropicProviderOptions(
+                selectedModel.id,
+                reasoningEffort,
+              ) as Record<string, JSONValue>;
               return {
                 anthropic: {
-                  ...buildAnthropicProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
                 },
               };
             }
             if (selectedModel.provider === "openrouter") {
+              const options = buildOpenRouterProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 openrouter: {
-                  ...buildOpenRouterProviderOptions(selectedModel.id, reasoningEffort),
-                  apiKey: key,
-                  user: user?._id ? `user_${user._id}` : undefined,
+                  ...options,
+                  ...(apiKey ? { apiKey } : {}),
+                  ...(userTag ? { user: userTag } : {}),
                 },
               };
             }
-            return;
+            return undefined;
           };
 
           const startTime = Date.now();
@@ -748,10 +765,8 @@ export const Route = createFileRoute("/api/chat")({
           const stream = createUIMessageStream({
             originalMessages: messages,
             async execute({ writer }) {
-              const runStream = (useUserKeyOverride: boolean) => {
-                const providerOptions = makeOptions(useUserKeyOverride) as
-                  | Record<string, Record<string, JSONValue>>
-                  | undefined;
+              const runStream = async (useUserKeyOverride: boolean) => {
+                const providerOptions = makeOptions(useUserKeyOverride);
 
                 const toolset: Record<string, Tool> = {};
 
@@ -777,7 +792,7 @@ export const Route = createFileRoute("/api/chat")({
                 const streamResult = streamText({
                   model: selectedModel.api_sdk,
                   system: finalSystemPrompt,
-                  messages: convertToModelMessages(messages),
+                  messages: await convertToModelMessages(messages),
                   tools: toolset,
                   stopWhen: stepCountIs(20),
                   experimental_transform: smoothStream({
@@ -918,7 +933,7 @@ export const Route = createFileRoute("/api/chat")({
                   const primaryIsUserKey = useUserKey;
                   try {
                     wasUserKeyUsed = primaryIsUserKey;
-                    result = runStream(primaryIsUserKey);
+                    result = await runStream(primaryIsUserKey);
                     return;
                   } catch (primaryError) {
                     if (shouldShowInConversation(primaryError)) {
@@ -944,7 +959,7 @@ export const Route = createFileRoute("/api/chat")({
                     const fallbackIsUserKey = !primaryIsUserKey;
                     try {
                       wasUserKeyUsed = fallbackIsUserKey;
-                      result = runStream(fallbackIsUserKey);
+                      result = await runStream(fallbackIsUserKey);
                       return;
                     } catch (fallbackError) {
                       if (shouldShowInConversation(fallbackError)) {
@@ -966,7 +981,7 @@ export const Route = createFileRoute("/api/chat")({
 
                 wasUserKeyUsed = false;
                 try {
-                  result = runStream(false);
+                  result = await runStream(false);
                 } catch (streamError) {
                   if (shouldShowInConversation(streamError)) {
                     await saveErrorMessage(
