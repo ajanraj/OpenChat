@@ -25,6 +25,7 @@ if (!apiKey) {
 const composio = new Composio({
   apiKey,
   provider: new VercelProvider(),
+  allowTracking: false,
 });
 
 /**
