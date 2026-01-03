@@ -1,7 +1,14 @@
 import { CaretDown } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion, type Transition } from "motion/react";
 import { createContext, useContext, useState } from "react";
 import { cn } from "@/lib/utils";
+
+const springTransition: Transition = {
+	type: "spring",
+	stiffness: 400,
+	damping: 30,
+	mass: 0.8,
+};
 
 const ReasoningContext = createContext<{
 	isExpanded: boolean;
@@ -81,16 +88,25 @@ export function ReasoningTrigger({ className }: ReasoningTriggerProps) {
 			>
 				<span className="relative mr-2.75 flex size-2.25">
 					{isLoading && (
-						<span
+						<motion.span
+							animate={{
+								scale: [1, 1.8, 1],
+								opacity: [0.7, 0.3, 0.7],
+							}}
 							className={cn(
-								"absolute inline-flex h-full w-full animate-ping rounded-full opacity-75",
+								"absolute inline-flex h-full w-full rounded-full",
 								"bg-orange-400 dark:bg-orange-300",
 							)}
+							transition={{
+								duration: 1.5,
+								repeat: Infinity,
+								ease: "easeInOut",
+							}}
 						/>
 					)}
 					<span
 						className={cn(
-							"relative inline-flex size-2.25 rounded-full transition-colors duration-200",
+							"relative inline-flex size-2.25 rounded-full transition-colors duration-300",
 							isLoading
 								? "bg-orange-500 dark:bg-orange-400"
 								: "bg-blue-600 dark:bg-blue-400",
@@ -112,14 +128,12 @@ export function ReasoningTrigger({ className }: ReasoningTriggerProps) {
 						"absolute top-1.5 right-1.5 h-7 w-7",
 					)}
 				>
-					<div className="transform-none">
-						<CaretDown
-							className={cn(
-								"size-4 transition-transform duration-200",
-								isExpanded && "rotate-180",
-							)}
-						/>
-					</div>
+					<motion.div
+						animate={{ rotate: isExpanded ? 180 : 0 }}
+						transition={springTransition}
+					>
+						<CaretDown className="size-4" />
+					</motion.div>
 				</div>
 			</button>
 		</div>
@@ -138,45 +152,26 @@ export function ReasoningContent({
 	const { isExpanded } = useReasoningContext();
 
 	return (
-		<AnimatePresence initial={false}>
-			{isExpanded && (
-				<motion.div
-					animate={{
-						opacity: 1,
-						height: "auto",
-						marginTop: "0.5rem",
-						marginBottom: "0.5rem",
-					}}
-					exit={{
-						opacity: 0,
-						height: 0,
-						marginTop: 0,
-						marginBottom: 0,
-					}}
-					initial={{
-						opacity: 0,
-						height: 0,
-						marginTop: 0,
-						marginBottom: 0,
-					}}
-					style={{ overflow: "hidden" }}
-					transition={{ duration: 0.2, ease: "easeInOut" }}
-				>
-					<div
-						className={cn(
-							"prose-sm flex w-full flex-col justify-center gap-1",
-							"[&_*]:!text-foreground/80 [&_*]:!text-sm whitespace-pre-line",
-							"[&>:first-child:not(span)]:mt-2 [&>:last-child:not(span)]:mb-2",
-							"[&>:only-child:not(span)]:mt-2 [&_p:has(>strong)+p]:mt-0",
-							"[&_p:has(>strong)]:mb-0",
-							className,
-						)}
-					>
-						{children}
-					</div>
-					<div className="h-[0.875rem]" />
-				</motion.div>
+		<div
+			className={cn(
+				"grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+				isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
 			)}
-		</AnimatePresence>
+		>
+			<div className="overflow-hidden">
+				<div
+					className={cn(
+						"prose-sm flex w-full flex-col justify-center gap-1 pt-2 pb-3.5",
+						"[&_*]:!text-foreground/80 [&_*]:!text-sm whitespace-pre-line",
+						"[&>:first-child:not(span)]:mt-2 [&>:last-child:not(span)]:mb-2",
+						"[&>:only-child:not(span)]:mt-2 [&_p:has(>strong)+p]:mt-0",
+						"[&_p:has(>strong)]:mb-0",
+						className,
+					)}
+				>
+					{children}
+				</div>
+			</div>
+		</div>
 	);
 }
