@@ -25,8 +25,22 @@ import "@fontsource/geist-sans/600.css";
 import "@fontsource/geist-sans/700.css";
 import "@fontsource/geist-mono/400.css";
 
+const appStorageVersion = import.meta.env.VITE_STORAGE_VERSION ?? "2026-01-03";
+const appStorageVersionKey = "oschat:storage:version";
+
 const themeInitScript = `
 (function() {
+  try {
+    var storageVersionKey = ${JSON.stringify(appStorageVersionKey)};
+    var storageVersion = ${JSON.stringify(appStorageVersion)};
+    var storedVersion = localStorage.getItem(storageVersionKey);
+    if (storedVersion !== storageVersion) {
+      localStorage.clear();
+      localStorage.setItem(storageVersionKey, storageVersion);
+    }
+  } catch (e) {
+    // Ignore storage errors (blocked, private mode, etc.)
+  }
   try {
     var stored = localStorage.getItem('editor-storage');
     if (stored) {
