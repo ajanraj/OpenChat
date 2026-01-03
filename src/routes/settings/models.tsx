@@ -230,13 +230,19 @@ export function ModelsSettingsPage() {
 
   const toggleFree = () => {
     void navigate({
-      search: { tier: freeOnly ? undefined : "free", features: features?.length ? features : undefined },
+      search: {
+        tier: freeOnly ? undefined : "free",
+        features: features?.length ? features : undefined,
+      },
     });
   };
 
   const togglePremium = () => {
     void navigate({
-      search: { tier: premiumOnly ? undefined : "premium", features: features?.length ? features : undefined },
+      search: {
+        tier: premiumOnly ? undefined : "premium",
+        features: features?.length ? features : undefined,
+      },
     });
   };
 
