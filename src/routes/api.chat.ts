@@ -152,47 +152,6 @@ const REASONING_EFFORT_CONFIG = {
   },
 } as const;
 
-/**
- * Maps reasoning effort to provider-specific configuration
- * Uses feature-based detection instead of hardcoded patterns
- */
-const mapReasoningEffortToProviderConfig = (
-  provider: string,
-  effort: ReasoningEffort,
-): Record<string, unknown> => {
-  const config = REASONING_EFFORT_CONFIG[effort];
-
-  switch (provider) {
-    case "openai":
-      return { reasoningEffort: config.effort };
-
-    case "anthropic":
-      return {
-        thinking: {
-          budgetTokens: config.tokens,
-        },
-      };
-
-    case "google":
-    case "gemini":
-      return {
-        thinkingConfig: {
-          thinkingBudget: config.tokens,
-        },
-      };
-
-    case "openrouter":
-      return {
-        reasoning: {
-          effort: config.effort,
-        },
-      };
-
-    default:
-      return {};
-  }
-};
-
 interface ChatRequest {
   messages: UIMessage[];
   chatId: Id<"chats">;
@@ -233,80 +192,69 @@ type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOpt
 const buildGoogleProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): GoogleGenerativeAIProviderOptions => {
-  const options: GoogleGenerativeAIProviderOptions = {};
-
-  // Check if model supports reasoning using feature-based detection
+): Record<string, JSONValue> => {
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("google", reasoningEffort);
-
-    if (reasoningConfig.thinkingConfig) {
-      options.thinkingConfig = {
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    const options = {
+      thinkingConfig: {
         includeThoughts: true,
-        ...reasoningConfig.thinkingConfig,
-      } as GoogleGenerativeAIProviderOptions["thinkingConfig"];
-    }
+        thinkingBudget: config.tokens,
+      },
+    } satisfies GoogleGenerativeAIProviderOptions;
+    return options;
   }
 
-  return options;
+  return {};
 };
 
 const buildOpenAIProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): OpenAIResponsesProviderOptions => {
-  const options: OpenAIResponsesProviderOptions = {};
-
-  // Check if model supports reasoning using feature-based detection
+): Record<string, JSONValue> => {
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("openai", reasoningEffort);
-
-    if (reasoningConfig.reasoningEffort) {
-      options.reasoningEffort = reasoningConfig.reasoningEffort as ReasoningEffort;
-      options.reasoningSummary = "detailed";
-    }
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    const options = {
+      reasoningEffort: config.effort,
+      reasoningSummary: "detailed",
+    } satisfies OpenAIResponsesProviderOptions;
+    return options;
   }
 
-  return options;
+  return {};
 };
 
 const buildAnthropicProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): AnthropicProviderOptions => {
-  const options: AnthropicProviderOptions = {};
-
-  // Check if model supports reasoning using feature-based detection
+): Record<string, JSONValue> => {
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("anthropic", reasoningEffort);
-
-    if (reasoningConfig.thinking) {
-      options.thinking = {
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    const options = {
+      thinking: {
         type: "enabled",
-        ...reasoningConfig.thinking,
-      } as AnthropicProviderOptions["thinking"];
-    }
+        budgetTokens: config.tokens,
+      },
+    } satisfies AnthropicProviderOptions;
+    return options;
   }
 
-  return options;
+  return {};
 };
 
 const buildOpenRouterProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
 ): Record<string, JSONValue> => {
-  const options: Record<string, JSONValue> = {};
-
-  // Check if model supports reasoning using feature-based detection
   if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const reasoningConfig = mapReasoningEffortToProviderConfig("openrouter", reasoningEffort);
-
-    if (reasoningConfig.reasoning) {
-      options.reasoning = reasoningConfig.reasoning as JSONValue;
-    }
+    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+    return {
+      reasoning: {
+        effort: config.effort,
+      },
+    };
   }
 
-  return options;
+  return {};
 };
 
 /**
@@ -694,10 +642,7 @@ export const Route = createFileRoute("/api/chat")({
             const userTag = user?._id ? `user_${user._id}` : undefined;
 
             if (selectedModel.provider === "gemini") {
-              const options = buildGoogleProviderOptions(
-                selectedModel.id,
-                reasoningEffort,
-              ) as Record<string, JSONValue>;
+              const options = buildGoogleProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 google: {
                   ...options,
@@ -706,10 +651,7 @@ export const Route = createFileRoute("/api/chat")({
               };
             }
             if (selectedModel.provider === "openai") {
-              const options = buildOpenAIProviderOptions(
-                selectedModel.id,
-                reasoningEffort,
-              ) as Record<string, JSONValue>;
+              const options = buildOpenAIProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 openai: {
                   ...options,
@@ -718,10 +660,7 @@ export const Route = createFileRoute("/api/chat")({
               };
             }
             if (selectedModel.provider === "anthropic") {
-              const options = buildAnthropicProviderOptions(
-                selectedModel.id,
-                reasoningEffort,
-              ) as Record<string, JSONValue>;
+              const options = buildAnthropicProviderOptions(selectedModel.id, reasoningEffort);
               return {
                 anthropic: {
                   ...options,
