@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "vite dev --port 3000 --force",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -141,7 +141,6 @@
     "vite": "^8.0.0-beta.0",
     "vite-plugin-oxlint": "^1.5.0",
     "vite-plugin-pwa": "^1.2.0",
-    "vite-tsconfig-paths": "^6.0.3",
     "vitest": "^4.0.16",
     "web-vitals": "^5.1.0"
   },

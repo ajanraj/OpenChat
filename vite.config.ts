@@ -6,9 +6,11 @@ import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 import oxlintPlugin from "vite-plugin-oxlint";
 import { VitePWA } from "vite-plugin-pwa";
-import viteTsConfigPaths from "vite-tsconfig-paths";
 
 const config = defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+  },
   plugins: [
     oxlintPlugin({
       configFile: ".oxlintrc.json",
@@ -22,10 +24,6 @@ const config = defineConfig({
           runtime: "bun1.x",
         },
       },
-    }),
-    // this is the plugin that enables path aliases
-    viteTsConfigPaths({
-      projects: ["./tsconfig.json"],
     }),
     tailwindcss(),
     tanstackStart(),
