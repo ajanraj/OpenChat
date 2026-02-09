@@ -167,7 +167,7 @@ export const SearchResults = memo(
 								{showExpandedContent ? (
 									<div className="-mt-2 px-4 pb-4">
 										<div className="border-t pt-2 pl-8">
-											<div className="prose prose-sm dark:prose-invert max-w-none">
+											<div className="max-w-none">
 												<Markdown>{content}</Markdown>
 											</div>
 										</div>

@@ -540,7 +540,7 @@ const renderTextPart = (
 
 	return (
 		<MessageContent
-			className="prose dark:prose-invert relative min-w-full bg-transparent p-0"
+			className="relative min-w-full bg-transparent p-0"
 			id={`${id}-text-${index}`}
 			key={`text-${index}`}
 			markdown={true}
@@ -567,7 +567,7 @@ const renderReasoningPart = (
 			<ReasoningTrigger />
 			<ReasoningContent>
 				<Markdown
-					className="prose prose-sm dark:prose-invert w-full max-w-none break-words leading-relaxed"
+					className="w-full max-w-none break-words leading-relaxed"
 					id={`${id}-reasoning-${index}`}
 				>
 					{part.text}
