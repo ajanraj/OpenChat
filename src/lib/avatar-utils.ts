@@ -8,10 +8,7 @@ export interface AvatarUserData {
 const SIZE_PARAM_REGEX = /sz=\d+/;
 const S96_PARAM_REGEX = /s96-c/;
 const GOOGLE_USER_CONTENT_HOST_REGEX = /(^|\.)googleusercontent\.com$/;
-const GOOGLE_DEFAULT_AVATAR_PATTERNS = [
-  "/a/default-user",
-  "/AAAAAAAAAAI/AAAAAAAAAAA/",
-];
+const GOOGLE_DEFAULT_AVATAR_PATTERNS = ["/a/default-user", "/AAAAAAAAAAI/AAAAAAAAAAA/"];
 
 const normalizeSeedValue = (value?: string | null): string | null => {
   if (!value) {
