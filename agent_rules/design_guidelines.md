@@ -10,7 +10,10 @@ Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVE
   - MUST: Hit target ≥24px (mobile ≥44px) If visual <24px, expand hit area
   - MUST: Mobile `<input>` font-size ≥16px or set:
     ```html
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
     ```
   - NEVER: Disable browser zoom
   - MUST: `touch-action: manipulation` to prevent double-tap zoom; set `-webkit-tap-highlight-color` to match design

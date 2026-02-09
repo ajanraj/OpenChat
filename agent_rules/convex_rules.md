@@ -10,11 +10,11 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 export const f = query({
-    args: {},
-    returns: v.null(),
-    handler: async (ctx, args) => {
+  args: {},
+  returns: v.null(),
+  handler: async (ctx, args) => {
     // Function body
-    },
+  },
 });
 ```
 
@@ -27,12 +27,12 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 const http = httpRouter();
 http.route({
-    path: "/echo",
-    method: "POST",
-    handler: httpAction(async (ctx, req) => {
+  path: "/echo",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
     const body = await req.bytes();
     return new Response(body, { status: 200 });
-    }),
+  }),
 });
 ```
 
@@ -47,12 +47,12 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export default mutation({
-args: {
+  args: {
     simpleArray: v.array(v.union(v.string(), v.number())),
-},
-handler: async (ctx, args) => {
+  },
+  handler: async (ctx, args) => {
     //...
-},
+  },
 });
 ```
 
@@ -63,18 +63,18 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-    results: defineTable(
-        v.union(
-            v.object({
-                kind: v.literal("error"),
-                errorMessage: v.string(),
-            }),
-            v.object({
-                kind: v.literal("success"),
-                value: v.number(),
-            }),
-        ),
-    )
+  results: defineTable(
+    v.union(
+      v.object({
+        kind: v.literal("error"),
+        errorMessage: v.string(),
+      }),
+      v.object({
+        kind: v.literal("success"),
+        value: v.number(),
+      }),
+    ),
+  ),
 });
 ```
 
@@ -88,8 +88,8 @@ export const exampleQuery = query({
   args: {},
   returns: v.null(),
   handler: async (ctx, args) => {
-      console.log("This query returns a null value");
-      return null;
+    console.log("This query returns a null value");
+    return null;
   },
 });
 ```
@@ -170,14 +170,14 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 export const listWithExtraArg = query({
-    args: { paginationOpts: paginationOptsValidator, author: v.string() },
-    handler: async (ctx, args) => {
-        return await ctx.db
-        .query("messages")
-        .filter((q) => q.eq(q.field("author"), args.author))
-        .order("desc")
-        .paginate(args.paginationOpts);
-    },
+  args: { paginationOpts: paginationOptsValidator, author: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .filter((q) => q.eq(q.field("author"), args.author))
+      .order("desc")
+      .paginate(args.paginationOpts);
+  },
 });
 ```
 
@@ -210,19 +210,19 @@ import { query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 
 export const exampleQuery = query({
-    args: { userIds: v.array(v.id("users")) },
-    returns: v.record(v.id("users"), v.string()),
-    handler: async (ctx, args) => {
-        const idToUsername: Record<Id<"users">, string> = {};
-        for (const userId of args.userIds) {
-            const user = await ctx.db.get("users", userId);
-            if (user) {
-                idToUsername[user._id] = user.username;
-            }
-        }
+  args: { userIds: v.array(v.id("users")) },
+  returns: v.record(v.id("users"), v.string()),
+  handler: async (ctx, args) => {
+    const idToUsername: Record<Id<"users">, string> = {};
+    for (const userId of args.userIds) {
+      const user = await ctx.db.get("users", userId);
+      if (user) {
+        idToUsername[user._id] = user.username;
+      }
+    }
 
-        return idToUsername;
-    },
+    return idToUsername;
+  },
 });
 ```
 
@@ -271,12 +271,12 @@ q.search("body", "hello hi").eq("channel", "#general"),
 import { action } from "./_generated/server";
 
 export const exampleAction = action({
-    args: {},
-    returns: v.null(),
-    handler: async (ctx, args) => {
-        console.log("This action does not return anything");
-        return null;
-    },
+  args: {},
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    console.log("This action does not return anything");
+    return null;
+  },
 });
 ```
 
