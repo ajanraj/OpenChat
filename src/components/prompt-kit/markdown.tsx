@@ -1,21 +1,19 @@
 import { marked } from "marked";
 import "katex/dist/katex.css";
-import { Children, memo, useId, useMemo } from "react";
+import { cjk } from "@streamdown/cjk";
+import { math } from "@streamdown/math";
+import { Children, isValidElement, memo, useId, useMemo } from "react";
 import type { Components } from "react-markdown";
-import rehypeKatex from "rehype-katex";
 import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import { Streamdown } from "streamdown";
+import { Streamdown, defaultRemarkPlugins } from "streamdown";
 import { cn } from "@/lib/utils";
 import { ButtonCopy } from "../common/button-copy";
 import { ButtonDownload } from "../common/button-download";
 import { CodeBlock, CodeBlockCode, CodeBlockGroup } from "./code-block";
 import { Source, SourceContent, SourceTrigger } from "./source";
 
-// Move plugin arrays to module level to prevent recreation on every render
-const REMARK_PLUGINS = [remarkBreaks, remarkGfm, remarkMath];
-const REHYPE_PLUGINS = [rehypeKatex];
+const STREAMDOWN_PLUGINS = { math, cjk };
+const REMARK_PLUGINS = [...Object.values(defaultRemarkPlugins), remarkBreaks];
 
 export type MarkdownProps = {
 	children: string;
@@ -41,6 +39,19 @@ function extractLanguage(className?: string): string {
 	return match ? match[1] : "plaintext";
 }
 
+function toPlainText(node: React.ReactNode): string {
+	if (typeof node === "string" || typeof node === "number") {
+		return String(node);
+	}
+	if (Array.isArray(node)) {
+		return node.map(toPlainText).join("");
+	}
+	if (isValidElement<{ children?: React.ReactNode }>(node)) {
+		return toPlainText(node.props.children ?? "");
+	}
+	return "";
+}
+
 const MemoizedCodeBlock = memo(
 	({
 		className,
@@ -51,7 +62,7 @@ const MemoizedCodeBlock = memo(
 		children: React.ReactNode;
 		language: string;
 	}) => {
-		const codeString = children as string;
+		const codeString = useMemo(() => toPlainText(children), [children]);
 		const lineCount = useMemo(() => {
 			const trimmed = codeString.replace(TRAILING_NEWLINE_REGEX, "");
 			return trimmed ? trimmed.split("\n").length : 0;
@@ -103,7 +114,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
 
 		return (
 			<MemoizedCodeBlock className={className} language={language}>
-				{children as string}
+				{children}
 			</MemoizedCodeBlock>
 		);
 	},
@@ -150,28 +161,11 @@ const MemoizedMarkdownBlock = memo(
 		content: string;
 		components?: Partial<Components>;
 	}) {
-		// Check if content contains Mermaid diagrams
-		const hasMermaid =
-			content.includes("```mermaid") || content.includes("language-mermaid");
-
-		// Memoize components to prevent recreation on every render
-		const componentsToUse = useMemo(() => {
-			if (hasMermaid) {
-				return {
-					pre({ children }: { children?: React.ReactNode }) {
-						return <>{children}</>;
-					},
-					a: components.a, // Keep the link component
-				} as Partial<Components>;
-			}
-			return components;
-		}, [hasMermaid, components]);
-
 		return (
 			<Streamdown
-				components={componentsToUse}
+				components={components}
 				parseIncompleteMarkdown={true}
-				rehypePlugins={REHYPE_PLUGINS}
+				plugins={STREAMDOWN_PLUGINS}
 				remarkPlugins={REMARK_PLUGINS}
 			>
 				{content}
