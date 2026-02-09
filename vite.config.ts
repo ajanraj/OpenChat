@@ -82,6 +82,7 @@ const config = defineConfig({
   ssr: {
     noExternal: [
       "streamdown",
+      /@streamdown\/.*/,
       /@lobehub\/.*/,
       /@phosphor-icons\/.*/,
       /@ridemountainpig\/.*/,
@@ -130,6 +131,10 @@ const config = defineConfig({
       "unist-util-visit",
       "url-join",
       "use-merge-value",
+      "mermaid",
+      "@braintree/sanitize-url",
+      "@streamdown/code",
+      "@streamdown/mermaid",
     ],
   },
 });
