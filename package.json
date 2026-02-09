@@ -70,6 +70,7 @@
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@ridemountainpig/svgl-react": "^1.0.15",
     "@streamdown/cjk": "^1.0.1",
+    "@streamdown/code": "^1.0.1",
     "@streamdown/math": "^1.0.1",
     "@streamdown/mermaid": "^1.0.1",
     "@tailwindcss/vite": "^4.1.18",
