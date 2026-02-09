@@ -7,8 +7,8 @@ import {
 } from "@phosphor-icons/react";
 import { useRouter } from "@tanstack/react-router";
 import React from "react";
+import { UserAvatar } from "@/components/user/user-avatar";
 import { useTheme } from "@/components/theme-provider";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -27,6 +27,8 @@ import { useUser } from "@/providers/user-provider";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { AppInfoTrigger } from "./app-info/app-info-trigger";
 import { SettingsTrigger } from "./settings/settings-trigger";
+
+const getDisplayName = (user: Doc<"users">) => user.preferredName || user.name || "User";
 
 export function UserMenu({ user }: { user: Doc<"users"> }) {
 	const { signOut } = useUser();
@@ -124,13 +126,11 @@ export function UserMenu({ user }: { user: Doc<"users"> }) {
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<DropdownMenuTrigger>
-						<Avatar>
-							<AvatarImage src={user?.image ?? undefined} />
-							<AvatarFallback>
-								{user?.name?.charAt(0) ||
-									(user?.email ? user.email.charAt(0) : "")}
-							</AvatarFallback>
-						</Avatar>
+						<UserAvatar
+							alt="Profile"
+							className="border-2 border-background shadow-lg"
+							user={user}
+						/>
 					</DropdownMenuTrigger>
 				</TooltipTrigger>
 				<TooltipContent>Profile</TooltipContent>
@@ -155,7 +155,7 @@ export function UserMenu({ user }: { user: Doc<"users"> }) {
 				}}
 			>
 				<DropdownMenuItem className="flex flex-col items-start gap-0 no-underline hover:bg-transparent focus:bg-transparent">
-					<span>{user?.name}</span>
+					<span>{getDisplayName(user)}</span>
 					<button
 						className="flex items-center gap-1 text-muted-foreground"
 						onClick={(e) => {

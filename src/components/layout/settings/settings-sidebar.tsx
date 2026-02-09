@@ -1,32 +1,11 @@
-import { Eye, EyeSlash, User } from "@phosphor-icons/react";
+import { Eye, EyeSlash } from "@phosphor-icons/react";
 import React, { useCallback } from "react";
 import { MessageUsageCard } from "@/components/layout/settings/message-usage-card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user/user-avatar";
 import { Kbd } from "@/components/ui/kbd";
+import { getHighResolutionAvatarUrl } from "@/lib/avatar-utils";
 import { useUser } from "@/providers/user-provider";
 import type { Doc } from "../../../../convex/_generated/dataModel";
-
-const SIZE_PARAM_REGEX = /sz=\d+/;
-const S96_PARAM_REGEX = /s96-c/;
-
-const getHighResolutionAvatarUrl = (imageUrl?: string, size = 192) => {
-	if (!imageUrl) {
-		return;
-	}
-
-	if (imageUrl.includes("googleusercontent.com")) {
-		if (imageUrl.includes("sz=")) {
-			return imageUrl.replace(SIZE_PARAM_REGEX, `sz=${size}`);
-		}
-		if (imageUrl.includes("s96-c")) {
-			return imageUrl.replace(S96_PARAM_REGEX, `s${size}-c`);
-		}
-		const separator = imageUrl.includes("?") ? "&" : "?";
-		return `${imageUrl}${separator}sz=${size}`;
-	}
-
-	return imageUrl;
-};
 
 const getDisplayName = (user: Doc<"users"> | null): string => {
 	if (!user) {
@@ -80,16 +59,13 @@ function SettingsSidebarComponent() {
 		<aside className="w-full space-y-6">
 			{/* User Profile */}
 			<div className="flex flex-col items-center text-center">
-				<Avatar className="size-36 border-4 border-background shadow-lg">
-					<AvatarImage
-						alt="Profile"
-						className="object-cover"
-						src={highResAvatarUrl}
-					/>
-					<AvatarFallback className="bg-muted">
-						<User className="size-16 text-muted-foreground" />
-					</AvatarFallback>
-				</Avatar>
+				<UserAvatar
+					alt="Profile"
+					className="size-36 border-4 border-background shadow-lg"
+					imageClassName="object-cover"
+					imageSrc={highResAvatarUrl}
+					user={user}
+				/>
 				<h2 className="mt-4 font-semibold text-xl tracking-tight">
 					{getDisplayName(user)}
 				</h2>
