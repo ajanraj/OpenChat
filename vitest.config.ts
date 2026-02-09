@@ -12,6 +12,11 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.{test,spec}.{ts,tsx}", "convex/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["node_modules", "dist", ".output", "convex/_generated"],
+    server: {
+      deps: {
+        inline: ["@lobehub/fluent-emoji", "@lobehub/icons", "@lobehub/ui"],
+      },
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
