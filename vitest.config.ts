@@ -14,7 +14,7 @@ export default defineConfig({
     exclude: ["node_modules", "dist", ".output", "convex/_generated"],
     server: {
       deps: {
-        inline: ["@lobehub/fluent-emoji", "@lobehub/icons", "@lobehub/ui"],
+        inline: ["@lobehub/ui"],
       },
     },
     coverage: {
