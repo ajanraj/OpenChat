@@ -167,6 +167,7 @@ const ChatCChatIdRoute = ChatCChatIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof ChatIndexRoute
   '/privacy': typeof PrivacyRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -185,8 +186,7 @@ export interface FileRoutesByFullPath {
   '/settings/history': typeof SettingsHistoryRoute
   '/settings/models': typeof SettingsModelsRoute
   '/share/$chatId': typeof ShareChatIdRoute
-  '/': typeof ChatIndexRoute
-  '/auth': typeof AuthIndexRoute
+  '/auth/': typeof AuthIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/c/$chatId': typeof ChatCChatIdRoute
   '/api/composio/connect': typeof ApiComposioConnectRoute
@@ -251,6 +251,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/privacy'
     | '/security'
     | '/settings'
@@ -269,8 +270,7 @@ export interface FileRouteTypes {
     | '/settings/history'
     | '/settings/models'
     | '/share/$chatId'
-    | '/'
-    | '/auth'
+    | '/auth/'
     | '/settings/'
     | '/c/$chatId'
     | '/api/composio/connect'
@@ -391,7 +391,7 @@ declare module '@tanstack/react-router' {
     '/_chat': {
       id: '/_chat'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof ChatRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -405,7 +405,7 @@ declare module '@tanstack/react-router' {
     '/auth/': {
       id: '/auth/'
       path: '/auth'
-      fullPath: '/auth'
+      fullPath: '/auth/'
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
