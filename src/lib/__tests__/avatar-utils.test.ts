@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getHighResolutionAvatarUrl, getUserAvatarSeed } from "../avatar-utils";
+import {
+  getRenderableAvatarImageSrc,
+  getHighResolutionAvatarUrl,
+  getUserAvatarSeed,
+  isLikelyDefaultGoogleAvatarUrl,
+} from "../avatar-utils";
 
 describe("avatar-utils", () => {
   describe("getUserAvatarSeed", () => {
@@ -74,6 +79,53 @@ describe("avatar-utils", () => {
     it("passes through non-google avatar URLs unchanged", () => {
       const imageUrl = "https://example.com/profile.png";
       expect(getHighResolutionAvatarUrl(imageUrl, 320)).toBe(imageUrl);
+    });
+  });
+
+  describe("isLikelyDefaultGoogleAvatarUrl", () => {
+    it("returns false for empty input", () => {
+      expect(isLikelyDefaultGoogleAvatarUrl(undefined)).toBe(false);
+      expect(isLikelyDefaultGoogleAvatarUrl(null)).toBe(false);
+    });
+
+    it("detects modern default user pattern", () => {
+      expect(
+        isLikelyDefaultGoogleAvatarUrl("https://lh3.googleusercontent.com/a/default-user=s96-c"),
+      ).toBe(true);
+    });
+
+    it("detects legacy default user pattern", () => {
+      expect(
+        isLikelyDefaultGoogleAvatarUrl(
+          "https://lh3.googleusercontent.com/-XdUIqdMkCWA/AAAAAAAAAAI/AAAAAAAAAAA/photo.jpg",
+        ),
+      ).toBe(true);
+    });
+
+    it("returns false for non-default google avatar", () => {
+      expect(
+        isLikelyDefaultGoogleAvatarUrl(
+          "https://lh3.googleusercontent.com/a/ACg8ocJ19jYKQxuq2CkaNytv5V4ODt8hA8k8j66IY6D2dg=s96-c",
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false for non-google avatar", () => {
+      expect(isLikelyDefaultGoogleAvatarUrl("https://example.com/avatar.png")).toBe(false);
+    });
+  });
+
+  describe("getRenderableAvatarImageSrc", () => {
+    it("returns undefined for default google avatar URLs", () => {
+      expect(
+        getRenderableAvatarImageSrc("https://lh3.googleusercontent.com/a/default-user=s96-c"),
+      ).toBeUndefined();
+    });
+
+    it("returns original URL for custom avatars", () => {
+      const imageUrl =
+        "https://lh3.googleusercontent.com/a/ACg8ocJ19jYKQxuq2CkaNytv5V4ODt8hA8k8j66IY6D2dg=s96-c";
+      expect(getRenderableAvatarImageSrc(imageUrl)).toBe(imageUrl);
     });
   });
 });

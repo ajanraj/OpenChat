@@ -1,6 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from "facehash";
 import { cn } from "@/lib/utils";
-import { getUserAvatarSeed, type AvatarUserData } from "@/lib/avatar-utils";
+import {
+	getRenderableAvatarImageSrc,
+	getUserAvatarSeed,
+	type AvatarUserData,
+} from "@/lib/avatar-utils";
 
 const USER_AVATAR_COLOR_CLASSES = [
 	"bg-pink-500/20 dark:bg-pink-500/90",
@@ -28,6 +32,7 @@ export function UserAvatar({
 	imageSrc,
 }: UserAvatarProps) {
 	const seed = getUserAvatarSeed(user);
+	const effectiveImageSrc = getRenderableAvatarImageSrc(imageSrc ?? user?.image);
 
 	return (
 		<Avatar
@@ -39,7 +44,7 @@ export function UserAvatar({
 			<AvatarImage
 				alt={alt}
 				className={cn("aspect-square size-full object-cover", imageClassName)}
-				src={imageSrc ?? user?.image}
+				src={effectiveImageSrc}
 			/>
 			<AvatarFallback
 				facehashProps={{

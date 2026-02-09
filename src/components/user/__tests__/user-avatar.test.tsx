@@ -38,4 +38,23 @@ describe("UserAvatar", () => {
 			expect(container.querySelector("[data-facehash-initial]")).not.toBeNull();
 		});
 	});
+
+	it("uses facehash fallback for default google avatar image URL", async () => {
+		const { container } = render(
+			<UserAvatar
+				user={{
+					email: "ajan@example.com",
+					image: "https://lh3.googleusercontent.com/a/default-user=s96-c",
+				}}
+			/>,
+		);
+
+		await waitFor(() => {
+			const fallback = container.querySelector("[data-facehash]");
+			expect(fallback).not.toBeNull();
+		});
+
+		const image = container.querySelector("img");
+		expect(image?.getAttribute("src")).toBeUndefined();
+	});
 });
