@@ -46,7 +46,7 @@
     "@fontsource/open-sans": "^5.2.7",
     "@fontsource/space-grotesk": "^5.2.10",
     "@lobehub/icons": "4.4.1",
-    "@lobehub/ui": "^4.3.3",
+    "@lobehub/ui": "^4.35.1",
     "@openrouter/ai-sdk-provider": "^2.1.1",
     "@phosphor-icons/react": "^2.1.10",
     "@posthog/ai": "^7.8.6",
