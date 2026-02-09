@@ -254,6 +254,19 @@ samp {
 }
 
 @layer utilities {
+  /* Streamdown 2.1.0 can render a trailing empty line row in fenced code blocks. */
+  [data-streamdown="code-block-body"] code > span:last-child:not(:has(span)),
+  [data-streamdown="code-block-body"] code > span:last-child:has(
+      > span:only-child:empty
+    ) {
+    display: none;
+  }
+
+  /* Keep Streamdown Mermaid fullscreen above app chrome (sidebar/input/header). */
+  [data-streamdown="mermaid-block"] .fixed.inset-0 {
+    z-index: 120 !important;
+  }
+
   .markdown-body .katex {
     font-size: 1.1em;
   }
