@@ -1,7 +1,7 @@
 import "katex/dist/katex.css";
 import "streamdown/styles.css";
 import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
+import { createCodePlugin } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import { Children, memo } from "react";
@@ -11,6 +11,9 @@ import { Streamdown, defaultRemarkPlugins } from "streamdown";
 import { cn } from "@/lib/utils";
 import { Source, SourceContent, SourceTrigger } from "./source";
 
+const code = createCodePlugin({
+	themes: ["vitesse-light","vitesse-dark"],
+});
 const STREAMDOWN_PLUGINS = { code, math, cjk, mermaid };
 const REMARK_PLUGINS = [...Object.values(defaultRemarkPlugins), remarkBreaks];
 const STREAMDOWN_ANIMATION = {
