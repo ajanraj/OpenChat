@@ -36,5 +36,26 @@ export function isUserAuthenticated(user: Doc<"users"> | null): boolean {
  * Gets user timezone
  */
 export function getUserTimezone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const supported =
+    typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : null;
+  const fallback = supported
+    ? supported.includes("Africa/Abidjan")
+      ? "Africa/Abidjan"
+      : (supported[0] ?? "UTC")
+    : "UTC";
+
+  // Some JS runtimes (notably some Node/ICU builds) resolve "UTC" which is not always
+  // included in `Intl.supportedValuesOf("timeZone")` even though it is commonly used.
+  if (!tz || tz === "UTC") {
+    return fallback;
+  }
+
+  // If we can validate against the runtime's supported IANA names, fall back to a safe default.
+  if (supported && !supported.includes(tz)) {
+    return fallback;
+  }
+
+  return tz;
 }
