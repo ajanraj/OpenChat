@@ -8,6 +8,7 @@ import { MINIMAX_MODELS } from "../minimax";
 import { MISTRAL_MODELS } from "../mistral";
 import { MOONSHOT_MODELS } from "../moonshot";
 import { OPENAI_MODELS } from "../openai";
+import { OPENROUTER_MODELS } from "../openrouter";
 import { QWEN_MODELS } from "../qwen";
 import { XAI_MODELS } from "../xai";
 import { ZAI_MODELS } from "../zai";
@@ -81,6 +82,7 @@ testModelArray(MOONSHOT_MODELS, "Moonshot", ["moonshot", ...GATEWAY_PROVIDERS]);
 testModelArray(ZAI_MODELS, "Zai", ["zai", ...GATEWAY_PROVIDERS]);
 testModelArray(MINIMAX_MODELS, "Minimax", ["minimax", ...GATEWAY_PROVIDERS]);
 testModelArray(QWEN_MODELS, "Qwen", ["qwen", ...GATEWAY_PROVIDERS]);
+testModelArray(OPENROUTER_MODELS, "OpenRouter", ["openrouter", ...GATEWAY_PROVIDERS]);
 
 describe("Model Provider Specific Tests", () => {
   describe("OpenAI Models", () => {
