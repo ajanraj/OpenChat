@@ -1,4 +1,5 @@
 import "katex/dist/katex.css";
+import "streamdown/styles.css";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
@@ -12,12 +13,19 @@ import { Source, SourceContent, SourceTrigger } from "./source";
 
 const STREAMDOWN_PLUGINS = { code, math, cjk, mermaid };
 const REMARK_PLUGINS = [...Object.values(defaultRemarkPlugins), remarkBreaks];
+const STREAMDOWN_ANIMATION = {
+	animation: "blurIn",
+	duration: 220,
+	easing: "ease-out",
+	sep: "word" as const,
+};
 
 export type MarkdownProps = {
 	children: string;
 	id?: string;
 	className?: string;
 	components?: Partial<Components>;
+	isAnimating?: boolean;
 };
 
 const HTTP_REGEX = /^https?:\/\//i;
@@ -55,11 +63,14 @@ function MarkdownComponent({
 	id,
 	className,
 	components = INITIAL_COMPONENTS,
+	isAnimating = false,
 }: MarkdownProps) {
 	return (
 		<div className={cn("markdown-body", className)} id={id}>
 			<Streamdown
+				animated={STREAMDOWN_ANIMATION}
 				components={components}
+				isAnimating={isAnimating}
 				parseIncompleteMarkdown={true}
 				plugins={STREAMDOWN_PLUGINS}
 				remarkPlugins={REMARK_PLUGINS}
