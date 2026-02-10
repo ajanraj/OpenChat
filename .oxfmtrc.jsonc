@@ -2,6 +2,7 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     "**/dev-dist/**",
+    "**/.opencode/**",
     "**/src/components/**",
     "**/.openchat_old/**",
     "**/src/routeTree.gen.ts",
