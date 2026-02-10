@@ -533,6 +533,7 @@ const renderTextPart = (
 	part: { type: "text"; text: string },
 	index: number,
 	id: string,
+	isAnimating: boolean,
 ) => {
 	if (!part.text.trim()) {
 		return null;
@@ -542,6 +543,7 @@ const renderTextPart = (
 		<MessageContent
 			className="relative min-w-full bg-transparent p-0"
 			id={`${id}-text-${index}`}
+			isAnimating={isAnimating}
 			key={`text-${index}`}
 			markdown={true}
 		>
@@ -569,6 +571,7 @@ const renderReasoningPart = (
 				<Markdown
 					className="w-full max-w-none break-words leading-relaxed"
 					id={`${id}-reasoning-${index}`}
+					isAnimating={isPartStreaming}
 				>
 					{part.text}
 				</Markdown>
@@ -812,6 +815,7 @@ const renderPartDirectly = (
 	part: MessageType["parts"][number],
 	index: number,
 	id: string,
+	isAnimating: boolean,
 	partKey: string,
 	reasoningStates: Record<string, boolean>,
 	reasoningStreamingStates: Record<string, boolean>,
@@ -820,7 +824,12 @@ const renderPartDirectly = (
 ) => {
 	switch (part.type) {
 		case "text":
-			return renderTextPart(part as { type: "text"; text: string }, index, id);
+			return renderTextPart(
+				part as { type: "text"; text: string },
+				index,
+				id,
+				isAnimating,
+			);
 
 		case "reasoning":
 			return renderReasoningPart(
@@ -859,6 +868,7 @@ const renderPartInChainOfThought = (
 	part: MessageType["parts"][number],
 	index: number,
 	id: string,
+	isAnimating: boolean,
 	partKey: string,
 	reasoningStates: Record<string, boolean>,
 	reasoningStreamingStates: Record<string, boolean>,
@@ -873,7 +883,12 @@ const renderPartInChainOfThought = (
 					label="Field Report"
 					status="complete"
 				>
-					{renderTextPart(part as { type: "text"; text: string }, index, id)}
+					{renderTextPart(
+						part as { type: "text"; text: string },
+						index,
+						id,
+						isAnimating,
+					)}
 				</ChainOfThoughtStep>
 			);
 
@@ -1294,6 +1309,7 @@ function MessageAssistantInner({
 										part,
 										innerIndex,
 										id,
+										status === "streaming",
 										stableKey,
 										reasoningStates,
 										reasoningStreamingStates,
@@ -1334,6 +1350,7 @@ function MessageAssistantInner({
 										part,
 										innerIndex,
 										id,
+										status === "streaming",
 										stepKey,
 										reasoningStates,
 										reasoningStreamingStates,

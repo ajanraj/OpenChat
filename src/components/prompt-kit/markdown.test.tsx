@@ -6,8 +6,15 @@ const streamdownSpy = vi.hoisted(() => vi.fn());
 
 vi.mock("streamdown", () => ({
 	Streamdown: (props: {
+		animated?: {
+			animation: string;
+			duration: number;
+			easing: string;
+			sep: "word" | "char";
+		};
 		children?: string;
 		components?: Partial<Record<string, unknown>>;
+		isAnimating?: boolean;
 		parseIncompleteMarkdown?: boolean;
 		plugins?: Record<string, unknown>;
 		remarkPlugins?: unknown[];
@@ -26,12 +33,26 @@ describe("Markdown", () => {
 
 		expect(streamdownSpy).toHaveBeenCalledTimes(1);
 		const props = streamdownSpy.mock.calls[0]?.[0] as {
+			animated?: {
+				animation: string;
+				duration: number;
+				easing: string;
+				sep: "word" | "char";
+			};
+			isAnimating?: boolean;
 			plugins?: Record<string, unknown>;
 			parseIncompleteMarkdown?: boolean;
 			remarkPlugins?: unknown[];
 			components?: Partial<Record<string, unknown>>;
 		};
 
+		expect(props.animated).toEqual({
+			animation: "blurIn",
+			duration: 220,
+			easing: "ease-out",
+			sep: "word",
+		});
+		expect(props.isAnimating).toBe(false);
 		expect(props.parseIncompleteMarkdown).toBe(true);
 		expect(props.plugins).toMatchObject({
 			code: expect.any(Object),
@@ -41,6 +62,17 @@ describe("Markdown", () => {
 		});
 		expect(props.remarkPlugins).toHaveLength(2);
 		expect(typeof props.components?.a).toBe("function");
+	});
+
+	it("passes animation state when streaming", () => {
+		streamdownSpy.mockClear();
+
+		render(<Markdown isAnimating={true}>{"Hello world"}</Markdown>);
+
+		const props = streamdownSpy.mock.calls[0]?.[0] as {
+			isAnimating?: boolean;
+		};
+		expect(props.isAnimating).toBe(true);
 	});
 
 	it("renders multi-block markdown in a single streamdown instance", () => {
