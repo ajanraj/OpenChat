@@ -3,6 +3,7 @@
   "plugins": ["react", "typescript", "unicorn", "import", "vitest", "oxc"],
   "ignorePatterns": [
     "**/dev-dist/**",
+    "**/.opencode/**",
     "**/src/components/**",
     "**/.openchat_old/**",
     "**/src/routeTree.gen.ts",

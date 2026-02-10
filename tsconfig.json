@@ -1,6 +1,6 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["dev-dist"],
+  "exclude": ["dev-dist", ".opencode"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
