@@ -10,7 +10,7 @@ import { MINIMAX_MODELS } from "./minimax";
 import { MISTRAL_MODELS } from "./mistral";
 import { MOONSHOT_MODELS } from "./moonshot";
 import { OPENAI_MODELS } from "./openai";
-// import { OPENROUTER_MODELS } from "./openrouter";
+import { OPENROUTER_MODELS } from "./openrouter";
 import { QWEN_MODELS } from "./qwen";
 import { XAI_MODELS } from "./xai";
 import { ZAI_MODELS } from "./zai";
@@ -35,7 +35,7 @@ export const MODELS_DATA = [
   ...ZAI_MODELS,
   ...MINIMAX_MODELS,
   ...QWEN_MODELS,
-  // ...OPENROUTER_MODELS,
+  ...OPENROUTER_MODELS,
 ];
 
 export const MODELS_RAW = z.array(ModelSchema).parse(MODELS_DATA);
