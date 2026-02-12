@@ -8,6 +8,33 @@ import { openrouter } from "../openrouter";
 
 export const ZAI_MODELS = [
   {
+    id: "glm-5",
+    name: "GLM 5",
+    provider: "openrouter",
+    displayProvider: "z-ai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Z.ai (Zhipu AI) GLM-5 in non-thinking mode.\nReleased on February 11, 2026 with 202,752 context for fast agentic coding and systems workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: openrouter("z-ai/glm-5"),
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_DISABLED],
+  },
+  {
+    id: "glm-5-thinking",
+    name: "GLM 5",
+    subName: "Thinking",
+    provider: "openrouter",
+    displayProvider: "z-ai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Z.ai (Zhipu AI) GLM-5 with thinking enabled.\nReleased on February 11, 2026 with 202,752 context, optimized for long-horizon planning and deep reasoning.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: openrouter("z-ai/glm-5"),
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE],
+  },
+  {
     id: "glm-4.5",
     name: "GLM 4.5",
     provider: "openrouter",
@@ -92,6 +119,7 @@ export const ZAI_MODELS = [
     displayProvider: "z-ai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Z.AI's latest flagship model with 200K context.\nFeatures enhanced coding, stable multi-step reasoning, superior frontend aesthetics, and think-before-acting capabilities.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
@@ -106,6 +134,7 @@ export const ZAI_MODELS = [
     displayProvider: "z-ai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "GLM 4.7 with reasoning capabilities enabled.\nFeatures interleaved thinking, preserved thinking across turns, and turn-level thinking control.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },

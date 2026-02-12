@@ -180,4 +180,27 @@ describe("Model Provider Specific Tests", () => {
       expect(grokModels.length).toBeGreaterThan(0);
     });
   });
+
+  describe("Z.ai Models", () => {
+    it("includes GLM 5 standard and thinking variants", () => {
+      expect(ZAI_MODELS.some((m) => m.id === "glm-5")).toBe(true);
+      expect(ZAI_MODELS.some((m) => m.id === "glm-5-thinking")).toBe(true);
+    });
+
+    it("marks all Z.ai models as legacy except GLM 5, GLM 5 Thinking, and GLM 4.6V", () => {
+      const nonLegacyIds = new Set(ZAI_MODELS.filter((m) => !m.legacy).map((m) => m.id));
+      expect(nonLegacyIds).toEqual(new Set(["glm-5", "glm-5-thinking", "glm-4.6v"]));
+    });
+  });
+
+  describe("MiniMax Models", () => {
+    it("includes MiniMax M2.5", () => {
+      expect(MINIMAX_MODELS.some((m) => m.id === "minimax/minimax-m2.5")).toBe(true);
+    });
+
+    it("marks all MiniMax models as legacy except M2.5 and M2.1", () => {
+      const nonLegacyIds = new Set(MINIMAX_MODELS.filter((m) => !m.legacy).map((m) => m.id));
+      expect(nonLegacyIds).toEqual(new Set(["minimax/minimax-m2.5", "minimax/minimax-m2.1"]));
+    });
+  });
 });
