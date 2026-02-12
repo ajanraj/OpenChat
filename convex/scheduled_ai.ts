@@ -82,7 +82,7 @@ export const executeTask = internalAction({
       const { chatId } = await ctx.runMutation(internal.chats.createChatInternal, {
         userId: task.userId,
         title: `${task.title} - ${currentDate} ${currentTime}`,
-        model: "minimax/minimax-m2.1",
+        model: "minimax/minimax-m2.5",
       });
 
       // Update task with the latest chat ID and set status to 'running'
@@ -172,8 +172,8 @@ export const executeTask = internalAction({
         connectorsStatus,
       );
 
-      // Get MiniMax M2.1 model
-      const selectedModel = MODELS_MAP["minimax/minimax-m2.1"];
+      // Get MiniMax M2.5 model
+      const selectedModel = MODELS_MAP["minimax/minimax-m2.5"];
       if (!selectedModel) {
         // console.log('Kimi K2 0905 model not found');
         return null;
