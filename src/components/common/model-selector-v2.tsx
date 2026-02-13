@@ -335,8 +335,8 @@ export function ModelSelectorV2({
 						{/* Upgrade banner */}
 						{!hasPremium &&
 							(user?.isAnonymous || products?.premium?.id) && (
-								<div className="relative overflow-hidden bg-gradient-to-r from-pink-500/[0.07] via-pink-500/[0.1] to-pink-500/[0.05]">
-									<div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-pink-400/20 to-transparent" />
+								<div className="relative overflow-hidden bg-gradient-to-r from-pink-400/[0.05] via-pink-400/[0.08] to-pink-400/[0.04]">
+									<div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-pink-300/15 to-transparent" />
 									<div className="flex items-center gap-3 px-4 py-2.5">
 										<div className="flex size-8 shrink-0 items-center justify-center rounded-lg animate-[gem-shine_2.5s_ease-in-out_infinite]">
 											<SketchLogoIcon
@@ -357,7 +357,7 @@ export function ModelSelectorV2({
 											size="sm"
 											variant="outline"
 											onClick={handleUpgrade}
-											className="h-7 cursor-pointer rounded-lg border-pink-500/20 bg-pink-500/8 px-3 text-xs font-medium text-pink-400 transition-colors hover:border-pink-500/30 hover:bg-pink-500/15 hover:text-pink-300 dark:text-pink-300"
+											className="h-7 cursor-pointer rounded-lg border-pink-400/20 bg-pink-400/8 px-3 text-xs font-medium text-pink-400 transition-colors hover:border-pink-400/30 hover:bg-pink-400/15 hover:text-pink-300 dark:text-pink-300"
 										>
 											Upgrade
 										</Button>
@@ -499,10 +499,10 @@ export function ModelSelectorV2({
 											>
 												<ProviderIcon
 													className={cn(
-														"size-5 transition",
+														"size-5 transition-[filter,opacity]",
 														activeProvider === p.id
-															? "text-foreground opacity-100"
-															: "text-muted-foreground opacity-80 group-hover:text-foreground group-hover:opacity-100",
+															? "opacity-100"
+															: "grayscale brightness-0 opacity-40 dark:invert group-hover:grayscale-0 group-hover:brightness-100 group-hover:opacity-100 group-hover:dark:invert-0",
 													)}
 													provider={p}
 												/>
