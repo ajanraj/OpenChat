@@ -13,7 +13,7 @@ import { createAgentTool } from "../src/lib/create-agent-tool";
 import { limitDepth } from "../src/lib/depth-limiter";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { buildSystemPrompt } from "../src/lib/prompt_config";
-import { searchTool } from "../src/lib/tools/search";
+import { createMeteredSearchTool } from "../src/lib/tools/search-credit-metering";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
@@ -235,8 +235,18 @@ export const executeTask = internalAction({
 
       const toolset: Record<string, Tool> = {};
 
-      if (task.enableSearch) {
-        toolset.search = searchTool;
+      const meteredSearchTool = createMeteredSearchTool({
+        enableSearch: Boolean(task.enableSearch),
+        consumeStandardCredits: async (count) => {
+          await ctx.runMutation(internal.users.incrementStandardCreditsInternal, {
+            userId: task.userId,
+            count,
+          });
+        },
+      });
+
+      if (meteredSearchTool) {
+        toolset.search = meteredSearchTool;
       }
 
       if (toolkitSlugs.length > 0) {

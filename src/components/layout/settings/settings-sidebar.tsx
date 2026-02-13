@@ -89,7 +89,7 @@ function SettingsSidebarComponent() {
 								: "bg-muted text-muted-foreground"
 						}`}
 					>
-						{hasPremium ? "Pro Plan" : "Free Plan"}
+						{hasPremium ? "Premium Plan" : "Free Plan"}
 					</span>
 				</div>
 			</div>

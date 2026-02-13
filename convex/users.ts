@@ -321,6 +321,53 @@ export const incrementMessageCount = mutation({
   },
 });
 
+export const incrementStandardCredits = mutation({
+  args: {
+    count: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { count }) => {
+    const creditsToConsume = count ?? 1;
+
+    if (!Number.isInteger(creditsToConsume) || creditsToConsume <= 0) {
+      throw new ConvexError(ERROR_CODES.INVALID_INPUT);
+    }
+
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
+    }
+
+    const subscription = await polar.getCurrentSubscription(ctx, {
+      userId: user._id,
+    });
+    const isPremium = subscription?.status === "active";
+    const isAnonymous = user.isAnonymous ?? false;
+
+    if (!isPremium) {
+      const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+      await rateLimiter.limit(ctx, dailyLimitName, {
+        key: userId,
+        count: creditsToConsume,
+        throws: true,
+      });
+    }
+
+    await rateLimiter.limit(ctx, "standardMonthly", {
+      key: userId,
+      count: creditsToConsume,
+      throws: true,
+    });
+
+    return null;
+  },
+});
+
 export const assertNotOverLimit = mutation({
   args: {
     usesPremiumCredits: v.optional(v.boolean()),
@@ -785,6 +832,49 @@ export const incrementMessageCountInternal = internalMutation({
         throws: true,
       });
     }
+
+    return null;
+  },
+});
+
+export const incrementStandardCreditsInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    count: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { userId, count }) => {
+    const creditsToConsume = count ?? 1;
+
+    if (!Number.isInteger(creditsToConsume) || creditsToConsume <= 0) {
+      throw new ConvexError(ERROR_CODES.INVALID_INPUT);
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
+    }
+
+    const subscription = await polar.getCurrentSubscription(ctx, {
+      userId: user._id,
+    });
+    const isPremium = subscription?.status === "active";
+    const isAnonymous = user.isAnonymous ?? false;
+
+    if (!isPremium) {
+      const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+      await rateLimiter.limit(ctx, dailyLimitName, {
+        key: userId,
+        count: creditsToConsume,
+        throws: true,
+      });
+    }
+
+    await rateLimiter.limit(ctx, "standardMonthly", {
+      key: userId,
+      count: creditsToConsume,
+      throws: true,
+    });
 
     return null;
   },

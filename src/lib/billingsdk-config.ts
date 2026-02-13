@@ -58,13 +58,13 @@ export const plans: Plan[] = [
     ],
   },
   {
-    id: "pro",
-    title: "Pro",
+    id: "premium",
+    title: "Premium",
     description: "More access to popular features",
     currency: "$",
     monthlyPrice: "10",
     yearlyPrice: "120",
-    buttonText: "Upgrade to Pro",
+    buttonText: "Upgrade to Premium",
     badge: "Most popular",
     highlight: true,
     features: [

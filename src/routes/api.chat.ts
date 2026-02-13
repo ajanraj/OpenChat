@@ -41,7 +41,7 @@ import {
 } from "@/lib/provider-error-detector";
 import { sanitizeUserInput } from "@/lib/sanitize";
 import { uploadBlobToR2 } from "@/lib/server-upload-helpers";
-import { searchTool } from "@/lib/tools/search";
+import { createMeteredSearchTool } from "@/lib/tools/search-credit-metering";
 
 /**
  * Helper function to save an error message as an assistant message
@@ -709,8 +709,17 @@ export const Route = createFileRoute("/api/chat")({
 
                 const toolset: Record<string, Tool> = {};
 
-                if (enableSearch) {
-                  toolset.search = searchTool;
+                const meteredSearchTool = createMeteredSearchTool({
+                  enableSearch: Boolean(enableSearch),
+                  consumeStandardCredits: async (count) => {
+                    await client.mutation(api.users.incrementStandardCredits, {
+                      count,
+                    });
+                  },
+                });
+
+                if (meteredSearchTool) {
+                  toolset.search = meteredSearchTool;
                 }
 
                 if (

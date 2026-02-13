@@ -31,6 +31,33 @@
       transform: translateX(100%);
     }
   }
+
+  @keyframes gem-shine {
+    0% {
+      filter: brightness(1) drop-shadow(0 0 1px oklch(0.72 0.17 350 / 0.2));
+      transform: scale(1);
+    }
+
+    25% {
+      filter: brightness(1.3) drop-shadow(0 0 6px oklch(0.76 0.2 350 / 0.5));
+      transform: scale(1.05);
+    }
+
+    50% {
+      filter: brightness(1) drop-shadow(0 0 1px oklch(0.72 0.17 350 / 0.2));
+      transform: scale(1);
+    }
+
+    75% {
+      filter: brightness(1.2) drop-shadow(0 0 4px oklch(0.76 0.18 350 / 0.35));
+      transform: scale(1.02);
+    }
+
+    100% {
+      filter: brightness(1) drop-shadow(0 0 1px oklch(0.72 0.17 350 / 0.2));
+      transform: scale(1);
+    }
+  }
 }
 
 :root {
@@ -234,6 +261,13 @@ samp {
 /* sonner toast */
 [data-sonner-toaster] > li {
   width: 100%;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @utility scrollbar-thin {

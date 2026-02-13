@@ -3,18 +3,6 @@ import { openrouter } from "../openrouter";
 
 export const OPENROUTER_MODELS = [
   {
-    id: "openrouter/pony-alpha",
-    name: "Pony Alpha",
-    provider: "openrouter",
-    premium: false,
-    usesPremiumCredits: false,
-    skipRateLimit: true,
-    description:
-      "Pony Alpha is a free OpenRouter model for coding, agentic workflows, reasoning, and roleplay.\nConfigured with reasoning support and no app rate limits.",
-    api_sdk: openrouter("openrouter/pony-alpha"),
-    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE],
-  },
-  {
     id: "openrouter/aurora-alpha",
     name: "Aurora Alpha",
     provider: "openrouter",

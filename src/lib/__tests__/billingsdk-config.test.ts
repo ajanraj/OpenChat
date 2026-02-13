@@ -17,17 +17,17 @@ describe("billingsdk-config", () => {
       expect(freePlan?.monthlyPrice).toBe("0");
     });
 
-    it("contains pro plan", () => {
-      const proPlan = plans.find((p) => p.id === "pro");
+    it("contains premium plan", () => {
+      const premiumPlan = plans.find((p) => p.id === "premium");
 
-      expect(proPlan).toBeDefined();
-      expect(proPlan?.title).toBe("Pro");
+      expect(premiumPlan).toBeDefined();
+      expect(premiumPlan?.title).toBe("Premium");
     });
 
-    it("pro plan is highlighted", () => {
-      const proPlan = plans.find((p) => p.id === "pro");
+    it("premium plan is highlighted", () => {
+      const premiumPlan = plans.find((p) => p.id === "premium");
 
-      expect(proPlan?.highlight).toBe(true);
+      expect(premiumPlan?.highlight).toBe(true);
     });
 
     it("each plan has required properties", () => {
