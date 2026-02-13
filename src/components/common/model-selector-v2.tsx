@@ -42,8 +42,12 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 import {
+	getModelUnavailableReasons,
+	getNormalizedSearchQuery,
 	getLegacyScopeKey,
 	getProviderFilter,
+	isUnpinningLastFavoriteModel,
+	shouldShowFavoritesOnly,
 	shouldHideProviderSidebar,
 } from "./model-selector-v2.utils";
 
@@ -77,7 +81,11 @@ export function ModelSelectorV2({
 	const [showProviderScrollHint, setShowProviderScrollHint] = useState(false);
 	const providerSidebarRef = useRef<HTMLDivElement | null>(null);
 	const providerSidebarResizeObserverRef = useRef<ResizeObserver | null>(null);
-	const shouldHideSidebar = shouldHideProviderSidebar(searchQuery, activeFilters);
+	const normalizedSearchQuery = getNormalizedSearchQuery(searchQuery);
+	const shouldHideSidebar = shouldHideProviderSidebar(
+		normalizedSearchQuery,
+		activeFilters,
+	);
 
 	const updateProviderScrollHint = useCallback((sidebar?: HTMLDivElement) => {
 		const node = sidebar ?? providerSidebarRef.current;
@@ -155,7 +163,12 @@ export function ModelSelectorV2({
 	}, [categorizedModels.all]);
 
 	const providerFilter = getProviderFilter(
-		searchQuery,
+		normalizedSearchQuery,
+		activeFilters,
+		activeProvider,
+	);
+	const isFavoritesScope = shouldShowFavoritesOnly(
+		normalizedSearchQuery,
 		activeFilters,
 		activeProvider,
 	);
@@ -163,25 +176,33 @@ export function ModelSelectorV2({
 	const isLegacyExpanded = legacyExpandedByScope[legacyScopeKey] ?? false;
 
 	const { mainModels, legacyModels } = useMemo(() => {
-		let main = [
-			...categorizedModels.favorites,
-			...categorizedModels.others.filter(
-				(m) => !disabledModelsSet.has(m.id) && !m.legacy,
-			),
-		];
-		let legacy = categorizedModels.others.filter(
-			(m) => m.legacy && !disabledModelsSet.has(m.id),
-		);
+		let main: EnrichedModel[];
+		let legacy: EnrichedModel[];
 
-		if (providerFilter) {
-			const match = (m: EnrichedModel) =>
-				m.providerInfo?.id === providerFilter;
-			main = main.filter(match);
-			legacy = legacy.filter(match);
+		if (isFavoritesScope) {
+			main = [...categorizedModels.favorites];
+			legacy = [];
+		} else {
+			main = [
+				...categorizedModels.favorites,
+				...categorizedModels.others.filter(
+					(m) => !disabledModelsSet.has(m.id) && !m.legacy,
+				),
+			];
+			legacy = categorizedModels.others.filter(
+				(m) => m.legacy && !disabledModelsSet.has(m.id),
+			);
+
+			if (providerFilter) {
+				const match = (m: EnrichedModel) =>
+					m.providerInfo?.id === providerFilter;
+				main = main.filter(match);
+				legacy = legacy.filter(match);
+			}
 		}
 
-		if (searchQuery) {
-			const q = searchQuery.toLowerCase();
+		if (normalizedSearchQuery) {
+			const q = normalizedSearchQuery;
 			const match = (m: EnrichedModel) => {
 				const name = m.subName ? `${m.name} ${m.subName}` : m.name;
 				return (
@@ -208,7 +229,15 @@ export function ModelSelectorV2({
 		}
 
 		return { mainModels: main, legacyModels: legacy };
-	}, [categorizedModels, disabledModelsSet, providerFilter, searchQuery, activeFilters, showCombined]);
+	}, [
+		categorizedModels,
+		disabledModelsSet,
+		isFavoritesScope,
+		providerFilter,
+		normalizedSearchQuery,
+		activeFilters,
+		showCombined,
+	]);
 
 	const handleSelect = useCallback(
 		(id: string) => {
@@ -220,9 +249,15 @@ export function ModelSelectorV2({
 
 	const handleToggleFavorite = useCallback(
 		(modelId: string) => {
-			toggleFavoriteModel(modelId);
+			const isFavorite = favoriteModelsSet.has(modelId);
+			if (isUnpinningLastFavoriteModel(isFavorite, favoriteModelsSet.size)) {
+				return;
+			}
+			void toggleFavoriteModel(modelId).catch((error) => {
+				console.error("Failed to toggle favorite model:", error);
+			});
 		},
-		[toggleFavoriteModel],
+		[favoriteModelsSet, toggleFavoriteModel],
 	);
 
 	const handleToggleFilter = useCallback((filterId: string) => {
@@ -522,17 +557,18 @@ export function ModelSelectorV2({
 							{/* Model list */}
 							<div className="relative min-h-0 flex-1 overflow-hidden">
 								<div className="no-scrollbar h-full overflow-x-hidden overflow-y-auto p-2">
-									<div className="space-y-0.5">
-										{mainModels.map((m) => (
-											<ModelRow
-												key={m.id}
-												model={m}
-												isFavorite={favoriteModelsSet.has(m.id)}
-												isSelected={selectedModelId === m.id}
-												onSelect={handleSelect}
-												onToggleFavorite={handleToggleFavorite}
-											/>
-										))}
+										<div className="space-y-0.5">
+											{mainModels.map((m) => (
+												<ModelRow
+													key={m.id}
+													model={m}
+													isFavorite={favoriteModelsSet.has(m.id)}
+													favoriteModelsCount={favoriteModelsSet.size}
+													isSelected={selectedModelId === m.id}
+													onSelect={handleSelect}
+													onToggleFavorite={handleToggleFavorite}
+												/>
+											))}
 
 										{/* Legacy models */}
 										{legacyModels.length > 0 && (
@@ -564,6 +600,7 @@ export function ModelSelectorV2({
 															key={m.id}
 															model={m}
 															isFavorite={favoriteModelsSet.has(m.id)}
+															favoriteModelsCount={favoriteModelsSet.size}
 															isSelected={selectedModelId === m.id}
 															onSelect={handleSelect}
 															onToggleFavorite={handleToggleFavorite}
@@ -726,12 +763,14 @@ const FILTER_OPTIONS = [
 const ModelRow = memo(function ModelRow({
 	model,
 	isFavorite,
+	favoriteModelsCount,
 	isSelected,
 	onSelect,
 	onToggleFavorite,
 }: {
 	model: EnrichedModel;
 	isFavorite: boolean;
+	favoriteModelsCount: number;
 	isSelected: boolean;
 	onSelect: (id: string) => void;
 	onToggleFavorite: (id: string) => void;
@@ -755,21 +794,33 @@ const ModelRow = memo(function ModelRow({
 		if (model.available) onSelect(model.id);
 	}, [model.available, model.id, onSelect]);
 
+	const isUnpinDisabled = isUnpinningLastFavoriteModel(
+		isFavorite,
+		favoriteModelsCount,
+	);
+	const unavailableReasons = getModelUnavailableReasons({
+		available: model.available,
+		premium: model.premium,
+		userKeyOnly: model.apiKeyUsage.userKeyOnly,
+	});
+
 	const handleStarClick = useCallback(
-		(e: React.MouseEvent) => {
+		(e: React.MouseEvent<HTMLButtonElement>) => {
 			e.preventDefault();
 			e.stopPropagation();
+			if (isUnpinDisabled) {
+				return;
+			}
 			onToggleFavorite(model.id);
 		},
-		[model.id, onToggleFavorite],
+		[isUnpinDisabled, model.id, onToggleFavorite],
 	);
 
-	return (
-		<div>
-			<button
-				type="button"
-				data-model-item="true"
-				aria-disabled={!model.available}
+	const rowButton = (
+		<button
+					type="button"
+					data-model-item="true"
+					aria-disabled={!model.available}
 				className={cn(
 					"group flex h-16 w-full items-center gap-3 rounded-lg pt-1.5 pr-1.5 pb-2.5 pl-3 text-left transition-all hover:bg-sidebar-accent/60",
 					"focus-visible:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-primary/50",
@@ -802,44 +853,46 @@ const ModelRow = memo(function ModelRow({
 						)}
 
 						{/* Star toggle */}
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<span
-									role="button"
-									tabIndex={0}
-									className="group/star shrink-0 cursor-pointer rounded p-1 text-muted-foreground/80 transition-colors hover:text-yellow-600 focus-visible:ring-2 focus-visible:ring-primary/50"
-									aria-label={
-										isFavorite
-											? "Remove from favorites"
-											: "Add to favorites"
-									}
-									onClick={handleStarClick}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											handleStarClick(
-												e as unknown as React.MouseEvent,
-											);
-										}
-									}}
-								>
-									<StarIcon
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										type="button"
 										className={cn(
-											"size-4 transition-all",
-											isFavorite &&
-												"fill-yellow-500 text-yellow-600 dark:fill-yellow-400 dark:text-yellow-400",
+											"group/star shrink-0 rounded p-1 text-muted-foreground/80 transition-colors focus-visible:ring-2 focus-visible:ring-primary/50",
+											!isUnpinDisabled &&
+												"cursor-pointer hover:text-yellow-600",
+											isUnpinDisabled && "cursor-not-allowed opacity-50",
 										)}
-										weight={isFavorite ? "fill" : "regular"}
-									/>
-								</span>
-							</TooltipTrigger>
-							<TooltipContent side="top">
-								<p>
-									{isFavorite
-										? "Remove from favorites"
-										: "Add to favorites"}
-								</p>
-							</TooltipContent>
-						</Tooltip>
+										aria-label={
+											isUnpinDisabled
+												? "Must keep at least one favorite model"
+												: isFavorite
+													? "Remove from favorites"
+													: "Add to favorites"
+										}
+										disabled={isUnpinDisabled}
+										onClick={handleStarClick}
+									>
+										<StarIcon
+											className={cn(
+												"size-4 transition-all",
+												isFavorite &&
+													"fill-yellow-500 text-yellow-600 dark:fill-yellow-400 dark:text-yellow-400",
+											)}
+											weight={isFavorite ? "fill" : "regular"}
+										/>
+									</button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									<p>
+										{isUnpinDisabled
+											? "Must keep at least one favorite model"
+											: isFavorite
+												? "Remove from favorites"
+												: "Add to favorites"}
+									</p>
+								</TooltipContent>
+							</Tooltip>
 
 						{/* Feature badges pill */}
 						{activeFeatures.length > 0 && (
@@ -902,7 +955,27 @@ const ModelRow = memo(function ModelRow({
 						</div>
 					</div>
 				</div>
-			</button>
+		</button>
+	);
+
+	return (
+		<div>
+			{unavailableReasons.length > 0 ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div>{rowButton}</div>
+					</TooltipTrigger>
+					<TooltipContent side="top">
+						<div className="space-y-0.5">
+							{unavailableReasons.map((reason) => (
+								<p key={reason}>{reason}</p>
+							))}
+						</div>
+					</TooltipContent>
+				</Tooltip>
+			) : (
+				rowButton
+			)}
 		</div>
 	);
 });
