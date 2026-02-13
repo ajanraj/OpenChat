@@ -1,8 +1,17 @@
-import { describe, expect, it } from "vitest";
-import { formatMarkdown, processResults, truncateContent } from "../search";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createSearchTool, formatMarkdown, processResults, truncateContent } from "../search";
+import { searchWithFallback } from "../search-provider-factory";
 import { SEARCH_CONFIG } from "../types";
 
+vi.mock("../search-provider-factory", () => ({
+  searchWithFallback: vi.fn(),
+}));
+
 describe("search utilities", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe("truncateContent", () => {
     it("returns content unchanged if shorter than max length", () => {
       const content = "Short content";
@@ -217,5 +226,99 @@ describe("search utilities", () => {
       expect(processed[0].url).toBe("https://example1.com");
       expect(processed[1].content).toBe("Some content");
     });
+  });
+});
+
+describe("createSearchTool", () => {
+  const executionOptions = {
+    toolCallId: "tool-call-1",
+    messages: [],
+  };
+
+  const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
+    typeof value === "object" && value !== null && Symbol.asyncIterator in value;
+
+  it("calls onSearchSuccess once for successful searches", async () => {
+    const mockedSearchWithFallback = vi.mocked(searchWithFallback);
+    mockedSearchWithFallback.mockResolvedValueOnce([
+      {
+        url: "https://example.com",
+        title: "Title",
+        description: "Description",
+      },
+    ]);
+
+    const onSearchSuccess = vi.fn();
+    const tool = createSearchTool({ onSearchSuccess });
+
+    if (!tool.execute) {
+      throw new Error("Search tool execute handler is not defined");
+    }
+
+    const result = await tool.execute(
+      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
+      executionOptions,
+    );
+
+    if (isAsyncIterable(result)) {
+      throw new Error("Search tool returned async iterable unexpectedly");
+    }
+
+    expect(result.success).toBe(true);
+    expect(onSearchSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onSearchSuccess when search fails", async () => {
+    const mockedSearchWithFallback = vi.mocked(searchWithFallback);
+    mockedSearchWithFallback.mockRejectedValueOnce(new Error("provider down"));
+
+    const onSearchSuccess = vi.fn();
+    const tool = createSearchTool({ onSearchSuccess });
+
+    if (!tool.execute) {
+      throw new Error("Search tool execute handler is not defined");
+    }
+
+    const result = await tool.execute(
+      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
+      executionOptions,
+    );
+
+    if (isAsyncIterable(result)) {
+      throw new Error("Search tool returned async iterable unexpectedly");
+    }
+
+    expect(result.success).toBe(false);
+    expect(onSearchSuccess).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when onSearchSuccess throws", async () => {
+    const mockedSearchWithFallback = vi.mocked(searchWithFallback);
+    mockedSearchWithFallback.mockResolvedValueOnce([
+      {
+        url: "https://example.com",
+        title: "Title",
+        description: "Description",
+      },
+    ]);
+
+    const onSearchSuccess = vi.fn().mockRejectedValueOnce(new Error("billing failed"));
+    const tool = createSearchTool({ onSearchSuccess });
+
+    if (!tool.execute) {
+      throw new Error("Search tool execute handler is not defined");
+    }
+
+    const result = await tool.execute(
+      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
+      executionOptions,
+    );
+
+    if (isAsyncIterable(result)) {
+      throw new Error("Search tool returned async iterable unexpectedly");
+    }
+
+    expect(result.success).toBe(false);
+    expect(onSearchSuccess).toHaveBeenCalledTimes(1);
   });
 });
