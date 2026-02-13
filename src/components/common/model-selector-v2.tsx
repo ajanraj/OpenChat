@@ -230,6 +230,7 @@ export function ModelSelectorV2({
 	const displayName = model?.subName
 		? `${model.name} (${model.subName})`
 		: model?.name;
+	const isHomeRoute = router.state.location.pathname === "/";
 
 	return (
 		<Popover open={isOpen} onOpenChange={handleOpenChange}>
@@ -264,17 +265,21 @@ export function ModelSelectorV2({
 			<PopoverContent
 				forceMount
 				align={isMobile ? "center" : "start"}
-				side="top"
+				side={isHomeRoute ? "bottom" : "top"}
+				sticky="always"
 				sideOffset={4}
 				collisionPadding={isMobile ? 6 : 16}
 				className={cn(
-					"w-[460px] max-w-screen overflow-hidden rounded-xl border-chat-border bg-background/69 p-0 shadow-2xl backdrop-blur-md max-sm:w-[calc(100vw-0.75rem)] max-sm:max-w-[calc(100vw-0.75rem)]",
+					"flex w-[460px] max-w-screen flex-col overflow-hidden rounded-xl border-chat-border bg-background/69 p-0 shadow-2xl backdrop-blur-md max-sm:w-[calc(100vw-0.75rem)] max-sm:max-w-[calc(100vw-0.75rem)]",
 					"data-[state=open]:duration-120 data-[state=closed]:duration-90 data-[state=open]:ease-out data-[state=closed]:ease-in",
 					"data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 data-[side=top]:slide-in-from-bottom-1 data-[side=bottom]:slide-in-from-top-1",
 					"motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none",
 				)}
+				style={{
+					maxHeight: "min(85dvh, var(--radix-popover-content-available-height))",
+				}}
 			>
-				<div className="relative overflow-hidden rounded-xl">
+				<div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl">
 					{/* Decorative overlays */}
 					<div
 						className="absolute inset-0 opacity-0 dark:opacity-50"
@@ -285,7 +290,7 @@ export function ModelSelectorV2({
 					/>
 					<div className="absolute inset-0 bg-[url('/images/noise.png')] opacity-[0.03]" />
 
-					<div className="relative">
+					<div className="relative flex min-h-0 flex-1 flex-col">
 						{/* Upgrade banner */}
 						{!hasPremium &&
 							(user?.isAnonymous || products?.premium?.id) && (
@@ -393,7 +398,7 @@ export function ModelSelectorV2({
 						</div>
 
 						{/* Two-column layout */}
-						<div className="flex h-[426px] max-h-[calc(100dvh-14rem)]">
+						<div className="flex h-[426px] min-h-0 max-h-[calc(100dvh-14rem)]">
 							{/* Provider sidebar */}
 							{!shouldHideSidebar && (
 								<div className="relative h-full w-14 shrink-0">
@@ -453,7 +458,7 @@ export function ModelSelectorV2({
 							)}
 
 							{/* Model list */}
-							<div className="relative flex-1 overflow-hidden">
+							<div className="relative min-h-0 flex-1 overflow-hidden">
 								<div className="no-scrollbar h-full overflow-x-hidden overflow-y-auto p-2">
 									<div className="space-y-0.5">
 										{mainModels.map((m) => (

@@ -69,6 +69,17 @@ const testModelArray = (
 // Universal providers that can route to any model
 const GATEWAY_PROVIDERS = ["openrouter", "ai-gateway", "gateway"];
 
+const getNonLegacyModelIds = (
+  models: Array<{
+    id: string;
+    legacy?: boolean;
+  }>,
+) =>
+  models
+    .filter((model) => !model.legacy)
+    .map((model) => model.id)
+    .sort();
+
 // Test each provider's models
 testModelArray(OPENAI_MODELS, "OpenAI", ["openai", ...GATEWAY_PROVIDERS]);
 testModelArray(ANTHROPIC_MODELS, "Anthropic", ["anthropic", ...GATEWAY_PROVIDERS]);
@@ -202,5 +213,95 @@ describe("Model Provider Specific Tests", () => {
       const nonLegacyIds = new Set(MINIMAX_MODELS.filter((m) => !m.legacy).map((m) => m.id));
       expect(nonLegacyIds).toEqual(new Set(["minimax/minimax-m2.5", "minimax/minimax-m2.1"]));
     });
+  });
+});
+
+describe("Legacy Model Curation", () => {
+  it("keeps only the curated OpenAI set as non-legacy", () => {
+    expect(getNonLegacyModelIds(OPENAI_MODELS)).toEqual(
+      [
+        "gpt-5-mini",
+        "gpt-5.2",
+        "gpt-5.2-instant",
+        "gpt-5.2-pro",
+        "gpt-image-1.5",
+        "gpt-oss-120b",
+        "gpt-oss-20b",
+      ].sort(),
+    );
+  });
+
+  it("keeps only the curated Anthropic set as non-legacy", () => {
+    expect(getNonLegacyModelIds(ANTHROPIC_MODELS)).toEqual(
+      [
+        "claude-4-5-haiku",
+        "claude-4-5-haiku-reasoning",
+        "claude-4-5-sonnet",
+        "claude-4-5-sonnet-reasoning",
+        "claude-4-6-opus",
+      ].sort(),
+    );
+  });
+
+  it("keeps only the curated Gemini set as non-legacy", () => {
+    expect(getNonLegacyModelIds(GOOGLE_MODELS)).toEqual(
+      [
+        "gemini-3-flash-preview",
+        "gemini-3-flash-preview-thinking",
+        "gemini-3-pro-preview",
+        "nano-banana",
+        "nano-banana-pro",
+      ].sort(),
+    );
+  });
+
+  it("keeps only the curated Meta set as non-legacy", () => {
+    expect(getNonLegacyModelIds(META_MODELS)).toEqual(
+      ["meta-llama/llama-4-maverick", "meta-llama/llama-4-scout"].sort(),
+    );
+  });
+
+  it("keeps only the curated DeepSeek set as non-legacy", () => {
+    expect(getNonLegacyModelIds(DEEPSEEK_MODELS)).toEqual(
+      ["deepseek/deepseek-v3.2", "deepseek/deepseek-v3.2:reasoning"].sort(),
+    );
+  });
+
+  it("keeps only the curated xAI set as non-legacy", () => {
+    expect(getNonLegacyModelIds(XAI_MODELS)).toEqual(
+      ["x-ai/grok-4.1-fast", "x-ai/grok-4.1-fast-thinking"].sort(),
+    );
+  });
+
+  it("keeps only the curated Qwen set as non-legacy", () => {
+    expect(getNonLegacyModelIds(QWEN_MODELS)).toEqual(
+      ["qwen/qwen3-235b-a22b-2507", "qwen/qwen3-235b-a22b-thinking-2507"].sort(),
+    );
+  });
+
+  it("keeps only the curated Moonshot set as non-legacy", () => {
+    expect(getNonLegacyModelIds(MOONSHOT_MODELS)).toEqual(
+      ["moonshotai/kimi-k2-0905", "moonshotai/kimi-k2.5", "moonshotai/kimi-k2.5:reasoning"].sort(),
+    );
+  });
+
+  it("keeps only the curated Z.AI set as non-legacy", () => {
+    expect(getNonLegacyModelIds(ZAI_MODELS)).toEqual(
+      ["glm-4.6v", "glm-5", "glm-5-thinking"].sort(),
+    );
+  });
+
+  it("keeps only MiniMax M2.5 and M2.1 as non-legacy", () => {
+    expect(getNonLegacyModelIds(MINIMAX_MODELS)).toEqual(
+      ["minimax/minimax-m2.1", "minimax/minimax-m2.5"].sort(),
+    );
+  });
+
+  it("keeps Flux Schnell as non-legacy", () => {
+    expect(getNonLegacyModelIds(FAL_MODELS)).toEqual(["flux-schnell"]);
+  });
+
+  it("removes Pony Alpha from OpenRouter models", () => {
+    expect(OPENROUTER_MODELS.some((model) => model.id === "openrouter/pony-alpha")).toBe(false);
   });
 });

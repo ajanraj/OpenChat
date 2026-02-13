@@ -74,6 +74,7 @@ export const MOONSHOT_MODELS = [
     displayProvider: "moonshotai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "Moonshot AI's advanced open reasoning model.\nOptimized for persistent step-by-step thought and complex workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },

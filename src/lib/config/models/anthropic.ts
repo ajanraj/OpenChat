@@ -14,6 +14,7 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: false,
     usesPremiumCredits: false,
+    legacy: true,
     description: `Anthropic's most intelligent model with 80.9% on SWE-bench.\nExcels at complex coding, agentic workflows, and long-horizon tasks.`,
     apiKeyUsage: { allowUserKey: true, userKeyOnly: true },
     features: [
@@ -23,6 +24,23 @@ export const ANTHROPIC_MODELS = [
       TOOL_CALLING_FEATURE,
     ],
     api_sdk: anthropic("claude-opus-4-5-20251101"),
+  },
+  {
+    id: "claude-4-6-opus",
+    name: "Claude 4.6 Opus",
+    provider: "anthropic",
+    premium: false,
+    usesPremiumCredits: false,
+    description:
+      "Anthropic's latest Opus model for long-running agentic coding and complex professional workflows.\nImproves planning, code review/debug reliability, and supports adaptive thinking with up to 1M-token context in beta.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: true },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-opus-4-6"),
   },
   {
     id: "claude-4-5-sonnet",

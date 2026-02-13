@@ -134,6 +134,7 @@ export const OPENAI_MODELS = [
     provider: "openai",
     premium: false,
     usesPremiumCredits: false,
+    legacy: true,
     description: `OpenAI's ultra-fast speed-optimized model. \nBuilt for instant responses and low-latency applications, perfect for mobile and real-time use.`,
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [
