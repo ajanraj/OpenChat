@@ -20,6 +20,7 @@ import { useAction } from "convex/react";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { ProviderIcon } from "@/components/common/provider-icon";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import {
 	Popover,
 	PopoverContent,
@@ -79,6 +80,7 @@ export function ModelSelectorV2({
 	const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 	const [showCombined, setShowCombined] = useState(false);
 	const [showProviderScrollHint, setShowProviderScrollHint] = useState(false);
+	const [isUpgradeLoading, setIsUpgradeLoading] = useState(false);
 	const providerSidebarRef = useRef<HTMLDivElement | null>(null);
 	const providerSidebarResizeObserverRef = useRef<ResizeObserver | null>(null);
 	const normalizedSearchQuery = getNormalizedSearchQuery(searchQuery);
@@ -273,11 +275,15 @@ export function ModelSelectorV2({
 	}, []);
 
 	const handleUpgrade = useCallback(async () => {
+		if (isUpgradeLoading) {
+			return;
+		}
 		if (user?.isAnonymous) {
 			router.navigate({ to: "/auth" });
 			return;
 		}
 		if (!products?.premium?.id) return;
+		setIsUpgradeLoading(true);
 		try {
 			const { url } = await generateCheckoutLink({
 				productIds: [products.premium.id],
@@ -287,8 +293,21 @@ export function ModelSelectorV2({
 			window.location.href = url;
 		} catch (error) {
 			console.error("Checkout failed:", error);
+			toast({
+				title: "Checkout unavailable",
+				description: "Unable to start checkout. Please try again.",
+				status: "error",
+			});
+		} finally {
+			setIsUpgradeLoading(false);
 		}
-	}, [user?.isAnonymous, products?.premium?.id, generateCheckoutLink, router]);
+	}, [
+		user?.isAnonymous,
+		products?.premium?.id,
+		generateCheckoutLink,
+		isUpgradeLoading,
+		router,
+	]);
 
 	const model = useMemo(
 		() => MODELS_OPTIONS.find((m) => m.id === selectedModelId),
@@ -388,14 +407,15 @@ export function ModelSelectorV2({
 												<span className="text-muted-foreground/50">/mo</span>
 											</p>
 										</div>
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={handleUpgrade}
-											className="h-7 cursor-pointer rounded-lg border-pink-400/20 bg-pink-400/8 px-3 text-xs font-medium text-pink-400 transition-colors hover:border-pink-400/30 hover:bg-pink-400/15 hover:text-pink-300 dark:text-pink-300"
-										>
-											Upgrade
-										</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={handleUpgrade}
+												disabled={isUpgradeLoading}
+												className="h-7 cursor-pointer rounded-lg border-pink-400/20 bg-pink-400/8 px-3 text-xs font-medium text-pink-400 transition-colors hover:border-pink-400/30 hover:bg-pink-400/15 hover:text-pink-300 dark:text-pink-300"
+											>
+												{isUpgradeLoading ? "Opening..." : "Upgrade"}
+											</Button>
 									</div>
 								</div>
 							)}
@@ -937,14 +957,24 @@ const ModelRow = memo(function ModelRow({
 						)}
 						{/* Info button on hover */}
 						<div className="absolute top-0 right-0 flex shrink-0 items-center gap-1">
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<span
-										role="button"
-										tabIndex={0}
-										className="hidden shrink-0 cursor-pointer rounded p-1 text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 md:block"
-										aria-label="View model details"
-									>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<span
+											role="button"
+											tabIndex={0}
+											onClick={(event) => {
+												event.preventDefault();
+												event.stopPropagation();
+											}}
+											onKeyDown={(event) => {
+												if (event.key === "Enter" || event.key === " ") {
+													event.preventDefault();
+													event.stopPropagation();
+												}
+											}}
+											className="hidden shrink-0 cursor-pointer rounded p-1 text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 md:block"
+											aria-label="View model details"
+										>
 										<InfoIcon className="size-4" />
 									</span>
 								</TooltipTrigger>

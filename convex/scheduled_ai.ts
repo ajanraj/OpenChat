@@ -237,11 +237,12 @@ export const executeTask = internalAction({
 
       const meteredSearchTool = createMeteredSearchTool({
         enableSearch: Boolean(task.enableSearch),
-        consumeStandardCredits: async (count) =>
-          ctx.runMutation(internal.users.incrementStandardCreditsInternal, {
+        consumeStandardCredits: async (count) => {
+          await ctx.runMutation(internal.users.incrementStandardCreditsInternal, {
             userId: task.userId,
             count,
-          }),
+          });
+        },
       });
 
       if (meteredSearchTool) {

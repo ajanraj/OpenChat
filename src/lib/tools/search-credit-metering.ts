@@ -1,6 +1,6 @@
 import { createSearchTool } from "./search";
 
-export type ConsumeStandardCredits = (count: number) => Promise<unknown>;
+export type ConsumeStandardCredits = (count: number) => Promise<void>;
 
 interface MeteredSearchToolOptions {
   enableSearch: boolean;

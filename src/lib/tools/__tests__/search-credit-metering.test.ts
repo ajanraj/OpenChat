@@ -26,6 +26,14 @@ describe("search-credit-metering", () => {
     expect(consumeStandardCredits).toHaveBeenCalledWith(1);
   });
 
+  it("propagates errors when credit consumption fails", async () => {
+    const consumeStandardCredits = vi.fn().mockRejectedValue(new Error("billing unavailable"));
+
+    await expect(consumeOneStandardCreditForSearch(consumeStandardCredits)).rejects.toThrow(
+      "billing unavailable",
+    );
+  });
+
   it("does not create a search tool when search is disabled", () => {
     const consumeStandardCredits = vi.fn();
 
@@ -60,6 +68,31 @@ describe("search-credit-metering", () => {
 
     await options.onSearchSuccess();
 
+    expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
+    expect(consumeStandardCredits).toHaveBeenCalledWith(1);
+  });
+
+  it("propagates errors through onSearchSuccess callback", async () => {
+    const consumeStandardCredits = vi.fn().mockRejectedValue(new Error("billing unavailable"));
+
+    createMeteredSearchTool({
+      enableSearch: true,
+      consumeStandardCredits,
+    });
+
+    expect(createSearchToolMock).toHaveBeenCalledTimes(1);
+    const [options] = createSearchToolMock.mock.calls[0] ?? [];
+
+    if (
+      typeof options !== "object" ||
+      options === null ||
+      !("onSearchSuccess" in options) ||
+      typeof options.onSearchSuccess !== "function"
+    ) {
+      throw new Error("onSearchSuccess callback not wired");
+    }
+
+    await expect(options.onSearchSuccess()).rejects.toThrow("billing unavailable");
     expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
     expect(consumeStandardCredits).toHaveBeenCalledWith(1);
   });

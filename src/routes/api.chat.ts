@@ -711,10 +711,11 @@ export const Route = createFileRoute("/api/chat")({
 
                 const meteredSearchTool = createMeteredSearchTool({
                   enableSearch: Boolean(enableSearch),
-                  consumeStandardCredits: async (count) =>
-                    client.mutation(api.users.incrementStandardCredits, {
+                  consumeStandardCredits: async (count) => {
+                    await client.mutation(api.users.incrementStandardCredits, {
                       count,
-                    }),
+                    });
+                  },
                 });
 
                 if (meteredSearchTool) {
