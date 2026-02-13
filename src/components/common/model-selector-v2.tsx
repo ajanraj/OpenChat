@@ -17,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { useRouter } from "@tanstack/react-router";
 import { useAction } from "convex/react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { ProviderIcon } from "@/components/common/provider-icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,17 +74,59 @@ export function ModelSelectorV2({
 	>({});
 	const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 	const [showCombined, setShowCombined] = useState(false);
+	const [showProviderScrollHint, setShowProviderScrollHint] = useState(false);
+	const providerSidebarRef = useRef<HTMLDivElement | null>(null);
+	const providerSidebarResizeObserverRef = useRef<ResizeObserver | null>(null);
+	const shouldHideSidebar = shouldHideProviderSidebar(searchQuery, activeFilters);
+
+	const updateProviderScrollHint = useCallback((sidebar?: HTMLDivElement) => {
+		const node = sidebar ?? providerSidebarRef.current;
+		if (!node) {
+			setShowProviderScrollHint(false);
+			return;
+		}
+		const hasOverflow = node.scrollHeight - node.clientHeight > 1;
+		const remainingScroll =
+			node.scrollHeight - node.clientHeight - node.scrollTop;
+		setShowProviderScrollHint(hasOverflow && remainingScroll > 2);
+	}, []);
+
+	const setProviderSidebarNode = useCallback(
+		(node: HTMLDivElement | null) => {
+			providerSidebarResizeObserverRef.current?.disconnect();
+			providerSidebarResizeObserverRef.current = null;
+			providerSidebarRef.current = node;
+
+			if (!node || !isOpen || shouldHideSidebar) {
+				setShowProviderScrollHint(false);
+				return;
+			}
+
+			updateProviderScrollHint(node);
+
+			const observer = new ResizeObserver(() => {
+				updateProviderScrollHint(node);
+			});
+			observer.observe(node);
+			providerSidebarResizeObserverRef.current = observer;
+		},
+		[isOpen, shouldHideSidebar, updateProviderScrollHint],
+	);
 
 	const handleOpenChange = useCallback((open: boolean) => {
 		setIsOpen(open);
+		if (open) {
+			requestAnimationFrame(() => updateProviderScrollHint());
+		}
 		if (!open) {
 			setSearchQuery("");
 			setActiveProvider(null);
 			setLegacyExpandedByScope({});
 			setActiveFilters(new Set());
 			setShowCombined(false);
+			setShowProviderScrollHint(false);
 		}
-	}, []);
+	}, [updateProviderScrollHint]);
 
 	const availableProviders = useMemo(() => {
 		const providerIds = new Set<string>();
@@ -112,7 +154,6 @@ export function ModelSelectorV2({
 		);
 	}, [categorizedModels.all]);
 
-	const shouldHideSidebar = shouldHideProviderSidebar(searchQuery, activeFilters);
 	const providerFilter = getProviderFilter(
 		searchQuery,
 		activeFilters,
@@ -400,9 +441,16 @@ export function ModelSelectorV2({
 						{/* Two-column layout */}
 						<div className="flex h-[426px] min-h-0 max-h-[calc(100dvh-14rem)]">
 							{/* Provider sidebar */}
-							{!shouldHideSidebar && (
-								<div className="relative h-full w-14 shrink-0">
-									<div className="no-scrollbar flex h-full max-h-full w-14 flex-col items-center overflow-x-hidden overflow-y-auto rounded-tr-xl border border-chat-border border-b-0 border-l-0 bg-sidebar-accent/30">
+								{!shouldHideSidebar && (
+									<div className="relative h-full w-14 shrink-0">
+										<div
+											key={`provider-sidebar-${availableProviders.length}`}
+											ref={setProviderSidebarNode}
+											onScroll={(e) =>
+												updateProviderScrollHint(e.currentTarget)
+											}
+											className="no-scrollbar flex h-full max-h-full w-14 flex-col items-center overflow-x-hidden overflow-y-auto rounded-tr-xl border border-chat-border border-b-0 border-l-0 bg-sidebar-accent/30"
+										>
 										{/* Favorites icon */}
 										<div className="p-1">
 											<div className="flex flex-col items-center gap-1">
@@ -450,12 +498,14 @@ export function ModelSelectorV2({
 										))}
 									</div>
 
-									{/* Bottom gradient fade */}
-									<div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-16 flex-col items-center justify-end bg-gradient-to-t from-sidebar-accent/90 to-transparent pb-1.5 opacity-100 transition-opacity duration-150">
-										<CaretDownIcon className="size-4 animate-bounce text-muted-foreground" />
+										{/* Bottom gradient fade */}
+										{showProviderScrollHint && (
+											<div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-16 flex-col items-center justify-end bg-gradient-to-t from-sidebar-accent/90 to-transparent pb-1.5 opacity-100 transition-opacity duration-150">
+												<CaretDownIcon className="size-4 animate-bounce text-muted-foreground" />
+											</div>
+										)}
 									</div>
-								</div>
-							)}
+								)}
 
 							{/* Model list */}
 							<div className="relative min-h-0 flex-1 overflow-hidden">
