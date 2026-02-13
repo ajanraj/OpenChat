@@ -31,6 +31,33 @@
       transform: translateX(100%);
     }
   }
+
+  @keyframes gem-shine {
+    0% {
+      filter: brightness(1) drop-shadow(0 0 1px oklch(0.72 0.19 350 / 0.2));
+      transform: scale(1);
+    }
+
+    25% {
+      filter: brightness(1.25) drop-shadow(0 0 5px oklch(0.72 0.19 350 / 0.6));
+      transform: scale(1.05);
+    }
+
+    50% {
+      filter: brightness(1) drop-shadow(0 0 1px oklch(0.72 0.19 350 / 0.2));
+      transform: scale(1);
+    }
+
+    75% {
+      filter: brightness(1.15) drop-shadow(0 0 3px oklch(0.72 0.19 350 / 0.4));
+      transform: scale(1.02);
+    }
+
+    100% {
+      filter: brightness(1) drop-shadow(0 0 1px oklch(0.72 0.19 350 / 0.2));
+      transform: scale(1);
+    }
+  }
 }
 
 :root {

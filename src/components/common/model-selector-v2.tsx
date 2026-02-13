@@ -335,21 +335,33 @@ export function ModelSelectorV2({
 						{/* Upgrade banner */}
 						{!hasPremium &&
 							(user?.isAnonymous || products?.premium?.id) && (
-								<div className="flex items-center justify-between rounded-t-lg bg-linear-to-r from-primary/5 via-primary/10 to-primary/5 p-3">
-									<div>
-										<p className="font-medium text-sm">Unlock all models</p>
-										<p className="text-muted-foreground text-xs">
-											<span className="font-semibold text-pink-500">$10</span>
-											/month
-										</p>
+								<div className="relative overflow-hidden bg-gradient-to-r from-pink-500/[0.07] via-pink-500/[0.1] to-pink-500/[0.05]">
+									<div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-pink-400/20 to-transparent" />
+									<div className="flex items-center gap-3 px-4 py-2.5">
+										<div className="flex size-8 shrink-0 items-center justify-center rounded-lg animate-[gem-shine_2.5s_ease-in-out_infinite]">
+											<SketchLogoIcon
+												className="size-6 text-pink-400 dark:text-pink-300"
+												weight="duotone"
+											/>
+										</div>
+										<div className="min-w-0 flex-1">
+											<p className="font-semibold text-[13px] leading-tight">
+												Unlock all models
+											</p>
+											<p className="mt-0.5 text-xs leading-tight">
+												<span className="font-semibold text-pink-400 dark:text-pink-300">$10</span>
+												<span className="text-muted-foreground/50">/mo</span>
+											</p>
+										</div>
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={handleUpgrade}
+											className="h-7 cursor-pointer rounded-lg border-pink-500/20 bg-pink-500/8 px-3 text-xs font-medium text-pink-400 transition-colors hover:border-pink-500/30 hover:bg-pink-500/15 hover:text-pink-300 dark:text-pink-300"
+										>
+											Upgrade
+										</Button>
 									</div>
-									<Button
-										size="sm"
-										onClick={handleUpgrade}
-										className="h-8 cursor-pointer rounded-md px-3 text-xs"
-									>
-										Upgrade
-									</Button>
 								</div>
 							)}
 
