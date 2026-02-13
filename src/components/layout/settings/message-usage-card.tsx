@@ -157,8 +157,8 @@ function MessageUsageCardComponent() {
 
 			<p className="mt-4 pt-3 text-muted-foreground text-xs italic leading-relaxed">
 				<Info className="mr-1 inline size-3 align-text-top" />
-				Each tool call (e.g. search grounding) used in a reply consumes an additional
-				standard credit. Models may not always utilize enabled tools.
+				Each successful web search call used in a reply consumes 1 additional standard
+				credit. Models may not always use search when it is enabled.
 			</p>
 		</div>
 	);
