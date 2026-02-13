@@ -127,12 +127,12 @@ export function AccountSettingsPage() {
 
   return (
     <div className="w-full space-y-10">
-      {/* Pro Plan */}
+      {/* Premium Plan */}
       <section className="space-y-6">
         {Boolean(hasPremium) && (
           <>
             <div className="flex items-baseline justify-between">
-              <h1 className="font-semibold text-2xl tracking-tight">Pro Plan</h1>
+              <h1 className="font-semibold text-2xl tracking-tight">Premium Plan</h1>
               <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 text-xs dark:text-emerald-400">
                 Active
               </span>
@@ -179,7 +179,7 @@ export function AccountSettingsPage() {
               <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-4">
                   <div>
-                    <h1 className="font-semibold text-2xl tracking-tight">Upgrade to Pro</h1>
+                    <h1 className="font-semibold text-2xl tracking-tight">Upgrade to Premium</h1>
                     <p className="mt-1 text-muted-foreground">Unlock the full potential of AI</p>
                   </div>
 

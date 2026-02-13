@@ -42,7 +42,7 @@ export function StructuredData({
 			},
 			{
 				"@type": "Offer",
-				name: "Pro Plan",
+				name: "Premium Plan",
 				description:
 					"Access to all AI models, advanced features, background agents, and service integrations",
 				price: "10",
