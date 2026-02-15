@@ -383,8 +383,6 @@ export function ModelSelectorV2({
 								"linear-gradient(135deg, hsl(var(--primary) / 0.08), transparent 60%)",
 						}}
 					/>
-					<div className="absolute inset-0 bg-[url('/images/noise.png')] opacity-[0.03]" />
-
 					<div className="relative flex min-h-0 flex-1 flex-col">
 						{/* Upgrade banner */}
 						{!hasPremium &&
@@ -813,6 +811,16 @@ const ModelRow = memo(function ModelRow({
 	const handleClick = useCallback(() => {
 		if (model.available) onSelect(model.id);
 	}, [model.available, model.id, onSelect]);
+	const handleRowKeyDown = useCallback(
+		(event: React.KeyboardEvent<HTMLDivElement>) => {
+			if (!model.available) return;
+			if (event.key === "Enter" || event.key === " ") {
+				event.preventDefault();
+				onSelect(model.id);
+			}
+		},
+		[model.available, model.id, onSelect],
+	);
 
 	const isUnpinDisabled = isUnpinningLastFavoriteModel(
 		isFavorite,
@@ -837,19 +845,20 @@ const ModelRow = memo(function ModelRow({
 	);
 
 	const rowButton = (
-		<button
-					type="button"
-					data-model-item="true"
-					aria-disabled={!model.available}
-				className={cn(
-					"group flex h-16 w-full items-center gap-3 rounded-lg pt-1.5 pr-1.5 pb-2.5 pl-3 text-left transition-all hover:bg-sidebar-accent/60",
-					"focus-visible:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-primary/50",
-					isSelected && "bg-sidebar-accent/60",
-					!model.available && "cursor-not-allowed opacity-40",
-				)}
-				onClick={handleClick}
-				disabled={!model.available}
-			>
+		<div
+			role="button"
+			tabIndex={model.available ? 0 : -1}
+			data-model-item="true"
+			aria-disabled={!model.available}
+			className={cn(
+				"group flex h-16 w-full items-center gap-3 rounded-lg pt-1.5 pr-1.5 pb-2.5 pl-3 text-left transition-all hover:bg-sidebar-accent/60",
+				"focus-visible:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-primary/50",
+				isSelected && "bg-sidebar-accent/60",
+				!model.available && "cursor-not-allowed opacity-40",
+			)}
+			onClick={handleClick}
+			onKeyDown={handleRowKeyDown}
+		>
 				<div className="min-w-0 flex-1">
 					{/* Name row */}
 					<div className="flex items-center gap-2">
@@ -985,7 +994,7 @@ const ModelRow = memo(function ModelRow({
 						</div>
 					</div>
 				</div>
-		</button>
+		</div>
 	);
 
 	return (
