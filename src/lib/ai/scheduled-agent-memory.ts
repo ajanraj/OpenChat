@@ -31,7 +31,7 @@ export class ScheduledAgentMemory {
 
   async loadHistory(taskId: string, limit: number): Promise<ModelMessage[]> {
     const raw = await this.redis.get<HistoryEntry[]>(`${HISTORY_PREFIX}${taskId}`);
-    if (!raw) return [];
+    if (!raw || limit <= 0) return [];
     const entries = raw.slice(-limit * 2); // limit is turns, each turn = 2 messages
     return entries.map((e) => ({
       role: e.role,

@@ -40,6 +40,13 @@ export const executeTask = internalAction({
     let historyRecordId: string | null = null;
 
     try {
+      // Validate memory backend config before any writes
+      const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+      const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+      if (!redisUrl || !redisToken) {
+        throw new Error("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars");
+      }
+
       // Get task details
       // console.log('Executing scheduled task:', args.taskId);
       const task: Doc<"scheduled_tasks"> | null = await ctx.runQuery(
@@ -273,12 +280,9 @@ export const executeTask = internalAction({
       }
 
       // Initialize memory
-      if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-        throw new Error("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars");
-      }
       const redis = new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        url: redisUrl,
+        token: redisToken,
       });
       const memory = new ScheduledAgentMemory(redis);
 
@@ -306,8 +310,12 @@ export const executeTask = internalAction({
 
       const textContent = result.text;
 
-      // Save history after generation
-      await memory.saveHistory(args.taskId, task.prompt, textContent);
+      // Save history after generation (best-effort only)
+      try {
+        await memory.saveHistory(args.taskId, task.prompt, textContent);
+      } catch (error) {
+        console.error("Failed to save history to Redis:", error);
+      }
 
       // Agent result usage might be structured differently, mapping it:
       // ai-sdk-tools agent result has `usage` property with inputTokens, outputTokens

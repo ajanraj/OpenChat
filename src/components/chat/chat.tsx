@@ -87,7 +87,7 @@ function evictOldestChats() {
 		chatRegistry.size - MAX_REGISTRY_SIZE,
 	);
 	for (const key of keysToEvict) {
-		chatRegistry.delete(key);
+		cleanupChatInstance(key);
 	}
 }
 
