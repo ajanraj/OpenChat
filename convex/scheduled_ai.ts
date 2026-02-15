@@ -327,7 +327,7 @@ export const executeTask = internalAction({
         cachedInputTokens: 0,
       };
 
-      // Construct email content (already stripped of working_memory tags)
+      // Construct email content from the generated assistant text
       const emailTextContent = textContent;
 
       // Construct final metadata

@@ -1021,6 +1021,9 @@ export default function Chat() {
 		// after route navigation don't needlessly recreate the instance
 		// while an in-flight sendMessage/stream is still running.
 		if (existing && chatAuthTokenRegistry.get(existing) === (authToken ?? null)) {
+			// Promote reused entry to most-recently-used position.
+			chatRegistry.delete(storeKey);
+			chatRegistry.set(storeKey, existing);
 			return existing;
 		}
 		// Auth token changed or no instance yet — create new,
