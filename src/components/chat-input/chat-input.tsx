@@ -1,4 +1,4 @@
-import { useChatActions, useChatStatus } from "@ai-sdk-tools/store";
+import type { ChatStatus } from "ai";
 import { ArrowUp, Globe, Stop, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -25,6 +25,8 @@ import { SelectReasoningEffort } from "./select-reasoning-effort";
 type ReasoningEffort = "low" | "medium" | "high";
 
 type ChatInputProps = {
+	status: ChatStatus;
+	stop: () => void;
 	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
 	files: File[];
 	onFileUploadAction: (files: File[]) => void;
@@ -43,6 +45,8 @@ type ChatInputProps = {
 };
 
 export function ChatInput({
+	status,
+	stop,
 	onSendAction,
 	files,
 	onFileUploadAction,
@@ -59,8 +63,6 @@ export function ChatInput({
 	onSelectReasoningEffortAction,
 	initialValue = "",
 }: ChatInputProps) {
-	const { stop } = useChatActions();
-	const status = useChatStatus();
 	const isStreaming = status === "streaming";
 
 	// Local state for input value to prevent parent re-renders

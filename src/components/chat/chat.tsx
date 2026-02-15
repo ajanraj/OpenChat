@@ -1,19 +1,21 @@
+import { Chat as ChatInstance, useChat } from "@ai-sdk/react";
 import type { UIMessage } from "@ai-sdk/react";
-import {
-	createChatStore,
-	Provider,
-	useChat,
-	useChatActions,
-	useChatMessages,
-	useChatStatus,
-} from "@ai-sdk-tools/store";
 import { useAuthToken } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { DefaultChatTransport, type FileUIPart } from "ai";
 import { AnimatePresence, motion } from "motion/react";
-import { lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	createContext,
+	lazy,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { z } from "zod";
 import {
 	Conversation,
@@ -54,47 +56,67 @@ import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-const DRAFT_STORE_KEY = "draft-chat";
-const storeRegistry = new Map<
-	string,
-	ReturnType<typeof createChatStore<MessageWithExtras>>
->();
-const storeIdentityRegistry = new WeakMap<object, number>();
-let storeIdentityCounter = 0;
+const DRAFT_CHAT_KEY = "draft-chat";
+const chatRegistry = new Map<string, ChatInstance<MessageWithExtras>>();
+const chatAuthTokenRegistry = new WeakMap<ChatInstance<MessageWithExtras>, string | null>();
+const chatIdentityRegistry = new WeakMap<object, number>();
+let chatIdentityCounter = 0;
 
-function getChatStoreForKey(key: string) {
-	const existingStore = storeRegistry.get(key);
-	if (existingStore) {
-		return existingStore;
-	}
-	const newStore = createChatStore<MessageWithExtras>();
-	storeRegistry.set(key, newStore);
-	return newStore;
-}
-
-function promoteDraftStoreToChat(chatId: string) {
-	if (!chatId || storeRegistry.has(chatId)) {
+function promoteDraftChatToReal(chatId: string) {
+	if (!chatId || chatRegistry.has(chatId)) {
 		return;
 	}
-	const draftStore = storeRegistry.get(DRAFT_STORE_KEY);
-	if (!draftStore) {
+	const draftChat = chatRegistry.get(DRAFT_CHAT_KEY);
+	if (!draftChat) {
 		return;
 	}
-	draftStore.getState().setId(chatId);
-	storeRegistry.set(chatId, draftStore);
-	storeRegistry.set(DRAFT_STORE_KEY, createChatStore<MessageWithExtras>());
+	// Move the SAME Chat instance to the real key so in-flight
+	// sendMessage / streaming keeps working across navigation.
+	chatRegistry.set(chatId, draftChat);
+	chatRegistry.delete(DRAFT_CHAT_KEY);
 }
 
-function getStoreIdentity(
-	store: ReturnType<typeof createChatStore<MessageWithExtras>>,
-) {
-	const existing = storeIdentityRegistry.get(store);
+const MAX_REGISTRY_SIZE = 20;
+
+function evictOldestChats() {
+	if (chatRegistry.size <= MAX_REGISTRY_SIZE) {
+		return;
+	}
+	const keysToEvict = [...chatRegistry.keys()].slice(
+		0,
+		chatRegistry.size - MAX_REGISTRY_SIZE,
+	);
+	for (const key of keysToEvict) {
+		chatRegistry.delete(key);
+	}
+}
+
+function cleanupChatInstance(chatId: string) {
+	const instance = chatRegistry.get(chatId);
+	if (instance && instance.status !== "ready") {
+		void instance.stop();
+	}
+	chatRegistry.delete(chatId);
+}
+
+function getChatIdentity(instance: ChatInstance<MessageWithExtras>) {
+	const existing = chatIdentityRegistry.get(instance);
 	if (existing) {
 		return existing;
 	}
-	storeIdentityCounter += 1;
-	storeIdentityRegistry.set(store, storeIdentityCounter);
-	return storeIdentityCounter;
+	chatIdentityCounter += 1;
+	chatIdentityRegistry.set(instance, chatIdentityCounter);
+	return chatIdentityCounter;
+}
+
+const ChatInstanceContext = createContext<ChatInstance<MessageWithExtras> | null>(null);
+
+function useChatInstance(): ChatInstance<MessageWithExtras> {
+	const instance = useContext(ChatInstanceContext);
+	if (!instance) {
+		throw new Error("useChatInstance must be used within ChatInstanceContext.Provider");
+	}
+	return instance;
 }
 
 // Schema for chat body
@@ -132,9 +154,6 @@ function ChatContent() {
 		hasApiKey,
 		isApiKeysLoading,
 	} = useUser();
-
-	// Get auth token for API requests
-	const authToken = useAuthToken();
 
 	// Initialize utilities
 	const getValidModel = useMemo(() => createModelValidator(), []);
@@ -211,37 +230,22 @@ function ChatContent() {
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
 
-	// Create transport with auth token - memoized to prevent unnecessary recreations
-	const chatTransport = useMemo(
-		() =>
-			new DefaultChatTransport({
-				api: API_ROUTE_CHAT,
-				headers: {
-					"Content-Type": "application/json",
-					...(authToken && { Authorization: `Bearer ${authToken}` }),
-				},
-			}),
-		[authToken],
-	);
-
-	// Enhanced useChat hook with AI SDK best practices
-	const { regenerate, setMessages, sendMessage } = useChat({
-		transport: chatTransport,
-		// AI SDK error handling
-		onError: createChatErrorHandler(),
+	// Get chat instance from context and bind useChat
+	const chatInstance = useChatInstance();
+	const { messages, status, sendMessage, regenerate, setMessages, stop } = useChat<MessageWithExtras>({
+		chat: chatInstance,
 	});
-
-	const messages = useChatMessages<MessageWithExtras>();
-	const status = useChatStatus();
-	const chatActions = useChatActions<MessageWithExtras>();
 
 	useEffect(() => {
 		if (!chatId) {
-			chatActions.reset();
+			// Reset UI state for a fresh draft. Do NOT delete from chatRegistry
+			// here — the Chat wrapper manages instance lifecycle, and deleting
+			// the draft entry would prevent promoteDraftChatToReal from working.
+			setMessages([]);
 			setTempPersonaId(undefined);
 			setTempSelectedModel(undefined);
 		}
-	}, [chatActions, chatId]);
+	}, [chatId, setMessages]);
 
 	// Message synchronization effect - optimized to prevent infinite re-renders
 	useEffect(() => {
@@ -457,7 +461,7 @@ function ChatContent() {
 						personaId,
 					);
 					if (newChatId) {
-						promoteDraftStoreToChat(newChatId);
+						promoteDraftChatToReal(newChatId);
 						void router.navigate({ to: `/c/${newChatId}` });
 						await sendMessageHelper(trimmedQuery, newChatId, {
 							enableSearch: false,
@@ -512,7 +516,7 @@ function ChatContent() {
 					return;
 				}
 
-				promoteDraftStoreToChat(currentChatId);
+				promoteDraftChatToReal(currentChatId);
 				void router.navigate({ to: `/c/${currentChatId}` });
 				setTempSelectedModel(undefined);
 				setTempPersonaId(undefined);
@@ -581,6 +585,9 @@ function ChatContent() {
 			try {
 				const result = await handleDeleteMessage(getServerId(id));
 				if (result?.chatDeleted) {
+					if (chatId) {
+						cleanupChatInstance(chatId);
+					}
 					router.navigate({ to: "/" });
 				} else {
 					setIsDeleting(false);
@@ -590,7 +597,7 @@ function ChatContent() {
 				setIsDeleting(false);
 			}
 		},
-		[handleDeleteMessage, router, setIsDeleting, setMessages, getServerId],
+		[handleDeleteMessage, router, setIsDeleting, setMessages, getServerId, chatId],
 	);
 
 	const handleReload = useCallback(
@@ -931,6 +938,8 @@ function ChatContent() {
 						isReasoningModel={supportsReasoningEffort(selectedModel)}
 						isUserAuthenticated={isAuthenticated}
 						key="conversation"
+						messages={messages as MessageWithExtras[]}
+						status={status}
 						onBranch={(messageId) => {
 							if (!chatId) {
 								return;
@@ -962,6 +971,8 @@ function ChatContent() {
 				<ChatInput
 					files={files}
 					hasSuggestions={!chatId && messages.length === 0}
+					status={status}
+					stop={stop}
 					isReasoningModel={supportsReasoningEffort(selectedModel)}
 					isUserAuthenticated={isAuthenticated}
 					onFileRemoveAction={removeFile}
@@ -987,13 +998,53 @@ function ChatContent() {
 
 export default function Chat() {
 	const { chatId } = useChatSession();
-	const storeKey = chatId ?? DRAFT_STORE_KEY;
-	const chatStore = useMemo(() => getChatStoreForKey(storeKey), [storeKey]);
-	const storeIdentity = useMemo(() => getStoreIdentity(chatStore), [chatStore]);
+	const authToken = useAuthToken();
+	const storeKey = chatId ?? DRAFT_CHAT_KEY;
+
+	const chatTransport = useMemo(
+		() =>
+			new DefaultChatTransport({
+				api: API_ROUTE_CHAT,
+				headers: {
+					"Content-Type": "application/json",
+					...(authToken && { Authorization: `Bearer ${authToken}` }),
+				},
+			}),
+		[authToken],
+	);
+
+	const chatInstance = useMemo(() => {
+		const existing = chatRegistry.get(storeKey);
+		// Reuse existing instance if auth token hasn't changed.
+		// Compare token string (not transport object ref) so remounts
+		// after route navigation don't needlessly recreate the instance
+		// while an in-flight sendMessage/stream is still running.
+		if (existing && chatAuthTokenRegistry.get(existing) === (authToken ?? null)) {
+			return existing;
+		}
+		// Auth token changed or no instance yet — create new,
+		// preserving messages from the old instance to avoid UI flash.
+		const existingMessages = existing?.messages ?? [];
+		const instance = new ChatInstance<MessageWithExtras>({
+			id: storeKey,
+			transport: chatTransport,
+			onError: createChatErrorHandler(),
+			...(existingMessages.length > 0 ? { messages: existingMessages } : {}),
+		});
+		chatRegistry.set(storeKey, instance);
+		chatAuthTokenRegistry.set(instance, authToken ?? null);
+		evictOldestChats();
+		return instance;
+	}, [storeKey, chatTransport, authToken]);
+
+	const chatIdentity = useMemo(
+		() => getChatIdentity(chatInstance),
+		[chatInstance],
+	);
 
 	return (
-		<Provider store={chatStore}>
-			<ChatContent key={storeIdentity} />
-		</Provider>
+		<ChatInstanceContext.Provider value={chatInstance}>
+			<ChatContent key={chatIdentity} />
+		</ChatInstanceContext.Provider>
 	);
 }

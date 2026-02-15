@@ -15,9 +15,6 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@ai-sdk-tools/agents": "^1.2.0",
-    "@ai-sdk-tools/memory": "^1.2.0",
-    "@ai-sdk-tools/store": "^1.2.0",
     "@ai-sdk/anthropic": "^3.0.43",
     "@ai-sdk/fal": "^2.0.21",
     "@ai-sdk/google": "^3.0.29",
@@ -123,7 +120,6 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@ai-sdk-tools/devtools": "^1.2.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/devtools-vite": "^0.5.1",
     "@testing-library/dom": "^10.4.1",

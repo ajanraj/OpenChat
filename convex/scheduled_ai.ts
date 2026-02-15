@@ -1,7 +1,8 @@
 "use node";
 
-import type { AgentGenerateOptions } from "@ai-sdk-tools/agents";
 import type { Tool, UIMessage, UIMessageStreamWriter } from "ai";
+import { Redis } from "@upstash/redis";
+import { ScheduledAgentMemory, stripWorkingMemoryTags } from "../src/lib/ai/scheduled-agent-memory";
 import { ConvexError, v } from "convex/values";
 import dayjs from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
@@ -268,29 +269,43 @@ export const executeTask = internalAction({
         });
       }
 
+      // Initialize memory
+      if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+        throw new Error("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars");
+      }
+      const redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
+      const memory = new ScheduledAgentMemory(redis);
+
+      // Load history + working memory
+      const history = await memory.loadHistory(args.taskId, 20);
+      const workingMem = await memory.loadWorkingMemory(task.userId);
+
+      // Inject working memory into system prompt
+      const enhancedPrompt = workingMem
+        ? `${systemPrompt}\n\n<working_memory>\n${workingMem}\n</working_memory>`
+        : systemPrompt;
+
       // Initialize Agent
       const agent = createScheduledAgent({
-        chatId,
         model: selectedModel.api_sdk,
-        systemPrompt,
+        systemPrompt: enhancedPrompt,
         tools: toolset,
       });
 
       // Execute Agent
-      // Pass userId for global working memory (User Scope)
-      // Pass taskId as chatId for task-specific history (Chat Scope)
       const result = await agent.generate({
-        prompt: task.prompt,
-        context: {
-          metadata: {
-            userId: task.userId,
-            chatId: args.taskId,
-          },
-        },
-      } as AgentGenerateOptions & { context: Record<string, unknown> });
+        messages: [...history, { role: "user" as const, content: task.prompt }],
+      });
 
-      // Extract final text and usage
-      const textContent = result.text;
+      // Strip working memory tags from user-visible output
+      const textContent = stripWorkingMemoryTags(result.text);
+
+      // Save history + working memory after generation
+      await memory.saveHistory(args.taskId, task.prompt, textContent);
+      await memory.saveWorkingMemory(task.userId, result.text);
 
       // Agent result usage might be structured differently, mapping it:
       // ai-sdk-tools agent result has `usage` property with inputTokens, outputTokens
@@ -302,7 +317,7 @@ export const executeTask = internalAction({
         cachedInputTokens: 0,
       };
 
-      // Construct email content (using the full response text)
+      // Construct email content (already stripped of working_memory tags)
       const emailTextContent = textContent;
 
       // Construct final metadata
