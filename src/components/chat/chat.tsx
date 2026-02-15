@@ -984,9 +984,7 @@ function ChatContent() {
 						message: string,
 						{ enableSearch }: { enableSearch: boolean },
 					) => submit(message, { body: { enableSearch } })}
-					onSuggestionAction={(suggestion: string) =>
-						sendMessage({ text: suggestion })
-					}
+					onSuggestionAction={(suggestion: string) => submit(suggestion)}
 					reasoningEffort={reasoningEffort}
 					selectedModel={selectedModel}
 					selectedPersonaId={personaId}
