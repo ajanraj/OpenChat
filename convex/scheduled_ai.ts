@@ -2,7 +2,10 @@
 
 import type { Tool, UIMessage, UIMessageStreamWriter } from "ai";
 import { Redis } from "@upstash/redis";
-import { ScheduledAgentMemory, stripWorkingMemoryTags } from "../src/lib/ai/scheduled-agent-memory";
+import {
+  ScheduledAgentMemory,
+  formatWorkingMemoryPrompt,
+} from "../src/lib/ai/scheduled-agent-memory";
 import { ConvexError, v } from "convex/values";
 import dayjs from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
@@ -283,10 +286,11 @@ export const executeTask = internalAction({
       const history = await memory.loadHistory(args.taskId, 20);
       const workingMem = await memory.loadWorkingMemory(task.userId);
 
-      // Inject working memory into system prompt
-      const enhancedPrompt = workingMem
-        ? `${systemPrompt}\n\n<working_memory>\n${workingMem}\n</working_memory>`
-        : systemPrompt;
+      // Inject working memory instructions into system prompt
+      const enhancedPrompt = `${systemPrompt}\n\n${formatWorkingMemoryPrompt(workingMem)}`;
+
+      // Add updateWorkingMemory tool
+      toolset.updateWorkingMemory = memory.createUpdateTool(task.userId);
 
       // Initialize Agent
       const agent = createScheduledAgent({
@@ -300,12 +304,10 @@ export const executeTask = internalAction({
         messages: [...history, { role: "user" as const, content: task.prompt }],
       });
 
-      // Strip working memory tags from user-visible output
-      const textContent = stripWorkingMemoryTags(result.text);
+      const textContent = result.text;
 
-      // Save history + working memory after generation
+      // Save history after generation
       await memory.saveHistory(args.taskId, task.prompt, textContent);
-      await memory.saveWorkingMemory(task.userId, result.text);
 
       // Agent result usage might be structured differently, mapping it:
       // ai-sdk-tools agent result has `usage` property with inputTokens, outputTokens
