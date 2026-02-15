@@ -26,7 +26,7 @@
 - **Package Manager**: Bun
 - **Styling**: Tailwind CSS v4
 - **Environment Variables**: `import.meta.env` for client-side (`VITE_` prefixed), `process.env` for server-side
-- **AI Integration**: Vercel AI SDK v5
+- **AI Integration**: Vercel AI SDK v6
 - **Backend**: Convex (real-time database, authentication, file storage, serverless functions)
 - **Integrations**: Composio (Gmail, Calendar, Notion, GitHub, Slack, etc.)
 - **State Management**: Zustand
@@ -88,7 +88,7 @@
 ### AI Integration
 
 - **Multi-model Support**: OpenAI, Anthropic, Google, Mistral, xAI, DeepSeek, Meta/Llama, Fal (images)
-- **Vercel AI SDK v5**: Handles streaming, tool calling, model switching, with ToolLoopAgent for scheduled tasks
+- **Vercel AI SDK v6**: Handles streaming, tool calling, model switching, with ToolLoopAgent for scheduled tasks
 - **Gateway Pattern**: Uses `@ai-sdk/gateway` for xAI, DeepSeek, Meta providers; direct SDKs for OpenAI, Anthropic, Google, Mistral
 - **Model Selection**: Dynamic model switching with per-chat preferences
 - **API Key Management**: Secure encryption of user-provided API keys
