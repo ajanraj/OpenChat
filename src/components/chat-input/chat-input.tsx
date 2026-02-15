@@ -63,7 +63,7 @@ export function ChatInput({
 	onSelectReasoningEffortAction,
 	initialValue = "",
 }: ChatInputProps) {
-	const isStreaming = status === "streaming";
+	const isRequestActive = status === "streaming" || status === "submitted";
 
 	// Local state for input value to prevent parent re-renders
 	const [value, setValue] = useState(initialValue);
@@ -91,7 +91,7 @@ export function ChatInput({
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (isStreaming) {
+			if (isRequestActive) {
 				return;
 			}
 
@@ -101,16 +101,16 @@ export function ChatInput({
 				setValue(""); // Clear input after sending
 			}
 		},
-		[onSendAction, isStreaming, searchEnabled, value],
+		[onSendAction, isRequestActive, searchEnabled, value],
 	);
 
 	const handleMainClick = () => {
-		if (status === "streaming") {
+		if (isRequestActive) {
 			stop();
 			return;
 		}
 
-		if (isStreaming || !value.trim()) {
+		if (!value.trim()) {
 			// Prevent double submission or empty submission
 			return;
 		}
@@ -214,7 +214,7 @@ export function ChatInput({
 	useEffect(() => {
 		const handleGlobalKeyDown = (e: KeyboardEvent) => {
 			// Don't interfere if input is already focused or disabled
-			if (isStreaming || !textareaRef.current) {
+			if (isRequestActive || !textareaRef.current) {
 				return;
 			}
 
@@ -245,14 +245,12 @@ export function ChatInput({
 
 		document.addEventListener("keydown", handleGlobalKeyDown);
 		return () => document.removeEventListener("keydown", handleGlobalKeyDown);
-	}, [isStreaming]);
+	}, [isRequestActive]);
 
 	// Compute tooltip text without nested ternary expressions
 	let tooltipText = "Send";
-	if (status === "streaming") {
+	if (isRequestActive) {
 		tooltipText = "Stop";
-	} else if (isStreaming && files.length > 0) {
-		tooltipText = "Uploading...";
 	}
 
 	return (
@@ -276,7 +274,7 @@ export function ChatInput({
 					<FileList files={files} onFileRemoveAction={onFileRemoveAction} />
 					<PromptInputTextarea
 						className="mt-2 ml-2 text-foreground leading-[1.3]"
-						disabled={isStreaming}
+						disabled={isRequestActive}
 						onKeyDown={handleKeyDown}
 						placeholder="How can I help you today?"
 						ref={textareaRef}
@@ -327,8 +325,7 @@ export function ChatInput({
 								disabled={
 									!value.trim() &&
 									files.length === 0 &&
-									status !== "streaming" &&
-									status !== "submitted"
+									!isRequestActive
 								}
 								onClick={handleMainClick}
 								size="sm"

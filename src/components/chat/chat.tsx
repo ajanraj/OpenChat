@@ -70,6 +70,9 @@ function promoteDraftChatToReal(chatId: string) {
 	if (!draftChat) {
 		return;
 	}
+	// Keep internal Chat id aligned with real chat key.
+	// AI SDK transport uses chat.id as request chatId.
+	void Reflect.set(draftChat, "id", chatId);
 	// Move the SAME Chat instance to the real key so in-flight
 	// sendMessage / streaming keeps working across navigation.
 	chatRegistry.set(chatId, draftChat);
