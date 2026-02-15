@@ -1,5 +1,5 @@
 import type { UIMessage } from "@ai-sdk/react";
-import { useChatMessages, useChatStatus } from "@ai-sdk-tools/store";
+import type { ChatStatus } from "ai";
 import type { Infer } from "convex/values";
 import React, { useEffect, useRef, useState } from "react";
 import { ScrollButton } from "@/components/prompt-kit/scroll-button";
@@ -22,6 +22,8 @@ export type MessageWithExtras = UIMessage & {
 };
 
 type ConversationProps = {
+	messages: MessageWithExtras[];
+	status: ChatStatus;
 	onDelete: (id: string) => void;
 	onEdit: (
 		id: string,
@@ -45,6 +47,8 @@ type ConversationProps = {
 
 const Conversation = React.memo(
 	({
+		messages,
+		status,
 		onDelete,
 		onEdit,
 		onReload,
@@ -54,8 +58,6 @@ const Conversation = React.memo(
 		isReasoningModel = false,
 		reasoningEffort = "medium",
 	}: ConversationProps) => {
-	const messages = useChatMessages<MessageWithExtras>();
-	const status = useChatStatus();
 	const initialMessageCount = useRef(messages.length);
 	const [resizeMode, setResizeMode] = useState<"instant" | "smooth">(
 		"instant",
@@ -91,8 +93,6 @@ const Conversation = React.memo(
 	if (!messages || messages.length === 0) {
 		return <div className="h-full w-full" />;
 	}
-
-	// console.log('Rendering messages:', messages);
 
 	return (
 		<div className="relative flex h-full min-h-0 w-full flex-col items-center">

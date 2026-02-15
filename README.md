@@ -1,6 +1,10 @@
 # OS Chat
 
 [![Visit OS Chat](https://img.shields.io/badge/Visit-oschat-blue)](https://oschat.ai)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ajanraj/OpenChat)
+[![Server Status](https://img.shields.io/website?url=https%3A%2F%2Foschat.ai&up_message=online&down_message=down&label=server)](https://oschat.ai)
+[![Last Commit](https://img.shields.io/github/last-commit/ajanraj/OpenChat/main?label=last%20commit)](https://github.com/ajanraj/OpenChat/commits/main)
+[![License](https://img.shields.io/github/license/ajanraj/OpenChat)](./LICENSE.txt)
 
 **OS Chat** is a free, open-source AI personal assistant that combines 50+ language models with powerful automation capabilities. Deploy background agents, connect your favorite services (Gmail, Calendar, Notion, GitHub), and get things done through natural conversation.
 
