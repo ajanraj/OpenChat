@@ -8,6 +8,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import {
 	Tooltip,
 	TooltipContent,
@@ -332,13 +333,28 @@ const ChatSidebar = memo(function SidebarComponent() {
 						delay: isOpen ? 0.15 : 0,
 					}}
 				>
-					<Button
-						className="h-9 w-full justify-center font-bold text-sm"
-						onClick={handleConditionalNewChatClick}
-						variant="outline"
-					>
-						New Chat
-					</Button>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								className="h-9 w-full justify-center font-bold text-sm"
+								onClick={handleConditionalNewChatClick}
+								variant="outline"
+							>
+								New Chat
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent
+							className="z-[80]"
+							side="right"
+
+						>
+							<div className="flex items-center gap-1">
+								<Kbd>⌘</Kbd>
+								<Kbd>Shift</Kbd>
+								<Kbd>O</Kbd>
+							</div>
+						</TooltipContent>
+					</Tooltip>
 
 					<Button
 						className="h-9 w-full justify-center font-bold text-sm"

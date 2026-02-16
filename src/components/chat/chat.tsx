@@ -4,6 +4,7 @@ import { useAuthToken } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
 import { DefaultChatTransport, type FileUIPart } from "ai";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -22,6 +23,16 @@ import {
 	type MessageWithExtras,
 } from "@/components/chat/conversation";
 import { ChatInput } from "@/components/chat-input/chat-input";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/toast";
 import { useChatOperations } from "@/hooks/use-chat-operations";
 import { useChatValidation } from "@/hooks/use-chat-validation";
@@ -45,6 +56,7 @@ import {
 } from "@/lib/model-utils";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
 import { API_ROUTE_CHAT } from "@/lib/routes";
+import { HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT } from "@/lib/hotkey-events";
 import {
 	getDisplayName,
 	getUserTimezone,
@@ -173,6 +185,7 @@ function ChatContent() {
 
 	const { checkRateLimits, validateModelAccess, validateSearchQuery } =
 		useChatValidation();
+	const deleteChat = useMutation(api.chats.deleteChat);
 
 	const {
 		files,
@@ -195,6 +208,7 @@ function ChatContent() {
 	const [tempSelectedModel, setTempSelectedModel] = useState<
 		string | undefined
 	>();
+	const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
 	const processedUrl = useRef(false);
 
 	// Data queries
@@ -864,6 +878,45 @@ function ChatContent() {
 		],
 	);
 
+	const handleDeleteCurrentChat = useCallback(async () => {
+		if (!chatId || isDeleting) {
+			return;
+		}
+
+		setIsDeleting(true);
+
+		try {
+			await deleteChat({ chatId: chatId as Id<"chats"> });
+			cleanupChatInstance(chatId);
+			setShowDeleteChatDialog(false);
+			void router.navigate({ to: "/" });
+		} catch {
+			setIsDeleting(false);
+			toast({ title: "Failed to delete current chat", status: "error" });
+		}
+	}, [chatId, isDeleting, setIsDeleting, deleteChat, router]);
+
+	useEffect(() => {
+		const handleShortcutDeleteRequest = () => {
+			if (!chatId || isDeleting) {
+				return;
+			}
+
+			setShowDeleteChatDialog(true);
+		};
+
+		window.addEventListener(
+			HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT,
+			handleShortcutDeleteRequest,
+		);
+
+		return () =>
+			window.removeEventListener(
+				HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT,
+				handleShortcutDeleteRequest,
+			);
+	}, [chatId, isDeleting]);
+
 	// Chat redirect effect
 	useEffect(() => {
 		if (!isUserLoading && chatId && currentChat === null && !isDeleting) {
@@ -913,6 +966,39 @@ function ChatContent() {
 			)}
 		>
 			<DialogAuth open={hasDialogAuth} setOpenAction={setHasDialogAuth} />
+			<AlertDialog
+				onOpenChange={(open) => {
+					if (isDeleting) {
+						return;
+					}
+					setShowDeleteChatDialog(open);
+				}}
+				open={showDeleteChatDialog}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete Chat</AlertDialogTitle>
+						<AlertDialogDescription>
+							{`Are you sure you want to delete "${
+								currentChat?.title || "Untitled Chat"
+							}"? This action cannot be undone.`}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+							disabled={isDeleting}
+							onClick={(event) => {
+								event.preventDefault();
+								void handleDeleteCurrentChat();
+							}}
+						>
+							{isDeleting ? "Deleting..." : "Delete"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<AnimatePresence initial={false} mode="popLayout">
 				{!chatId && messages.length === 0 ? (

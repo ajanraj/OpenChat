@@ -103,25 +103,44 @@ function SettingsSidebarComponent() {
 				<div className="space-y-2.5">
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">Search</span>
-						<div className="flex items-center gap-1">
-							<Kbd>⌘</Kbd>
-							<Kbd>K</Kbd>
-						</div>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+								<Kbd>K</Kbd>
+							</div>
 					</div>
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">New Chat</span>
-						<div className="flex items-center gap-1">
-							<Kbd>⌘</Kbd>
-							<Kbd>Shift</Kbd>
-							<Kbd>O</Kbd>
-						</div>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+								<Kbd>Shift</Kbd>
+								<Kbd>O</Kbd>
+							</div>
 					</div>
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">Toggle Sidebar</span>
-						<div className="flex items-center gap-1">
-							<Kbd>⌘</Kbd>
-							<Kbd>B</Kbd>
-						</div>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+								<Kbd>B</Kbd>
+							</div>
+					</div>
+					<div className="flex items-center justify-between">
+						<span className="text-muted-foreground text-xs">
+							Open Model Picker
+						</span>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+								<Kbd>/</Kbd>
+							</div>
+					</div>
+					<div className="flex items-center justify-between">
+						<span className="text-muted-foreground text-xs">
+							Delete Current Chat
+						</span>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+								<Kbd>Shift</Kbd>
+								<Kbd className="text-[16px] leading-none">⌫</Kbd>
+							</div>
 					</div>
 				</div>
 			</div>
