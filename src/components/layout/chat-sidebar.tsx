@@ -5,6 +5,7 @@ import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useModifierKey } from "@/lib/hooks/use-modifier-key";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ import { ChatList } from "./chat-list";
 
 const ChatSidebar = memo(function SidebarComponent() {
 	const { isSidebarOpen: isOpen, toggleSidebar } = useSidebar();
+	const modKey = useModifierKey();
 	const { theme } = useTheme();
 	const { data: chatsQuery = [], isLoading: chatsLoading } = useTanStackQuery({
 		...convexQuery(api.chats.listChatsForUser, {}),
@@ -349,7 +351,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 							>
 								<div className="flex items-center gap-1">
-									<Kbd>Mod</Kbd>
+									<Kbd>{modKey}</Kbd>
 									<Kbd>Shift</Kbd>
 									<Kbd>O</Kbd>
 								</div>
