@@ -194,4 +194,18 @@ describe("LayoutApp hotkeys", () => {
 			expect.objectContaining({ type: HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT }),
 		);
 	});
+
+	it("skips delete-current-chat hotkey when input-like target is focused", () => {
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+		renderLayout("/c/chat-1");
+		const input = document.createElement("textarea");
+		const event = createEvent(input);
+
+		getRegistration("Mod+Shift+Backspace").callback(event);
+
+		expect(event.defaultPrevented).toBe(false);
+		expect(dispatchSpy).not.toHaveBeenCalledWith(
+			expect.objectContaining({ type: HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT }),
+		);
+	});
 });

@@ -95,6 +95,9 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 	useHotkey(
 		"Mod+Shift+Backspace",
 		(e) => {
+			if (isInputLikeTarget(e.target)) {
+				return;
+			}
 			if (!isCurrentChatRoute(pathname)) {
 				return;
 			}
