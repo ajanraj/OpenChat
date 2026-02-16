@@ -62,10 +62,12 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 		},
 	);
 
+	const isNonAppPage = isSettings || isAuth || isLegal;
+
 	useHotkey(
 		"Mod+B",
 		(e) => {
-			if (isInputLikeTarget(e.target)) {
+			if (isNonAppPage || isInputLikeTarget(e.target)) {
 				return;
 			}
 			e.preventDefault();

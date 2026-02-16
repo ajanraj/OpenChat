@@ -156,13 +156,13 @@ export function ModelSelectorV2({
 			return;
 		}
 
-		const openPicker = () => {
-			handleOpenChange(true);
+		const togglePicker = () => {
+			handleOpenChange(!isOpen);
 		};
 
-		window.addEventListener(openSignalEvent, openPicker);
-		return () => window.removeEventListener(openSignalEvent, openPicker);
-	}, [openSignalEvent, handleOpenChange]);
+		window.addEventListener(openSignalEvent, togglePicker);
+		return () => window.removeEventListener(openSignalEvent, togglePicker);
+	}, [openSignalEvent, handleOpenChange, isOpen]);
 
 	const availableProviders = useMemo(() => {
 		const providerIds = new Set<string>();
@@ -285,9 +285,9 @@ export function ModelSelectorV2({
 	const handleSelect = useCallback(
 		(id: string) => {
 			setSelectedModelId(id);
-			setIsOpen(false);
+			handleOpenChange(false);
 		},
-		[setSelectedModelId],
+		[setSelectedModelId, handleOpenChange],
 	);
 
 	const handleToggleFavorite = useCallback(
