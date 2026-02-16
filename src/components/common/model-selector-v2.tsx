@@ -17,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { useRouter } from "@tanstack/react-router";
 import { useAction } from "convex/react";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProviderIcon } from "@/components/common/provider-icon";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -44,24 +44,32 @@ import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 import {
 	getModelUnavailableReasons,
-	getNormalizedSearchQuery,
 	getLegacyScopeKey,
+	getNormalizedSearchQuery,
 	getProviderFilter,
 	isUnpinningLastFavoriteModel,
 	shouldShowFavoritesOnly,
 	shouldHideProviderSidebar,
 } from "./model-selector-v2.utils";
+import {
+	FAVORITES_PROVIDER_ID,
+	getClampedNextIndex,
+	getClampedPreviousIndex,
+	getProviderFocusId,
+} from "./model-selector-v2.keyboard";
 
 type ModelSelectorV2Props = {
 	selectedModelId: string;
 	setSelectedModelId: (modelId: string) => void;
 	className?: string;
+	openSignalEvent?: string;
 };
 
 export function ModelSelectorV2({
 	selectedModelId,
 	setSelectedModelId,
 	className,
+	openSignalEvent,
 }: ModelSelectorV2Props) {
 	const { user, hasPremium, products } = useUser();
 	const { toggleFavoriteModel, favoriteModelsSet } = useModelPreferences();
@@ -83,6 +91,11 @@ export function ModelSelectorV2({
 	const [isUpgradeLoading, setIsUpgradeLoading] = useState(false);
 	const providerSidebarRef = useRef<HTMLDivElement | null>(null);
 	const providerSidebarResizeObserverRef = useRef<ResizeObserver | null>(null);
+	const searchInputRef = useRef<HTMLInputElement | null>(null);
+	const providerButtonRefs = useRef(
+		new Map<string, HTMLButtonElement | null>(),
+	);
+	const modelRowRefs = useRef(new Map<string, HTMLDivElement | null>());
 	const normalizedSearchQuery = getNormalizedSearchQuery(searchQuery);
 	const shouldHideSidebar = shouldHideProviderSidebar(
 		normalizedSearchQuery,
@@ -137,6 +150,19 @@ export function ModelSelectorV2({
 			setShowProviderScrollHint(false);
 		}
 	}, [updateProviderScrollHint]);
+
+	useEffect(() => {
+		if (!openSignalEvent) {
+			return;
+		}
+
+		const togglePicker = () => {
+			handleOpenChange(!isOpen);
+		};
+
+		window.addEventListener(openSignalEvent, togglePicker);
+		return () => window.removeEventListener(openSignalEvent, togglePicker);
+	}, [openSignalEvent, handleOpenChange, isOpen]);
 
 	const availableProviders = useMemo(() => {
 		const providerIds = new Set<string>();
@@ -241,12 +267,27 @@ export function ModelSelectorV2({
 		showCombined,
 	]);
 
+	const visibleModels = useMemo(
+		() => (isLegacyExpanded ? [...mainModels, ...legacyModels] : mainModels),
+		[isLegacyExpanded, mainModels, legacyModels],
+	);
+
+	const availableModelIds = useMemo(
+		() => visibleModels.filter((model) => model.available).map((model) => model.id),
+		[visibleModels],
+	);
+
+	const providerNavigationIds = useMemo(
+		() => [FAVORITES_PROVIDER_ID, ...availableProviders.map((provider) => provider.id)],
+		[availableProviders],
+	);
+
 	const handleSelect = useCallback(
 		(id: string) => {
 			setSelectedModelId(id);
-			setIsOpen(false);
+			handleOpenChange(false);
 		},
-		[setSelectedModelId],
+		[setSelectedModelId, handleOpenChange],
 	);
 
 	const handleToggleFavorite = useCallback(
@@ -327,6 +368,168 @@ export function ModelSelectorV2({
 		: model?.name;
 	const isHomeRoute = router.state.location.pathname === "/";
 
+	const setProviderButtonRef = useCallback(
+		(providerId: string, node: HTMLButtonElement | null) => {
+			if (node) {
+				providerButtonRefs.current.set(providerId, node);
+				return;
+			}
+			providerButtonRefs.current.delete(providerId);
+		},
+		[],
+	);
+
+	const providerButtonRefCallbacks = useRef(new Map<string, (node: HTMLButtonElement | null) => void>());
+	const getProviderButtonRef = useCallback(
+		(providerId: string) => {
+			let cb = providerButtonRefCallbacks.current.get(providerId);
+			if (!cb) {
+				cb = (node: HTMLButtonElement | null) => setProviderButtonRef(providerId, node);
+				providerButtonRefCallbacks.current.set(providerId, cb);
+			}
+			return cb;
+		},
+		[setProviderButtonRef],
+	);
+
+	const setModelRowRef = useCallback((modelId: string, node: HTMLDivElement | null) => {
+		if (node) {
+			modelRowRefs.current.set(modelId, node);
+			return;
+		}
+		modelRowRefs.current.delete(modelId);
+	}, []);
+
+	const modelRowRefCallbacks = useRef(new Map<string, (node: HTMLDivElement | null) => void>());
+	const getModelRowRef = useCallback(
+		(modelId: string) => {
+			let cb = modelRowRefCallbacks.current.get(modelId);
+			if (!cb) {
+				cb = (node: HTMLDivElement | null) => setModelRowRef(modelId, node);
+				modelRowRefCallbacks.current.set(modelId, cb);
+			}
+			return cb;
+		},
+		[setModelRowRef],
+	);
+
+	const focusSearch = useCallback(() => {
+		searchInputRef.current?.focus();
+	}, []);
+
+	const focusModelById = useCallback((modelId: string) => {
+		const modelRow = modelRowRefs.current.get(modelId);
+		modelRow?.focus();
+	}, []);
+
+	const focusFirstModel = useCallback(() => {
+		const firstModelId = availableModelIds[0];
+		if (!firstModelId) {
+			return;
+		}
+		focusModelById(firstModelId);
+	}, [availableModelIds, focusModelById]);
+
+	const focusProviderById = useCallback((providerId: string) => {
+		const providerButton = providerButtonRefs.current.get(providerId);
+		providerButton?.focus();
+	}, []);
+
+	const handleSearchKeyDown = useCallback(
+		(event: React.KeyboardEvent<HTMLInputElement>) => {
+			if (event.key !== "ArrowDown") {
+				return;
+			}
+			event.preventDefault();
+			focusFirstModel();
+		},
+		[focusFirstModel],
+	);
+
+	const handleModelNavigateDown = useCallback(
+		(modelId: string) => {
+			const currentIndex = availableModelIds.indexOf(modelId);
+			const nextIndex = getClampedNextIndex(currentIndex, availableModelIds.length);
+			if (nextIndex === null) {
+				return;
+			}
+			focusModelById(availableModelIds[nextIndex]);
+		},
+		[availableModelIds, focusModelById],
+	);
+
+	const handleModelNavigateUp = useCallback(
+		(modelId: string) => {
+			const currentIndex = availableModelIds.indexOf(modelId);
+			if (currentIndex <= 0) {
+				focusSearch();
+				return;
+			}
+
+			const previousIndex = getClampedPreviousIndex(
+				currentIndex,
+				availableModelIds.length,
+			);
+			if (previousIndex === null) {
+				focusSearch();
+				return;
+			}
+			focusModelById(availableModelIds[previousIndex]);
+		},
+		[availableModelIds, focusModelById, focusSearch],
+	);
+
+	const handleModelNavigateLeft = useCallback(() => {
+		if (shouldHideSidebar) {
+			return;
+		}
+		const providerId = getProviderFocusId(activeProvider, providerNavigationIds);
+		focusProviderById(providerId);
+	}, [
+		activeProvider,
+		focusProviderById,
+		providerNavigationIds,
+		shouldHideSidebar,
+	]);
+
+	const handleProviderNavigateUp = useCallback(
+		(providerId: string) => {
+			const currentIndex = providerNavigationIds.indexOf(providerId);
+			const previousIndex = getClampedPreviousIndex(
+				currentIndex,
+				providerNavigationIds.length,
+			);
+			if (previousIndex === null) {
+				return;
+			}
+			focusProviderById(providerNavigationIds[previousIndex]);
+		},
+		[providerNavigationIds, focusProviderById],
+	);
+
+	const handleProviderNavigateDown = useCallback(
+		(providerId: string) => {
+			const currentIndex = providerNavigationIds.indexOf(providerId);
+			const nextIndex = getClampedNextIndex(
+				currentIndex,
+				providerNavigationIds.length,
+			);
+			if (nextIndex === null) {
+				return;
+			}
+			focusProviderById(providerNavigationIds[nextIndex]);
+		},
+		[providerNavigationIds, focusProviderById],
+	);
+
+	const handleProviderNavigateRight = useCallback(() => {
+		if (availableModelIds.includes(selectedModelId)) {
+			focusModelById(selectedModelId);
+			return;
+		}
+		focusFirstModel();
+	}, [availableModelIds, selectedModelId, focusModelById, focusFirstModel]);
+
 	return (
 		<Popover open={isOpen} onOpenChange={handleOpenChange}>
 			<PopoverTrigger asChild>
@@ -372,6 +575,10 @@ export function ModelSelectorV2({
 				)}
 				style={{
 					maxHeight: "min(85dvh, var(--radix-popover-content-available-height))",
+				}}
+				onOpenAutoFocus={(event) => {
+					event.preventDefault();
+					requestAnimationFrame(() => focusSearch());
 				}}
 			>
 				<div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl">
@@ -425,7 +632,9 @@ export function ModelSelectorV2({
 								<input
 									aria-label="Search models"
 									className="w-full bg-transparent py-1.5 text-foreground text-sm placeholder:text-muted-foreground/50 focus:outline-none"
+									ref={searchInputRef}
 									onChange={(e) => setSearchQuery(e.target.value)}
+									onKeyDown={handleSearchKeyDown}
 									placeholder="Search models..."
 									role="searchbox"
 									type="text"
@@ -520,9 +729,14 @@ export function ModelSelectorV2({
 										<div className="p-1">
 											<div className="flex flex-col items-center gap-1">
 												<SidebarProviderButton
+													providerId={FAVORITES_PROVIDER_ID}
+													buttonRef={getProviderButtonRef(FAVORITES_PROVIDER_ID)}
 													active={activeProvider === null}
 													label="Favorites"
 													onClick={() => setActiveProvider(null)}
+													onArrowUp={handleProviderNavigateUp}
+													onArrowDown={handleProviderNavigateDown}
+													onArrowRight={handleProviderNavigateRight}
 												>
 													<StarIcon
 														className="size-5"
@@ -539,17 +753,22 @@ export function ModelSelectorV2({
 										</div>
 
 										{/* Provider icons */}
-										{availableProviders.map((p) => (
-											<SidebarProviderButton
-												key={p.id}
-												active={activeProvider === p.id}
-												label={p.name}
-												onClick={() =>
-													setActiveProvider(
-														activeProvider === p.id ? null : p.id,
-													)
-												}
-											>
+											{availableProviders.map((p) => (
+												<SidebarProviderButton
+													key={p.id}
+													providerId={p.id}
+													buttonRef={getProviderButtonRef(p.id)}
+													active={activeProvider === p.id}
+													label={p.name}
+													onClick={() =>
+														setActiveProvider(
+															activeProvider === p.id ? null : p.id,
+														)
+													}
+													onArrowUp={handleProviderNavigateUp}
+													onArrowDown={handleProviderNavigateDown}
+													onArrowRight={handleProviderNavigateRight}
+												>
 												<ProviderIcon
 													className={cn(
 														"size-5 transition-[filter,opacity]",
@@ -576,17 +795,21 @@ export function ModelSelectorV2({
 							<div className="relative min-h-0 flex-1 overflow-hidden">
 								<div className="no-scrollbar h-full overflow-x-hidden overflow-y-auto p-2">
 										<div className="space-y-0.5">
-											{mainModels.map((m) => (
-												<ModelRow
-													key={m.id}
-													model={m}
-													isFavorite={favoriteModelsSet.has(m.id)}
-													favoriteModelsCount={favoriteModelsSet.size}
-													isSelected={selectedModelId === m.id}
-													onSelect={handleSelect}
-													onToggleFavorite={handleToggleFavorite}
-												/>
-											))}
+												{mainModels.map((m) => (
+													<ModelRow
+														key={m.id}
+														model={m}
+														modelRowRef={getModelRowRef(m.id)}
+														isFavorite={favoriteModelsSet.has(m.id)}
+														favoriteModelsCount={favoriteModelsSet.size}
+														isSelected={selectedModelId === m.id}
+														onSelect={handleSelect}
+														onToggleFavorite={handleToggleFavorite}
+														onNavigateUp={handleModelNavigateUp}
+														onNavigateDown={handleModelNavigateDown}
+														onNavigateLeft={handleModelNavigateLeft}
+													/>
+												))}
 
 										{/* Legacy models */}
 										{legacyModels.length > 0 && (
@@ -612,18 +835,22 @@ export function ModelSelectorV2({
 														)}
 													/>
 												</button>
-												{isLegacyExpanded &&
-													legacyModels.map((m) => (
-														<ModelRow
-															key={m.id}
-															model={m}
-															isFavorite={favoriteModelsSet.has(m.id)}
-															favoriteModelsCount={favoriteModelsSet.size}
-															isSelected={selectedModelId === m.id}
-															onSelect={handleSelect}
-															onToggleFavorite={handleToggleFavorite}
-														/>
-													))}
+													{isLegacyExpanded &&
+														legacyModels.map((m) => (
+															<ModelRow
+																key={m.id}
+																model={m}
+																modelRowRef={getModelRowRef(m.id)}
+																isFavorite={favoriteModelsSet.has(m.id)}
+																favoriteModelsCount={favoriteModelsSet.size}
+																isSelected={selectedModelId === m.id}
+																onSelect={handleSelect}
+																onToggleFavorite={handleToggleFavorite}
+																onNavigateUp={handleModelNavigateUp}
+																onNavigateDown={handleModelNavigateDown}
+																onNavigateLeft={handleModelNavigateLeft}
+															/>
+														))}
 											</>
 										)}
 
@@ -646,24 +873,51 @@ export function ModelSelectorV2({
 
 // Sidebar provider icon button with active indicator pill
 function SidebarProviderButton({
+	providerId,
+	buttonRef,
 	active,
 	label,
 	onClick,
+	onArrowUp,
+	onArrowDown,
+	onArrowRight,
 	children,
 }: {
+	providerId: string;
+	buttonRef: (node: HTMLButtonElement | null) => void;
 	active: boolean;
 	label: string;
 	onClick: () => void;
+	onArrowUp: (providerId: string) => void;
+	onArrowDown: (providerId: string) => void;
+	onArrowRight: () => void;
 	children: React.ReactNode;
 }) {
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<button
+					ref={buttonRef}
 					type="button"
 					aria-label={label}
 					className="group relative flex size-11 shrink-0 items-center justify-center rounded-xl transition-all hover:bg-sidebar-accent/80"
 					onClick={onClick}
+					onKeyDown={(event) => {
+						if (event.key === "ArrowUp") {
+							event.preventDefault();
+							onArrowUp(providerId);
+							return;
+						}
+						if (event.key === "ArrowDown") {
+							event.preventDefault();
+							onArrowDown(providerId);
+							return;
+						}
+						if (event.key === "ArrowRight") {
+							event.preventDefault();
+							onArrowRight();
+						}
+					}}
 				>
 					<div
 						className={cn(
@@ -780,18 +1034,26 @@ const FILTER_OPTIONS = [
 // Individual model row
 const ModelRow = memo(function ModelRow({
 	model,
+	modelRowRef,
 	isFavorite,
 	favoriteModelsCount,
 	isSelected,
 	onSelect,
 	onToggleFavorite,
+	onNavigateUp,
+	onNavigateDown,
+	onNavigateLeft,
 }: {
 	model: EnrichedModel;
+	modelRowRef: (node: HTMLDivElement | null) => void;
 	isFavorite: boolean;
 	favoriteModelsCount: number;
 	isSelected: boolean;
 	onSelect: (id: string) => void;
 	onToggleFavorite: (id: string) => void;
+	onNavigateUp: (modelId: string) => void;
+	onNavigateDown: (modelId: string) => void;
+	onNavigateLeft: () => void;
 }) {
 	const displayName = model.subName
 		? `${model.name} (${model.subName})`
@@ -814,12 +1076,34 @@ const ModelRow = memo(function ModelRow({
 	const handleRowKeyDown = useCallback(
 		(event: React.KeyboardEvent<HTMLDivElement>) => {
 			if (!model.available) return;
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				onNavigateDown(model.id);
+				return;
+			}
+			if (event.key === "ArrowUp") {
+				event.preventDefault();
+				onNavigateUp(model.id);
+				return;
+			}
+			if (event.key === "ArrowLeft") {
+				event.preventDefault();
+				onNavigateLeft();
+				return;
+			}
 			if (event.key === "Enter" || event.key === " ") {
 				event.preventDefault();
 				onSelect(model.id);
 			}
 		},
-		[model.available, model.id, onSelect],
+		[
+			model.available,
+			model.id,
+			onNavigateDown,
+			onNavigateLeft,
+			onNavigateUp,
+			onSelect,
+		],
 	);
 
 	const isUnpinDisabled = isUnpinningLastFavoriteModel(
@@ -846,6 +1130,7 @@ const ModelRow = memo(function ModelRow({
 
 	const rowButton = (
 		<div
+			ref={modelRowRef}
 			role="button"
 			tabIndex={model.available ? 0 : -1}
 			data-model-item="true"

@@ -4,14 +4,14 @@ import { cn } from "@/lib/utils";
 const Kbd = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(
 	({ className, ...props }, ref) => {
 		return (
-			<kbd
-				ref={ref}
-				className={cn(
-					"bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs font-medium",
-					className,
-				)}
-				{...props}
-			/>
+				<kbd
+					ref={ref}
+					className={cn(
+						"rounded-md border border-border bg-muted px-2 py-1 font-medium text-muted-foreground text-xs dark:border-border/80 dark:bg-muted/80 dark:text-foreground",
+						className,
+					)}
+					{...props}
+				/>
 		);
 	},
 );

@@ -1,5 +1,6 @@
 import { Eye, EyeSlash } from "@phosphor-icons/react";
 import React, { useCallback } from "react";
+import { useModifierKey } from "@/lib/hooks/use-modifier-key";
 import { MessageUsageCard } from "@/components/layout/settings/message-usage-card";
 import { UserAvatar } from "@/components/user/user-avatar";
 import { Kbd } from "@/components/ui/kbd";
@@ -21,6 +22,7 @@ const getDisplayName = (user: Doc<"users"> | null): string => {
 
 function SettingsSidebarComponent() {
 	const { user, hasPremium } = useUser();
+	const modKey = useModifierKey();
 
 	const [showEmail, setShowEmail] = React.useState<boolean>(() => {
 		if (typeof window === "undefined") {
@@ -103,25 +105,44 @@ function SettingsSidebarComponent() {
 				<div className="space-y-2.5">
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">Search</span>
-						<div className="flex items-center gap-1">
-							<Kbd>⌘</Kbd>
-							<Kbd>K</Kbd>
-						</div>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+									<Kbd>{modKey}</Kbd>
+								<Kbd>K</Kbd>
+							</div>
 					</div>
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">New Chat</span>
-						<div className="flex items-center gap-1">
-							<Kbd>⌘</Kbd>
-							<Kbd>Shift</Kbd>
-							<Kbd>O</Kbd>
-						</div>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+									<Kbd>{modKey}</Kbd>
+								<Kbd>Shift</Kbd>
+								<Kbd>O</Kbd>
+							</div>
 					</div>
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">Toggle Sidebar</span>
-						<div className="flex items-center gap-1">
-							<Kbd>⌘</Kbd>
-							<Kbd>B</Kbd>
-						</div>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+									<Kbd>{modKey}</Kbd>
+								<Kbd>B</Kbd>
+							</div>
+					</div>
+					<div className="flex items-center justify-between">
+						<span className="text-muted-foreground text-xs">
+							Open Model Picker
+						</span>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+									<Kbd>{modKey}</Kbd>
+								<Kbd>/</Kbd>
+							</div>
+					</div>
+					<div className="flex items-center justify-between">
+						<span className="text-muted-foreground text-xs">
+							Delete Current Chat
+						</span>
+							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
+									<Kbd>{modKey}</Kbd>
+								<Kbd>Shift</Kbd>
+								<Kbd className="text-[16px] leading-none">⌫</Kbd>
+							</div>
 					</div>
 				</div>
 			</div>

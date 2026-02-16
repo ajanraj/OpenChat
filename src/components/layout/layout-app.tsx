@@ -1,5 +1,13 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import { useCallback } from "react";
+import {
+	HOTKEY_EVENT_OPEN_MODEL_PICKER,
+	HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT,
+	isChatRoute,
+	isCurrentChatRoute,
+	isInputLikeTarget,
+} from "@/lib/hotkey-events";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/providers/sidebar-provider";
 import ChatSidebar from "./chat-sidebar";
@@ -17,14 +25,7 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 		pathname?.startsWith("/privacy") ||
 		pathname?.startsWith("/security") ||
 		pathname?.startsWith("/legal");
-	const isChat = pathname === "/" || pathname?.startsWith("/c/");
-
-	// Helper functions to reduce complexity
-	const isInputElementFocused = useCallback((target: EventTarget | null) => {
-		const element = target as HTMLElement;
-		const tag = element?.tagName;
-		return tag === "INPUT" || tag === "TEXTAREA" || element?.isContentEditable;
-	}, []);
+	const isChat = isChatRoute(pathname);
 
 	const handleGlobalSearch = useCallback((e: KeyboardEvent) => {
 		e.preventDefault();
@@ -42,55 +43,83 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 		[pathname, router],
 	);
 
-	const handleToggleSidebar = useCallback(
-		(e: KeyboardEvent) => {
+	useHotkey("Mod+K", handleGlobalSearch, {
+		preventDefault: false,
+		stopPropagation: false,
+	});
+
+	useHotkey(
+		"Mod+Shift+O",
+		(e) => {
+			if (isInputLikeTarget(e.target)) {
+				return;
+			}
+			handleNewChat(e);
+		},
+		{
+			preventDefault: false,
+			stopPropagation: false,
+		},
+	);
+
+	const isNonAppPage = isSettings || isAuth || isLegal;
+
+	useHotkey(
+		"Mod+B",
+		(e) => {
+			if (isNonAppPage || isInputLikeTarget(e.target)) {
+				return;
+			}
 			e.preventDefault();
 			toggleSidebar();
 		},
-		[toggleSidebar],
-	);
-
-	// Keyboard shortcuts: Cmd+Shift+O for new chat, Cmd+B to toggle sidebar, Cmd+K for search
-	const handler = useCallback(
-		(e: KeyboardEvent) => {
-			const key = e.key.toLowerCase();
-			const isMeta = e.metaKey || e.ctrlKey;
-
-			// Handle Cmd+K globally (even when inputs are focused)
-			if (isMeta && key === "k") {
-				handleGlobalSearch(e);
-				return;
-			}
-
-			// For other shortcuts, skip if focused on input elements
-			if (isInputElementFocused(e.target)) {
-				return;
-			}
-
-			if (!isMeta) {
-				return;
-			}
-
-			if (e.shiftKey && key === "o") {
-				handleNewChat(e);
-				return;
-			}
-
-			if (!e.shiftKey && key === "b") {
-				handleToggleSidebar(e);
-			}
+		{
+			preventDefault: false,
+			stopPropagation: false,
 		},
-		[
-			handleGlobalSearch,
-			isInputElementFocused,
-			handleNewChat,
-			handleToggleSidebar,
-		],
 	);
-	useEffect(() => {
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [handler]);
+
+	useHotkey(
+		"Mod+/",
+		(e) => {
+			if (!isChatRoute(pathname)) {
+				return;
+			}
+			e.preventDefault();
+			window.dispatchEvent(new Event(HOTKEY_EVENT_OPEN_MODEL_PICKER));
+		},
+		{
+			preventDefault: false,
+			stopPropagation: false,
+		},
+	);
+
+	useHotkey(
+		"Mod+Shift+Backspace",
+		(e) => {
+			if (isInputLikeTarget(e.target)) {
+				return;
+			}
+			if (!isCurrentChatRoute(pathname)) {
+				return;
+			}
+			if (
+				document.querySelector(
+					'[role="dialog"], [data-radix-popper-content-wrapper]',
+				)
+			) {
+				return;
+			}
+			e.preventDefault();
+			window.dispatchEvent(
+				new Event(HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT),
+			);
+		},
+		{
+			preventDefault: false,
+			stopPropagation: false,
+		},
+	);
 
 	// Settings, Auth, and Legal pages use their own layout; do not render ChatSidebar/Header
 	if (isSettings || isAuth || isLegal) {
