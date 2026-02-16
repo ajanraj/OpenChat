@@ -347,13 +347,13 @@ const ChatSidebar = memo(function SidebarComponent() {
 							className="z-[80]"
 							side="right"
 
-						>
-							<div className="flex items-center gap-1">
-								<Kbd>⌘</Kbd>
-								<Kbd>Shift</Kbd>
-								<Kbd>O</Kbd>
-							</div>
-						</TooltipContent>
+							>
+								<div className="flex items-center gap-1">
+									<Kbd>Mod</Kbd>
+									<Kbd>Shift</Kbd>
+									<Kbd>O</Kbd>
+								</div>
+							</TooltipContent>
 					</Tooltip>
 
 					<Button

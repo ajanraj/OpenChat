@@ -80,7 +80,7 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 	useHotkey(
 		"Mod+/",
 		(e) => {
-			if (!isChatRoute(pathname)) {
+			if (isInputLikeTarget(e.target) || !isChatRoute(pathname)) {
 				return;
 			}
 			e.preventDefault();

@@ -104,14 +104,14 @@ function SettingsSidebarComponent() {
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">Search</span>
 							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
-								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+									<Kbd>Mod</Kbd>
 								<Kbd>K</Kbd>
 							</div>
 					</div>
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">New Chat</span>
 							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
-								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+									<Kbd>Mod</Kbd>
 								<Kbd>Shift</Kbd>
 								<Kbd>O</Kbd>
 							</div>
@@ -119,7 +119,7 @@ function SettingsSidebarComponent() {
 					<div className="flex items-center justify-between">
 						<span className="text-muted-foreground text-xs">Toggle Sidebar</span>
 							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
-								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+									<Kbd>Mod</Kbd>
 								<Kbd>B</Kbd>
 							</div>
 					</div>
@@ -128,7 +128,7 @@ function SettingsSidebarComponent() {
 							Open Model Picker
 						</span>
 							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
-								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+									<Kbd>Mod</Kbd>
 								<Kbd>/</Kbd>
 							</div>
 					</div>
@@ -137,7 +137,7 @@ function SettingsSidebarComponent() {
 							Delete Current Chat
 						</span>
 							<div className="flex items-center gap-1.5 [&_kbd]:px-2.5 [&_kbd]:py-1.5">
-								<Kbd className="text-[16px] leading-none">⌘</Kbd>
+									<Kbd>Mod</Kbd>
 								<Kbd>Shift</Kbd>
 								<Kbd className="text-[16px] leading-none">⌫</Kbd>
 							</div>

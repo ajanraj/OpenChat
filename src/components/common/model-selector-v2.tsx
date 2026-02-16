@@ -379,6 +379,19 @@ export function ModelSelectorV2({
 		[],
 	);
 
+	const providerButtonRefCallbacks = useRef(new Map<string, (node: HTMLButtonElement | null) => void>());
+	const getProviderButtonRef = useCallback(
+		(providerId: string) => {
+			let cb = providerButtonRefCallbacks.current.get(providerId);
+			if (!cb) {
+				cb = (node: HTMLButtonElement | null) => setProviderButtonRef(providerId, node);
+				providerButtonRefCallbacks.current.set(providerId, cb);
+			}
+			return cb;
+		},
+		[setProviderButtonRef],
+	);
+
 	const setModelRowRef = useCallback((modelId: string, node: HTMLDivElement | null) => {
 		if (node) {
 			modelRowRefs.current.set(modelId, node);
@@ -386,6 +399,19 @@ export function ModelSelectorV2({
 		}
 		modelRowRefs.current.delete(modelId);
 	}, []);
+
+	const modelRowRefCallbacks = useRef(new Map<string, (node: HTMLDivElement | null) => void>());
+	const getModelRowRef = useCallback(
+		(modelId: string) => {
+			let cb = modelRowRefCallbacks.current.get(modelId);
+			if (!cb) {
+				cb = (node: HTMLDivElement | null) => setModelRowRef(modelId, node);
+				modelRowRefCallbacks.current.set(modelId, cb);
+			}
+			return cb;
+		},
+		[setModelRowRef],
+	);
 
 	const focusSearch = useCallback(() => {
 		searchInputRef.current?.focus();
@@ -704,9 +730,7 @@ export function ModelSelectorV2({
 											<div className="flex flex-col items-center gap-1">
 												<SidebarProviderButton
 													providerId={FAVORITES_PROVIDER_ID}
-													buttonRef={(node) =>
-														setProviderButtonRef(FAVORITES_PROVIDER_ID, node)
-													}
+													buttonRef={getProviderButtonRef(FAVORITES_PROVIDER_ID)}
 													active={activeProvider === null}
 													label="Favorites"
 													onClick={() => setActiveProvider(null)}
@@ -733,7 +757,7 @@ export function ModelSelectorV2({
 												<SidebarProviderButton
 													key={p.id}
 													providerId={p.id}
-													buttonRef={(node) => setProviderButtonRef(p.id, node)}
+													buttonRef={getProviderButtonRef(p.id)}
 													active={activeProvider === p.id}
 													label={p.name}
 													onClick={() =>
@@ -775,9 +799,7 @@ export function ModelSelectorV2({
 													<ModelRow
 														key={m.id}
 														model={m}
-														modelRowRef={(node) =>
-															setModelRowRef(m.id, node)
-														}
+														modelRowRef={getModelRowRef(m.id)}
 														isFavorite={favoriteModelsSet.has(m.id)}
 														favoriteModelsCount={favoriteModelsSet.size}
 														isSelected={selectedModelId === m.id}
@@ -818,9 +840,7 @@ export function ModelSelectorV2({
 															<ModelRow
 																key={m.id}
 																model={m}
-																modelRowRef={(node) =>
-																	setModelRowRef(m.id, node)
-																}
+																modelRowRef={getModelRowRef(m.id)}
 																isFavorite={favoriteModelsSet.has(m.id)}
 																favoriteModelsCount={favoriteModelsSet.size}
 																isSelected={selectedModelId === m.id}
