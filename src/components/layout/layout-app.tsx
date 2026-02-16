@@ -82,7 +82,7 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 	useHotkey(
 		"Mod+/",
 		(e) => {
-			if (isInputLikeTarget(e.target) || !isChatRoute(pathname)) {
+			if (!isChatRoute(pathname)) {
 				return;
 			}
 			e.preventDefault();
@@ -101,6 +101,13 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 				return;
 			}
 			if (!isCurrentChatRoute(pathname)) {
+				return;
+			}
+			if (
+				document.querySelector(
+					'[role="dialog"], [data-radix-popper-content-wrapper]',
+				)
+			) {
 				return;
 			}
 			e.preventDefault();
