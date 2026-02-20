@@ -185,13 +185,13 @@ export const GOOGLE_MODELS = [
     api_sdk: fal.image("fal-ai/gemini-3-pro-image-preview"),
   },
   {
-    id: "gemini-3-pro-preview",
-    name: "Gemini 3 Pro",
+    id: "gemini-3.1-pro-preview",
+    name: "Gemini 3.1 Pro",
     provider: "gemini",
     premium: true,
     usesPremiumCredits: true,
     description:
-      "Early preview of Google's next-generation Gemini 3 model.\nOffers enhanced reasoning and multimodal capabilities.",
+      "Google's most advanced reasoning model capable of solving complex problems.\nFeatures improved agentic capabilities, better thinking, and a 1M token context window.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -199,7 +199,7 @@ export const GOOGLE_MODELS = [
       REASONING_FEATURE,
       TOOL_CALLING_FEATURE,
     ],
-    api_sdk: google("gemini-3-pro-preview"),
+    api_sdk: google("gemini-3.1-pro-preview"),
   },
   {
     id: "gemini-3-flash-preview",
