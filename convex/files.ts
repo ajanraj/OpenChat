@@ -107,7 +107,7 @@ const FILE_UPLOAD_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash-lite-thinking",
   "gemini-2.5-pro",
-  "gemini-3-pro-preview",
+  "gemini-3.1-pro-preview",
 
   // Meta models
   "meta-llama/llama-4-maverick:free",
