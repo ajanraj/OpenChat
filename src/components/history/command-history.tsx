@@ -3,7 +3,7 @@ import { ListMagnifyingGlass } from "@phosphor-icons/react";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 import {
 	Command,
 	CommandDialog,
@@ -57,8 +57,51 @@ export function CommandHistory() {
 	const deleteChat = useMutation(api.chats.deleteChat);
 	const updateChatTitle = useMutation(api.chats.updateChatTitle);
 	const pinChatToggle = useMutation(api.chats.pinChatToggle);
-	const [isOpen, setIsOpen] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
+	type State = {
+		isOpen: boolean;
+		searchQuery: string;
+		editingId: Id<"chats"> | null;
+		editTitle: string;
+		deletingId: Id<"chats"> | null;
+	};
+	type Action =
+		| { type: "OPEN" }
+		| { type: "TOGGLE" }
+		| { type: "CLOSE" }
+		| { type: "SET_SEARCH"; query: string }
+		| { type: "START_EDIT"; chat: Doc<"chats"> }
+		| { type: "SET_EDIT_TITLE"; title: string }
+		| { type: "CANCEL_EDIT" }
+		| { type: "START_DELETE"; id: Id<"chats"> }
+		| { type: "CANCEL_DELETE" };
+
+	const [state, dispatch] = useReducer(
+		(s: State, action: Action): State => {
+			switch (action.type) {
+				case "OPEN":
+					return { ...s, isOpen: true };
+				case "TOGGLE":
+					return { ...s, isOpen: !s.isOpen };
+				case "CLOSE":
+					return { ...s, isOpen: false, searchQuery: "", editingId: null, editTitle: "", deletingId: null };
+				case "SET_SEARCH":
+					return { ...s, searchQuery: action.query };
+				case "START_EDIT":
+					return { ...s, editingId: action.chat._id, editTitle: action.chat.title || "" };
+				case "SET_EDIT_TITLE":
+					return { ...s, editTitle: action.title };
+				case "CANCEL_EDIT":
+					return { ...s, editingId: null, editTitle: "" };
+				case "START_DELETE":
+					return { ...s, deletingId: action.id };
+				case "CANCEL_DELETE":
+					return { ...s, deletingId: null };
+			}
+		},
+		{ isOpen: false, searchQuery: "", editingId: null, editTitle: "", deletingId: null },
+	);
+	const { isOpen, searchQuery, editingId, editTitle, deletingId } = state;
+
 	const { data: messageResults = [] } = useTanStackQuery({
 		...convexQuery(
 			api.messages.searchMessages,
@@ -66,42 +109,37 @@ export function CommandHistory() {
 		),
 		enabled: Boolean(searchQuery),
 	});
-	const [editingId, setEditingId] = useState<Id<"chats"> | null>(null);
-	const [editTitle, setEditTitle] = useState("");
-	const [deletingId, setDeletingId] = useState<Id<"chats"> | null>(null);
 
 	const handleEdit = useCallback((chat: Doc<"chats">) => {
-		setEditingId(chat._id);
-		setEditTitle(chat.title || "");
+		dispatch({ type: "START_EDIT", chat });
 	}, []);
 
 	const handleSaveEdit = useCallback(
 		async (id: Id<"chats">) => {
-			setEditingId(null);
+			dispatch({ type: "CANCEL_EDIT" });
 			await updateChatTitle({ chatId: id, title: editTitle });
 		},
 		[editTitle, updateChatTitle],
 	);
 
 	const handleCancelEdit = useCallback(() => {
-		setEditingId(null);
-		setEditTitle("");
+		dispatch({ type: "CANCEL_EDIT" });
 	}, []);
 
 	const handleDelete = useCallback((id: Id<"chats">) => {
-		setDeletingId(id);
+		dispatch({ type: "START_DELETE", id });
 	}, []);
 
 	const handleConfirmDelete = useCallback(
 		async (id: Id<"chats">) => {
-			setDeletingId(null);
+			dispatch({ type: "CANCEL_DELETE" });
 			await deleteChat({ chatId: id });
 		},
 		[deleteChat],
 	);
 
 	const handleCancelDelete = useCallback(() => {
-		setDeletingId(null);
+		dispatch({ type: "CANCEL_DELETE" });
 	}, []);
 
 	const handleTogglePin = useCallback(
@@ -113,8 +151,8 @@ export function CommandHistory() {
 
 	// Listen for global openCommandHistory and toggleFloatingSearch events
 	useEffect(() => {
-		const open = () => setIsOpen(true);
-		const toggle = () => setIsOpen((prev) => !prev);
+		const open = () => dispatch({ type: "OPEN" });
+		const toggle = () => dispatch({ type: "TOGGLE" });
 		window.addEventListener("openCommandHistory", open);
 		window.addEventListener("toggleFloatingSearch", toggle);
 		return () => {
@@ -124,12 +162,10 @@ export function CommandHistory() {
 	}, []);
 
 	const handleOpenChange = (open: boolean) => {
-		setIsOpen(open);
 		if (!open) {
-			setSearchQuery("");
-			setEditingId(null);
-			setEditTitle("");
-			setDeletingId(null);
+			dispatch({ type: "CLOSE" });
+		} else {
+			dispatch({ type: "OPEN" });
 		}
 	};
 
@@ -206,7 +242,7 @@ export function CommandHistory() {
 				<TooltipTrigger asChild>
 					<button
 						className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-						onClick={() => setIsOpen(true)}
+						onClick={() => dispatch({ type: "OPEN" })}
 						type="button"
 					>
 						<ListMagnifyingGlass size={24} />
@@ -223,7 +259,7 @@ export function CommandHistory() {
 			>
 				<Command shouldFilter={false}>
 					<CommandInput
-						onValueChange={(value) => setSearchQuery(value)}
+						onValueChange={(value) => dispatch({ type: "SET_SEARCH", query: value })}
 						placeholder="Search history..."
 						value={searchQuery}
 					/>
@@ -255,7 +291,7 @@ export function CommandHistory() {
 												search: { m: msg._id },
 												replace: true,
 											});
-											setIsOpen(false);
+											dispatch({ type: "CLOSE" });
 										}}
 										value={msg._id}
 									>
@@ -283,62 +319,62 @@ export function CommandHistory() {
 											Pinned
 										</div>
 										{pinnedChats.map((chat) => (
-												<CommandHistoryItem
-													chat={chat}
-													chatTitleById={chatTitleById}
-													currentChatId={params.chatId}
-													deletingId={deletingId}
-													editingId={editingId}
-													editTitle={editTitle}
-													handleCancelDelete={handleCancelDelete}
-													handleCancelEdit={handleCancelEdit}
-													handleConfirmDelete={handleConfirmDelete}
-													handleDelete={handleDelete}
-													handleEdit={handleEdit}
-													handleSaveEdit={handleSaveEdit}
-													handleTogglePin={handleTogglePin}
-													key={chat._id}
-													router={router}
-													setEditTitle={setEditTitle}
-													setIsOpen={setIsOpen}
-												/>
-											))}
+											<CommandHistoryItem
+												chat={chat}
+												chatTitleById={chatTitleById}
+												currentChatId={params.chatId}
+												deletingId={deletingId}
+												editingId={editingId}
+												editTitle={editTitle}
+												handleCancelDelete={handleCancelDelete}
+												handleCancelEdit={handleCancelEdit}
+												handleConfirmDelete={handleConfirmDelete}
+												handleDelete={handleDelete}
+												handleEdit={handleEdit}
+												handleSaveEdit={handleSaveEdit}
+												handleTogglePin={handleTogglePin}
+												key={chat._id}
+												router={router}
+												setEditTitle={(title) => dispatch({ type: "SET_EDIT_TITLE", title })}
+												setIsOpen={(open) => dispatch({ type: open ? "OPEN" : "CLOSE" })}
+											/>
+										))}
 									</div>
 								)}
-							</div>
-						)}
-						{/* Time-based Groups */}
-						{ORDERED_GROUP_KEYS.map(
-							(groupKey) =>
+								</div>
+								)}
+								{/* Time-based Groups */}
+								{ORDERED_GROUP_KEYS.map(
+								(groupKey) =>
 								hasChatsInGroup(groupedChats, groupKey) && (
 									<div className="px-2 pb-2" key={groupKey}>
 										<div className="flex h-8 shrink-0 items-center rounded-md px-1.5 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
 											{groupKey}
 										</div>
 										{groupedChats[groupKey].map((chat) => (
-												<CommandHistoryItem
-													chat={chat}
-													chatTitleById={chatTitleById}
-													currentChatId={params.chatId}
-													deletingId={deletingId}
-													editingId={editingId}
-													editTitle={editTitle}
-													handleCancelDelete={handleCancelDelete}
-													handleCancelEdit={handleCancelEdit}
-													handleConfirmDelete={handleConfirmDelete}
-													handleDelete={handleDelete}
-													handleEdit={handleEdit}
-													handleSaveEdit={handleSaveEdit}
-													handleTogglePin={handleTogglePin}
-													key={chat._id}
-													router={router}
-													setEditTitle={setEditTitle}
-													setIsOpen={setIsOpen}
-												/>
-											))}
+											<CommandHistoryItem
+												chat={chat}
+												chatTitleById={chatTitleById}
+												currentChatId={params.chatId}
+												deletingId={deletingId}
+												editingId={editingId}
+												editTitle={editTitle}
+												handleCancelDelete={handleCancelDelete}
+												handleCancelEdit={handleCancelEdit}
+												handleConfirmDelete={handleConfirmDelete}
+												handleDelete={handleDelete}
+												handleEdit={handleEdit}
+												handleSaveEdit={handleSaveEdit}
+												handleTogglePin={handleTogglePin}
+												key={chat._id}
+												router={router}
+												setEditTitle={(title) => dispatch({ type: "SET_EDIT_TITLE", title })}
+												setIsOpen={(open) => dispatch({ type: open ? "OPEN" : "CLOSE" })}
+											/>
+										))}
 									</div>
 								),
-						)}
+								)}
 					</CommandList>
 				</Command>
 			</CommandDialog>

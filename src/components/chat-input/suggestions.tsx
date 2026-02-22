@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { PromptSuggestion } from "@/components/prompt-kit/prompt-suggestion";
 import { SUGGESTIONS as SUGGESTIONS_CONFIG } from "@/lib/config";
@@ -13,7 +13,7 @@ type SuggestionsProps = {
 // Create a stable motion-wrapped component once to avoid recreating
 // a new component type on every render, which caused unnecessary
 // unmounts/remounts of all suggestions.
-const MotionPromptSuggestion = motion.create(PromptSuggestion);
+const MotionPromptSuggestion = m.create(PromptSuggestion);
 
 export const Suggestions = memo(function SuggestionsComponent({
 	onValueChange,
@@ -55,7 +55,7 @@ export const Suggestions = memo(function SuggestionsComponent({
 
 	const suggestionsGrid = useMemo(
 		() => (
-			<motion.div
+			<m.div
 				animate="animate"
 				className="flex w-full max-w-full flex-nowrap justify-start gap-2 overflow-x-auto px-2 md:mx-auto md:max-w-2xl md:flex-wrap md:justify-center md:pl-0"
 				exit="exit"
@@ -113,14 +113,14 @@ export const Suggestions = memo(function SuggestionsComponent({
 						{suggestion.label}
 					</MotionPromptSuggestion>
 				))}
-			</motion.div>
+			</m.div>
 		),
 		[handleCategoryClick, shouldReduceMotion],
 	);
 
 	const suggestionsList = useMemo(
 		() => (
-			<motion.div
+			<m.div
 				animate="animate"
 				className="flex w-full flex-col space-y-1 px-2"
 				exit="exit"
@@ -176,7 +176,7 @@ export const Suggestions = memo(function SuggestionsComponent({
 						{suggestion}
 					</MotionPromptSuggestion>
 				))}
-			</motion.div>
+			</m.div>
 		),
 		[handleSuggestionClick, activeCategoryData, shouldReduceMotion],
 	);

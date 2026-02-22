@@ -1,6 +1,5 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { LazyMotion, domAnimation } from "motion/react";
 import { useCallback } from "react";
 import {
 	HOTKEY_EVENT_OPEN_MODEL_PICKER,
@@ -128,9 +127,7 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 	}
 
 	return (
-		<LazyMotion features={domAnimation}>
-			{/* Main flex container */}
-			<div className="flex h-dvh overflow-hidden bg-background">
+		<div className="flex h-dvh overflow-hidden bg-background">
 				{/* Sidebar */}
 				<ChatSidebar />
 
@@ -149,6 +146,5 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 					</main>
 				</div>
 			</div>
-		</LazyMotion>
 	);
 }

@@ -8,7 +8,7 @@ import {
 } from "@ridemountainpig/svgl-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -276,16 +276,52 @@ export function ApiKeysSettingsPage() {
   const deleteApiKey = useMutation(api.api_keys.deleteApiKey);
   const updateMode = useMutation(api.api_keys.updateApiKeyMode);
 
-  const [inputValues, setInputValues] = useState<Record<string, string>>({});
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [isValidating, setIsValidating] = useState<Record<string, boolean>>({});
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  interface ApiKeysState {
+    inputValues: Record<string, string>;
+    validationErrors: Record<string, string>;
+    isValidating: Record<string, boolean>;
+    showDeleteDialog: boolean;
+    providerToDelete: Provider | null;
+    isDeleting: boolean;
+  }
+  type ApiKeysAction =
+    | { type: "SET_INPUT"; provider: string; value: string }
+    | { type: "SET_VALIDATION_ERROR"; provider: string; error: string }
+    | { type: "SET_VALIDATING"; provider: string; value: boolean }
+    | { type: "CLEAR_INPUTS" }
+    | { type: "START_DELETE"; provider: Provider }
+    | { type: "CANCEL_DELETE" }
+    | { type: "SET_DELETING"; value: boolean }
+    | { type: "DELETE_DONE" };
+
+  const [apiKeysState, dispatch] = useReducer(
+    (s: ApiKeysState, action: ApiKeysAction): ApiKeysState => {
+      switch (action.type) {
+        case "SET_INPUT":
+          return { ...s, inputValues: { ...s.inputValues, [action.provider]: action.value } };
+        case "SET_VALIDATION_ERROR":
+          return { ...s, validationErrors: { ...s.validationErrors, [action.provider]: action.error } };
+        case "SET_VALIDATING":
+          return { ...s, isValidating: { ...s.isValidating, [action.provider]: action.value } };
+        case "CLEAR_INPUTS":
+          return { ...s, inputValues: {} };
+        case "START_DELETE":
+          return { ...s, providerToDelete: action.provider, showDeleteDialog: true };
+        case "CANCEL_DELETE":
+          return { ...s, showDeleteDialog: false, providerToDelete: null };
+        case "SET_DELETING":
+          return { ...s, isDeleting: action.value };
+        case "DELETE_DONE":
+          return { ...s, isDeleting: false, showDeleteDialog: false, providerToDelete: null };
+      }
+    },
+    { inputValues: {}, validationErrors: {}, isValidating: {}, showDeleteDialog: false, providerToDelete: null, isDeleting: false },
+  );
+  const { inputValues, validationErrors, isValidating, showDeleteDialog, providerToDelete, isDeleting } = apiKeysState;
 
   useEffect(
     () => () => {
-      setInputValues({});
+      dispatch({ type: "CLEAR_INPUTS" });
     },
     [],
   );
@@ -300,26 +336,23 @@ export function ApiKeysSettingsPage() {
 
       const validation = validateApiKey(provider, key);
       if (!validation.isValid) {
-        setValidationErrors((prev) => ({
-          ...prev,
-          [provider]: validation.error || "Invalid API key",
-        }));
+        dispatch({ type: "SET_VALIDATION_ERROR", provider, error: validation.error || "Invalid API key" });
         return;
       }
 
-      setValidationErrors((prev) => ({ ...prev, [provider]: "" }));
-      setIsValidating((prev) => ({ ...prev, [provider]: true }));
+      dispatch({ type: "SET_VALIDATION_ERROR", provider, error: "" });
+      dispatch({ type: "SET_VALIDATING", provider, value: true });
 
       await saveApiKey({ provider, key })
         .then(() => {
           toast({ title: "API key saved", status: "success" });
-          setInputValues((prev) => ({ ...prev, [provider]: "" }));
+          dispatch({ type: "SET_INPUT", provider, value: "" });
         })
         .catch(() => {
           toast({ title: "Failed to save key", status: "error" });
         })
         .finally(() => {
-          setIsValidating((prev) => ({ ...prev, [provider]: false }));
+          dispatch({ type: "SET_VALIDATING", provider, value: false });
         });
     },
     [saveApiKey, inputValues],
@@ -327,17 +360,16 @@ export function ApiKeysSettingsPage() {
 
   const handleInputChange = useCallback(
     (provider: Provider, value: string) => {
-      setInputValues((prev) => ({ ...prev, [provider]: value }));
+      dispatch({ type: "SET_INPUT", provider, value });
       if (validationErrors[provider]) {
-        setValidationErrors((prev) => ({ ...prev, [provider]: "" }));
+        dispatch({ type: "SET_VALIDATION_ERROR", provider, error: "" });
       }
     },
     [validationErrors],
   );
 
   const handleDelete = useCallback((provider: Provider) => {
-    setProviderToDelete(provider);
-    setShowDeleteDialog(true);
+    dispatch({ type: "START_DELETE", provider });
   }, []);
 
   const handleDialogOpenChange = useCallback(
@@ -345,24 +377,22 @@ export function ApiKeysSettingsPage() {
       if (!open && isDeleting) {
         return;
       }
-      setShowDeleteDialog(open);
       if (!open) {
-        setProviderToDelete(null);
+        dispatch({ type: "CANCEL_DELETE" });
       }
     },
     [isDeleting],
   );
 
   const handleCancelDelete = useCallback(() => {
-    setShowDeleteDialog(false);
-    setProviderToDelete(null);
+    dispatch({ type: "CANCEL_DELETE" });
   }, []);
 
   const confirmDelete = useCallback(async () => {
     if (!providerToDelete) {
       return;
     }
-    setIsDeleting(true);
+    dispatch({ type: "SET_DELETING", value: true });
     await deleteApiKey({ provider: providerToDelete })
       .then(() => {
         toast({ title: "API key deleted", status: "success" });
@@ -371,9 +401,7 @@ export function ApiKeysSettingsPage() {
         toast({ title: "Failed to delete key", status: "error" });
       })
       .finally(() => {
-        setIsDeleting(false);
-        setShowDeleteDialog(false);
-        setProviderToDelete(null);
+        dispatch({ type: "DELETE_DONE" });
       });
   }, [deleteApiKey, providerToDelete]);
 

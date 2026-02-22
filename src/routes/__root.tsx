@@ -14,6 +14,7 @@ import { StructuredData } from "@/components/structured-data";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_BASE_URL, APP_DESCRIPTION, APP_NAME, META_TITLE } from "@/lib/config";
 import { SidebarProvider } from "@/providers/sidebar-provider";
+import { LazyMotion, domMax } from "motion/react";
 import { ConvexProvider } from "../integrations/convex/provider";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import appCss from "../styles.css?url";
@@ -222,6 +223,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <StructuredData type="homepage" />
       </head>
       <body className="font-sans antialiased">
+        <LazyMotion features={domMax}>
         <ConvexProvider>
           <TooltipProvider>
             <AuthGuard>
@@ -248,6 +250,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             />
           )}
         </ConvexProvider>
+        </LazyMotion>
         <Scripts />
       </body>
     </html>

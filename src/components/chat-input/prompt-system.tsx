@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -66,7 +66,7 @@ export const PromptSystem = memo(function PromptSystemComponent({
 					)}
 				</AnimatePresence>
 			</div>
-			<motion.div
+			<m.div
 				animate={{
 					transform: isSidebarOpen ? "translateX(128px)" : "translateX(0px)",
 				}}
@@ -89,7 +89,7 @@ export const PromptSystem = memo(function PromptSystemComponent({
 						>
 							<AnimatePresence initial={false}>
 								{tab.isActive ? (
-									<motion.div
+									<m.div
 										animate={{
 											opacity: 1,
 										}}
@@ -114,7 +114,7 @@ export const PromptSystem = memo(function PromptSystemComponent({
 						</button>
 					))}
 				</div>
-			</motion.div>
+			</m.div>
 		</>
 	);
 });

@@ -1,4 +1,4 @@
-import { type HTMLMotionProps, motion } from "motion/react";
+import { type HTMLMotionProps, m } from "motion/react";
 import { cn } from "@/lib/utils";
 
 export const GRADIENT_ANGLES = {
@@ -44,7 +44,7 @@ export function ProgressiveBlur({
 				)})`;
 
 				return (
-					<motion.div
+					<m.div
 						key={index}
 						className="pointer-events-none absolute inset-0 rounded-[inherit]"
 						style={{

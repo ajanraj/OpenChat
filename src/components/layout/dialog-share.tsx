@@ -12,7 +12,7 @@ import {
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useMemo, useState } from "react";
+import { useMemo, useReducer } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -56,13 +56,46 @@ export function DialogShare() {
 
 	const publishChat = useMutation(api.chats.publishChat);
 	const unpublishChat = useMutation(api.chats.unpublishChat);
-	const [open, setOpen] = useState(false);
-	const [isLoading, setIsLoading] = useState(false);
-	const [copied, setCopied] = useState(false);
-	const [step, setStep] = useState<"confirm" | "link">("confirm");
-	// Default OFF (do not include attachments/images)
-	const [includeImages, setIncludeImages] = useState(false);
-	const [isToggling, setIsToggling] = useState(false);
+
+	type ShareState = {
+		open: boolean;
+		isLoading: boolean;
+		copied: boolean;
+		step: "confirm" | "link";
+		includeImages: boolean;
+		isToggling: boolean;
+	};
+	type ShareAction =
+		| { type: "OPEN_DIALOG"; step: "confirm" | "link"; includeImages: boolean }
+		| { type: "CLOSE" }
+		| { type: "SET_LOADING"; value: boolean }
+		| { type: "SET_STEP"; step: "confirm" | "link" }
+		| { type: "SET_INCLUDE_IMAGES"; value: boolean }
+		| { type: "SET_TOGGLING"; value: boolean }
+		| { type: "SET_COPIED"; value: boolean };
+
+	const [shareState, dispatch] = useReducer(
+		(s: ShareState, action: ShareAction): ShareState => {
+			switch (action.type) {
+				case "OPEN_DIALOG":
+					return { ...s, open: true, step: action.step, includeImages: action.includeImages };
+				case "CLOSE":
+					return { ...s, open: false };
+				case "SET_LOADING":
+					return { ...s, isLoading: action.value };
+				case "SET_STEP":
+					return { ...s, step: action.step };
+				case "SET_INCLUDE_IMAGES":
+					return { ...s, includeImages: action.value };
+				case "SET_TOGGLING":
+					return { ...s, isToggling: action.value };
+				case "SET_COPIED":
+					return { ...s, copied: action.value };
+			}
+		},
+		{ open: false, isLoading: false, copied: false, step: "confirm", includeImages: false, isToggling: false },
+	);
+	const { open, isLoading, copied, step, includeImages, isToggling } = shareState;
 
 	if (!canShare) {
 		return null;
@@ -72,71 +105,65 @@ export function DialogShare() {
 	const shareTitle = currentChat?.title || "Chat";
 
 	const onOpenDialog = () => {
-		// If already shared, go to link/settings view; else confirm first
 		if (isShared) {
-			setStep("link");
-			setIncludeImages(currentChat?.shareAttachments ?? false);
+			dispatch({ type: "OPEN_DIALOG", step: "link", includeImages: currentChat?.shareAttachments ?? false });
 		} else {
-			setStep("confirm");
-			setIncludeImages(false);
+			dispatch({ type: "OPEN_DIALOG", step: "confirm", includeImages: false });
 		}
-		setOpen(true);
 	};
 
-		const onCreateLink = async () => {
-			if (!chatId) {
-				return;
-			}
-			setIsLoading(true);
-			await publishChat({
-				chatId: chatId as Id<"chats">,
-				hideImages: !includeImages,
-			})
-				.then(() => {
-					setStep("link");
-				})
-				.finally(() => {
-					setIsLoading(false);
-				});
-		};
-
-	const handleToggleIncludeImages = async (value: boolean) => {
-		setIncludeImages(value);
+	const onCreateLink = async () => {
 		if (!chatId) {
 			return;
 		}
-			// Only update backend live when already shared (link step)
-			if (step === "link") {
-				setIsToggling(true);
-				await publishChat({
-					chatId: chatId as Id<"chats">,
-					hideImages: !value,
-				}).finally(() => {
-					setIsToggling(false);
-				});
-			}
-		};
+		dispatch({ type: "SET_LOADING", value: true });
+		await publishChat({
+			chatId: chatId as Id<"chats">,
+			hideImages: !includeImages,
+		})
+			.then(() => {
+				dispatch({ type: "SET_STEP", step: "link" });
+			})
+			.finally(() => {
+				dispatch({ type: "SET_LOADING", value: false });
+			});
+	};
 
-		const onUnshare = async () => {
-			if (!chatId) {
-				return;
-			}
-			setIsLoading(true);
-			await unpublishChat({ chatId: chatId as Id<"chats"> })
-				.then(() => {
-					// Return to confirm step with defaults
-					setStep("confirm");
-					setIncludeImages(false);
-				})
-				.finally(() => {
-					setIsLoading(false);
-				});
-		};
+	const handleToggleIncludeImages = async (value: boolean) => {
+		dispatch({ type: "SET_INCLUDE_IMAGES", value });
+		if (!chatId) {
+			return;
+		}
+		if (step === "link") {
+			dispatch({ type: "SET_TOGGLING", value: true });
+			await publishChat({
+				chatId: chatId as Id<"chats">,
+				hideImages: !value,
+			}).finally(() => {
+				dispatch({ type: "SET_TOGGLING", value: false });
+			});
+		}
+	};
+
+	const onUnshare = async () => {
+		if (!chatId) {
+			return;
+		}
+		dispatch({ type: "SET_LOADING", value: true });
+		await unpublishChat({ chatId: chatId as Id<"chats"> })
+			.then(() => {
+				dispatch({ type: "SET_STEP", step: "confirm" });
+				dispatch({ type: "SET_INCLUDE_IMAGES", value: false });
+			})
+			.finally(() => {
+				dispatch({ type: "SET_LOADING", value: false });
+			});
+	};
 
 	const onCopy = async () => {
 		await navigator.clipboard.writeText(publicLink);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 1500);
+		dispatch({ type: "SET_COPIED", value: true });
+		setTimeout(() => dispatch({ type: "SET_COPIED", value: false }), 1500);
 	};
 
 	return (
@@ -163,7 +190,13 @@ export function DialogShare() {
 				</Tooltip>
 			</TooltipProvider>
 
-			<Dialog onOpenChange={setOpen} open={open}>
+			<Dialog
+				onOpenChange={(v) => {
+					if (v) dispatch({ type: "OPEN_DIALOG", step, includeImages });
+					else dispatch({ type: "CLOSE" });
+				}}
+				open={open}
+			>
 				<DialogContent className="sm:max-w-[500px]">
 					{step === "confirm" ? (
 						<>
@@ -180,14 +213,14 @@ export function DialogShare() {
 									<Switch
 										aria-label="Include attachments and images"
 										checked={includeImages}
-										onCheckedChange={setIncludeImages}
+										onCheckedChange={(v) => dispatch({ type: "SET_INCLUDE_IMAGES", value: v })}
 									/>
 								</div>
 							</div>
 							<div className="mt-2 flex gap-2">
 								<Button
 									className="flex-1"
-									onClick={() => setOpen(false)}
+									onClick={() => dispatch({ type: "CLOSE" })}
 									variant="outline"
 								>
 									Close

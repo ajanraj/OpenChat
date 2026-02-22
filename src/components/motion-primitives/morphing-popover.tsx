@@ -1,7 +1,7 @@
 import {
 	AnimatePresence,
 	MotionConfig,
-	motion,
+	m,
 	type Transition,
 	type Variants,
 } from "motion/react";
@@ -106,7 +106,7 @@ export type MorphingPopoverTriggerProps = {
 	asChild?: boolean;
 	children: React.ReactNode;
 	className?: string;
-} & React.ComponentProps<typeof motion.button>;
+} & React.ComponentProps<typeof m.button>;
 
 function MorphingPopoverTrigger({
 	children,
@@ -123,7 +123,7 @@ function MorphingPopoverTrigger({
 
 	if (asChild && isValidElement(children)) {
 		return (
-			<motion.div
+			<m.div
 				aria-controls={`popover-content-${context.uniqueId}`}
 				aria-expanded={context.isOpen}
 				className={className}
@@ -139,17 +139,17 @@ function MorphingPopoverTrigger({
 				tabIndex={0}
 			>
 				{children}
-			</motion.div>
+			</m.div>
 		);
 	}
 
 	return (
-		<motion.div
+		<m.div
 			key={context.uniqueId}
 			layoutId={`popover-trigger-${context.uniqueId}`}
 			onClick={context.open}
 		>
-			<motion.button
+			<m.button
 				{...props}
 				layoutId={`popover-label-${context.uniqueId}`}
 				key={context.uniqueId}
@@ -158,15 +158,15 @@ function MorphingPopoverTrigger({
 				aria-controls={`popover-content-${context.uniqueId}`}
 			>
 				{children}
-			</motion.button>
-		</motion.div>
+			</m.button>
+		</m.div>
 	);
 }
 
 export type MorphingPopoverContentProps = {
 	children: React.ReactNode;
 	className?: string;
-} & React.ComponentProps<typeof motion.div>;
+} & React.ComponentProps<typeof m.div>;
 
 function MorphingPopoverContent({
 	children,
@@ -197,7 +197,7 @@ function MorphingPopoverContent({
 		<AnimatePresence>
 			{context.isOpen && (
 				<>
-					<motion.div
+					<m.div
 						{...props}
 						ref={ref}
 						layoutId={`popover-trigger-${context.uniqueId}`}
@@ -215,7 +215,7 @@ function MorphingPopoverContent({
 						variants={context.variants}
 					>
 						{children}
-					</motion.div>
+					</m.div>
 				</>
 			)}
 		</AnimatePresence>

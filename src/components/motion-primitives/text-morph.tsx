@@ -1,6 +1,6 @@
 import {
 	AnimatePresence,
-	motion,
+	m,
 	type Transition,
 	type Variants,
 } from "motion/react";
@@ -57,7 +57,7 @@ export function TextMorph({
 		<Component className={cn(className)} aria-label={children} style={style}>
 			<AnimatePresence mode="popLayout" initial={false}>
 				{characters.map((character) => (
-					<motion.span
+					<m.span
 						key={character.id}
 						layoutId={character.id}
 						className="inline-block"
@@ -69,7 +69,7 @@ export function TextMorph({
 						transition={transition || defaultTransition}
 					>
 						{character.label}
-					</motion.span>
+					</m.span>
 				))}
 			</AnimatePresence>
 		</Component>

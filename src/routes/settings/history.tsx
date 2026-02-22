@@ -10,7 +10,7 @@ import {
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useConvex, useMutation } from "convex/react";
-import { useRef, useState } from "react";
+import { useRef, useReducer } from "react";
 import superjson from "superjson";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -111,59 +111,120 @@ export function HistorySettingsPage() {
   const deleteAllChats = useMutation(api.chats.deleteAllChatsForUser);
   const convex = useConvex();
 
-  const [selectedIds, setSelectedIds] = useState<Set<Id<"chats">>>(new Set());
+  interface ImportDataItem {
+    chat?: { title?: string; model?: string };
+    messages?: Array<{
+      role?: string;
+      content: string;
+      parts?: unknown[];
+      metadata?: unknown;
+      _id?: string;
+      id?: string;
+      parentMessageId?: string;
+      createdAt?: number;
+      model?: string;
+    }>;
+  }
+
+  interface HistoryState {
+    selectedIds: Set<Id<"chats">>;
+    showDeleteSelectedDialog: boolean;
+    showImportDialog: boolean;
+    showDeleteAllDialog: boolean;
+    isDeletingAll: boolean;
+    revokeChatId: Id<"chats"> | null;
+    isRevoking: boolean;
+    importChatCount: number;
+    importData: ImportDataItem[];
+  }
+
+  type HistoryAction =
+    | { type: "TOGGLE_SELECT"; id: Id<"chats"> }
+    | { type: "SELECT_ALL"; ids: Id<"chats">[] }
+    | { type: "CLEAR_SELECTION" }
+    | { type: "OPEN_DELETE_SELECTED" }
+    | { type: "CLOSE_DELETE_SELECTED" }
+    | { type: "OPEN_IMPORT_DIALOG"; data: ImportDataItem[]; count: number }
+    | { type: "CLOSE_IMPORT_DIALOG" }
+    | { type: "OPEN_DELETE_ALL" }
+    | { type: "CLOSE_DELETE_ALL" }
+    | { type: "SET_DELETING_ALL"; value: boolean }
+    | { type: "SET_REVOKE_CHAT"; id: Id<"chats"> | null }
+    | { type: "SET_REVOKING"; value: boolean }
+    | { type: "REVOKE_DONE" };
+
+  const [historyState, dispatch] = useReducer(
+    (s: HistoryState, action: HistoryAction): HistoryState => {
+      switch (action.type) {
+        case "TOGGLE_SELECT": {
+          const next = new Set(s.selectedIds);
+          if (next.has(action.id)) next.delete(action.id);
+          else next.add(action.id);
+          return { ...s, selectedIds: next };
+        }
+        case "SELECT_ALL":
+          return { ...s, selectedIds: new Set(action.ids) };
+        case "CLEAR_SELECTION":
+          return { ...s, selectedIds: new Set() };
+        case "OPEN_DELETE_SELECTED":
+          return { ...s, showDeleteSelectedDialog: true };
+        case "CLOSE_DELETE_SELECTED":
+          return { ...s, showDeleteSelectedDialog: false };
+        case "OPEN_IMPORT_DIALOG":
+          return { ...s, showImportDialog: true, importData: action.data, importChatCount: action.count };
+        case "CLOSE_IMPORT_DIALOG":
+          return { ...s, showImportDialog: false, importData: [], importChatCount: 0 };
+        case "OPEN_DELETE_ALL":
+          return { ...s, showDeleteAllDialog: true };
+        case "CLOSE_DELETE_ALL":
+          return { ...s, showDeleteAllDialog: false };
+        case "SET_DELETING_ALL":
+          return { ...s, isDeletingAll: action.value };
+        case "SET_REVOKE_CHAT":
+          return { ...s, revokeChatId: action.id };
+        case "SET_REVOKING":
+          return { ...s, isRevoking: action.value };
+        case "REVOKE_DONE":
+          return { ...s, isRevoking: false, revokeChatId: null };
+      }
+    },
+    {
+      selectedIds: new Set<Id<"chats">>(),
+      showDeleteSelectedDialog: false,
+      showImportDialog: false,
+      showDeleteAllDialog: false,
+      isDeletingAll: false,
+      revokeChatId: null,
+      isRevoking: false,
+      importChatCount: 0,
+      importData: [],
+    },
+  );
+  const {
+    selectedIds,
+    showDeleteSelectedDialog,
+    showImportDialog,
+    showDeleteAllDialog,
+    isDeletingAll,
+    revokeChatId,
+    isRevoking,
+    importChatCount,
+    importData,
+  } = historyState;
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
-  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
-  const [isDeletingAll, setIsDeletingAll] = useState(false);
-  const [revokeChatId, setRevokeChatId] = useState<Id<"chats"> | null>(null);
-  const [isRevoking, setIsRevoking] = useState(false);
-  const [importChatCount, setImportChatCount] = useState(0);
-  const [importData, setImportData] = useState<
-    Array<{
-      chat?: { title?: string; model?: string };
-      messages?: Array<{
-        role?: string;
-        content: string;
-        parts?: unknown[];
-        metadata?: unknown;
-        _id?: string;
-        id?: string;
-        parentMessageId?: string;
-        createdAt?: number;
-        model?: string;
-      }>;
-    }>
-  >([]);
 
   const isSelected = (id: Id<"chats">) => selectedIds.has(id);
-  const toggleSelect = (id: Id<"chats">) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
+  const toggleSelect = (id: Id<"chats">) => dispatch({ type: "TOGGLE_SELECT", id });
   const selectAll = () => {
-    if (!chats) {
-      return;
-    }
-    setSelectedIds(new Set(chats.map((c) => c._id as Id<"chats">)));
+    if (!chats) return;
+    dispatch({ type: "SELECT_ALL", ids: chats.map((c) => c._id as Id<"chats">) });
   };
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-  };
+  const clearSelection = () => dispatch({ type: "CLEAR_SELECTION" });
 
   const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) {
-      return;
-    }
-    setShowDeleteSelectedDialog(true);
+    if (selectedIds.size === 0) return;
+    dispatch({ type: "OPEN_DELETE_SELECTED" });
   };
 
   const confirmDeleteSelected = async () => {
@@ -179,11 +240,11 @@ export function HistorySettingsPage() {
 
     if (deleted) {
       toast({ title: "Selected chats deleted", status: "success" });
-      setSelectedIds(new Set());
+      dispatch({ type: "CLEAR_SELECTION" });
     } else {
       toast({ title: "Failed to delete some chats", status: "error" });
     }
-    setShowDeleteSelectedDialog(false);
+    dispatch({ type: "CLOSE_DELETE_SELECTED" });
   };
 
   const handleExport = async () => {
@@ -271,10 +332,7 @@ export function HistorySettingsPage() {
       throw new Error("No chats found in file");
     }
 
-    // Store data and chat count, then show confirmation dialog
-    setImportData(dataArr);
-    setImportChatCount(chatCount);
-    setShowImportDialog(true);
+    dispatch({ type: "OPEN_IMPORT_DIALOG", data: dataArr, count: chatCount });
   }
 
   const confirmImport = async () => {
@@ -329,14 +387,12 @@ export function HistorySettingsPage() {
         return false;
       })
       .finally(() => {
-        setShowImportDialog(false);
-        setImportData([]);
-        setImportChatCount(0);
+        dispatch({ type: "CLOSE_IMPORT_DIALOG" });
       });
 
     if (importSucceeded) {
       toast({ title: "Import completed", status: "success" });
-      setSelectedIds(new Set());
+      dispatch({ type: "CLEAR_SELECTION" });
     } else {
       toast({ title: "Import failed", status: "error" });
     }
@@ -367,7 +423,7 @@ export function HistorySettingsPage() {
       return;
     }
 
-    setIsDeletingAll(true);
+    dispatch({ type: "SET_DELETING_ALL", value: true });
     await deleteAllChats({})
       .then(() => {
         toast({ title: "All chats deleted", status: "success" });
@@ -376,8 +432,8 @@ export function HistorySettingsPage() {
         toast({ title: "Failed to delete chats", status: "error" });
       })
       .finally(() => {
-        setShowDeleteAllDialog(false);
-        setIsDeletingAll(false);
+        dispatch({ type: "CLOSE_DELETE_ALL" });
+        dispatch({ type: "SET_DELETING_ALL", value: false });
       });
   };
 
@@ -495,7 +551,7 @@ export function HistorySettingsPage() {
                           <Button
                             aria-label="Unshare conversation"
                             className="size-7"
-                            onClick={() => setRevokeChatId(chat._id as Id<"chats">)}
+                            onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: chat._id as Id<"chats"> })}
                             size="icon"
                             type="button"
                             variant="ghost"
@@ -631,7 +687,7 @@ export function HistorySettingsPage() {
           </div>
           <Button
             disabled={isDeletingAll}
-            onClick={() => setShowDeleteAllDialog(true)}
+            onClick={() => dispatch({ type: "OPEN_DELETE_ALL" })}
             size="sm"
             variant="destructive"
           >
@@ -647,7 +703,7 @@ export function HistorySettingsPage() {
       </p>
 
       {/* Delete selected chats dialog */}
-      <Dialog onOpenChange={setShowDeleteSelectedDialog} open={showDeleteSelectedDialog}>
+      <Dialog onOpenChange={(open) => { if (!open) dispatch({ type: "CLOSE_DELETE_SELECTED" }); }} open={showDeleteSelectedDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete selected chats?</DialogTitle>
@@ -658,7 +714,7 @@ export function HistorySettingsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => setShowDeleteSelectedDialog(false)} variant="outline">
+            <Button onClick={() => dispatch({ type: "CLOSE_DELETE_SELECTED" })} variant="outline">
               Cancel
             </Button>
             <Button onClick={confirmDeleteSelected} variant="destructive">
@@ -669,7 +725,7 @@ export function HistorySettingsPage() {
       </Dialog>
 
       {/* Import chats dialog */}
-      <Dialog onOpenChange={setShowImportDialog} open={showImportDialog}>
+      <Dialog onOpenChange={(open) => { if (!open) dispatch({ type: "CLOSE_IMPORT_DIALOG" }); }} open={showImportDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -683,11 +739,7 @@ export function HistorySettingsPage() {
           </DialogHeader>
           <DialogFooter>
             <Button
-              onClick={() => {
-                setShowImportDialog(false);
-                setImportData([]);
-                setImportChatCount(0);
-              }}
+              onClick={() => dispatch({ type: "CLOSE_IMPORT_DIALOG" })}
               variant="outline"
             >
               Cancel
@@ -702,9 +754,8 @@ export function HistorySettingsPage() {
       {/* Delete all chats dialog */}
       <Dialog
         onOpenChange={(open) => {
-          // Prevent closing dialog while deletion is in progress
-          if (!isDeletingAll) {
-            setShowDeleteAllDialog(open);
+          if (!isDeletingAll && !open) {
+            dispatch({ type: "CLOSE_DELETE_ALL" });
           }
         }}
         open={showDeleteAllDialog}
@@ -719,7 +770,7 @@ export function HistorySettingsPage() {
           <DialogFooter>
             <Button
               disabled={isDeletingAll}
-              onClick={() => setShowDeleteAllDialog(false)}
+              onClick={() => dispatch({ type: "CLOSE_DELETE_ALL" })}
               variant="outline"
             >
               Cancel
@@ -734,8 +785,8 @@ export function HistorySettingsPage() {
       {/* Revoke shared link dialog */}
       <Dialog
         onOpenChange={(open) => {
-          if (!(isRevoking || open)) {
-            setRevokeChatId(null);
+          if (!isRevoking && !open) {
+            dispatch({ type: "SET_REVOKE_CHAT", id: null });
           }
         }}
         open={Boolean(revokeChatId)}
@@ -748,16 +799,14 @@ export function HistorySettingsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => setRevokeChatId(null)} variant="outline">
+            <Button onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: null })} variant="outline">
               Cancel
             </Button>
             <Button
               disabled={isRevoking}
               onClick={async () => {
-                if (!revokeChatId) {
-                  return;
-                }
-                setIsRevoking(true);
+                if (!revokeChatId) return;
+                dispatch({ type: "SET_REVOKING", value: true });
                 await unpublishChat({ chatId: revokeChatId })
                   .then(() => {
                     toast({ title: "Conversation unshared", status: "success" });
@@ -766,8 +815,7 @@ export function HistorySettingsPage() {
                     toast({ title: "Failed to unshare", status: "error" });
                   })
                   .finally(() => {
-                    setIsRevoking(false);
-                    setRevokeChatId(null);
+                    dispatch({ type: "REVOKE_DONE" });
                   });
               }}
               variant="destructive"

@@ -6,7 +6,7 @@ import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { DefaultChatTransport, type FileUIPart } from "ai";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import {
 	createContext,
 	lazy,
@@ -14,8 +14,8 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useReducer,
 	useRef,
-	useState,
 } from "react";
 import { z } from "zod";
 import {
@@ -200,15 +200,41 @@ function ChatContent() {
 	} = useFileHandling();
 
 	// Local state
-	const [hasDialogAuth, setHasDialogAuth] = useState(false);
-	const [reasoningEffort, setReasoningEffort] = useState<
-		"low" | "medium" | "high"
-	>("low");
-	const [tempPersonaId, setTempPersonaId] = useState<string | undefined>();
-	const [tempSelectedModel, setTempSelectedModel] = useState<
-		string | undefined
-	>();
-	const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
+	type ChatUIState = {
+		hasDialogAuth: boolean;
+		reasoningEffort: "low" | "medium" | "high";
+		tempPersonaId: string | undefined;
+		tempSelectedModel: string | undefined;
+		showDeleteChatDialog: boolean;
+	};
+	type ChatUIAction =
+		| { type: "SET_DIALOG_AUTH"; value: boolean }
+		| { type: "SET_REASONING_EFFORT"; value: "low" | "medium" | "high" }
+		| { type: "SET_TEMP_PERSONA"; id: string | undefined }
+		| { type: "SET_TEMP_MODEL"; model: string | undefined }
+		| { type: "SET_DELETE_CHAT_DIALOG"; value: boolean }
+		| { type: "CLEAR_TEMP" };
+
+	const [chatUIState, dispatchUI] = useReducer(
+		(s: ChatUIState, action: ChatUIAction): ChatUIState => {
+			switch (action.type) {
+				case "SET_DIALOG_AUTH":
+					return { ...s, hasDialogAuth: action.value };
+				case "SET_REASONING_EFFORT":
+					return { ...s, reasoningEffort: action.value };
+				case "SET_TEMP_PERSONA":
+					return { ...s, tempPersonaId: action.id };
+				case "SET_TEMP_MODEL":
+					return { ...s, tempSelectedModel: action.model };
+				case "SET_DELETE_CHAT_DIALOG":
+					return { ...s, showDeleteChatDialog: action.value };
+				case "CLEAR_TEMP":
+					return { ...s, tempPersonaId: undefined, tempSelectedModel: undefined };
+			}
+		},
+		{ hasDialogAuth: false, reasoningEffort: "low", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false },
+	);
+	const { hasDialogAuth, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
 	const processedUrl = useRef(false);
 
 	// Data queries
@@ -495,7 +521,7 @@ function ChatContent() {
 				return;
 			}
 
-			const allowed = checkRateLimits(isAuthenticated, setHasDialogAuth);
+			const allowed = checkRateLimits(isAuthenticated, (v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v }));
 			if (!allowed) {
 				return;
 			}
@@ -515,8 +541,7 @@ function ChatContent() {
 
 				promoteDraftChatToReal(currentChatId);
 				void router.navigate({ to: `/c/${currentChatId}` });
-				setTempSelectedModel(undefined);
-				setTempPersonaId(undefined);
+				dispatchUI({ type: "CLEAR_TEMP" });
 			}
 
 			clearFiles();
@@ -548,7 +573,7 @@ function ChatContent() {
 			// Allow anonymous and logged-in users to change the model selection in UI.
 			// For new chats (no chatId yet), store temporarily.
 			if (!chatId) {
-				setTempSelectedModel(model);
+				dispatchUI({ type: "SET_TEMP_MODEL", model });
 				return;
 			}
 
@@ -877,7 +902,7 @@ function ChatContent() {
 		try {
 			await deleteChat({ chatId: chatId as Id<"chats"> });
 			cleanupChatInstance(chatId);
-			setShowDeleteChatDialog(false);
+			dispatchUI({ type: "SET_DELETE_CHAT_DIALOG", value: false });
 			void router.navigate({ to: "/" });
 		} catch {
 			setIsDeleting(false);
@@ -891,7 +916,7 @@ function ChatContent() {
 				return;
 			}
 
-			setShowDeleteChatDialog(true);
+			dispatchUI({ type: "SET_DELETE_CHAT_DIALOG", value: true });
 		};
 
 		window.addEventListener(
@@ -954,13 +979,11 @@ function ChatContent() {
 				"@container/main relative flex h-full min-h-0 flex-col items-center justify-end md:justify-center",
 			)}
 		>
-			<DialogAuth open={hasDialogAuth} setOpenAction={setHasDialogAuth} />
+			<DialogAuth open={hasDialogAuth} setOpenAction={(v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v })} />
 			<AlertDialog
 				onOpenChange={(open) => {
-					if (isDeleting) {
-						return;
-					}
-					setShowDeleteChatDialog(open);
+					if (isDeleting) return;
+					dispatchUI({ type: "SET_DELETE_CHAT_DIALOG", value: open });
 				}}
 				open={showDeleteChatDialog}
 			>
@@ -991,7 +1014,7 @@ function ChatContent() {
 
 			<AnimatePresence initial={false} mode="popLayout">
 				{!chatId && messages.length === 0 ? (
-					<motion.div
+					<m.div
 						animate={{ opacity: 1 }}
 						className="absolute bottom-[60%] mx-auto max-w-[50rem] md:relative md:bottom-auto"
 						exit={{ opacity: 0 }}
@@ -1009,7 +1032,7 @@ function ChatContent() {
 									: "What's on your mind?";
 							})()}
 						</h1>
-					</motion.div>
+					</m.div>
 				) : (
 					<Conversation
 						autoScroll={!targetMessageId}
@@ -1033,7 +1056,7 @@ function ChatContent() {
 				)}
 			</AnimatePresence>
 
-			<motion.div
+			<m.div
 				className={cn(
 					"relative inset-x-0 bottom-0 z-50 mx-auto w-full max-w-3xl",
 				)}
@@ -1056,8 +1079,8 @@ function ChatContent() {
 					onFileRemoveAction={removeFile}
 					onFileUploadAction={addFiles}
 					onSelectModelAction={handleModelChange}
-					onSelectReasoningEffortAction={setReasoningEffort}
-					onSelectSystemPromptAction={(id: string) => setTempPersonaId(id)}
+					onSelectReasoningEffortAction={(v) => dispatchUI({ type: "SET_REASONING_EFFORT", value: v })}
+					onSelectSystemPromptAction={(id: string) => dispatchUI({ type: "SET_TEMP_PERSONA", id })}
 					onSendAction={(
 						message: string,
 						{ enableSearch }: { enableSearch: boolean },
@@ -1067,7 +1090,7 @@ function ChatContent() {
 					selectedModel={selectedModel}
 					selectedPersonaId={personaId}
 				/>
-			</motion.div>
+			</m.div>
 		</div>
 	);
 }

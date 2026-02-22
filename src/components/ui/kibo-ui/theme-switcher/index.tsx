@@ -1,6 +1,6 @@
 import { Monitor, Moon, Sun } from "@phosphor-icons/react";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useCallback, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
@@ -89,7 +89,7 @@ export const ThemeSwitcher = ({
 							type="button"
 						>
 						{isActive && (
-							<motion.div
+							<m.div
 								className="absolute inset-0 rounded-full bg-secondary"
 								layoutId="activeTheme"
 								transition={{ type: "spring", duration: 0.5 }}

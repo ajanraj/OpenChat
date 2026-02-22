@@ -17,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { useRouter } from "@tanstack/react-router";
 import { useAction } from "convex/react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { ProviderIcon } from "@/components/common/provider-icon";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -78,16 +78,57 @@ export function ModelSelectorV2({
 	const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
 	const router = useRouter();
 
-	const [isOpen, setIsOpen] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
-	const [activeProvider, setActiveProvider] = useState<string | null>(null);
-	const [legacyExpandedByScope, setLegacyExpandedByScope] = useState<
-		Record<string, boolean>
-	>({});
-	const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-	const [showCombined, setShowCombined] = useState(false);
-	const [showProviderScrollHint, setShowProviderScrollHint] = useState(false);
-	const [isUpgradeLoading, setIsUpgradeLoading] = useState(false);
+	type SelectorState = {
+		isOpen: boolean;
+		searchQuery: string;
+		activeProvider: string | null;
+		legacyExpandedByScope: Record<string, boolean>;
+		activeFilters: Set<string>;
+		showCombined: boolean;
+		showProviderScrollHint: boolean;
+		isUpgradeLoading: boolean;
+	};
+	type SelectorAction =
+		| { type: "SET_OPEN"; value: boolean }
+		| { type: "SET_SEARCH"; query: string }
+		| { type: "SET_ACTIVE_PROVIDER"; id: string | null }
+		| { type: "TOGGLE_LEGACY_SCOPE"; key: string; expanded: boolean }
+		| { type: "TOGGLE_FILTER"; filterId: string }
+		| { type: "SET_SHOW_COMBINED"; value: boolean }
+		| { type: "SET_SCROLL_HINT"; value: boolean }
+		| { type: "SET_UPGRADE_LOADING"; value: boolean }
+		| { type: "CLOSE_RESET" };
+
+	const [selectorState, dispatch] = useReducer(
+		(s: SelectorState, action: SelectorAction): SelectorState => {
+			switch (action.type) {
+				case "SET_OPEN":
+					return { ...s, isOpen: action.value };
+				case "SET_SEARCH":
+					return { ...s, searchQuery: action.query };
+				case "SET_ACTIVE_PROVIDER":
+					return { ...s, activeProvider: action.id };
+				case "TOGGLE_LEGACY_SCOPE":
+					return { ...s, legacyExpandedByScope: { ...s.legacyExpandedByScope, [action.key]: action.expanded } };
+				case "TOGGLE_FILTER": {
+					const next = new Set(s.activeFilters);
+					if (next.has(action.filterId)) next.delete(action.filterId);
+					else next.add(action.filterId);
+					return { ...s, activeFilters: next };
+				}
+				case "SET_SHOW_COMBINED":
+					return { ...s, showCombined: action.value };
+				case "SET_SCROLL_HINT":
+					return { ...s, showProviderScrollHint: action.value };
+				case "SET_UPGRADE_LOADING":
+					return { ...s, isUpgradeLoading: action.value };
+				case "CLOSE_RESET":
+					return { ...s, isOpen: false, searchQuery: "", activeProvider: null, legacyExpandedByScope: {}, activeFilters: new Set<string>(), showCombined: false, showProviderScrollHint: false };
+			}
+		},
+		{ isOpen: false, searchQuery: "", activeProvider: null, legacyExpandedByScope: {}, activeFilters: new Set<string>(), showCombined: false, showProviderScrollHint: false, isUpgradeLoading: false },
+	);
+	const { isOpen, searchQuery, activeProvider, legacyExpandedByScope, activeFilters, showCombined, showProviderScrollHint, isUpgradeLoading } = selectorState;
 	const providerSidebarRef = useRef<HTMLDivElement | null>(null);
 	const providerSidebarResizeObserverRef = useRef<ResizeObserver | null>(null);
 	const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -103,13 +144,13 @@ export function ModelSelectorV2({
 	const updateProviderScrollHint = useCallback((sidebar?: HTMLDivElement) => {
 		const node = sidebar ?? providerSidebarRef.current;
 		if (!node) {
-			setShowProviderScrollHint(false);
+			dispatch({ type: "SET_SCROLL_HINT", value: false });
 			return;
 		}
 		const hasOverflow = node.scrollHeight - node.clientHeight > 1;
 		const remainingScroll =
 			node.scrollHeight - node.clientHeight - node.scrollTop;
-		setShowProviderScrollHint(hasOverflow && remainingScroll > 2);
+		dispatch({ type: "SET_SCROLL_HINT", value: hasOverflow && remainingScroll > 2 });
 	}, []);
 
 	const setProviderSidebarNode = useCallback(
@@ -119,7 +160,7 @@ export function ModelSelectorV2({
 			providerSidebarRef.current = node;
 
 			if (!node || !isOpen || shouldHideSidebar) {
-				setShowProviderScrollHint(false);
+				dispatch({ type: "SET_SCROLL_HINT", value: false });
 				return;
 			}
 
@@ -135,17 +176,11 @@ export function ModelSelectorV2({
 	);
 
 	const handleOpenChange = useCallback((open: boolean) => {
-		setIsOpen(open);
 		if (open) {
+			dispatch({ type: "SET_OPEN", value: true });
 			requestAnimationFrame(() => updateProviderScrollHint());
-		}
-		if (!open) {
-			setSearchQuery("");
-			setActiveProvider(null);
-			setLegacyExpandedByScope({});
-			setActiveFilters(new Set());
-			setShowCombined(false);
-			setShowProviderScrollHint(false);
+		} else {
+			dispatch({ type: "CLOSE_RESET" });
 		}
 	}, [updateProviderScrollHint]);
 
@@ -302,15 +337,7 @@ export function ModelSelectorV2({
 	);
 
 	const handleToggleFilter = useCallback((filterId: string) => {
-		setActiveFilters((prev) => {
-			const next = new Set(prev);
-			if (next.has(filterId)) {
-				next.delete(filterId);
-			} else {
-				next.add(filterId);
-			}
-			return next;
-		});
+		dispatch({ type: "TOGGLE_FILTER", filterId });
 	}, []);
 
 	const handleUpgrade = useCallback(async () => {
@@ -323,7 +350,7 @@ export function ModelSelectorV2({
 		}
 		const premiumProductId = products?.premium?.id;
 		if (!premiumProductId) return;
-		setIsUpgradeLoading(true);
+		dispatch({ type: "SET_UPGRADE_LOADING", value: true });
 		const checkoutLinkPromise = generateCheckoutLink({
 			productIds: [premiumProductId],
 			origin: window.location.origin,
@@ -341,10 +368,10 @@ export function ModelSelectorV2({
 				return null;
 			});
 		if (!checkoutUrl) {
-			setIsUpgradeLoading(false);
+			dispatch({ type: "SET_UPGRADE_LOADING", value: false });
 			return;
 		}
-		setIsUpgradeLoading(false);
+		dispatch({ type: "SET_UPGRADE_LOADING", value: false });
 		window.location.href = checkoutUrl;
 		}, [
 		user?.isAnonymous,
@@ -611,7 +638,7 @@ export function ModelSelectorV2({
 									aria-label="Search models"
 									className="w-full bg-transparent py-1.5 text-foreground text-sm placeholder:text-muted-foreground/50 focus:outline-none"
 									ref={searchInputRef}
-									onChange={(e) => setSearchQuery(e.target.value)}
+									onChange={(e) => dispatch({ type: "SET_SEARCH", query: e.target.value })}
 									onKeyDown={handleSearchKeyDown}
 									placeholder="Search models..."
 									role="searchbox"
@@ -681,7 +708,7 @@ export function ModelSelectorV2({
 											"flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-sidebar-accent/60",
 											showCombined && "bg-sidebar-accent/40",
 										)}
-										onClick={() => setShowCombined(!showCombined)}
+										onClick={() => dispatch({ type: "SET_SHOW_COMBINED", value: !showCombined })}
 									>
 										<span className="flex-1">Show combined results</span>
 									</button>
@@ -713,7 +740,7 @@ export function ModelSelectorV2({
 														}
 														active={activeProvider === null}
 														label="Favorites"
-														onClick={() => setActiveProvider(null)}
+														onClick={() => dispatch({ type: "SET_ACTIVE_PROVIDER", id: null })}
 													onArrowUp={handleProviderNavigateUp}
 													onArrowDown={handleProviderNavigateDown}
 													onArrowRight={handleProviderNavigateRight}
@@ -741,10 +768,8 @@ export function ModelSelectorV2({
 														active={activeProvider === p.id}
 														label={p.name}
 														onClick={() =>
-														setActiveProvider(
-															activeProvider === p.id ? null : p.id,
-														)
-													}
+														dispatch({ type: "SET_ACTIVE_PROVIDER", id: activeProvider === p.id ? null : p.id })
+														}
 													onArrowUp={handleProviderNavigateUp}
 													onArrowDown={handleProviderNavigateDown}
 													onArrowRight={handleProviderNavigateRight}
@@ -797,12 +822,7 @@ export function ModelSelectorV2({
 												<button
 													type="button"
 													className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-muted-foreground/80 text-xs transition-colors hover:bg-sidebar-accent/50 hover:text-muted-foreground"
-													onClick={() =>
-														setLegacyExpandedByScope((prev) => ({
-															...prev,
-															[legacyScopeKey]: !isLegacyExpanded,
-														}))
-													}
+													onClick={() => dispatch({ type: "TOGGLE_LEGACY_SCOPE", key: legacyScopeKey, expanded: !isLegacyExpanded })}
 												>
 													<ArchiveIcon className="size-4" />
 													<span>

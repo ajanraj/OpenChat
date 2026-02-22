@@ -13,7 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { useRouter } from "@tanstack/react-router";
 import { useAction } from "convex/react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useCallback, useMemo, useState } from "react";
 import { ProviderIcon } from "@/components/common/provider-icon";
 import { Button } from "@/components/ui/button";
@@ -426,7 +426,7 @@ export function ModelSelector({
 				/>
 
 				{/* Animated Container - width/height animate together */}
-				<motion.div
+				<m.div
 					initial={false}
 					animate={{
 						width: isExtended ? 640 : 420,
@@ -469,7 +469,7 @@ export function ModelSelector({
 
 						{/* Content - no AnimatePresence, just conditional render for immediate height */}
 						{isExtended ? (
-							<motion.div
+							<m.div
 								key="extended"
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
@@ -484,7 +484,7 @@ export function ModelSelector({
 											Favorites
 										</div>
 										{favoritesModels.map((modelOption, index) => (
-											<motion.div
+											<m.div
 												key={modelOption.id}
 												initial={{ opacity: 0, scale: 0.9 }}
 												animate={{ opacity: 1, scale: 1 }}
@@ -503,7 +503,7 @@ export function ModelSelector({
 													onSelect={handleSelect}
 													onToggleFavorite={handleToggleFavorite}
 												/>
-											</motion.div>
+											</m.div>
 										))}
 									</>
 								)}
@@ -515,7 +515,7 @@ export function ModelSelector({
 											Others
 										</div>
 										{othersModels.map((modelOption, index) => (
-											<motion.div
+											<m.div
 												key={modelOption.id}
 												initial={{ opacity: 0, scale: 0.9 }}
 												animate={{ opacity: 1, scale: 1 }}
@@ -535,7 +535,7 @@ export function ModelSelector({
 													onSelect={handleSelect}
 													onToggleFavorite={handleToggleFavorite}
 												/>
-											</motion.div>
+											</m.div>
 										))}
 									</>
 								)}
@@ -548,7 +548,7 @@ export function ModelSelector({
 											Disabled
 										</div>
 										{disabledModels.map((modelOption, index) => (
-											<motion.div
+											<m.div
 												key={modelOption.id}
 												initial={{ opacity: 0, scale: 0.9 }}
 												animate={{ opacity: 1, scale: 1 }}
@@ -572,7 +572,7 @@ export function ModelSelector({
 													onSelect={handleSelect}
 													onToggleFavorite={handleToggleFavorite}
 												/>
-											</motion.div>
+											</m.div>
 										))}
 									</>
 									)}
@@ -595,7 +595,7 @@ export function ModelSelector({
 												</button>
 											{isLegacyExpanded &&
 												legacyModels.map((modelOption, index) => (
-													<motion.div
+													<m.div
 														key={modelOption.id}
 														initial={{ opacity: 0, scale: 0.9 }}
 														animate={{ opacity: 1, scale: 1 }}
@@ -614,13 +614,13 @@ export function ModelSelector({
 															onSelect={handleSelect}
 															onToggleFavorite={handleToggleFavorite}
 														/>
-													</motion.div>
+													</m.div>
 												))}
 										</>
 										)}
-										</motion.div>
+										</m.div>
 										) : (
-							<motion.div
+							<m.div
 								key="normal"
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
@@ -629,10 +629,10 @@ export function ModelSelector({
 								{normalModeModels.map((modelOption) =>
 									renderModelOption(modelOption),
 								)}
-							</motion.div>
+							</m.div>
 						)}
 					</div>
-				</motion.div>
+				</m.div>
 
 				{/* Fixed Footer */}
 				<ModelSelectorFooter
