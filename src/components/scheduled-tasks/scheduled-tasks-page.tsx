@@ -17,21 +17,14 @@ const SCROLL_CONTAINER_STYLES = {
 	scrollbarGutter: "stable" as const,
 };
 
-const SKELETON_ARRAY = Array.from({ length: 1 });
 
 export function ScheduledTasksPage() {
 	const [activeTab, setActiveTab] = useState<TaskStatus>("active");
 	const isMobile = useBreakpoint(896); // Consistent breakpoint with TaskTrigger
 
-	const taskListClassName = useMemo(
-		() => (isMobile ? "space-y-3 pb-2" : "space-y-3 pr-4"),
-		[isMobile],
-	);
+	const taskListClassName = isMobile ? "space-y-3 pb-2" : "space-y-3 pr-4";
 
-	const scrollStyle = useMemo(
-		() => (isMobile ? undefined : SCROLL_CONTAINER_STYLES),
-		[isMobile],
-	);
+	const scrollStyle = isMobile ? undefined : SCROLL_CONTAINER_STYLES;
 
 	// Memoized query configuration to prevent recreation on every render
 	const queryConfig = useMemo(
@@ -133,12 +126,7 @@ export function ScheduledTasksPage() {
 				{/* Content */}
 				{isLoading ? (
 					<div className="space-y-3">
-						{SKELETON_ARRAY.map((_, i) => (
-							<div
-								className="h-28 animate-pulse rounded-xl bg-muted/50"
-								key={i}
-							/>
-						))}
+						<div className="h-28 animate-pulse rounded-xl bg-muted/50" />
 					</div>
 				) : null}
 

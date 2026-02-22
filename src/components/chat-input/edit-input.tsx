@@ -18,6 +18,13 @@ import { SelectReasoningEffort } from "./select-reasoning-effort";
 
 type ReasoningEffort = "low" | "medium" | "high";
 
+const EMPTY_FILES: File[] = [];
+const EMPTY_EXISTING_FILES: Array<{
+	url: string;
+	filename?: string;
+	mediaType?: string;
+}> = [];
+
 type EditInputProps = {
 	initialValue: string;
 	onSend: (
@@ -50,8 +57,8 @@ export function EditInput({
 	initialValue,
 	onSend,
 	onCancel,
-	initialFiles = [],
-	existingFiles = [],
+	initialFiles = EMPTY_FILES,
+	existingFiles = EMPTY_EXISTING_FILES,
 	selectedModel,
 	isSearchEnabled = false,
 	isUserAuthenticated,
@@ -60,23 +67,19 @@ export function EditInput({
 	reasoningEffort = "medium",
 }: EditInputProps) {
 	// Local state for edit mode (isolated from global chat state)
-	const [value, setValue] = useState(initialValue);
-	const [editSearchEnabled, setEditSearchEnabled] = useState(isSearchEnabled);
-	const [editModel, setEditModel] = useState(() => {
-		// Validate if the selected model exists in available models
-		if (selectedModel && MODELS_MAP[selectedModel]) {
-			return selectedModel; // Use the message-specific model if it exists
-		}
-		// Fall back to default model if the inferred model doesn't exist
-		return MODEL_DEFAULT;
-	});
-	const [editFiles, setEditFiles] = useState<File[]>(initialFiles);
-	// Track which existing files are kept; default to all existing files
+	const [value, setValue] = useState(() => initialValue);
+	const [editOptions, setEditOptions] = useState(() => ({
+		searchEnabled: isSearchEnabled,
+		model:
+			selectedModel && MODELS_MAP[selectedModel]
+				? selectedModel
+				: MODEL_DEFAULT,
+		reasoningEffort,
+	}));
+	const [editFiles, setEditFiles] = useState<File[]>(() => initialFiles);
 	const [keptExistingUrls, setKeptExistingUrls] = useState<Set<string>>(
 		() => new Set(existingFiles.map((f) => f.url.split("?")[0])),
 	);
-	const [editReasoningEffort, setEditReasoningEffort] =
-		useState<ReasoningEffort>(reasoningEffort);
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const editContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -85,35 +88,27 @@ export function EditInput({
 
 	// Check if there are any actual changes from the initial state
 	const hasChanges = useCallback(() => {
-		// Quick text comparison first (most common change)
 		if (value.trim() !== initialValue.trim()) {
 			return true;
 		}
-
-		// Model/settings changes
-		if (editModel !== selectedModel) {
+		if (editOptions.model !== selectedModel) {
 			return true;
 		}
-		if (editSearchEnabled !== isSearchEnabled) {
+		if (editOptions.searchEnabled !== isSearchEnabled) {
 			return true;
 		}
-		if (editReasoningEffort !== reasoningEffort) {
+		if (editOptions.reasoningEffort !== reasoningEffort) {
 			return true;
 		}
-
-		// File changes (more expensive, check last)
 		if (editFiles.length !== initialFiles.length) {
 			return true;
 		}
-
-		// Only do deep file comparison if lengths match but we need to check content
 		if (
 			existingFiles.length > 0 &&
 			keptExistingUrls.size !== existingFiles.length
 		) {
 			return true;
 		}
-
 		const existingCanonical = new Set(
 			existingFiles.map((f) => f.url.split("?")[0]),
 		);
@@ -123,7 +118,6 @@ export function EditInput({
 		) {
 			return true;
 		}
-
 		return editFiles.some(
 			(file) =>
 				!initialFiles.some(
@@ -133,11 +127,9 @@ export function EditInput({
 	}, [
 		value,
 		initialValue,
-		editModel,
+		editOptions,
 		selectedModel,
-		editSearchEnabled,
 		isSearchEnabled,
-		editReasoningEffort,
 		reasoningEffort,
 		editFiles,
 		initialFiles,
@@ -156,19 +148,17 @@ export function EditInput({
 			.map((f) => f.url.split("?")[0])
 			.filter((u) => !keptExistingUrls.has(u));
 		onSend(value, {
-			enableSearch: editSearchEnabled,
-			model: editModel,
+			enableSearch: editOptions.searchEnabled,
+			model: editOptions.model,
 			files: editFiles,
-			reasoningEffort: editReasoningEffort,
+			reasoningEffort: editOptions.reasoningEffort,
 			removedFileUrls,
 		});
 	}, [
 		value,
 		editFiles,
 		onSend,
-		editSearchEnabled,
-		editModel,
-		editReasoningEffort,
+		editOptions,
 		hasChanges,
 		existingFiles,
 		keptExistingUrls,
@@ -226,27 +216,36 @@ export function EditInput({
 					<div className="flex origin-left scale-90 transform gap-1 sm:scale-100 sm:gap-2">
 						<ButtonFileUpload
 							isUserAuthenticated={isUserAuthenticated}
-							model={editModel}
+							model={editOptions.model}
 							onFileUpload={(files) =>
 								setEditFiles((prev) => [...prev, ...files])
 							}
 						/>
 						<ButtonSearch
 							isUserAuthenticated={isUserAuthenticated}
-							model={editModel}
-							onSearch={() => setEditSearchEnabled(!editSearchEnabled)}
-							searchEnabled={editSearchEnabled}
+							model={editOptions.model}
+							onSearch={() =>
+								setEditOptions((prev) => ({
+									...prev,
+									searchEnabled: !prev.searchEnabled,
+								}))
+							}
+							searchEnabled={editOptions.searchEnabled}
 						/>
 						<SelectModel
 							isUserAuthenticated={isUserAuthenticated}
-							onSelectModel={setEditModel}
-							selectedModel={editModel}
+							onSelectModel={(model) =>
+								setEditOptions((prev) => ({ ...prev, model }))
+							}
+							selectedModel={editOptions.model}
 						/>
 						{isReasoningModel ? (
 							<SelectReasoningEffort
 								isUserAuthenticated={isUserAuthenticated}
-								onSelectReasoningEffortAction={setEditReasoningEffort}
-								reasoningEffort={editReasoningEffort}
+								onSelectReasoningEffortAction={(reasoningEffort) =>
+									setEditOptions((prev) => ({ ...prev, reasoningEffort }))
+								}
+								reasoningEffort={editOptions.reasoningEffort}
 							/>
 						) : null}
 					</div>

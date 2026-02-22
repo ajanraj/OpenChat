@@ -33,7 +33,7 @@ function ScrollButton({
 		const container = containerRef.current;
 
 		if (container) {
-			container.addEventListener("scroll", handleScroll);
+			container.addEventListener("scroll", handleScroll, { passive: true });
 			handleScroll();
 		}
 

@@ -42,7 +42,7 @@ function useIsTouchDevice(): boolean {
 }
 
 // Helper function to render different file parts
-const renderFilePart = (filePart: FileUIPart) => {
+function FilePartRenderer({ filePart }: { filePart: FileUIPart }) {
 	if (filePart.mediaType?.startsWith("image")) {
 		if (filePart.url === "redacted") {
 			return (
@@ -83,7 +83,6 @@ const renderFilePart = (filePart: FileUIPart) => {
 					<img
 						alt={filePart.filename ?? ""}
 						className="mb-1 h-40 w-40 rounded-md object-cover"
-						key={filePart.filename}
 						src={filePart.url}
 					/>
 				</MorphingDialogTrigger>
@@ -170,7 +169,9 @@ const renderFilePart = (filePart: FileUIPart) => {
 	}
 
 	return null;
-};
+}
+
+const EMPTY_EDIT_FILES: File[] = [];
 
 export type MessageUserProps = {
 	hasScrollAnchor?: boolean;
@@ -212,7 +213,7 @@ function MessageUserInner({
 	status,
 	selectedModel,
 	isUserAuthenticated,
-	editFiles = [],
+	editFiles = EMPTY_EDIT_FILES,
 	isReasoningModel = false,
 	reasoningEffort = "medium",
 	isSearchEnabled = false,
@@ -244,12 +245,12 @@ function MessageUserInner({
 		>
 			{parts
 				?.filter((part): part is FileUIPart => part.type === "file")
-				.map((filePart, index) => (
+				.map((filePart) => (
 					<div
 						className="flex flex-row gap-2"
-						key={`${filePart.filename}-${index}`}
+						key={`${filePart.url}-${filePart.filename}`}
 					>
-						{renderFilePart(filePart)}
+						<FilePartRenderer filePart={filePart} />
 					</div>
 				))}
 			{isEditing ? (

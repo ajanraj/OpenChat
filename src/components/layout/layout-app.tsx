@@ -1,5 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { LazyMotion, domAnimation } from "motion/react";
 import { useCallback } from "react";
 import {
 	HOTKEY_EVENT_OPEN_MODEL_PICKER,
@@ -127,25 +128,27 @@ export default function LayoutApp({ children }: { children: React.ReactNode }) {
 	}
 
 	return (
-		// Main flex container
-		<div className="flex h-dvh overflow-hidden bg-background">
-			{/* Sidebar */}
-			<ChatSidebar />
+		<LazyMotion features={domAnimation}>
+			{/* Main flex container */}
+			<div className="flex h-dvh overflow-hidden bg-background">
+				{/* Sidebar */}
+				<ChatSidebar />
 
-			{/* Main Content Area */}
-			<div className="flex flex-1 flex-col overflow-hidden">
-				{/* Header is fixed, overlays this div */}
-				<Header />
-				{/* Scrollable main content */}
-				<main
-					className={cn(
-						"flex-1 min-h-0",
-						isChat ? "overflow-hidden" : "overflow-y-auto",
-					)}
-				>
-					{children}
-				</main>
+				{/* Main Content Area */}
+				<div className="flex flex-1 flex-col overflow-hidden">
+					{/* Header is fixed, overlays this div */}
+					<Header />
+					{/* Scrollable main content */}
+					<main
+						className={cn(
+							"flex-1 min-h-0",
+							isChat ? "overflow-hidden" : "overflow-y-auto",
+						)}
+					>
+						{children}
+					</main>
+				</div>
 			</div>
-		</div>
+		</LazyMotion>
 	);
 }

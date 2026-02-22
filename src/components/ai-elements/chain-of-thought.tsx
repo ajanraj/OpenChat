@@ -1,7 +1,7 @@
 import { CaretDown } from "@phosphor-icons/react";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { DotIcon, type LucideIcon } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { ComponentProps } from "react";
 import {
 	Children,
@@ -110,9 +110,8 @@ export const ChainOfThoughtHeader = memo(
 			);
 		}, []);
 
-		const caretClassName = useMemo(() => {
-			return "flex items-center justify-center text-muted-foreground";
-		}, []);
+		const caretClassName =
+			"flex items-center justify-center text-muted-foreground";
 
 		// Memoized event handlers to prevent child rerenders
 		const handleToggleExpanded = useCallback(() => {
@@ -162,8 +161,8 @@ export const ChainOfThoughtHeader = memo(
 					<div className="flex h-5 w-5 items-center justify-center text-muted-foreground">
 						{displayToolsWithIcons.length > 0 ? (
 							<AvatarStack animate={true} size={16}>
-								{displayToolsWithIcons.map((tool, index) => (
-									<Avatar className="h-4 w-4" key={`${tool.toolName}-${index}`}>
+								{displayToolsWithIcons.map((tool) => (
+									<Avatar className="h-4 w-4" key={tool.toolName}>
 										<AvatarFallback className="h-4 w-4 bg-transparent">
 											{tool.isConnector && tool.config ? (
 												<ConnectorIcon
@@ -196,7 +195,7 @@ export const ChainOfThoughtHeader = memo(
 					<p className="shrink-0 whitespace-nowrap pl-1 text-muted-foreground text-sm leading-tight">
 						{statusText}
 					</p>
-					<motion.div
+					<m.div
 						animate={{
 							rotate: isOpen ? -180 : 0,
 						}}
@@ -207,7 +206,7 @@ export const ChainOfThoughtHeader = memo(
 						transition={TRANSITION_LAYOUT}
 					>
 						<CaretDown size={20} />
-					</motion.div>
+					</m.div>
 				</div>
 			</button>
 		);
@@ -295,9 +294,7 @@ export const ChainOfThoughtContent = memo(
 	({ className, children, autoScrollKey }: ChainOfThoughtContentProps) => {
 		const { isOpen } = useChainOfThought();
 
-		const resultsClassName = useMemo(() => {
-			return "shrink-0 overflow-hidden";
-		}, []);
+		const resultsClassName = "shrink-0 overflow-hidden";
 
 		const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 		const childCount = useMemo(() => Children.count(children), [children]);
@@ -317,7 +314,7 @@ export const ChainOfThoughtContent = memo(
 		}, [isOpen, childCount, autoScrollKey]);
 
 		return (
-			<motion.div
+			<m.div
 				animate={{
 					height: isOpen ? "auto" : 0,
 					opacity: isOpen ? 1 : 0,
@@ -348,7 +345,7 @@ export const ChainOfThoughtContent = memo(
 						</div>
 					</div>
 				</div>
-			</motion.div>
+			</m.div>
 		);
 	},
 );

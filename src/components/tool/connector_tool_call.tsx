@@ -1,5 +1,5 @@
 import { CaretDown, Copy, SpinnerGap } from "@phosphor-icons/react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectorIcon } from "@/components/common/connector-icon";
 import { getConnectorConfig } from "@/lib/config/tools";
@@ -208,12 +208,10 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
 			[isLoading],
 		);
 
-		const caretClassName = useMemo(
-			() => "flex items-center justify-center text-muted-foreground",
-			[],
-		);
+		const caretClassName =
+			"flex items-center justify-center text-muted-foreground";
 
-		const resultsClassName = useMemo(() => "shrink-0 overflow-hidden", []);
+		const resultsClassName = "shrink-0 overflow-hidden";
 
 		const handleToggleExpanded = useCallback(() => {
 			if (!isLoading) {
@@ -262,7 +260,7 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
 									<div className="shrink-0 whitespace-nowrap text-muted-foreground text-sm leading-tight">
 										{connectorConfig.displayName}
 									</div>
-									<motion.div
+									<m.div
 										animate={{
 											rotate: isExpanded ? -180 : 0,
 										}}
@@ -273,7 +271,7 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
 										transition={TRANSITION_LAYOUT}
 									>
 										<CaretDown size={20} />
-									</motion.div>
+									</m.div>
 								</>
 							)}
 						</div>
@@ -281,7 +279,7 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
 
 					{/* Collapsible Results */}
 					{!isLoading && (
-						<motion.div
+						<m.div
 							animate={{
 								height: isExpanded ? "auto" : 0,
 								opacity: isExpanded ? 1 : 0,
@@ -393,7 +391,7 @@ export const ConnectorToolCall = memo<ConnectorToolCallProps>(
 									</div>
 								</div>
 							</div>
-						</motion.div>
+						</m.div>
 					)}
 				</div>
 			</div>

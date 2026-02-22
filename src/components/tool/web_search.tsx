@@ -1,6 +1,6 @@
 import { CaretDown, Globe, SpinnerGap } from "@phosphor-icons/react";
 import type { SourceUrlUIPart } from "ai";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
 	memo,
 	useCallback,
@@ -124,16 +124,9 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
 		}, [query, isLoading, stableSources.length]);
 
 		// Memoized values to prevent recalculation on every render
-		const displayText = useMemo(
-			() => (isLoading ? "Searching the web..." : query),
-			[isLoading, query],
-		);
+		const displayText = isLoading ? "Searching the web..." : query;
 
-		const resultText = useMemo(
-			() =>
-				`${stableSources.length} result${stableSources.length !== 1 ? "s" : ""}`,
-			[stableSources.length],
-		);
+		const resultText = `${stableSources.length} result${stableSources.length !== 1 ? "s" : ""}`;
 
 		const buttonClassName = useMemo(
 			() =>
@@ -153,7 +146,7 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
 			[isExpanded],
 		);
 
-		const resultsClassName = useMemo(() => "shrink-0 overflow-hidden", []);
+		const resultsClassName = "shrink-0 overflow-hidden";
 
 		// Memoized event handlers to prevent child rerenders
 		const handleToggleExpanded = useCallback(() => {
@@ -207,7 +200,7 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
 
 					{/* Collapsible Results - Only show when not loading and has sources */}
 					{!isLoading && stableSources.length > 0 ? (
-						<motion.div
+						<m.div
 							animate={{
 								height: isExpanded ? "auto" : 0,
 								opacity: isExpanded ? 1 : 0,
@@ -239,7 +232,7 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
 									</div>
 								</div>
 							</div>
-						</motion.div>
+						</m.div>
 					) : null}
 				</div>
 			</div>

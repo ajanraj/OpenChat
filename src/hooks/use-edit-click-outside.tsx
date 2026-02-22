@@ -47,7 +47,9 @@ export function useEditClickOutside<T extends HTMLElement>(
 
     // Add event listeners
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, {
+      passive: true,
+    });
 
     // Cleanup
     return () => {
