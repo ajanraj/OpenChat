@@ -3,7 +3,7 @@ import { MagnifyingGlass, Plus, SidebarSimple } from "@phosphor-icons/react";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModifierKey } from "@/lib/hooks/use-modifier-key";
 import { useTheme } from "@/components/theme-provider";
@@ -210,7 +210,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 				{/* Animated search and new chat buttons in collapsed state only */}
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<motion.button
+						<m.button
 							animate={{
 								x: isOpen ? -8 : 0,
 								scale: isOpen ? 0.5 : 1,
@@ -236,14 +236,14 @@ const ChatSidebar = memo(function SidebarComponent() {
 								className="size-5 text-muted-foreground transition-colors group-hover:text-foreground"
 								weight="bold"
 							/>
-						</motion.button>
+						</m.button>
 					</TooltipTrigger>
 					<TooltipContent>Search</TooltipContent>
 				</Tooltip>
 				{pathname !== "/" && (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<motion.button
+							<m.button
 								animate={{
 									x: isOpen ? -8 : 0,
 									scale: isOpen ? 0.5 : 1,
@@ -269,7 +269,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 									className="size-5 text-muted-foreground transition-colors group-hover:text-foreground"
 									weight="bold"
 								/>
-							</motion.button>
+							</m.button>
 						</TooltipTrigger>
 						<TooltipContent>New Chat</TooltipContent>
 					</Tooltip>
@@ -277,7 +277,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 			</div>
 
 			{/* The actual sidebar panel - NO LONGER FIXED or TRANSLATING */}
-			<motion.aside
+			<m.aside
 				animate={{
 					width: isOpen ? 256 : 0,
 				}}
@@ -288,7 +288,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 				transition={TRANSITION_LAYOUT}
 			>
 				<div className="flex h-[60px] shrink-0 items-center justify-center pt-2">
-					<motion.div
+					<m.div
 						animate={{
 							opacity: isOpen ? 1 : 0,
 						}}
@@ -318,11 +318,11 @@ const ChatSidebar = memo(function SidebarComponent() {
 								width={128}
 							/>
 						</Link>
-					</motion.div>
+					</m.div>
 				</div>
 
 				{/* Fixed Action Buttons Section - New Chat, Tasks, Search */}
-				<motion.div
+				<m.div
 					animate={{
 						opacity: isOpen ? 1 : 0,
 					}}
@@ -377,10 +377,10 @@ const ChatSidebar = memo(function SidebarComponent() {
 							value={searchQuery}
 						/>
 					</div>
-				</motion.div>
+				</m.div>
 
 				{/* Scrollable Chat List Section */}
-				<motion.div
+				<m.div
 					animate={{
 						opacity: isOpen ? 1 : 0,
 					}}
@@ -414,8 +414,8 @@ const ChatSidebar = memo(function SidebarComponent() {
 							pinnedChats={pinnedChats}
 						/>
 					)}
-				</motion.div>
-			</motion.aside>
+				</m.div>
+			</m.aside>
 		</div>
 	);
 });

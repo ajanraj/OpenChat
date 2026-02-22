@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { TRANSITION_SUGGESTIONS } from "@/lib/motion";
@@ -55,7 +55,7 @@ export const Personas = memo(function PersonasComponent({
 	selectedPersonaId,
 }: PersonasProps) {
 	return (
-		<motion.div
+		<m.div
 			animate="animate"
 			className="flex w-full max-w-full flex-nowrap justify-start gap-2 overflow-x-auto px-2 md:mx-auto md:max-w-2xl md:flex-wrap md:justify-center md:pl-0"
 			exit="exit"
@@ -71,7 +71,7 @@ export const Personas = memo(function PersonasComponent({
 			}}
 		>
 			{PERSONAS.map((persona: (typeof PERSONAS)[0], index: number) => (
-				<motion.div
+				<m.div
 					animate={{ opacity: 1, scale: 1 }}
 					initial={{ opacity: 0, scale: 0.8 }}
 					key={persona.label}
@@ -88,8 +88,8 @@ export const Personas = memo(function PersonasComponent({
 						onSelectSystemPrompt={onSelectSystemPrompt}
 						selectedPersonaId={selectedPersonaId}
 					/>
-				</motion.div>
+				</m.div>
 			))}
-		</motion.div>
+		</m.div>
 	);
 });

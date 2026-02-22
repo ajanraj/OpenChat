@@ -1,7 +1,7 @@
 import { CaretDown, Code, Link, Nut, Spinner } from "@phosphor-icons/react";
 // Note: AI SDK v5 uses ToolUIPart instead of ToolInvocationUIPart
 // We'll use custom types that work with the existing component structure
-import { AnimatePresence, motion, type Transition } from "motion/react";
+import { AnimatePresence, m, type Transition } from "motion/react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -363,46 +363,46 @@ export function ToolInvocation({
 
 					<AnimatePresence initial={false}>
 						{expanded ? (
-							<motion.div
+							<m.div
 							animate={{ height: "auto", opacity: 1 }}
 							className="overflow-hidden"
 							exit={{ height: 0, opacity: 0 }}
 							initial={{ height: 0, opacity: 0 }}
 							transition={TRANSITION}
-						>
-							<div className="px-3 pt-3 pb-3">
-								<div className="space-y-4">
-									{/* Group tools by toolCallId */}
-									{Array.from(uniqueToolIds).map((toolId) => {
-										const requestTool = toolInvocations.find(
-											(item) =>
-												item.toolInvocation.toolCallId === toolId &&
-												(item.toolInvocation as CustomToolInvocation).state ===
-													"requested",
-										);
+							>
+								<div className="px-3 pt-3 pb-3">
+									<div className="space-y-4">
+										{/* Group tools by toolCallId */}
+										{Array.from(uniqueToolIds).map((toolId) => {
+											const requestTool = toolInvocations.find(
+												(item) =>
+													item.toolInvocation.toolCallId === toolId &&
+													(item.toolInvocation as CustomToolInvocation).state ===
+														"requested",
+											);
 
-										const resultTool = toolInvocations.find(
-											(item) =>
-												item.toolInvocation.toolCallId === toolId &&
-												item.toolInvocation.state === "result",
-										);
+											const resultTool = toolInvocations.find(
+												(item) =>
+													item.toolInvocation.toolCallId === toolId &&
+													item.toolInvocation.state === "result",
+											);
 
-										// Show the result tool if available, otherwise show the request
-										const toolToShow = resultTool || requestTool;
+											// Show the result tool if available, otherwise show the request
+											const toolToShow = resultTool || requestTool;
 
-										if (!toolToShow) {
-											return null;
-										}
+											if (!toolToShow) {
+												return null;
+											}
 
-										const toolGroup = toolInvocations.filter(
-											(item) => item.toolInvocation.toolCallId === toolId,
-										);
+											const toolGroup = toolInvocations.filter(
+												(item) => item.toolInvocation.toolCallId === toolId,
+											);
 
-										return <SingleToolView data={toolGroup} key={toolId} />;
-									})}
+											return <SingleToolView data={toolGroup} key={toolId} />;
+										})}
+									</div>
 								</div>
-							</div>
-						</motion.div>
+							</m.div>
 					) : null}
 				</AnimatePresence>
 			</div>
@@ -527,7 +527,7 @@ function SingleToolView({
 
 				<AnimatePresence initial={false}>
 					{expanded ? (
-						<motion.div
+						<m.div
 						animate={{ height: "auto", opacity: 1 }}
 						className="overflow-hidden"
 						exit={{ height: 0, opacity: 0 }}
@@ -572,7 +572,7 @@ function SingleToolView({
 								</div>
 							</div>
 						</div>
-					</motion.div>
+					</m.div>
 				) : null}
 			</AnimatePresence>
 		</div>

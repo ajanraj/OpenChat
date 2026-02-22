@@ -1,6 +1,6 @@
 import { CaretDown, Globe, Link } from "@phosphor-icons/react";
 import type { SourceUrlUIPart } from "ai";
-import { AnimatePresence, motion, type Transition } from "motion/react";
+import { AnimatePresence, m, type Transition } from "motion/react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -125,7 +125,7 @@ export const SourcesList = memo<SourcesListProps>(
 
 					<AnimatePresence initial={false}>
 						{isExpanded ? (
-							<motion.div
+							<m.div
 								animate={{ height: "auto", opacity: 1 }}
 								className="overflow-hidden"
 								exit={{ height: 0, opacity: 0 }}
@@ -136,7 +136,7 @@ export const SourcesList = memo<SourcesListProps>(
 									<div className="scrollbar-hide overflow-x-auto">
 										<div className="flex min-w-max gap-3 p-4">
 											{sourcesWithFavicons.map((source) => (
-												<motion.div
+												<m.div
 													animate={{ opacity: 1, scale: 1 }}
 													className="w-64 flex-shrink-0"
 													initial={{ opacity: 0, scale: 0.95 }}
@@ -200,7 +200,7 @@ export const SourcesList = memo<SourcesListProps>(
 															</div>
 														</div>
 													</a>
-												</motion.div>
+												</m.div>
 											))}
 										</div>
 									</div>
@@ -214,7 +214,7 @@ export const SourcesList = memo<SourcesListProps>(
 										</div>
 									)}
 								</div>
-							</motion.div>
+							</m.div>
 						) : null}
 					</AnimatePresence>
 				</div>

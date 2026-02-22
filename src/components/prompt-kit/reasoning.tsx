@@ -1,5 +1,5 @@
 import { CaretDown } from "@phosphor-icons/react";
-import { motion, type Transition } from "motion/react";
+import { m, type Transition } from "motion/react";
 import { createContext, useContext, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +88,7 @@ export function ReasoningTrigger({ className }: ReasoningTriggerProps) {
 			>
 				<span className="relative mr-2.75 flex size-2.25">
 					{isLoading && (
-						<motion.span
+						<m.span
 							animate={{
 								scale: [1, 1.8, 1],
 								opacity: [0.7, 0.3, 0.7],
@@ -128,12 +128,12 @@ export function ReasoningTrigger({ className }: ReasoningTriggerProps) {
 						"absolute top-1.5 right-1.5 h-7 w-7",
 					)}
 				>
-					<motion.div
+					<m.div
 						animate={{ rotate: isExpanded ? 180 : 0 }}
 						transition={springTransition}
 					>
 						<CaretDown className="size-4" />
-					</motion.div>
+					</m.div>
 				</div>
 			</button>
 		</div>

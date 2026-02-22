@@ -1,6 +1,6 @@
 import { CheckIcon, LightningIcon } from "@phosphor-icons/react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useId, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -342,7 +342,7 @@ export function PricingTableOne({
 
 					<div className="flex w-full flex-col items-stretch gap-6 md:flex-row md:items-stretch">
 						{plans.map((plan, index) => (
-							<motion.div
+							<m.div
 								key={plan.id}
 								layout
 								initial={{ opacity: 0 }}
@@ -379,7 +379,7 @@ export function PricingTableOne({
 								</Badge>
 
 								<AnimatePresence mode="wait">
-									<motion.div
+									<m.div
 										key={isAnnually ? "year" : "month"}
 										initial={{ opacity: 0, y: 10 }}
 										animate={{ opacity: 1, y: 0 }}
@@ -433,7 +433,7 @@ export function PricingTableOne({
 												<p className="text-muted-foreground">per month</p>
 											</>
 										)}
-									</motion.div>
+									</m.div>
 								</AnimatePresence>
 
 								<Separator
@@ -447,7 +447,7 @@ export function PricingTableOne({
 								<div className="flex h-full flex-col justify-between gap-10">
 									<ul className="text-muted-foreground space-y-4">
 										{plan.features.map((feature, featureIndex) => (
-											<motion.li
+											<m.li
 												key={featureIndex}
 												className="flex gap-3"
 												initial={{ opacity: 0, x: -10 }}
@@ -468,7 +468,7 @@ export function PricingTableOne({
 												>
 													{feature.name}
 												</span>
-											</motion.li>
+											</m.li>
 										))}
 									</ul>
 
@@ -490,7 +490,7 @@ export function PricingTableOne({
 										)}
 									</Button>
 								</div>
-							</motion.div>
+							</m.div>
 						))}
 					</div>
 				</div>
