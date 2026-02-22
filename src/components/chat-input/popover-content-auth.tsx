@@ -11,18 +11,17 @@ export function PopoverContentAuth() {
 	const { signIn } = useAuthActions();
 
 	const handleSignInWithGoogle = async () => {
-		try {
-			setIsLoading(true);
-			setError(null);
-
-			await signIn("google");
-		} catch (_err: unknown) {
-			// console.error('Error signing in with Google:', err);
-			setError("Unable to sign in at the moment. Please try again later.");
-			// TODO: send `err` to Sentry / console for diagnostics
-		} finally {
-			setIsLoading(false);
-		}
+		setIsLoading(true);
+		setError(null);
+		await signIn("google")
+			.catch((_err: unknown) => {
+				// console.error('Error signing in with Google:', err);
+				setError("Unable to sign in at the moment. Please try again later.");
+				// TODO: send `err` to Sentry / console for diagnostics
+			})
+			.finally(() => {
+				setIsLoading(false);
+			});
 	};
 	return (
 		<PopoverContent

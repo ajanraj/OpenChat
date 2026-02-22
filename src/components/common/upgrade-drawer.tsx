@@ -72,7 +72,7 @@ export function UpgradeDrawer({
 				isCheckoutInFlight.current = false;
 			}
 		},
-		[user?.isAnonymous, products?.premium?.id, generateCheckoutLink, router],
+		[user, products, generateCheckoutLink, router],
 	);
 
 	return (

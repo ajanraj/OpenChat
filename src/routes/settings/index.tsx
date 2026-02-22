@@ -30,40 +30,53 @@ export function AccountSettingsPage() {
   const router = useRouter();
 
   const handleUpgrade = useCallback(async () => {
-    if (!products?.premium?.id) {
+    const premiumProductId = products?.premium?.id;
+    if (!premiumProductId) {
       return;
     }
 
-    try {
-      const { url } = await generateCheckoutLink({
-        productIds: [products.premium.id],
-        origin: window.location.origin,
-        successUrl: `${window.location.origin}/settings?upgraded=true`,
-      });
+    const checkoutLinkPromise = generateCheckoutLink({
+      productIds: [premiumProductId],
+      origin: window.location.origin,
+      successUrl: `${window.location.origin}/settings?upgraded=true`,
+    });
 
-      window.location.href = url;
-    } catch (error) {
-      console.error("Failed to start upgrade process:", error);
-      toast({
-        title: "Unable to start upgrade process",
-        description: "Please try again or contact support if the problem persists.",
-        status: "error",
+    const checkoutUrl = await checkoutLinkPromise
+      .then(({ url }) => url)
+      .catch((error) => {
+        console.error("Failed to start upgrade process:", error);
+        toast({
+          title: "Unable to start upgrade process",
+          description: "Please try again or contact support if the problem persists.",
+          status: "error",
+        });
+        return null;
       });
+    if (!checkoutUrl) {
+      return;
     }
+
+    window.location.href = checkoutUrl;
   }, [products?.premium?.id, generateCheckoutLink]);
 
   const handleManageSubscription = useCallback(async () => {
-    try {
-      const { url } = await generateCustomerPortalUrl({});
-      window.location.href = url;
-    } catch (error) {
-      console.error("Failed to access customer portal:", error);
-      toast({
-        title: "Unable to access customer portal",
-        description: "Please try again or contact support if the problem persists.",
-        status: "error",
+    const customerPortalPromise = generateCustomerPortalUrl({});
+    const customerPortalUrl = await customerPortalPromise
+      .then(({ url }) => url)
+      .catch((error) => {
+        console.error("Failed to access customer portal:", error);
+        toast({
+          title: "Unable to access customer portal",
+          description: "Please try again or contact support if the problem persists.",
+          status: "error",
+        });
+        return null;
       });
+    if (!customerPortalUrl) {
+      return;
     }
+
+    window.location.href = customerPortalUrl;
   }, [generateCustomerPortalUrl]);
 
   const handleDeleteAccount = useCallback(() => {
@@ -72,21 +85,23 @@ export function AccountSettingsPage() {
 
   const confirmDeleteAccount = useCallback(async () => {
     setIsDeleting(true);
-    try {
-      await deleteAccount({});
-      await signOut();
-      toast({ title: "Account deleted", status: "success" });
-      void router.navigate({ to: "/" });
-    } catch (error) {
-      console.error("Failed to delete account:", error);
-      toast({
-        title: "Failed to delete account",
-        status: "error",
+    await deleteAccount({})
+      .then(async () => {
+        await signOut();
+        toast({ title: "Account deleted", status: "success" });
+        void router.navigate({ to: "/" });
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to delete account:", error);
+        toast({
+          title: "Failed to delete account",
+          status: "error",
+        });
+      })
+      .finally(() => {
+        setIsDeleting(false);
+        setShowDeleteAccountDialog(false);
       });
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteAccountDialog(false);
-    }
   }, [deleteAccount, signOut, router]);
 
   const renderSubscriptionButton = useCallback(() => {

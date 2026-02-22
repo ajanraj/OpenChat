@@ -29,41 +29,47 @@ export const Route = createFileRoute("/settings/customization")({
   component: CustomizationSettingsPage,
 });
 
+interface CustomizationDraft {
+  preferredName: string;
+  occupation: string;
+  traits: string[];
+  about: string;
+}
+
+function getUserCustomizationSnapshot(
+  user: ReturnType<typeof useUser>["user"],
+): CustomizationDraft {
+  return {
+    preferredName: user?.preferredName ?? "",
+    occupation: user?.occupation ?? "",
+    traits: user?.traits ? user.traits.split(", ") : [],
+    about: user?.about ?? "",
+  };
+}
+
 export function CustomizationSettingsPage() {
   const { user, updateUser } = useUser();
   const router = useRouter();
   const themeState = useEditorStore((state) => state.themeState);
   const updateFont = useEditorStore((state) => state.updateFont);
 
-  const [preferredName, setPreferredName] = useState("");
-  const [occupation, setOccupation] = useState("");
-  const [traits, setTraits] = useState<string[]>([]);
-  const [about, setAbout] = useState("");
+  const userSnapshot = getUserCustomizationSnapshot(user);
+  const [draft, setDraft] = useState<CustomizationDraft | null>(null);
   const [traitInput, setTraitInput] = useState("");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      setPreferredName(user.preferredName || "");
-      setOccupation(user.occupation || "");
-      setTraits(user.traits ? user.traits.split(", ") : []);
-      setAbout(user.about || "");
-    }
-  }, [user]);
+  const currentValues = draft ?? userSnapshot;
+  const { preferredName, occupation, traits, about } = currentValues;
+  const hasUnsavedChanges =
+    userSnapshot.preferredName !== preferredName ||
+    userSnapshot.occupation !== occupation ||
+    userSnapshot.traits.join(", ") !== traits.join(", ") ||
+    userSnapshot.about !== about;
 
-  useEffect(() => {
-    if (user) {
-      const initialTraits = user.traits ? user.traits.split(", ") : [];
-      const hasChanges =
-        (user.preferredName || "") !== preferredName ||
-        (user.occupation || "") !== occupation ||
-        initialTraits.join(", ") !== traits.join(", ") ||
-        (user.about || "") !== about;
-      setHasUnsavedChanges(hasChanges);
-    }
-  }, [user, preferredName, occupation, traits, about]);
+  const updateDraft = (updater: (current: CustomizationDraft) => CustomizationDraft) => {
+    setDraft((previousDraft) => updater(previousDraft ?? userSnapshot));
+  };
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -93,16 +99,19 @@ export function CustomizationSettingsPage() {
     return null;
   }, []);
 
-  const handleNavigationAttempt = useCallback((url: string, e: MouseEvent) => {
-    e.preventDefault();
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    setTimeout(() => {
-      setPendingUrl(url);
-      setShowUnsavedChangesDialog(true);
-    }, 0);
-  }, []);
+  const handleNavigationAttempt = useCallback(
+    (url: string, e: MouseEvent) => {
+      e.preventDefault();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setTimeout(() => {
+        setPendingUrl(url);
+        setShowUnsavedChangesDialog(true);
+      }, 0);
+    },
+    [setPendingUrl, setShowUnsavedChangesDialog],
+  );
 
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
@@ -134,18 +143,24 @@ export function CustomizationSettingsPage() {
       traits: traits.join(", "),
       about,
     });
-    setHasUnsavedChanges(false);
+    setDraft(null);
     toast({ title: "Preferences saved", status: "success" });
   };
 
   const handleAddTrait = (trait: string) => {
     if (trait && !traits.includes(trait) && traits.length < 50) {
-      setTraits([...traits, trait]);
+      updateDraft((current) => ({
+        ...current,
+        traits: [...current.traits, trait],
+      }));
     }
   };
 
   const handleRemoveTrait = (traitToRemove: string) => {
-    setTraits(traits.filter((trait) => trait !== traitToRemove));
+    updateDraft((current) => ({
+      ...current,
+      traits: current.traits.filter((trait) => trait !== traitToRemove),
+    }));
   };
 
   const handleTraitInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,8 +230,11 @@ export function CustomizationSettingsPage() {
             id="preferred-name"
             maxLength={50}
             onChange={(e) => {
-              setPreferredName(e.target.value);
-              setHasUnsavedChanges(true);
+              const nextPreferredName = e.target.value;
+              updateDraft((current) => ({
+                ...current,
+                preferredName: nextPreferredName,
+              }));
             }}
             onKeyDown={handleInputKeyDown}
             placeholder="Enter your name…"
@@ -236,8 +254,11 @@ export function CustomizationSettingsPage() {
             id="occupation"
             maxLength={100}
             onChange={(e) => {
-              setOccupation(e.target.value);
-              setHasUnsavedChanges(true);
+              const nextOccupation = e.target.value;
+              updateDraft((current) => ({
+                ...current,
+                occupation: nextOccupation,
+              }));
             }}
             onKeyDown={handleInputKeyDown}
             placeholder="Engineer, student, etc…"
@@ -266,7 +287,6 @@ export function CustomizationSettingsPage() {
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveTrait(trait);
-                    setHasUnsavedChanges(true);
                   }}
                   type="button"
                 >
@@ -295,7 +315,6 @@ export function CustomizationSettingsPage() {
                     key={trait}
                     onClick={() => {
                       handleAddTrait(trait);
-                      setHasUnsavedChanges(true);
                     }}
                     type="button"
                   >
@@ -320,8 +339,11 @@ export function CustomizationSettingsPage() {
             id="about"
             maxLength={3000}
             onChange={(e) => {
-              setAbout(e.target.value);
-              setHasUnsavedChanges(true);
+              const nextAbout = e.target.value;
+              updateDraft((current) => ({
+                ...current,
+                about: nextAbout,
+              }));
             }}
             onKeyDown={handleInputKeyDown}
             placeholder="Interests, values, or preferences to keep in mind…"
@@ -414,7 +436,7 @@ export function CustomizationSettingsPage() {
             <AlertDialogAction
               onClick={() => {
                 if (pendingUrl) {
-                  setHasUnsavedChanges(false);
+                  setDraft(null);
                   setShowUnsavedChangesDialog(false);
                   void router.navigate({ to: pendingUrl });
                 }

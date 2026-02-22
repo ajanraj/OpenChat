@@ -79,21 +79,21 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 	};
 
 	const handlePauseResume = async () => {
+		const newStatus = task.status === "active" ? "paused" : "active";
+		const successMessage =
+			task.status === "active"
+				? "Background Agent paused"
+				: "Background Agent resumed";
+		const errorMessage = `Failed to ${task.status === "active" ? "pause" : "resume"} task`;
+
 		try {
-			const newStatus = task.status === "active" ? "paused" : "active";
 			await updateTask({
 				taskId: task._id,
 				status: newStatus,
 			});
-			toast.success(
-				task.status === "active"
-					? "Background Agent paused"
-					: "Background Agent resumed",
-			);
+			toast.success(successMessage);
 		} catch (_error) {
-			toast.error(
-				`Failed to ${task.status === "active" ? "pause" : "resume"} task`,
-			);
+			toast.error(errorMessage);
 		}
 	};
 

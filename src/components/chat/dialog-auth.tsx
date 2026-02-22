@@ -15,6 +15,13 @@ type DialogAuthProps = {
 	setOpenAction: (open: boolean) => void;
 };
 
+const getSignInErrorMessage = (err: unknown): string => {
+	if (err instanceof Error) {
+		return err.message || "An unexpected error occurred. Please try again.";
+	}
+	return "An unexpected error occurred. Please try again.";
+};
+
 export function DialogAuth({ open, setOpenAction }: DialogAuthProps) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -22,24 +29,18 @@ export function DialogAuth({ open, setOpenAction }: DialogAuthProps) {
 	const { signIn } = useAuthActions();
 
 	const handleSignInWithGoogle = async () => {
-		try {
-			setIsLoading(true);
-			setError(null);
-			await signIn("google");
-			setOpenAction(false);
-		} catch (err: unknown) {
-			if (err instanceof Error) {
-				// console.error('Error signing in with Google:', err);
-				setError(
-					err.message || "An unexpected error occurred. Please try again.",
-				);
-			} else {
-				// console.error('Unexpected non-Error thrown:', err);
-				setError("An unexpected error occurred. Please try again.");
-			}
-		} finally {
-			setIsLoading(false);
-		}
+		setIsLoading(true);
+		setError(null);
+		await signIn("google")
+			.then(() => {
+				setOpenAction(false);
+			})
+			.catch((err: unknown) => {
+				setError(getSignInErrorMessage(err));
+			})
+			.finally(() => {
+				setIsLoading(false);
+			});
 	};
 
 	return (

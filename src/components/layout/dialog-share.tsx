@@ -83,55 +83,55 @@ export function DialogShare() {
 		setOpen(true);
 	};
 
-	const onCreateLink = async () => {
-		if (!chatId) {
-			return;
-		}
-		setIsLoading(true);
-		try {
+		const onCreateLink = async () => {
+			if (!chatId) {
+				return;
+			}
+			setIsLoading(true);
 			await publishChat({
 				chatId: chatId as Id<"chats">,
 				hideImages: !includeImages,
-			});
-			setStep("link");
-		} finally {
-			setIsLoading(false);
-		}
-	};
+			})
+				.then(() => {
+					setStep("link");
+				})
+				.finally(() => {
+					setIsLoading(false);
+				});
+		};
 
 	const handleToggleIncludeImages = async (value: boolean) => {
 		setIncludeImages(value);
 		if (!chatId) {
 			return;
 		}
-		// Only update backend live when already shared (link step)
-		if (step === "link") {
-			try {
+			// Only update backend live when already shared (link step)
+			if (step === "link") {
 				setIsToggling(true);
 				await publishChat({
 					chatId: chatId as Id<"chats">,
 					hideImages: !value,
+				}).finally(() => {
+					setIsToggling(false);
 				});
-			} finally {
-				setIsToggling(false);
 			}
-		}
-	};
+		};
 
-	const onUnshare = async () => {
-		if (!chatId) {
-			return;
-		}
-		setIsLoading(true);
-		try {
-			await unpublishChat({ chatId: chatId as Id<"chats"> });
-			// Return to confirm step with defaults
-			setStep("confirm");
-			setIncludeImages(false);
-		} finally {
-			setIsLoading(false);
-		}
-	};
+		const onUnshare = async () => {
+			if (!chatId) {
+				return;
+			}
+			setIsLoading(true);
+			await unpublishChat({ chatId: chatId as Id<"chats"> })
+				.then(() => {
+					// Return to confirm step with defaults
+					setStep("confirm");
+					setIncludeImages(false);
+				})
+				.finally(() => {
+					setIsLoading(false);
+				});
+		};
 
 	const onCopy = async () => {
 		await navigator.clipboard.writeText(publicLink);

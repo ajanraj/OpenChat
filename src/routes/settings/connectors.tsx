@@ -24,6 +24,109 @@ interface ConnectorCategory {
   types: ConnectorType[];
 }
 
+interface ConnectPayload {
+  redirectUrl: string;
+  connectionRequestId: string;
+}
+
+type ConnectResult =
+  | { ok: true; payload: ConnectPayload }
+  | { ok: false; errorMessage: string };
+
+const getErrorMessage = (value: unknown, fallback: string): string => {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "error" in value &&
+    typeof value.error === "string"
+  ) {
+    return value.error;
+  }
+  return fallback;
+};
+
+const isConnectPayload = (value: unknown): value is ConnectPayload => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  return (
+    "redirectUrl" in value &&
+    typeof value.redirectUrl === "string" &&
+    "connectionRequestId" in value &&
+    typeof value.connectionRequestId === "string"
+  );
+};
+
+const isValidHttpsRedirectUrl = (url: string): boolean => {
+  if (typeof URL.canParse === "function" && !URL.canParse(url)) {
+    return false;
+  }
+  return url.startsWith("https://");
+};
+
+const getAuthHeaders = (authToken: string | null) => ({
+  "Content-Type": "application/json",
+  ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+});
+
+const requestConnectorConnect = async (
+  type: ConnectorType,
+  authToken: string | null,
+): Promise<ConnectResult> => {
+  const displayName = getConnectorConfig(type).displayName;
+  const fallbackError = `Failed to connect to ${displayName}`;
+
+  try {
+    const response = await fetch("/api/composio/connect", {
+      method: "POST",
+      headers: getAuthHeaders(authToken),
+      body: JSON.stringify({ connectorType: type }),
+    });
+
+    const payload: unknown = await response.json();
+    if (!response.ok) {
+      return { ok: false, errorMessage: getErrorMessage(payload, fallbackError) };
+    }
+
+    if (!isConnectPayload(payload)) {
+      return { ok: false, errorMessage: "Invalid connector response" };
+    }
+
+    if (!isValidHttpsRedirectUrl(payload.redirectUrl)) {
+      return { ok: false, errorMessage: "Invalid redirect URL" };
+    }
+
+    return { ok: true, payload };
+  } catch {
+    return { ok: false, errorMessage: fallbackError };
+  }
+};
+
+const requestConnectorDisconnect = async (
+  type: ConnectorType,
+  authToken: string | null,
+): Promise<string | null> => {
+  const displayName = getConnectorConfig(type).displayName;
+  const fallbackError = `Failed to disconnect ${displayName}`;
+
+  try {
+    const response = await fetch("/api/composio/disconnect", {
+      method: "POST",
+      headers: getAuthHeaders(authToken),
+      body: JSON.stringify({ connectorType: type }),
+    });
+
+    if (response.ok) {
+      return null;
+    }
+
+    const payload: unknown = await response.json();
+    return getErrorMessage(payload, fallbackError);
+  } catch {
+    return fallbackError;
+  }
+};
+
 const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   {
     name: "Google Workspace",
@@ -75,61 +178,29 @@ export function ConnectorsSettingsPage() {
         toast.error("Please log in to connect accounts");
         return;
       }
+      const displayName = getConnectorConfig(type).displayName;
 
       setConnectionStates((prev) => ({
         ...prev,
         [type]: { status: "connecting" },
       }));
 
-      try {
-        const response = await fetch("/api/composio/connect", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(authToken && { Authorization: `Bearer ${authToken}` }),
-          },
-          body: JSON.stringify({ connectorType: type }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          toast.error(
-            error.error || `Failed to connect to ${getConnectorConfig(type).displayName}`,
-          );
-          setConnectionStates((prev) => ({
-            ...prev,
-            [type]: { status: "idle" },
-          }));
-          return;
-        }
-
-        const { redirectUrl, connectionRequestId } = await response.json();
-
-        try {
-          const url = new URL(redirectUrl);
-          if (url.protocol !== "https:") {
-            throw new Error("Invalid URL protocol");
-          }
-        } catch {
-          toast.error("Invalid redirect URL");
-          setConnectionStates((prev) => ({
-            ...prev,
-            [type]: { status: "idle" },
-          }));
-          return;
-        }
-
-        sessionStorage.setItem(`composio_connection_${type}`, connectionRequestId);
-
-        window.location.href = redirectUrl;
-      } catch (error) {
-        console.error(`Failed to connect to ${getConnectorConfig(type).displayName}:`, error);
-        toast.error(`Failed to connect to ${getConnectorConfig(type).displayName}`);
+      const result = await requestConnectorConnect(type, authToken);
+      if (!result.ok) {
+        console.error(`Failed to connect to ${displayName}:`, result.errorMessage);
+        toast.error(result.errorMessage);
         setConnectionStates((prev) => ({
           ...prev,
           [type]: { status: "idle" },
         }));
+        return;
       }
+
+      sessionStorage.setItem(
+        `composio_connection_${type}`,
+        result.payload.connectionRequestId,
+      );
+      window.location.href = result.payload.redirectUrl;
     },
     [authToken, user],
   );
@@ -140,27 +211,16 @@ export function ConnectorsSettingsPage() {
         toast.error("Please log in to disconnect accounts");
         return;
       }
+      const displayName = getConnectorConfig(type).displayName;
 
-      try {
-        const response = await fetch("/api/composio/disconnect", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(authToken && { Authorization: `Bearer ${authToken}` }),
-          },
-          body: JSON.stringify({ connectorType: type }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to disconnect");
-        }
-
-        toast.success(`${getConnectorConfig(type).displayName} disconnected successfully`);
-      } catch (error) {
-        console.error(`Failed to disconnect ${getConnectorConfig(type).displayName}:`, error);
-        toast.error(`Failed to disconnect ${getConnectorConfig(type).displayName}`);
+      const errorMessage = await requestConnectorDisconnect(type, authToken);
+      if (errorMessage) {
+        console.error(`Failed to disconnect ${displayName}:`, errorMessage);
+        toast.error(errorMessage);
+        return;
       }
+
+      toast.success(`${displayName} disconnected successfully`);
     },
     [authToken, user],
   );

@@ -8,7 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import type { FileUIPart, UIMessage as MessageType } from "ai";
 import type React from "react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useRef, useState, useSyncExternalStore } from "react";
 import { EditInput } from "@/components/chat-input/edit-input";
 import {
 	MorphingDialog,
@@ -30,6 +30,16 @@ const getTextFromDataUrl = (dataUrl: string) => {
 	const base64 = dataUrl.split(",")[1];
 	return base64;
 };
+
+function useIsTouchDevice(): boolean {
+	return useSyncExternalStore(
+		() => () => {},
+		() =>
+			typeof window !== "undefined" &&
+			("ontouchstart" in window || navigator.maxTouchPoints > 0),
+		() => false,
+	);
+}
 
 // Helper function to render different file parts
 const renderFilePart = (filePart: FileUIPart) => {
@@ -215,16 +225,10 @@ function MessageUserInner({
 			.join("") || "";
 
 	const [isEditing, setIsEditing] = useState(false);
-	const [isTouch, setIsTouch] = useState(false);
+	const isTouch = useIsTouchDevice();
 	const contentRef = useRef<HTMLDivElement>(null);
 	const displayContent = textContent.replace(/\n{2,}/g, "\n\n");
 	const showCancelEditIcon = isEditing && !readOnly;
-
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			setIsTouch("ontouchstart" in window || navigator.maxTouchPoints > 0);
-		}
-	}, []);
 
 	const handleDelete = () => {
 		onDelete(id);

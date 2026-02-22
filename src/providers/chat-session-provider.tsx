@@ -1,10 +1,10 @@
 import { useLocation } from "@tanstack/react-router";
 import {
+  useCallback,
   createContext,
   type Dispatch,
   type SetStateAction,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -28,7 +28,7 @@ export const useChatSession = () => useContext(ChatSessionContext);
 export function ChatSessionProvider({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const pathname = location.pathname;
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
 
   const chatId = useMemo(() => {
     if (pathname?.startsWith("/c/")) {
@@ -37,12 +37,22 @@ export function ChatSessionProvider({ children }: { children: React.ReactNode })
     return null;
   }, [pathname]);
 
-  // When the chat page changes, reset the deleting state
-  // This handles cases where a user navigates away before a delete operation finishes
-  // or if the state gets stuck.
-  useEffect(() => {
-    setIsDeleting(false);
-  }, [chatId]);
+  const isDeleting = chatId !== null && deletingChatId === chatId;
+
+  const setIsDeleting = useCallback<Dispatch<SetStateAction<boolean>>>(
+    (nextDeleting) => {
+      setDeletingChatId((currentDeletingChatId) => {
+        const currentValue = chatId !== null && currentDeletingChatId === chatId;
+        const nextValue =
+          typeof nextDeleting === "function" ? nextDeleting(currentValue) : nextDeleting;
+        if (!nextValue || chatId === null) {
+          return null;
+        }
+        return chatId;
+      });
+    },
+    [chatId],
+  );
 
   const contextValue = useMemo(
     () => ({
@@ -50,7 +60,7 @@ export function ChatSessionProvider({ children }: { children: React.ReactNode })
       isDeleting,
       setIsDeleting,
     }),
-    [chatId, isDeleting],
+    [chatId, isDeleting, setIsDeleting],
   );
 
   return <ChatSessionContext.Provider value={contextValue}>{children}</ChatSessionContext.Provider>;

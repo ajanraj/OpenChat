@@ -190,7 +190,7 @@ export function ModelSelector({
 		} catch (error) {
 			console.error("Checkout failed:", error);
 		}
-	}, [user?.isAnonymous, products?.premium?.id, generateCheckoutLink, router]);
+	}, [user, products, generateCheckoutLink, router]);
 
 	const model = useMemo(() => {
 		// Always look in the full MODELS_OPTIONS list, not just filtered results

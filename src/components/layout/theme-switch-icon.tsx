@@ -1,5 +1,5 @@
 import { Moon, Sun } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useTheme } from "@/components/theme-provider";
 import {
 	Tooltip,
@@ -7,13 +7,17 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+function useIsHydrated(): boolean {
+	return useSyncExternalStore(
+		() => () => {},
+		() => true,
+		() => false,
+	);
+}
+
 export default function ThemeSwitchIcon() {
 	const { theme, toggleTheme } = useTheme();
-	const [mounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		setMounted(true);
-	}, []);
+	const mounted = useIsHydrated();
 
 	if (!mounted) {
 		return null;

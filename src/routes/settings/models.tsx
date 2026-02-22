@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ProviderIcon } from "@/components/common/provider-icon";
 import {
@@ -115,14 +115,9 @@ export function ModelsSettingsPage() {
 
   const getDisplayName = (modelName: string, subName?: string) =>
     subName ? `${modelName} (${subName})` : modelName;
-  const [disabled, setDisabled] = useState<Set<string>>(disabledModelsSet);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  useEffect(() => {
-    setDisabled(disabledModelsSet);
-  }, [disabledModelsSet]);
 
   const allFeatures = useMemo(() => {
     const f = new Set<string>();
@@ -136,7 +131,7 @@ export function ModelsSettingsPage() {
     return Array.from(f);
   }, []);
 
-  const isCurrentlyEnabled = (id: string) => !disabled.has(id);
+  const isCurrentlyEnabled = (id: string) => !disabledModelsSet.has(id);
 
   const filteredModels = useMemo(
     () =>
@@ -154,28 +149,21 @@ export function ModelsSettingsPage() {
     [filters, freeOnly, premiumOnly],
   );
 
-  const enabledCount = MODELS_OPTIONS.length - disabled.size;
+  const enabledCount = MODELS_OPTIONS.length - disabledModelsSet.size;
   const totalCount = MODELS_OPTIONS.length;
 
   const handleToggle = async (id: string) => {
-    const isCurrentlyDisabled = disabled.has(id);
+    const isCurrentlyDisabled = disabledModelsSet.has(id);
     const shouldEnable = isCurrentlyDisabled;
 
-    const next = new Set(disabled);
-    if (shouldEnable) {
-      next.delete(id);
-    } else if (id !== MODEL_DEFAULT) {
-      next.add(id);
+    if (!shouldEnable && id === MODEL_DEFAULT) {
+      return;
     }
-    setDisabled(next);
 
-    try {
-      await setModelEnabled({ modelId: id, enabled: shouldEnable });
-    } catch (error) {
+    await setModelEnabled({ modelId: id, enabled: shouldEnable }).catch((error: unknown) => {
       console.error(`Failed to ${shouldEnable ? "enable" : "disable"} model:`, error);
-      setDisabled(disabled);
       toast.error(`Failed to ${shouldEnable ? "enable" : "disable"} model. Please try again.`);
-    }
+    });
   };
 
   const handleRecommended = async () => {
@@ -186,37 +174,26 @@ export function ModelsSettingsPage() {
       }
     }
 
-    const originalDisabled = disabled;
-    setDisabled(new Set(modelsToDisable));
-
-    try {
-      await Promise.all([
-        bulkSetModelsDisabled({ modelIds: modelsToDisable }),
-        bulkSetFavoriteModels(RECOMMENDED_MODELS),
-      ]);
-    } catch (error) {
+    await Promise.all([
+      bulkSetModelsDisabled({ modelIds: modelsToDisable }),
+      bulkSetFavoriteModels(RECOMMENDED_MODELS),
+    ]).catch((error: unknown) => {
       console.error("Failed to apply recommended models:", error);
-      setDisabled(originalDisabled);
       toast.error("Failed to apply recommended models. Please try again.");
-    }
+    });
   };
 
   const handleUnselectAll = async () => {
     const allModelIds = MODELS_OPTIONS.map((m) => m.id);
 
-    const originalDisabled = disabled;
-    const modelsToDisable = allModelIds.filter((id) => id !== MODEL_DEFAULT);
-    setDisabled(new Set(modelsToDisable));
-
-    try {
-      await bulkSetModelsDisabled({ modelIds: allModelIds });
-      setShowConfirm(false);
-    } catch (error) {
-      console.error("Failed to unselect all models:", error);
-      setDisabled(originalDisabled);
-      setShowConfirm(false);
-      toast.error("Failed to unselect all models. Please try again.");
-    }
+    await bulkSetModelsDisabled({ modelIds: allModelIds })
+      .catch((error: unknown) => {
+        console.error("Failed to unselect all models:", error);
+        toast.error("Failed to unselect all models. Please try again.");
+      })
+      .finally(() => {
+        setShowConfirm(false);
+      });
   };
 
   const toggleFilter = (id: string) => {
@@ -247,20 +224,22 @@ export function ModelsSettingsPage() {
   };
 
   const handleCopy = async (id: string) => {
-    try {
-      const base = import.meta.env.DEV ? "http://localhost:3000" : APP_BASE_URL;
-      const u = new URL(base);
-      u.searchParams.set("model", id);
-      u.searchParams.set("q", "%s");
-      const searchUrl = u.toString().replace("%25s", "%s");
-      await navigator.clipboard.writeText(searchUrl);
-      setCopied(id);
-      setTimeout(() => {
-        setCopied((prev) => (prev === id ? null : prev));
-      }, 1000);
-    } catch {
-      toast.error("Failed to copy to clipboard. Please try again.");
-    }
+    const base = import.meta.env.DEV ? "http://localhost:3000" : APP_BASE_URL;
+    const u = new URL(base);
+    u.searchParams.set("model", id);
+    u.searchParams.set("q", "%s");
+    const searchUrl = u.toString().replace("%25s", "%s");
+    await navigator.clipboard
+      .writeText(searchUrl)
+      .then(() => {
+        setCopied(id);
+        setTimeout(() => {
+          setCopied((prev) => (prev === id ? null : prev));
+        }, 1000);
+      })
+      .catch(() => {
+        toast.error("Failed to copy to clipboard. Please try again.");
+      });
   };
 
   return (

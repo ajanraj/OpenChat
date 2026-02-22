@@ -58,7 +58,7 @@ export function UpgradeModal({ isOpen, onOpenChange }: UpgradeModalProps) {
 				isCheckoutInFlight.current = false;
 			}
 		},
-		[user?.isAnonymous, products?.premium?.id, generateCheckoutLink, router],
+		[user, products, generateCheckoutLink, router],
 	);
 
 	return (

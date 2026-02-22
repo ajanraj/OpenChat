@@ -310,15 +310,17 @@ export function ApiKeysSettingsPage() {
       setValidationErrors((prev) => ({ ...prev, [provider]: "" }));
       setIsValidating((prev) => ({ ...prev, [provider]: true }));
 
-      try {
-        await saveApiKey({ provider, key });
-        toast({ title: "API key saved", status: "success" });
-        setInputValues((prev) => ({ ...prev, [provider]: "" }));
-      } catch {
-        toast({ title: "Failed to save key", status: "error" });
-      } finally {
-        setIsValidating((prev) => ({ ...prev, [provider]: false }));
-      }
+      await saveApiKey({ provider, key })
+        .then(() => {
+          toast({ title: "API key saved", status: "success" });
+          setInputValues((prev) => ({ ...prev, [provider]: "" }));
+        })
+        .catch(() => {
+          toast({ title: "Failed to save key", status: "error" });
+        })
+        .finally(() => {
+          setIsValidating((prev) => ({ ...prev, [provider]: false }));
+        });
     },
     [saveApiKey, inputValues],
   );
@@ -361,25 +363,25 @@ export function ApiKeysSettingsPage() {
       return;
     }
     setIsDeleting(true);
-    try {
-      await deleteApiKey({ provider: providerToDelete });
-      toast({ title: "API key deleted", status: "success" });
-    } catch {
-      toast({ title: "Failed to delete key", status: "error" });
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-      setProviderToDelete(null);
-    }
+    await deleteApiKey({ provider: providerToDelete })
+      .then(() => {
+        toast({ title: "API key deleted", status: "success" });
+      })
+      .catch(() => {
+        toast({ title: "Failed to delete key", status: "error" });
+      })
+      .finally(() => {
+        setIsDeleting(false);
+        setShowDeleteDialog(false);
+        setProviderToDelete(null);
+      });
   }, [deleteApiKey, providerToDelete]);
 
   const handleToggle = useCallback(
     async (provider: Provider, checked: boolean) => {
-      try {
-        await updateMode({ provider, mode: checked ? "priority" : "fallback" });
-      } catch {
+      await updateMode({ provider, mode: checked ? "priority" : "fallback" }).catch(() => {
         toast({ title: "Failed to update mode", status: "error" });
-      }
+      });
     },
     [updateMode],
   );

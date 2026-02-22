@@ -14,6 +14,7 @@ import React, {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,14 @@ export type MorphingDialogContextType = {
 
 const MorphingDialogContext =
 	React.createContext<MorphingDialogContextType | null>(null);
+
+function useIsHydrated(): boolean {
+	return useSyncExternalStore(
+		() => () => {},
+		() => true,
+		() => false,
+	);
+}
 
 function useMorphingDialog() {
 	const context = useContext(MorphingDialogContext);
@@ -98,17 +107,17 @@ function MorphingDialogTrigger({
 	const { setIsOpen, isOpen, uniqueId } = useMorphingDialog();
 
 	const handleClick = useCallback(() => {
-		setIsOpen(!isOpen);
-	}, [isOpen, setIsOpen]);
+		setIsOpen((prev) => !prev);
+	}, [setIsOpen]);
 
 	const handleKeyDown = useCallback(
 		(event: React.KeyboardEvent) => {
 			if (event.key === "Enter" || event.key === " ") {
 				event.preventDefault();
-				setIsOpen(!isOpen);
+				setIsOpen((prev) => !prev);
 			}
 		},
-		[isOpen, setIsOpen],
+		[setIsOpen],
 	);
 
 	return (
@@ -142,13 +151,14 @@ function MorphingDialogContent({
 }: MorphingDialogContentProps) {
 	const { setIsOpen, isOpen, uniqueId, triggerRef } = useMorphingDialog();
 	const containerRef = useRef<HTMLDivElement>(null);
-	const [firstFocusableElement, setFirstFocusableElement] =
-		useState<HTMLElement | null>(null);
-	const [lastFocusableElement, setLastFocusableElement] =
-		useState<HTMLElement | null>(null);
+	const firstFocusableElementRef = useRef<HTMLElement | null>(null);
+	const lastFocusableElementRef = useRef<HTMLElement | null>(null);
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
+			const firstFocusableElement = firstFocusableElementRef.current;
+			const lastFocusableElement = lastFocusableElementRef.current;
+
 			if (event.key === "Escape") {
 				setIsOpen(false);
 			}
@@ -174,7 +184,7 @@ function MorphingDialogContent({
 		return () => {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [setIsOpen, firstFocusableElement, lastFocusableElement]);
+	}, [setIsOpen]);
 
 	useEffect(() => {
 		if (isOpen) {
@@ -183,14 +193,23 @@ function MorphingDialogContent({
 				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
 			);
 			if (focusableElements && focusableElements.length > 0) {
-				setFirstFocusableElement(focusableElements[0] as HTMLElement);
-				setLastFocusableElement(
-					focusableElements[focusableElements.length - 1] as HTMLElement,
+				const firstFocusableElement = focusableElements.item(0);
+				const lastFocusableElement = focusableElements.item(
+					focusableElements.length - 1,
 				);
-				(focusableElements[0] as HTMLElement).focus();
+				if (
+					firstFocusableElement instanceof HTMLElement &&
+					lastFocusableElement instanceof HTMLElement
+				) {
+					firstFocusableElementRef.current = firstFocusableElement;
+					lastFocusableElementRef.current = lastFocusableElement;
+					firstFocusableElement.focus();
+				}
 			}
 		} else {
 			document.body.classList.remove("overflow-hidden");
+			firstFocusableElementRef.current = null;
+			lastFocusableElementRef.current = null;
 			triggerRef.current?.focus();
 		}
 	}, [isOpen, triggerRef]);
@@ -225,12 +244,7 @@ export type MorphingDialogContainerProps = {
 
 function MorphingDialogContainer({ children }: MorphingDialogContainerProps) {
 	const { isOpen, uniqueId } = useMorphingDialog();
-	const [mounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		setMounted(true);
-		return () => setMounted(false);
-	}, []);
+	const mounted = useIsHydrated();
 
 	if (!mounted) return null;
 

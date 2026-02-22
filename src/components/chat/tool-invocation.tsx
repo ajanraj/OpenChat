@@ -3,7 +3,7 @@ import { CaretDown, Code, Link, Nut, Spinner } from "@phosphor-icons/react";
 // We'll use custom types that work with the existing component structure
 import { AnimatePresence, motion, type Transition } from "motion/react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SearchQueryDisplay } from "./search-query-display";
 import { SearchResults } from "./search-result";
@@ -300,7 +300,17 @@ export function ToolInvocation({
 	data,
 	defaultOpen = false,
 }: ToolInvocationProps) {
-	const [isExpanded, setIsExpanded] = useState(defaultOpen);
+	const [isExpanded, setIsExpanded] = useState(false);
+	const [hasExpandedOverride, setHasExpandedOverride] = useState(false);
+	const expanded = hasExpandedOverride ? isExpanded : defaultOpen;
+	const toggleExpanded = () => {
+		if (!hasExpandedOverride) {
+			setHasExpandedOverride(true);
+			setIsExpanded(!defaultOpen);
+			return;
+		}
+		setIsExpanded((previous) => !previous);
+	};
 
 	const toolInvocations = Array.isArray(data) ? data : [data];
 
@@ -331,11 +341,11 @@ export function ToolInvocation({
 				</div>
 			)}
 			<div className="flex flex-col gap-0 overflow-hidden rounded-md border border-border">
-				<button
-					className="flex w-full flex-row items-center rounded-t-md px-3 py-2 transition-colors hover:bg-accent"
-					onClick={() => setIsExpanded(!isExpanded)}
-					type="button"
-				>
+					<button
+						className="flex w-full flex-row items-center rounded-t-md px-3 py-2 transition-colors hover:bg-accent"
+						onClick={toggleExpanded}
+						type="button"
+					>
 					<div className="flex flex-1 flex-row items-center gap-2 text-left text-base">
 						<Nut className="size-4 text-muted-foreground" />
 						<span className="text-sm">Tools executed</span>
@@ -343,17 +353,17 @@ export function ToolInvocation({
 							{uniqueToolIds.size}
 						</div>
 					</div>
-					<CaretDown
-						className={cn(
-							"h-4 w-4 transition-transform",
-							isExpanded ? "rotate-180 transform" : "",
-						)}
-					/>
-				</button>
+						<CaretDown
+							className={cn(
+								"h-4 w-4 transition-transform",
+								expanded ? "rotate-180 transform" : "",
+							)}
+						/>
+					</button>
 
-				<AnimatePresence initial={false}>
-					{isExpanded ? (
-						<motion.div
+					<AnimatePresence initial={false}>
+						{expanded ? (
+							<motion.div
 							animate={{ height: "auto", opacity: 1 }}
 							className="overflow-hidden"
 							exit={{ height: 0, opacity: 0 }}
@@ -410,9 +420,17 @@ function SingleToolView({
 	className?: string;
 }) {
 	// Move all hooks to the top before any early returns
-	const [isExpanded, setIsExpanded] = useState(defaultOpen);
-	const [parsedResult, setParsedResult] = useState<ParsedResult>(null);
-	const [parseError, setParseError] = useState<string | null>(null);
+	const [isExpanded, setIsExpanded] = useState(false);
+	const [hasExpandedOverride, setHasExpandedOverride] = useState(false);
+	const expanded = hasExpandedOverride ? isExpanded : defaultOpen;
+	const toggleExpanded = () => {
+		if (!hasExpandedOverride) {
+			setHasExpandedOverride(true);
+			setIsExpanded(!defaultOpen);
+			return;
+		}
+		setIsExpanded((previous) => !previous);
+	};
 
 	const resultTool = data.find(
 		(item) => item.toolInvocation.state === "result",
@@ -435,14 +453,10 @@ function SingleToolView({
 			? toolInvocation.result
 			: undefined;
 
-	// Parse the result JSON if available (delegated to helper to reduce complexity)
-	useEffect(() => {
-		if (isCompleted && result) {
-			const { parsed, error } = parseResultData(result);
-			setParsedResult(parsed);
-			setParseError(error);
-		}
-	}, [isCompleted, result]);
+	const { parsed: parsedResult, error: parseError } =
+		isCompleted && result !== undefined && result !== null
+			? parseResultData(result)
+			: { parsed: null, error: null };
 
 	// Early return after hooks
 	if (!toolData) {
@@ -478,11 +492,11 @@ function SingleToolView({
 					<SearchQueryDisplay queries={searchQueries} />
 				</div>
 			) : null}
-			<button
-				className="flex w-full flex-row items-center rounded-t-md px-3 py-2 transition-colors hover:bg-accent"
-				onClick={() => setIsExpanded(!isExpanded)}
-				type="button"
-			>
+				<button
+					className="flex w-full flex-row items-center rounded-t-md px-3 py-2 transition-colors hover:bg-accent"
+					onClick={toggleExpanded}
+					type="button"
+				>
 				<div className="flex flex-1 flex-row items-center gap-2 text-left text-base">
 					<span className="font-mono text-sm">{toolName}</span>
 					<div
@@ -503,17 +517,17 @@ function SingleToolView({
 						)}
 					</div>
 				</div>
-				<CaretDown
-					className={cn(
-						"h-4 w-4 transition-transform",
-						isExpanded ? "rotate-180 transform" : "",
-					)}
-				/>
-			</button>
+					<CaretDown
+						className={cn(
+							"h-4 w-4 transition-transform",
+							expanded ? "rotate-180 transform" : "",
+						)}
+					/>
+				</button>
 
-			<AnimatePresence initial={false}>
-				{isExpanded ? (
-					<motion.div
+				<AnimatePresence initial={false}>
+					{expanded ? (
+						<motion.div
 						animate={{ height: "auto", opacity: 1 }}
 						className="overflow-hidden"
 						exit={{ height: 0, opacity: 0 }}

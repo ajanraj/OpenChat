@@ -40,6 +40,20 @@ type ConnectorCardProps = {
 	isConnecting: boolean;
 };
 
+const getToggleErrorMessage = (
+	error: unknown,
+	displayName: string,
+	checked: boolean,
+): string => {
+	if (
+		error instanceof ConvexError &&
+		error.data === ERROR_CODES.CONNECTOR_NOT_FOUND
+	) {
+		return `${displayName} connection not found. Please reconnect this service first.`;
+	}
+	return `Failed to ${checked ? "enable" : "disable"} ${displayName}`;
+};
+
 export function ConnectorCard({
 	connector,
 	onConnectAction,
@@ -61,15 +75,15 @@ export function ConnectorCard({
 
 	const confirmDisconnect = async () => {
 		setIsDisconnecting(true);
-		try {
-			await onDisconnectAction(connector.type);
-		} catch {
-			const config = getConnectorConfig(connector.type);
-			toast.error(`Failed to disconnect ${config.displayName}`);
-		} finally {
-			setIsDisconnecting(false);
-			setShowDisconnectDialog(false);
-		}
+		await onDisconnectAction(connector.type)
+			.catch(() => {
+				const config = getConnectorConfig(connector.type);
+				toast.error(`Failed to disconnect ${config.displayName}`);
+			})
+			.finally(() => {
+				setIsDisconnecting(false);
+				setShowDisconnectDialog(false);
+			});
 	};
 
 	const config = getConnectorConfig(connector.type);
@@ -82,21 +96,23 @@ export function ConnectorCard({
 		}
 
 		setIsToggling(true);
-		try {
-			await onToggleEnabledAction(connector.type, checked);
-			toast.success(
-				`${config.displayName} ${checked ? "enabled" : "disabled"} successfully`,
-			);
-		} catch (error: unknown) {
-			const errorMessage =
-				error instanceof ConvexError &&
-				error.data === ERROR_CODES.CONNECTOR_NOT_FOUND
-					? `${config.displayName} connection not found. Please reconnect this service first.`
-					: `Failed to ${checked ? "enable" : "disable"} ${config.displayName}`;
-			toast.error(errorMessage);
-		} finally {
-			setIsToggling(false);
-		}
+		await onToggleEnabledAction(connector.type, checked)
+			.then(() => {
+				toast.success(
+					`${config.displayName} ${checked ? "enabled" : "disabled"} successfully`,
+				);
+			})
+			.catch((error: unknown) => {
+				const errorMessage = getToggleErrorMessage(
+					error,
+					config.displayName,
+					checked,
+				);
+				toast.error(errorMessage);
+			})
+			.finally(() => {
+				setIsToggling(false);
+			});
 	};
 
 	return (

@@ -1,10 +1,16 @@
 import { Monitor, Moon, Sun } from "@phosphor-icons/react";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
-const themes = [
+type ThemeKey = "light" | "dark" | "system";
+
+const themes: ReadonlyArray<{
+	key: ThemeKey;
+	icon: typeof Monitor;
+	label: string;
+}> = [
 	{
 		key: "system",
 		icon: Monitor,
@@ -23,11 +29,19 @@ const themes = [
 ];
 
 export type ThemeSwitcherProps = {
-	value?: "light" | "dark" | "system";
-	onChange?: (theme: "light" | "dark" | "system") => void;
-	defaultValue?: "light" | "dark" | "system";
+	value?: ThemeKey;
+	onChange?: (theme: ThemeKey) => void;
+	defaultValue?: ThemeKey;
 	className?: string;
 };
+
+function useIsHydrated(): boolean {
+	return useSyncExternalStore(
+		() => () => {},
+		() => true,
+		() => false,
+	);
+}
 
 export const ThemeSwitcher = ({
 	value,
@@ -40,19 +54,14 @@ export const ThemeSwitcher = ({
 		prop: value,
 		onChange,
 	});
-	const [mounted, setMounted] = useState(false);
+	const mounted = useIsHydrated();
 
 	const handleThemeClick = useCallback(
-		(themeKey: "light" | "dark" | "system") => {
+		(themeKey: ThemeKey) => {
 			setTheme(themeKey);
 		},
 		[setTheme],
 	);
-
-	// Prevent hydration mismatch
-	useEffect(() => {
-		setMounted(true);
-	}, []);
 
 	if (!mounted) {
 		return null;
@@ -71,14 +80,14 @@ export const ThemeSwitcher = ({
 				return (
 					<button
 						aria-label={label}
-						className={cn(
-							"relative h-6 w-6 rounded-full",
-							!isActive && "hover:[&>svg]:text-foreground",
-						)}
-						key={key}
-						onClick={() => handleThemeClick(key as "light" | "dark" | "system")}
-						type="button"
-					>
+							className={cn(
+								"relative h-6 w-6 rounded-full",
+								!isActive && "hover:[&>svg]:text-foreground",
+							)}
+							key={key}
+							onClick={() => handleThemeClick(key)}
+							type="button"
+						>
 						{isActive && (
 							<motion.div
 								className="absolute inset-0 rounded-full bg-secondary"

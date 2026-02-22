@@ -118,49 +118,49 @@ export function TaskFormContent({
 		}
 
 		setIsSubmitting(true);
-		try {
-			// Format scheduledTime for weekly tasks
-			const formattedScheduledTime =
-				form.scheduleType === "weekly"
-					? formatWeeklyTime(form.selectedDay ?? 1, form.scheduledTime)
-					: form.scheduledTime;
+		const formattedScheduledTime =
+			form.scheduleType === "weekly"
+				? formatWeeklyTime(form.selectedDay ?? 1, form.scheduledTime)
+				: form.scheduledTime;
+		const taskPayload = {
+			title: form.title.trim(),
+			prompt: form.prompt.trim(),
+			scheduleType: form.scheduleType as "onetime" | "daily" | "weekly",
+			scheduledTime: formattedScheduledTime,
+			scheduledDate: form.scheduledDate,
+			timezone: form.timezone,
+			enableSearch: form.enableSearch,
+			enabledToolSlugs: form.enabledToolSlugs,
+			emailNotifications: form.emailNotifications,
+		};
+			const submitTask = (() => {
+				if (mode === "edit" && initialData?.taskId) {
+					const taskId = initialData.taskId;
+					return () =>
+						updateTask({
+							taskId,
+							...taskPayload,
+						});
+				}
+				return () => createTask(taskPayload);
+			})();
+		const successMessage =
+			mode === "edit"
+				? "Scheduled task updated successfully"
+				: "Scheduled task created successfully";
+		const errorMessage = `Failed to ${mode === "edit" ? "update" : "create"} task. Please try again.`;
 
-			if (mode === "edit" && initialData?.taskId) {
-				await updateTask({
-					taskId: initialData.taskId,
-					title: form.title.trim(),
-					prompt: form.prompt.trim(),
-					scheduleType: form.scheduleType as "onetime" | "daily" | "weekly",
-					scheduledTime: formattedScheduledTime,
-					scheduledDate: form.scheduledDate,
-					timezone: form.timezone,
-					enableSearch: form.enableSearch,
-					enabledToolSlugs: form.enabledToolSlugs,
-					emailNotifications: form.emailNotifications,
-				});
-				toast.success("Scheduled task updated successfully");
-			} else {
-				await createTask({
-					title: form.title.trim(),
-					prompt: form.prompt.trim(),
-					scheduleType: form.scheduleType as "onetime" | "daily" | "weekly",
-					scheduledTime: formattedScheduledTime,
-					scheduledDate: form.scheduledDate,
-					timezone: form.timezone,
-					enableSearch: form.enableSearch,
-					enabledToolSlugs: form.enabledToolSlugs,
-					emailNotifications: form.emailNotifications,
-				});
-				toast.success("Scheduled task created successfully");
-			}
-			onSuccessAction();
-		} catch {
-			toast.error(
-				`Failed to ${mode === "edit" ? "update" : "create"} task. Please try again.`,
-			);
-		} finally {
-			setIsSubmitting(false);
-		}
+		await submitTask()
+			.then(() => {
+				toast.success(successMessage);
+				onSuccessAction();
+			})
+			.catch(() => {
+				toast.error(errorMessage);
+			})
+			.finally(() => {
+				setIsSubmitting(false);
+			});
 	};
 
 	const updateForm = <K extends keyof CreateTaskForm>(

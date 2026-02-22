@@ -6,6 +6,7 @@ import {
 	useEffect,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "@/components/ui/toast";
@@ -25,6 +26,14 @@ type FileUploadContextValue = {
 };
 
 const FileUploadContext = createContext<FileUploadContextValue | null>(null);
+
+function useIsHydrated(): boolean {
+	return useSyncExternalStore(
+		() => () => {},
+		() => true,
+		() => false,
+	);
+}
 
 export type FileUploadProps = {
 	onFilesAdded: (files: File[]) => void;
@@ -220,12 +229,7 @@ type FileUploadContentProps = React.HTMLAttributes<HTMLDivElement>;
 
 function FileUploadContent({ className, ...props }: FileUploadContentProps) {
 	const context = useContext(FileUploadContext);
-	const [mounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		setMounted(true);
-		return () => setMounted(false);
-	}, []);
+	const mounted = useIsHydrated();
 
 	if (!context?.isDragging || !mounted || context?.disabled) {
 		return null;

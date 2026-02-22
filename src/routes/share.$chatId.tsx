@@ -62,22 +62,20 @@ function ShareChatPage() {
     );
   }
 
+  const createdAtMs = chat.createdAt ?? chat._creationTime;
+  const createdAtDate = new Date(createdAtMs);
+  const createdAtDateTime = createdAtDate.toISOString().split("T")[0];
+  const createdAtLabel = createdAtDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
     <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
       <div className="mb-8 flex items-center justify-center gap-2 font-medium text-sm">
-        <time
-          className="text-foreground"
-          dateTime={
-            new Date((chat.createdAt || chat._creationTime) ?? Date.now())
-              .toISOString()
-              .split("T")[0]
-          }
-        >
-          {new Date(chat.createdAt || chat._creationTime).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
+        <time className="text-foreground" dateTime={createdAtDateTime}>
+          {createdAtLabel}
         </time>
       </div>
       <h1 className="mb-4 text-center font-medium text-4xl tracking-tight md:text-5xl">

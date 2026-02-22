@@ -77,15 +77,17 @@ export function AttachmentsSettingsPage() {
   };
 
   const confirmDeleteSelected = async () => {
-    try {
-      await deleteAttachments({ attachmentIds: Array.from(selectedIds) });
-      toast({ title: "Selected attachments deleted", status: "success" });
-      setSelectedIds(new Set());
-    } catch {
-      toast({ title: "Failed to delete some attachments", status: "error" });
-    } finally {
-      setShowDeleteSelectedDialog(false);
-    }
+    await deleteAttachments({ attachmentIds: Array.from(selectedIds) })
+      .then(() => {
+        toast({ title: "Selected attachments deleted", status: "success" });
+        setSelectedIds(new Set());
+      })
+      .catch(() => {
+        toast({ title: "Failed to delete some attachments", status: "error" });
+      })
+      .finally(() => {
+        setShowDeleteSelectedDialog(false);
+      });
   };
 
   const handleDelete = (attachmentId: Id<"chat_attachments">) => {
@@ -97,15 +99,17 @@ export function AttachmentsSettingsPage() {
     if (!attachmentToDelete) {
       return;
     }
-    try {
-      await deleteAttachments({ attachmentIds: [attachmentToDelete] });
-      toast({ title: "Attachment deleted", status: "success" });
-    } catch {
-      toast({ title: "Failed to delete attachment", status: "error" });
-    } finally {
-      setShowDeleteSingleDialog(false);
-      setAttachmentToDelete(null);
-    }
+    await deleteAttachments({ attachmentIds: [attachmentToDelete] })
+      .then(() => {
+        toast({ title: "Attachment deleted", status: "success" });
+      })
+      .catch(() => {
+        toast({ title: "Failed to delete attachment", status: "error" });
+      })
+      .finally(() => {
+        setShowDeleteSingleDialog(false);
+        setAttachmentToDelete(null);
+      });
   };
 
   const totalSize = attachments?.reduce((acc, att) => acc + (att.fileSize ?? 0), 0);

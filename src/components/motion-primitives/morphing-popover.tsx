@@ -122,21 +122,24 @@ function MorphingPopoverTrigger({
 	}
 
 	if (asChild && isValidElement(children)) {
-		const MotionComponent = motion.create(
-			children.type as React.ForwardRefExoticComponent<Record<string, unknown>>,
-		);
-		const childProps = children.props as Record<string, unknown>;
-
 		return (
-			<MotionComponent
-				{...childProps}
-				onClick={context.open}
-				layoutId={`popover-trigger-${context.uniqueId}`}
-				className={childProps.className}
-				key={context.uniqueId}
-				aria-expanded={context.isOpen}
+			<motion.div
 				aria-controls={`popover-content-${context.uniqueId}`}
-			/>
+				aria-expanded={context.isOpen}
+				className={className}
+				key={context.uniqueId}
+				layoutId={`popover-trigger-${context.uniqueId}`}
+				onClick={context.open}
+				onKeyDown={(event) => {
+					if (event.key === "Enter" || event.key === " ") {
+						context.open();
+					}
+				}}
+				role="button"
+				tabIndex={0}
+			>
+				{children}
+			</motion.div>
 		);
 	}
 

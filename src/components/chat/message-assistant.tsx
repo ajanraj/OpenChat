@@ -14,7 +14,15 @@ import type {
 	ToolUIPart,
 } from "ai";
 import type { Infer } from "convex/values";
-import React, { lazy, memo, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+	lazy,
+	memo,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import {
 	ChainOfThought,
 	ChainOfThoughtContent,
@@ -145,6 +153,12 @@ const extractCreateAgentMetadata = (
 
 	return metadata;
 };
+
+const subscribeToTouchCapability = () => () => {};
+
+const getIsTouchDevice = () =>
+	typeof window !== "undefined" &&
+	("ontouchstart" in window || navigator.maxTouchPoints > 0);
 
 // Type guard for agent boundary data parts
 type AgentBoundaryDataPart = {
@@ -659,7 +673,6 @@ const renderToolPart = (
 	part: ToolUIPart,
 	index: number,
 	_id: string,
-	sourceCache?: Map<string, SourceUrlUIPart>,
 ) => {
 	const extendedPart = part as ExtendedToolUIPart;
 	const toolType = part.type.replace("tool-", "");
@@ -686,23 +699,7 @@ const renderToolPart = (
 
 		// For completed search tools, render the unified search component with results
 		if ("state" in part && part.state === "output-available") {
-			const rawSources = extractSourcesFromParts([part]);
-
-			// Apply source cache if provided
-			let sources = rawSources;
-			if (sourceCache) {
-				const stableSources: SourceUrlUIPart[] = [];
-				for (const s of rawSources) {
-					const prev = sourceCache.get(s.sourceId);
-					if (prev && prev.url === s.url && prev.title === s.title) {
-						stableSources.push(prev);
-					} else {
-						sourceCache.set(s.sourceId, s);
-						stableSources.push(s);
-					}
-				}
-				sources = stableSources;
-			}
+			const sources = extractSourcesFromParts([part]);
 
 			if (searchQuery) {
 				return (
@@ -820,7 +817,6 @@ const renderPartDirectly = (
 	reasoningStates: Record<string, boolean>,
 	reasoningStreamingStates: Record<string, boolean>,
 	toggleReasoning: (partIndex: number) => void,
-	sourceCache?: Map<string, SourceUrlUIPart>,
 ) => {
 	switch (part.type) {
 		case "text":
@@ -850,7 +846,7 @@ const renderPartDirectly = (
 
 		default:
 			if (part.type.startsWith("tool-")) {
-				return renderToolPart(part as ToolUIPart, index, id, sourceCache);
+				return renderToolPart(part as ToolUIPart, index, id);
 			}
 			if (isErrorPart(part)) {
 				return renderErrorPart(part, index);
@@ -873,7 +869,6 @@ const renderPartInChainOfThought = (
 	reasoningStates: Record<string, boolean>,
 	reasoningStreamingStates: Record<string, boolean>,
 	toggleReasoning: (partIndex: number) => void,
-	sourceCache?: Map<string, SourceUrlUIPart>,
 ) => {
 	switch (part.type) {
 		case "text":
@@ -929,12 +924,12 @@ const renderPartInChainOfThought = (
 							getConnectorConfig(
 								getConnectorTypeFromToolName(toolType) as ConnectorType,
 							).displayName,
-						)
+					)
 					: toolType;
 
 				return (
 					<ChainOfThoughtStep key={partKey} label={toolLabel} status="complete">
-						{renderToolPart(toolPart, index, id, sourceCache)}
+						{renderToolPart(toolPart, index, id)}
 					</ChainOfThoughtStep>
 				);
 			}
@@ -1069,9 +1064,6 @@ function MessageAssistantInner({
 	// Prefer `parts` prop, but fall back to `attachments` if `parts` is undefined.
 	const combinedParts = parts || [];
 
-	// Cache for source objects to maintain stable identity
-	const sourcesCacheRef = useRef<Map<string, SourceUrlUIPart>>(new Map());
-
 	const segments = useMemo(
 		() => segmentPartsByAgentBoundaries(combinedParts),
 		[combinedParts],
@@ -1114,7 +1106,11 @@ function MessageAssistantInner({
 		Record<string, boolean>
 	>({});
 	const initialStatusRef = useRef<Record<string, boolean>>({});
-	const [isTouch, setIsTouch] = useState(false);
+	const isTouch = useSyncExternalStore(
+		subscribeToTouchCapability,
+		getIsTouchDevice,
+		() => false,
+	);
 
 	const agentManualOverrides = useRef<Record<string, boolean>>({});
 	useEffect(() => {
@@ -1264,12 +1260,15 @@ function MessageAssistantInner({
 	const modelFromMetadata = metadata?.modelName || metadata?.modelId;
 	const displayModel = modelFromMetadata || model;
 	const reasoningEffort = metadata?.reasoningEffort;
-
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			setIsTouch("ontouchstart" in window || navigator.maxTouchPoints > 0);
-		}
-	}, []);
+	const allSources = useMemo(
+		() => extractSourcesFromParts(combinedParts),
+		[combinedParts],
+	);
+	const searchQuery = useMemo(
+		() => extractSearchQueryFromParts(combinedParts),
+		[combinedParts],
+	);
+	const shouldRenderSourcesList = !(Boolean(searchQuery) && allSources.length > 0);
 
 	// Helper function to toggle individual reasoning part
 	const toggleReasoning = (index: number) => {
@@ -1314,7 +1313,6 @@ function MessageAssistantInner({
 										reasoningStates,
 										reasoningStreamingStates,
 										toggleReasoning,
-										sourcesCacheRef.current,
 									)}
 								</React.Fragment>
 							);
@@ -1355,7 +1353,6 @@ function MessageAssistantInner({
 										reasoningStates,
 										reasoningStreamingStates,
 										toggleReasoning,
-										sourcesCacheRef.current,
 									);
 								})}
 							</ChainOfThoughtContent>
@@ -1364,47 +1361,9 @@ function MessageAssistantInner({
 				})}
 
 				{/* Render sources list for non-search sources only */}
-				{(() => {
-					// Get all sources with stable object identity
-					const rawSources = extractSourcesFromParts(combinedParts);
-					const searchQuery = extractSearchQueryFromParts(combinedParts);
-
-					// Maintain stable object identity for sources
-					const cache = sourcesCacheRef.current;
-					const allSources: SourceUrlUIPart[] = [];
-					for (const s of rawSources) {
-						const prev = cache.get(s.sourceId);
-						if (
-							prev !== undefined &&
-							prev.url === s.url &&
-							prev.title === s.title
-						) {
-							allSources.push(prev);
-						} else {
-							cache.set(s.sourceId, s);
-							allSources.push(s);
-						}
-					}
-					// Prune removed sources from cache
-					if (cache.size > allSources.length) {
-						const keep = new Set(allSources.map((s) => s.sourceId));
-						for (const k of cache.keys()) {
-							if (!keep.has(k)) {
-								cache.delete(k);
-							}
-						}
-					}
-
-					// If we have search sources, they are already rendered inline, so skip them
-					if (Boolean(searchQuery) && allSources.length > 0) {
-						return null;
-					}
-
-					// Only render SourcesList for non-search sources
-					return allSources.length > 0 ? (
-						<SourcesList sources={allSources} />
-					) : null;
-				})()}
+				{shouldRenderSourcesList && allSources.length > 0 ? (
+					<SourcesList sources={allSources} />
+				) : null}
 
 				<MessageActions
 					className={cn(

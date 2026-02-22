@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useState } from "react";
+import { Suspense, use, useMemo } from "react";
 import { codeToHtml } from "shiki";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
@@ -31,58 +31,82 @@ export type CodeBlockCodeProps = {
 	className?: string;
 } & React.HTMLProps<HTMLDivElement>;
 
+type HighlightedCodeProps = {
+	code: string;
+	language: string;
+	appTheme: string;
+	className: string;
+	props: Omit<CodeBlockCodeProps, "code" | "language" | "theme" | "className">;
+};
+
+function HighlightedCode({
+	code,
+	language,
+	appTheme,
+	className,
+	props,
+}: HighlightedCodeProps) {
+	const highlightedHtml = use(
+		useMemo(
+			() =>
+				codeToHtml(code, {
+					lang: language,
+					theme: appTheme === "dark" ? "github-dark" : "github-light",
+				}),
+			[code, language, appTheme],
+		),
+	);
+
+	return (
+		<div
+			className={className}
+			dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+			{...props}
+		/>
+	);
+}
+
 function CodeBlockCode({
 	code,
 	language = "tsx",
-	theme = "github-light",
+	theme: _theme = "github-light",
 	className,
 	...props
 }: CodeBlockCodeProps) {
 	const { theme: appTheme } = useTheme();
-	const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
 
 	// Ensure code and language are always valid strings
 	const safeCode = typeof code === "string" ? code : "";
 	const safeLanguage =
 		typeof language === "string" && language ? language : "tsx";
 
-	useEffect(() => {
-		if (!appTheme) {
-			return;
-		}
-		// Only highlight if code and language are valid
-		if (typeof safeCode !== "string" || !safeLanguage) {
-			setHighlightedHtml(null);
-			return;
-		}
-		async function highlight() {
-			const html = await codeToHtml(safeCode, {
-				lang: safeLanguage,
-				theme: appTheme === "dark" ? "github-dark" : "github-light",
-			});
-			setHighlightedHtml(html);
-		}
-		highlight();
-	}, [safeCode, safeLanguage, appTheme]);
-
 	const classNames = cn(
 		"w-full overflow-x-auto text-[13px] [&>pre]:px-4 [&>pre]:py-4",
 		className,
 	);
 
-	// SSR fallback: render plain code if not hydrated yet
-	return highlightedHtml ? (
-		<div
-			className={classNames}
-			dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-			{...props}
-		/>
-	) : (
+	const fallback = (
 		<div className={classNames} {...props}>
 			<pre>
 				<code>{code}</code>
 			</pre>
 		</div>
+	);
+
+	if (!appTheme || !safeLanguage) {
+		return fallback;
+	}
+
+	return (
+		<Suspense fallback={fallback}>
+			<HighlightedCode
+				appTheme={appTheme}
+				className={classNames}
+				code={safeCode}
+				language={safeLanguage}
+				props={props}
+			/>
+		</Suspense>
 	);
 }
 

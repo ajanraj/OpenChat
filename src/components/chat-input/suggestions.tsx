@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { PromptSuggestion } from "@/components/prompt-kit/prompt-suggestion";
 import { SUGGESTIONS as SUGGESTIONS_CONFIG } from "@/lib/config";
 import { TRANSITION_SUGGESTIONS } from "@/lib/motion";
@@ -20,7 +20,9 @@ export const Suggestions = memo(function SuggestionsComponent({
 	// onSuggestion,
 	isEmpty = true,
 }: SuggestionsProps) {
-	const [activeCategory, setActiveCategory] = useState<string | null>(null);
+	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+	const shouldReduceMotion = useReducedMotion();
+	const activeCategory = isEmpty ? null : selectedCategory;
 
 	const activeCategoryData = SUGGESTIONS_CONFIG.find(
 		(group) => group.label === activeCategory,
@@ -29,15 +31,9 @@ export const Suggestions = memo(function SuggestionsComponent({
 	const showCategorySuggestions =
 		activeCategoryData && activeCategoryData.items.length > 0;
 
-	useEffect(() => {
-		if (isEmpty) {
-			setActiveCategory(null);
-		}
-	}, [isEmpty]);
-
 	const handleSuggestionClick = useCallback(
 		(suggestion: string) => {
-			setActiveCategory(null);
+			setSelectedCategory(null);
 			// Instead of immediately adding the suggestion as a message (which
 			// caused an empty `input` value and prevented the chat from being
 			// created), we now simply populate the input field with the selected
@@ -51,7 +47,7 @@ export const Suggestions = memo(function SuggestionsComponent({
 
 	const handleCategoryClick = useCallback(
 		(suggestion: { label: string; prompt: string }) => {
-			setActiveCategory(suggestion.label);
+			setSelectedCategory(suggestion.label);
 			onValueChange(suggestion.prompt);
 		},
 		[onValueChange],
@@ -68,12 +64,20 @@ export const Suggestions = memo(function SuggestionsComponent({
 				style={{
 					scrollbarWidth: "none",
 				}}
-				transition={TRANSITION_SUGGESTIONS}
-				variants={{
-					initial: { opacity: 0, y: 10, filter: "blur(4px)" },
-					animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-					exit: { opacity: 0, y: -10, filter: "blur(4px)" },
-				}}
+				transition={shouldReduceMotion ? { duration: 0 } : TRANSITION_SUGGESTIONS}
+				variants={
+					shouldReduceMotion
+						? {
+								initial: { opacity: 0 },
+								animate: { opacity: 1 },
+								exit: { opacity: 0 },
+							}
+						: {
+								initial: { opacity: 0, y: 10, filter: "blur(4px)" },
+								animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+								exit: { opacity: 0, y: -10, filter: "blur(4px)" },
+							}
+				}
 			>
 				{SUGGESTIONS_CONFIG.map((suggestion, index) => (
 					<MotionPromptSuggestion
@@ -83,15 +87,27 @@ export const Suggestions = memo(function SuggestionsComponent({
 						initial="initial"
 						key={suggestion.label}
 						onClick={() => handleCategoryClick(suggestion)}
-						transition={{
-							...TRANSITION_SUGGESTIONS,
-							delay: index * 0.02,
-						}}
-						variants={{
-							initial: { opacity: 0, scale: 0.8 },
-							animate: { opacity: 1, scale: 1 },
-							exit: { opacity: 0, scale: 0.8 },
-						}}
+						transition={
+							shouldReduceMotion
+								? { duration: 0 }
+								: {
+										...TRANSITION_SUGGESTIONS,
+										delay: index * 0.02,
+									}
+						}
+						variants={
+							shouldReduceMotion
+								? {
+										initial: { opacity: 0 },
+										animate: { opacity: 1 },
+										exit: { opacity: 0 },
+									}
+								: {
+										initial: { opacity: 0, scale: 0.8 },
+										animate: { opacity: 1, scale: 1 },
+										exit: { opacity: 0, scale: 0.8 },
+									}
+						}
 					>
 						<suggestion.icon className="size-4" />
 						{suggestion.label}
@@ -99,7 +115,7 @@ export const Suggestions = memo(function SuggestionsComponent({
 				))}
 			</motion.div>
 		),
-		[handleCategoryClick],
+		[handleCategoryClick, shouldReduceMotion],
 	);
 
 	const suggestionsList = useMemo(
@@ -110,12 +126,20 @@ export const Suggestions = memo(function SuggestionsComponent({
 				exit="exit"
 				initial="initial"
 				key={activeCategoryData?.label}
-				transition={TRANSITION_SUGGESTIONS}
-				variants={{
-					initial: { opacity: 0, y: 10, filter: "blur(4px)" },
-					animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-					exit: { opacity: 0, y: -10, filter: "blur(4px)" },
-				}}
+				transition={shouldReduceMotion ? { duration: 0 } : TRANSITION_SUGGESTIONS}
+				variants={
+					shouldReduceMotion
+						? {
+								initial: { opacity: 0 },
+								animate: { opacity: 1 },
+								exit: { opacity: 0 },
+							}
+						: {
+								initial: { opacity: 0, y: 10, filter: "blur(4px)" },
+								animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+								exit: { opacity: 0, y: -10, filter: "blur(4px)" },
+							}
+				}
 			>
 				{activeCategoryData?.items.map((suggestion: string, index: number) => (
 					<MotionPromptSuggestion
@@ -126,28 +150,35 @@ export const Suggestions = memo(function SuggestionsComponent({
 						initial="initial"
 						key={`${activeCategoryData?.label}-${suggestion}-${index}`}
 						onClick={() => handleSuggestionClick(suggestion)}
-						transition={{
-							...TRANSITION_SUGGESTIONS,
-							delay: index * 0.05,
-						}}
+						transition={
+							shouldReduceMotion
+								? { duration: 0 }
+								: {
+										...TRANSITION_SUGGESTIONS,
+										delay: index * 0.05,
+									}
+						}
 						type="button"
-						variants={{
-							initial: { opacity: 0, y: -10 },
-							animate: { opacity: 1, y: 0 },
-							exit: { opacity: 0, y: 10 },
-						}}
+						variants={
+							shouldReduceMotion
+								? {
+										initial: { opacity: 0 },
+										animate: { opacity: 1 },
+										exit: { opacity: 0 },
+									}
+								: {
+										initial: { opacity: 0, y: -10 },
+										animate: { opacity: 1, y: 0 },
+										exit: { opacity: 0, y: 10 },
+									}
+						}
 					>
 						{suggestion}
 					</MotionPromptSuggestion>
 				))}
 			</motion.div>
 		),
-		[
-			handleSuggestionClick,
-			activeCategoryData?.highlight,
-			activeCategoryData?.items,
-			activeCategoryData?.label,
-		],
+		[handleSuggestionClick, activeCategoryData, shouldReduceMotion],
 	);
 
 	return (

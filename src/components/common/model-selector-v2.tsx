@@ -49,7 +49,6 @@ import {
 	getProviderFilter,
 	isUnpinningLastFavoriteModel,
 	shouldShowFavoritesOnly,
-	shouldHideProviderSidebar,
 } from "./model-selector-v2.utils";
 import {
 	FAVORITES_PROVIDER_ID,
@@ -97,10 +96,9 @@ export function ModelSelectorV2({
 	);
 	const modelRowRefs = useRef(new Map<string, HTMLDivElement | null>());
 	const normalizedSearchQuery = getNormalizedSearchQuery(searchQuery);
-	const shouldHideSidebar = shouldHideProviderSidebar(
-		normalizedSearchQuery,
-		activeFilters,
-	);
+	const hasActiveFilters = activeFilters.size > 0;
+	const shouldHideSidebar =
+		normalizedSearchQuery.length > 0 || hasActiveFilters;
 
 	const updateProviderScrollHint = useCallback((sidebar?: HTMLDivElement) => {
 		const node = sidebar ?? providerSidebarRef.current;
@@ -323,26 +321,32 @@ export function ModelSelectorV2({
 			router.navigate({ to: "/auth" });
 			return;
 		}
-		if (!products?.premium?.id) return;
+		const premiumProductId = products?.premium?.id;
+		if (!premiumProductId) return;
 		setIsUpgradeLoading(true);
-		try {
-			const { url } = await generateCheckoutLink({
-				productIds: [products.premium.id],
-				origin: window.location.origin,
-				successUrl: `${window.location.origin}/settings?upgraded=true`,
+		const checkoutLinkPromise = generateCheckoutLink({
+			productIds: [premiumProductId],
+			origin: window.location.origin,
+			successUrl: `${window.location.origin}/settings?upgraded=true`,
+		});
+		const checkoutUrl = await checkoutLinkPromise
+			.then(({ url }) => url)
+			.catch((error) => {
+				console.error("Checkout failed:", error);
+				toast({
+					title: "Checkout unavailable",
+					description: "Unable to start checkout. Please try again.",
+					status: "error",
+				});
+				return null;
 			});
-			window.location.href = url;
-		} catch (error) {
-			console.error("Checkout failed:", error);
-			toast({
-				title: "Checkout unavailable",
-				description: "Unable to start checkout. Please try again.",
-				status: "error",
-			});
-		} finally {
+		if (!checkoutUrl) {
 			setIsUpgradeLoading(false);
+			return;
 		}
-	}, [
+		setIsUpgradeLoading(false);
+		window.location.href = checkoutUrl;
+		}, [
 		user?.isAnonymous,
 		products?.premium?.id,
 		generateCheckoutLink,
@@ -379,19 +383,6 @@ export function ModelSelectorV2({
 		[],
 	);
 
-	const providerButtonRefCallbacks = useRef(new Map<string, (node: HTMLButtonElement | null) => void>());
-	const getProviderButtonRef = useCallback(
-		(providerId: string) => {
-			let cb = providerButtonRefCallbacks.current.get(providerId);
-			if (!cb) {
-				cb = (node: HTMLButtonElement | null) => setProviderButtonRef(providerId, node);
-				providerButtonRefCallbacks.current.set(providerId, cb);
-			}
-			return cb;
-		},
-		[setProviderButtonRef],
-	);
-
 	const setModelRowRef = useCallback((modelId: string, node: HTMLDivElement | null) => {
 		if (node) {
 			modelRowRefs.current.set(modelId, node);
@@ -399,19 +390,6 @@ export function ModelSelectorV2({
 		}
 		modelRowRefs.current.delete(modelId);
 	}, []);
-
-	const modelRowRefCallbacks = useRef(new Map<string, (node: HTMLDivElement | null) => void>());
-	const getModelRowRef = useCallback(
-		(modelId: string) => {
-			let cb = modelRowRefCallbacks.current.get(modelId);
-			if (!cb) {
-				cb = (node: HTMLDivElement | null) => setModelRowRef(modelId, node);
-				modelRowRefCallbacks.current.set(modelId, cb);
-			}
-			return cb;
-		},
-		[setModelRowRef],
-	);
 
 	const focusSearch = useCallback(() => {
 		searchInputRef.current?.focus();
@@ -727,13 +705,15 @@ export function ModelSelectorV2({
 										>
 										{/* Favorites icon */}
 										<div className="p-1">
-											<div className="flex flex-col items-center gap-1">
-												<SidebarProviderButton
-													providerId={FAVORITES_PROVIDER_ID}
-													buttonRef={getProviderButtonRef(FAVORITES_PROVIDER_ID)}
-													active={activeProvider === null}
-													label="Favorites"
-													onClick={() => setActiveProvider(null)}
+												<div className="flex flex-col items-center gap-1">
+													<SidebarProviderButton
+														providerId={FAVORITES_PROVIDER_ID}
+														buttonRef={(node) =>
+															setProviderButtonRef(FAVORITES_PROVIDER_ID, node)
+														}
+														active={activeProvider === null}
+														label="Favorites"
+														onClick={() => setActiveProvider(null)}
 													onArrowUp={handleProviderNavigateUp}
 													onArrowDown={handleProviderNavigateDown}
 													onArrowRight={handleProviderNavigateRight}
@@ -753,14 +733,14 @@ export function ModelSelectorV2({
 										</div>
 
 										{/* Provider icons */}
-											{availableProviders.map((p) => (
-												<SidebarProviderButton
-													key={p.id}
-													providerId={p.id}
-													buttonRef={getProviderButtonRef(p.id)}
-													active={activeProvider === p.id}
-													label={p.name}
-													onClick={() =>
+												{availableProviders.map((p) => (
+													<SidebarProviderButton
+														key={p.id}
+														providerId={p.id}
+														buttonRef={(node) => setProviderButtonRef(p.id, node)}
+														active={activeProvider === p.id}
+														label={p.name}
+														onClick={() =>
 														setActiveProvider(
 															activeProvider === p.id ? null : p.id,
 														)
@@ -799,7 +779,7 @@ export function ModelSelectorV2({
 													<ModelRow
 														key={m.id}
 														model={m}
-														modelRowRef={getModelRowRef(m.id)}
+														modelRowRef={(node) => setModelRowRef(m.id, node)}
 														isFavorite={favoriteModelsSet.has(m.id)}
 														favoriteModelsCount={favoriteModelsSet.size}
 														isSelected={selectedModelId === m.id}
@@ -840,7 +820,9 @@ export function ModelSelectorV2({
 															<ModelRow
 																key={m.id}
 																model={m}
-																modelRowRef={getModelRowRef(m.id)}
+																modelRowRef={(node) =>
+																	setModelRowRef(m.id, node)
+																}
 																isFavorite={favoriteModelsSet.has(m.id)}
 																favoriteModelsCount={favoriteModelsSet.size}
 																isSelected={selectedModelId === m.id}

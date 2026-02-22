@@ -6,7 +6,6 @@ import {
 	useCallback,
 	useDeferredValue,
 	useMemo,
-	useRef,
 	useState,
 } from "react";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
@@ -111,32 +110,7 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
 		// 1) Defer sources so we render fewer frames during streaming
 		const deferredSources = useDeferredValue(sources);
 
-		// 2) Keep item object identity stable across renders by sourceId
-		const stableMapRef = useRef<Map<string, SourceUrlUIPart>>(new Map());
-		const stableSources = useMemo(() => {
-			const map = stableMapRef.current;
-			const next: SourceUrlUIPart[] = [];
-			for (const s of deferredSources) {
-				const prev = map.get(s.sourceId);
-				// Reuse previous object if the visible fields haven't changed
-				if (prev && prev.url === s.url && prev.title === s.title) {
-					next.push(prev);
-				} else {
-					map.set(s.sourceId, s);
-					next.push(s);
-				}
-			}
-			// Optionally prune removed ids
-			if (map.size > next.length) {
-				const keep = new Set(next.map((s) => s.sourceId));
-				for (const k of map.keys()) {
-					if (!keep.has(k)) {
-						map.delete(k);
-					}
-				}
-			}
-			return next;
-		}, [deferredSources]);
+		const stableSources = deferredSources;
 
 		// Memoized early returns to prevent unnecessary computations
 		const shouldRender = useMemo(() => {

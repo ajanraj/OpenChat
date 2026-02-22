@@ -49,6 +49,12 @@ function AuthenticatedCallback() {
   );
 
   const handleCallback = useCallback(async () => {
+    const requestHeaders = authToken
+      ? {
+          Authorization: `Bearer ${authToken}`,
+        }
+      : undefined;
+
     try {
       const connectorType = (search as { type?: string }).type as ConnectorType;
 
@@ -88,9 +94,7 @@ function AuthenticatedCallback() {
       const response = await fetch(
         `/api/composio/status?connectionRequestId=${connectionRequestId}`,
         {
-          headers: {
-            ...(authToken && { Authorization: `Bearer ${authToken}` }),
-          },
+          headers: requestHeaders,
         },
       );
 
@@ -135,7 +139,13 @@ function AuthenticatedCallback() {
   }, [authToken, search, user, saveConnection, redirectAfterDelay]);
 
   useEffect(() => {
-    void handleCallback();
+    const timeoutId = setTimeout(() => {
+      void handleCallback();
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [handleCallback]);
 
   return (

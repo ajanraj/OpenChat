@@ -229,20 +229,12 @@ function ChatContent() {
 	});
 
 	// Derived state
-	const selectedModel = useMemo(() => {
-		if (currentChat?.model) {
-			return getValidModel(currentChat.model, user?.disabledModels);
-		}
-		const preferredModel =
-			tempSelectedModel ?? user?.preferredModel ?? MODEL_DEFAULT;
-		return getValidModel(preferredModel, user?.disabledModels);
-	}, [
-		currentChat?.model,
-		tempSelectedModel,
-		user?.preferredModel,
-		user?.disabledModels,
-		getValidModel,
-	]);
+	const selectedModel = currentChat?.model
+		? getValidModel(currentChat.model, user?.disabledModels)
+		: getValidModel(
+				tempSelectedModel ?? user?.preferredModel ?? MODEL_DEFAULT,
+				user?.disabledModels,
+			);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
@@ -252,17 +244,6 @@ function ChatContent() {
 	const { messages, status, sendMessage, regenerate, setMessages, stop } = useChat<MessageWithExtras>({
 		chat: chatInstance,
 	});
-
-	useEffect(() => {
-		if (!chatId) {
-			// Reset UI state for a fresh draft. Do NOT delete from chatRegistry
-			// here — the Chat wrapper manages instance lifecycle, and deleting
-			// the draft entry would prevent promoteDraftChatToReal from working.
-			setMessages([]);
-			setTempPersonaId(undefined);
-			setTempSelectedModel(undefined);
-		}
-	}, [chatId, setMessages]);
 
 	// Message synchronization effect - optimized to prevent infinite re-renders
 	useEffect(() => {
@@ -425,12 +406,11 @@ function ChatContent() {
 			}
 
 			// Send message with AI SDK
+			const messageParts = [
+				{ type: "text" as const, text: inputMessage },
+				...(attachments || []),
+			];
 			try {
-				const messageParts = [
-					{ type: "text" as const, text: inputMessage },
-					...(attachments || []),
-				];
-
 				await sendMessage({ parts: messageParts, role: "user" }, { body });
 			} catch {
 				toast({ title: "Failed to send message", status: "error" });
@@ -470,28 +450,28 @@ function ChatContent() {
 				return;
 			}
 
-			const startChat = async () => {
-				try {
+				const startChat = async () => {
 					const newChatId = await handleCreateChat(
 						trimmedQuery,
 						modelId,
 						personaId,
 					);
-					if (newChatId) {
-						promoteDraftChatToReal(newChatId);
-						void router.navigate({ to: `/c/${newChatId}` });
-						await sendMessageHelper(trimmedQuery, newChatId, {
-							enableSearch: false,
-						});
+					if (!newChatId) {
+						return;
 					}
-				} catch {
-					toast({ title: "Failed to create chat", status: "error" });
-				}
-			};
 
-			startChat();
-		}
-	}, [
+					promoteDraftChatToReal(newChatId);
+					void router.navigate({ to: `/c/${newChatId}` });
+					await sendMessageHelper(trimmedQuery, newChatId, {
+						enableSearch: false,
+					});
+				};
+
+				void startChat().catch(() => {
+					toast({ title: "Failed to create chat", status: "error" });
+				});
+			}
+		}, [
 		isUserLoading,
 		isApiKeysLoading,
 		user,
@@ -558,6 +538,7 @@ function ChatContent() {
 			personaId,
 			clearFiles,
 			sendMessageHelper,
+			router,
 		],
 	);
 
@@ -579,7 +560,9 @@ function ChatContent() {
 
 	// Message handlers
 	const messagesRef = useRef(messages);
-	messagesRef.current = messages;
+	useEffect(() => {
+		messagesRef.current = messages;
+	}, [messages]);
 	const getServerId = useCallback((id: string) => {
 		const msg = messagesRef.current.find((m) => m.id === id);
 		return (msg as MessageWithExtras | undefined)?.serverId ?? id;
@@ -599,20 +582,22 @@ function ChatContent() {
 			setMessages(filteredMessages);
 			setIsDeleting(true);
 
-			try {
-				const result = await handleDeleteMessage(getServerId(id));
-				if (result?.chatDeleted) {
-					if (chatId) {
-						cleanupChatInstance(chatId);
-					}
-					router.navigate({ to: "/" });
-				} else {
-					setIsDeleting(false);
-				}
-			} catch {
+			const result = await handleDeleteMessage(getServerId(id)).catch(() => null);
+			if (!result) {
 				setMessages(originalMessages);
 				setIsDeleting(false);
+				return;
 			}
+
+			if (result.chatDeleted) {
+				if (chatId) {
+					cleanupChatInstance(chatId);
+				}
+				router.navigate({ to: "/" });
+				return;
+			}
+
+			setIsDeleting(false);
 		},
 		[handleDeleteMessage, router, setIsDeleting, setMessages, getServerId, chatId],
 	);
@@ -637,17 +622,19 @@ function ChatContent() {
 			const firstFollowing = originalMessages[targetIdx + 1];
 			if (firstFollowing) {
 				setIsDeleting(true);
-				try {
-					await handleDeleteMessage(getServerId(firstFollowing.id));
-				} catch {
+				const deletedFollowingMessage = await handleDeleteMessage(
+					getServerId(firstFollowing.id),
+				)
+					.then(() => true)
+					.catch(() => false);
+				if (!deletedFollowingMessage) {
 					setMessages(originalMessages);
 					toast({
 						title: "Failed to delete messages for reload",
 						status: "error",
 					});
-				} finally {
-					setIsDeleting(false);
 				}
+				setIsDeleting(false);
 			}
 
 			const isReasoningModel = supportsReasoningEffort(selectedModel);
@@ -742,57 +729,61 @@ function ChatContent() {
 			const hasNewFiles = editOptions.files.length > 0;
 			let optimisticFileParts: FileUIPart[] = [];
 
-			if (hasNewFiles) {
-				// Create optimistic attachments for immediate UI feedback
-				optimisticFileParts = createOptimisticAttachments(editOptions.files);
-			}
-
-			try {
+				if (hasNewFiles) {
+					// Create optimistic attachments for immediate UI feedback
+					optimisticFileParts = createOptimisticAttachments(editOptions.files);
+				}
 				const removedSet = new Set(
 					(editOptions.removedFileUrls || []).map((u) => u.split("?")[0]),
 				);
-				// 1. Update message content and remove subsequent messages immediately
-				setMessages((currentMsgs) => {
-					const editTargetIdx = currentMsgs.findIndex((m) => m.id === id);
-					if (editTargetIdx === -1) {
-						return currentMsgs;
-					}
-
-					// Single pass: slice and update in one operation
-					return currentMsgs.slice(0, editTargetIdx + 1).map((msg, idx) => {
-						// Only create new object for the edited message
-						if (idx !== editTargetIdx) {
-							return msg; // Return unchanged reference
+				const applyEdit = async () => {
+					// 1. Update message content and remove subsequent messages immediately
+					setMessages((currentMsgs) => {
+						const editTargetIdx = currentMsgs.findIndex((m) => m.id === id);
+						if (editTargetIdx === -1) {
+							return currentMsgs;
 						}
 
-						// Update only the edited message
-						const existingNonOptimisticFiles = getNonOptimisticFiles(msg.parts);
-						const filteredExisting = existingNonOptimisticFiles.filter((f) => {
-							const url = typeof f.url === "string" ? f.url.split("?")[0] : "";
-							return !removedSet.has(url);
+						// Single pass: slice and update in one operation
+						return currentMsgs.slice(0, editTargetIdx + 1).map((msg, idx) => {
+							// Only create new object for the edited message
+							if (idx !== editTargetIdx) {
+								return msg; // Return unchanged reference
+							}
+
+							// Update only the edited message
+							const existingNonOptimisticFiles = getNonOptimisticFiles(msg.parts);
+							const filteredExisting = existingNonOptimisticFiles.filter((f) => {
+								const url = typeof f.url === "string" ? f.url.split("?")[0] : "";
+								return !removedSet.has(url);
+							});
+
+							return {
+								...msg,
+								parts: [
+									{ type: "text" as const, text: newText },
+									...filteredExisting,
+									...optimisticFileParts, // Include optimistic files for immediate feedback
+								],
+							};
 						});
-
-						return {
-							...msg,
-							parts: [
-								{ type: "text" as const, text: newText },
-								...filteredExisting,
-								...optimisticFileParts, // Include optimistic files for immediate feedback
-							],
-						};
 					});
-				});
 
-				// 2. Upload files if any (replace optimistic with real files after upload)
-				if (hasNewFiles) {
-					try {
+					// 2. Upload files if any (replace optimistic with real files after upload)
+					if (hasNewFiles) {
 						const newFileParts = await uploadFilesInParallel(
 							editOptions.files,
 							chatId as Id<"chats">,
 							uploadFile,
 							({ chatId: cid, key, fileName }) =>
 								saveFileAttachment({ chatId: cid, key, fileName }),
-						);
+						).catch(() => null);
+						if (!newFileParts) {
+							// Rollback on file upload failure
+							revokeOptimisticAttachments(optimisticFileParts);
+							setMessages(originalMessages);
+							return; // Abort edit on file upload failure
+						}
 
 						// Update again to replace optimistic files with uploaded files
 						setMessages((currentMsgs) => {
@@ -828,43 +819,41 @@ function ChatContent() {
 							revokeOptimisticAttachments(optimisticFileParts);
 							return next;
 						});
-					} catch (_error) {
-						// Rollback on file upload failure
-						revokeOptimisticAttachments(optimisticFileParts);
-						setMessages(originalMessages);
-						return; // Abort edit on file upload failure
 					}
-				}
 
-				// 3. Trigger AI regeneration using the edit-specific model and settings
-				const isEditReasoningModel = supportsReasoningEffort(editOptions.model);
-				const timezone = getUserTimezone();
-				const serverMessageId = getServerId(id);
+					// 3. Trigger AI regeneration using the edit-specific model and settings
+					const isEditReasoningModel = supportsReasoningEffort(editOptions.model);
+					const timezone = getUserTimezone();
+					const serverMessageId = getServerId(id);
 
-				const options = {
-					body: {
-						chatId,
-						model: editOptions.model, // Use the model selected in edit mode
-						personaId,
-						editMessageId: serverMessageId,
-						enableSearch: editOptions.enableSearch, // Use edit-specific search setting
-						...(isEditReasoningModel
-							? { reasoningEffort: editOptions.reasoningEffort }
-							: {}),
-						...(timezone ? { userInfo: { timezone } } : {}),
-					},
+					const options = {
+						body: {
+							chatId,
+							model: editOptions.model, // Use the model selected in edit mode
+							personaId,
+							editMessageId: serverMessageId,
+							enableSearch: editOptions.enableSearch, // Use edit-specific search setting
+							...(isEditReasoningModel
+								? { reasoningEffort: editOptions.reasoningEffort }
+								: {}),
+							...(timezone ? { userInfo: { timezone } } : {}),
+						},
+					};
+
+					await regenerate(options);
 				};
-
-				await regenerate(options);
-			} catch {
-				// Rollback on failure - restore all original messages
-				setMessages(originalMessages);
-				toast({
-					title: "Failed to update message",
-					status: "error",
-				});
-			}
-		},
+				const editApplied = await applyEdit()
+					.then(() => true)
+					.catch(() => false);
+				if (!editApplied) {
+					// Rollback on failure - restore all original messages
+					setMessages(originalMessages);
+					toast({
+						title: "Failed to update message",
+						status: "error",
+					});
+				}
+			},
 		[
 			chatId,
 			personaId,

@@ -83,23 +83,22 @@ function formatDateLines(timestamp?: number | null) {
   if (!timestamp) {
     return { dateTime: "Unknown", ampm: "" };
   }
-  try {
-    const d = new Date(timestamp);
-    const dateStr = d.toLocaleDateString("en-US", {
-      month: "numeric",
-      day: "numeric",
-      year: "2-digit",
-    });
-    const timeStr = d.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-    const [time, ampm] = timeStr.split(" ");
-    return { dateTime: `${dateStr} ${time}`, ampm };
-  } catch {
+  const d = new Date(timestamp);
+  if (Number.isNaN(d.getTime())) {
     return { dateTime: "Invalid", ampm: "" };
   }
+  const dateStr = d.toLocaleDateString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+  });
+  const timeStr = d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const [time, ampm] = timeStr.split(" ");
+  return { dateTime: `${dateStr} ${time}`, ampm };
 }
 
 export function HistorySettingsPage() {
@@ -168,23 +167,23 @@ export function HistorySettingsPage() {
   };
 
   const confirmDeleteSelected = async () => {
-    try {
-      // Use bulk delete for better performance when deleting multiple chats
-      if (selectedIds.size === 1) {
-        // Single chat - use the existing single delete mutation
-        const chatId = Array.from(selectedIds)[0];
-        await deleteChat({ chatId });
-      } else {
-        // Multiple chats - use the new bulk delete mutation
-        await deleteBulkChats({ chatIds: Array.from(selectedIds) });
-      }
+    const selectedChatIds = Array.from(selectedIds);
+    const deletePromise =
+      selectedChatIds.length === 1
+        ? deleteChat({ chatId: selectedChatIds[0] })
+        : deleteBulkChats({ chatIds: selectedChatIds });
+
+    const deleted = await deletePromise
+      .then(() => true)
+      .catch(() => false);
+
+    if (deleted) {
       toast({ title: "Selected chats deleted", status: "success" });
       setSelectedIds(new Set());
-    } catch {
+    } else {
       toast({ title: "Failed to delete some chats", status: "error" });
-    } finally {
-      setShowDeleteSelectedDialog(false);
     }
+    setShowDeleteSelectedDialog(false);
   };
 
   const handleExport = async () => {
@@ -192,8 +191,7 @@ export function HistorySettingsPage() {
       return;
     }
     toast({ title: "Preparing export...", status: "info" });
-    try {
-      // Use proper Convex types
+    const collectData = async () => {
       const data: Array<{
         chat: Pick<
           Doc<"chats">,
@@ -224,19 +222,26 @@ export function HistorySettingsPage() {
           });
         }),
       );
-      const blob = new Blob([superjson.stringify({ exportedAt: Date.now(), data })], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `oschat-history-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast({ title: "Export complete", status: "success" });
-    } catch {
+
+      return data;
+    };
+
+    const data = await collectData().catch(() => null);
+    if (!data) {
       toast({ title: "Failed to export chats", status: "error" });
+      return;
     }
+
+    const blob = new Blob([superjson.stringify({ exportedAt: Date.now(), data })], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `oschat-history-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export complete", status: "success" });
   };
 
   const handleImportClick = () => {
@@ -273,63 +278,67 @@ export function HistorySettingsPage() {
   }
 
   const confirmImport = async () => {
-    try {
-      toast({
-        title: `Importing ${importChatCount} chat(s)...`,
-        status: "info",
+    toast({
+      title: `Importing ${importChatCount} chat(s)...`,
+      status: "info",
+    });
+
+    const importSucceeded = await Promise.all(
+      importData.map(async (item) => {
+        const chatMeta = item.chat ?? {};
+        const messages = (item.messages ?? [])
+          .filter(
+            (msg) =>
+              msg &&
+              typeof msg.content === "string" &&
+              msg.content.length > 0 &&
+              msg.content.length <= MESSAGE_MAX_LENGTH,
+          )
+          .map((msg) => ({
+            role: (msg.role || "assistant") as "user" | "assistant" | "system",
+            content: msg.content,
+            parts: msg.parts,
+            metadata: msg.metadata ?? (msg.model ? { modelName: msg.model } : undefined),
+            originalId: msg._id || msg.id,
+            parentOriginalId: msg.parentMessageId,
+            createdAt: typeof msg.createdAt === "number" ? msg.createdAt : undefined,
+          }));
+
+        if (messages.length === 0) {
+          return;
+        }
+
+        await convex.mutation(api.import_export.bulkImportChat, {
+          chat: {
+            title:
+              typeof chatMeta.title === "string" && chatMeta.title.length <= 100
+                ? chatMeta.title
+                : undefined,
+            model:
+              typeof chatMeta.model === "string" && chatMeta.model.length <= 50
+                ? chatMeta.model
+                : undefined,
+          },
+          messages,
+        });
+      }),
+    )
+      .then(() => true)
+      .catch((error) => {
+        console.error("Failed to import chat history:", error);
+        return false;
+      })
+      .finally(() => {
+        setShowImportDialog(false);
+        setImportData([]);
+        setImportChatCount(0);
       });
 
-      // Use the new bulk import mutation
-      await Promise.all(
-        importData.map(async (item) => {
-          const chatMeta = item.chat ?? {};
-          const messages = (item.messages ?? [])
-            .filter(
-              (msg) =>
-                msg &&
-                typeof msg.content === "string" &&
-                msg.content.length > 0 &&
-                msg.content.length <= MESSAGE_MAX_LENGTH,
-            )
-            .map((msg) => ({
-              role: (msg.role || "assistant") as "user" | "assistant" | "system",
-              content: msg.content,
-              parts: msg.parts,
-              metadata: msg.metadata ?? (msg.model ? { modelName: msg.model } : undefined),
-              originalId: msg._id || msg.id,
-              parentOriginalId: msg.parentMessageId,
-              createdAt: typeof msg.createdAt === "number" ? msg.createdAt : undefined,
-            }));
-
-          if (messages.length === 0) {
-            return;
-          }
-
-          await convex.mutation(api.import_export.bulkImportChat, {
-            chat: {
-              title:
-                typeof chatMeta.title === "string" && chatMeta.title.length <= 100
-                  ? chatMeta.title
-                  : undefined,
-              model:
-                typeof chatMeta.model === "string" && chatMeta.model.length <= 50
-                  ? chatMeta.model
-                  : undefined,
-            },
-            messages,
-          });
-        }),
-      );
-
+    if (importSucceeded) {
       toast({ title: "Import completed", status: "success" });
       setSelectedIds(new Set());
-    } catch (error) {
-      console.error("Failed to import chat history:", error);
+    } else {
       toast({ title: "Import failed", status: "error" });
-    } finally {
-      setShowImportDialog(false);
-      setImportData([]);
-      setImportChatCount(0);
     }
   };
 
@@ -338,17 +347,18 @@ export function HistorySettingsPage() {
     if (!file) {
       return;
     }
-    try {
-      await processImportFile(file);
-    } catch (error) {
-      toast({
-        title: error instanceof Error ? error.message : "Import failed",
-        status: "error",
+    const input = e.currentTarget;
+    await processImportFile(file)
+      .catch((error: unknown) => {
+        toast({
+          title: error instanceof Error ? error.message : "Import failed",
+          status: "error",
+        });
+      })
+      .finally(() => {
+        // Clear the input value so the same file can be selected again
+        input.value = "";
       });
-    } finally {
-      // Clear the input value so the same file can be selected again
-      e.currentTarget.value = "";
-    }
   };
 
   const confirmDeleteAll = async () => {
@@ -358,15 +368,17 @@ export function HistorySettingsPage() {
     }
 
     setIsDeletingAll(true);
-    try {
-      await deleteAllChats({});
-      toast({ title: "All chats deleted", status: "success" });
-    } catch {
-      toast({ title: "Failed to delete chats", status: "error" });
-    } finally {
-      setShowDeleteAllDialog(false);
-      setIsDeletingAll(false);
-    }
+    await deleteAllChats({})
+      .then(() => {
+        toast({ title: "All chats deleted", status: "success" });
+      })
+      .catch(() => {
+        toast({ title: "Failed to delete chats", status: "error" });
+      })
+      .finally(() => {
+        setShowDeleteAllDialog(false);
+        setIsDeletingAll(false);
+      });
   };
 
   const renderChatsList = () => {
@@ -452,20 +464,20 @@ export function HistorySettingsPage() {
                             aria-label="Copy share link"
                             className="size-7"
                             onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(
-                                  `${APP_BASE_URL}/share/${chat._id}`,
-                                );
-                                toast({
-                                  title: "Link copied",
-                                  status: "success",
+                              await navigator.clipboard
+                                .writeText(`${APP_BASE_URL}/share/${chat._id}`)
+                                .then(() => {
+                                  toast({
+                                    title: "Link copied",
+                                    status: "success",
+                                  });
+                                })
+                                .catch(() => {
+                                  toast({
+                                    title: "Failed to copy link",
+                                    status: "error",
+                                  });
                                 });
-                              } catch {
-                                toast({
-                                  title: "Failed to copy link",
-                                  status: "error",
-                                });
-                              }
                             }}
                             size="icon"
                             type="button"
@@ -746,15 +758,17 @@ export function HistorySettingsPage() {
                   return;
                 }
                 setIsRevoking(true);
-                try {
-                  await unpublishChat({ chatId: revokeChatId });
-                  toast({ title: "Conversation unshared", status: "success" });
-                } catch {
-                  toast({ title: "Failed to unshare", status: "error" });
-                } finally {
-                  setIsRevoking(false);
-                  setRevokeChatId(null);
-                }
+                await unpublishChat({ chatId: revokeChatId })
+                  .then(() => {
+                    toast({ title: "Conversation unshared", status: "success" });
+                  })
+                  .catch(() => {
+                    toast({ title: "Failed to unshare", status: "error" });
+                  })
+                  .finally(() => {
+                    setIsRevoking(false);
+                    setRevokeChatId(null);
+                  });
               }}
               variant="destructive"
             >

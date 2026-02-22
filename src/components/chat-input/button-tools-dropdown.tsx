@@ -41,6 +41,63 @@ type ConnectorRow = {
 	id?: Id<"connectors">;
 };
 
+type ConnectorRedirectPayload = {
+	redirectUrl: string;
+	connectionRequestId: string;
+};
+
+const isConnectorRedirectPayload = (
+	value: unknown,
+): value is ConnectorRedirectPayload => {
+	if (typeof value !== "object" || value === null) {
+		return false;
+	}
+	return (
+		"redirectUrl" in value &&
+		typeof value.redirectUrl === "string" &&
+		"connectionRequestId" in value &&
+		typeof value.connectionRequestId === "string"
+	);
+};
+
+const isValidHttpsRedirectUrl = (url: string): boolean => {
+	if (typeof URL.canParse === "function" && !URL.canParse(url)) {
+		return false;
+	}
+	return url.startsWith("https://");
+};
+
+const getAuthHeaders = (authToken: string | null) => ({
+	"Content-Type": "application/json",
+	...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+});
+
+const requestConnectorRedirect = async (
+	type: ConnectorType,
+	authToken: string | null,
+): Promise<ConnectorRedirectPayload | null> => {
+	const response = await fetch("/api/composio/connect", {
+		method: "POST",
+		headers: getAuthHeaders(authToken),
+		body: JSON.stringify({ connectorType: type }),
+	}).catch(() => null);
+
+	if (!response || !response.ok) {
+		return null;
+	}
+
+	const payload: unknown = await response.json();
+	if (!isConnectorRedirectPayload(payload)) {
+		return null;
+	}
+
+	if (!isValidHttpsRedirectUrl(payload.redirectUrl)) {
+		return null;
+	}
+
+	return payload;
+};
+
 function BaseButtonToolsDropdown({
 	isUserAuthenticated,
 	selectedModel,
@@ -106,55 +163,32 @@ function BaseButtonToolsDropdown({
 			}
 
 			setTogglingType(type);
-			try {
-				await setConnectorEnabled({ type, enabled });
-			} catch (error: unknown) {
-				const classified = classifyError(error);
-				toast.error(classified.userFriendlyMessage);
-			} finally {
-				setTogglingType(null);
-			}
+			await setConnectorEnabled({ type, enabled })
+				.catch((error: unknown) => {
+					const classified = classifyError(error);
+					toast.error(classified.userFriendlyMessage);
+				})
+				.finally(() => {
+					setTogglingType(null);
+				});
 		},
 		[setConnectorEnabled, togglingType],
 	);
 
 	const handleConnect = useCallback(
 		async (type: ConnectorType) => {
-			try {
-				setConnectingType(type);
-				const response = await fetch("/api/composio/connect", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						...(authToken && { Authorization: `Bearer ${authToken}` }),
-					},
-					body: JSON.stringify({ connectorType: type }),
-				});
-				if (!response.ok) {
-					setConnectingType(null);
-					return;
-				}
-				const { redirectUrl, connectionRequestId } = await response.json();
-
-				// Validate URL is HTTPS
-				try {
-					const url = new URL(redirectUrl);
-					if (url.protocol !== "https:") {
-						throw new Error("Invalid URL protocol");
-					}
-				} catch {
-					setConnectingType(null);
-					return;
-				}
-
-				sessionStorage.setItem(
-					`composio_connection_${type}`,
-					connectionRequestId,
-				);
-				window.location.href = redirectUrl;
-			} catch {
+			setConnectingType(type);
+			const payload = await requestConnectorRedirect(type, authToken);
+			if (!payload) {
 				setConnectingType(null);
+				return;
 			}
+
+			sessionStorage.setItem(
+				`composio_connection_${type}`,
+				payload.connectionRequestId,
+			);
+			window.location.href = payload.redirectUrl;
 		},
 		[authToken],
 	);

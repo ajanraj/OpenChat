@@ -66,28 +66,18 @@ export function ChatInput({
 	const isRequestActive = status === "streaming" || status === "submitted";
 
 	// Local state for input value to prevent parent re-renders
-	const [value, setValue] = useState(initialValue);
+	const [draftValue, setDraftValue] = useState<string | null>(null);
+	const value = draftValue ?? initialValue;
 	const [searchEnabled, setSearchEnabled] = useState(false);
 	const toggleSearch = useCallback(() => {
 		setSearchEnabled((prev) => !prev);
 	}, []);
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-	// Track isEmpty state to prevent PromptSystem re-renders on every keystroke
-	const [isEmpty, setIsEmpty] = useState(true);
-
-	// Only update isEmpty when the emptiness state actually changes
-	useEffect(() => {
-		const currentEmpty = !value || value.trim() === "";
-		if (currentEmpty !== isEmpty) {
-			setIsEmpty(currentEmpty);
-		}
-	}, [value, isEmpty]);
-
-	// Update local value when initialValue changes (e.g., when using suggestions)
-	useEffect(() => {
-		setValue(initialValue);
-	}, [initialValue]);
+	const isEmpty = value.trim() === "";
+	const handleValueChange = useCallback((nextValue: string) => {
+		setDraftValue(nextValue);
+	}, []);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -95,13 +85,13 @@ export function ChatInput({
 				return;
 			}
 
-			if (e.key === "Enter" && !e.shiftKey) {
-				e.preventDefault();
-				onSendAction(value, { enableSearch: searchEnabled });
-				setValue(""); // Clear input after sending
-			}
-		},
-		[onSendAction, isRequestActive, searchEnabled, value],
+				if (e.key === "Enter" && !e.shiftKey) {
+					e.preventDefault();
+					onSendAction(value, { enableSearch: searchEnabled });
+					setDraftValue(""); // Clear input after sending
+				}
+			},
+			[onSendAction, isRequestActive, searchEnabled, value],
 	);
 
 	const handleMainClick = () => {
@@ -116,12 +106,12 @@ export function ChatInput({
 		}
 
 		onSendAction(value, { enableSearch: searchEnabled });
-		setValue(""); // Clear input after sending
+		setDraftValue(""); // Clear input after sending
 	};
 
 	const handleSuggestionClick = useCallback(
 		(suggestion: string) => {
-			setValue(suggestion);
+			setDraftValue(suggestion);
 			onSuggestionAction(suggestion);
 		},
 		[onSuggestionAction],
@@ -255,22 +245,22 @@ export function ChatInput({
 
 	return (
 		<div className="relative flex w-full flex-col gap-4">
-			{hasSuggestions ? (
-				<PromptSystem
-					isEmpty={isEmpty}
-					onSelectSystemPrompt={onSelectSystemPromptAction}
-					onSuggestion={handleSuggestionClick}
-					onValueChange={setValue}
-					selectedPersonaId={selectedPersonaId}
-				/>
-			) : null}
+				{hasSuggestions ? (
+					<PromptSystem
+						isEmpty={isEmpty}
+						onSelectSystemPrompt={onSelectSystemPromptAction}
+						onSuggestion={handleSuggestionClick}
+						onValueChange={handleValueChange}
+						selectedPersonaId={selectedPersonaId}
+					/>
+				) : null}
 			<div className="relative order-2 px-2 pb-3 sm:pb-4 md:order-1">
-				<PromptInput
-					className="relative z-10 p-0 pb-2 backdrop-blur-xl"
-					maxHeight={200}
-					onValueChange={setValue}
-					value={value}
-				>
+					<PromptInput
+						className="relative z-10 p-0 pb-2 backdrop-blur-xl"
+						maxHeight={200}
+						onValueChange={handleValueChange}
+						value={value}
+					>
 					<FileList files={files} onFileRemoveAction={onFileRemoveAction} />
 					<PromptInputTextarea
 						className="mt-2 ml-2 text-foreground leading-[1.3]"
