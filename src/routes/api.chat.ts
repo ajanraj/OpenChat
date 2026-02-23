@@ -878,7 +878,7 @@ export const Route = createFileRoute("/api/chat")({
                   let accumulatedText = "";
                   let providerTextErrorDetected = false;
 
-                  for await (const part of streamResult.fullStream) {
+                  streamLoop: for await (const part of streamResult.fullStream) {
                     switch (part.type) {
                       case "error": {
                         // Error parts from AI SDK - these are already handled by onError callback
@@ -913,6 +913,7 @@ export const Route = createFileRoute("/api/chat")({
                           } catch (saveError) {
                             console.error("Failed to save stream error message:", saveError);
                           }
+                          break streamLoop;
                         }
 
                         // Limit accumulated text size to prevent memory issues
