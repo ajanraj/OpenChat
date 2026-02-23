@@ -4,8 +4,8 @@ import {
 	createContext,
 	useContext,
 	useEffect,
+	useReducer,
 	useRef,
-	useState,
 	useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
@@ -51,7 +51,7 @@ function FileUpload({
 	disabled = false,
 }: FileUploadProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
-	const [isDragging, setIsDragging] = useState(false);
+	const [isDragging, setIsDragging] = useReducer((_: boolean, next: boolean) => next, false);
 	const dragCounter = useRef(0);
 
 	// derive allowed label from config at runtime

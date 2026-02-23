@@ -112,7 +112,7 @@ export const getConnectorConfig = (type: ConnectorType): ConnectorConfig => {
 };
 
 // Connector tool detection configuration
-export const CONNECTOR_TOOL_NAMES = SUPPORTED_CONNECTORS;
+export { SUPPORTED_CONNECTORS as CONNECTOR_TOOL_NAMES };
 
 /**
  * Dynamically generate connector patterns from CONNECTOR_CONFIGS

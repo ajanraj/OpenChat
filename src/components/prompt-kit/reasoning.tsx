@@ -41,7 +41,7 @@ export function Reasoning({
 	isLoading = false,
 	className,
 }: ReasoningProps) {
-	const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
+	const [internalExpanded, setInternalExpanded] = useState(() => defaultExpanded);
 
 	// Use controlled state if provided, otherwise use internal state
 	const isExpanded = expanded !== undefined ? expanded : internalExpanded;

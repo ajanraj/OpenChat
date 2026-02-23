@@ -162,8 +162,8 @@ export const ModelCard = React.memo(function ModelCard({
 
 		const tooltipDisplay = (
 			<div className="flex items-center gap-1.5 font-medium text-xs">
-				{tooltipContentParts.map((part, i) => (
-					<React.Fragment key={i}>
+			{tooltipContentParts.map((part, i) => (
+				<React.Fragment key={`tooltip-part-${i}`}>
 						{part}
 						{i < tooltipContentParts.length - 1 && (
 							<span className="text-muted-foreground">·</span>

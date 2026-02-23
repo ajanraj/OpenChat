@@ -395,11 +395,11 @@ const ChatSidebar = memo(function SidebarComponent() {
 				>
 					{Boolean(chatsLoading) && chats.length === 0 ? (
 						<div className="space-y-2">
-							{Array.from({ length: 5 }, (_, i) => (
-								<div
-									className="h-8 animate-pulse rounded bg-muted/50"
-									key={i}
-								/>
+						{Array.from({ length: 5 }, (_, i) => (
+							<div
+								className="h-8 animate-pulse rounded bg-muted/50"
+								key={`skeleton-${i}`}
+							/>
 							))}
 						</div>
 					) : (

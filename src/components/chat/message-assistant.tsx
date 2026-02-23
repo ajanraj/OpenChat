@@ -19,6 +19,7 @@ import React, {
 	memo,
 	useEffect,
 	useMemo,
+	useReducer,
 	useRef,
 	useState,
 	useSyncExternalStore,
@@ -360,16 +361,17 @@ const extractSearchQueryFromParts = (
 };
 
 // Helper function to render different file types
-const renderFilePart = (filePart: FileUIPart, index: number) => {
+const renderFilePart = (filePart: FileUIPart, index: number, id: string) => {
 	const displayUrl = filePart.url;
 	const filename = filePart.filename || `file-${index}`;
 	const mediaType = filePart.mediaType || "application/octet-stream";
+	const fileKey = filePart.url && filePart.url !== "redacted" ? filePart.url : `${id}-file-${index}`;
 
 	if (mediaType.startsWith("image")) {
 		// If image was redacted on the server, render a fixed-size placeholder with overlay text
 		if (displayUrl === "redacted") {
 			return (
-				<div className="mb-1" key={`file-${index}`}>
+				<div className="mb-1" key={fileKey}>
 					<div
 						aria-label="Image redacted"
 						className="relative overflow-hidden rounded-md bg-muted"
@@ -397,13 +399,13 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
 		}
 		return (
 			<MorphingDialog
-				key={`file-${index}`}
-				transition={{
-					type: "spring",
-					stiffness: 280,
-					damping: 18,
-					mass: 0.3,
-				}}
+		key={fileKey}
+			transition={{
+				type: "spring",
+				stiffness: 280,
+				damping: 18,
+				mass: 0.3,
+			}}
 			>
 				<MorphingDialogTrigger className="z-10">
 					<img
@@ -438,33 +440,33 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
 			<a
 				aria-label={`Download text file: ${filename}`}
 				className="mb-2 flex w-35 cursor-pointer flex-col justify-between rounded-lg border border-gray-200 bg-muted px-4 py-2 shadow-sm transition-colors hover:bg-muted/80 focus:bg-muted/70 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:focus:bg-zinc-800 dark:hover:bg-zinc-700"
-				download={filename}
-				href={displayUrl}
-				key={`file-${index}`}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						(e.currentTarget as HTMLAnchorElement).click();
-					}
-				}}
-				rel="noopener noreferrer"
-				style={{ minWidth: 0, minHeight: 64 }}
-				tabIndex={0}
-				target="_blank"
-			>
-				<div className="flex items-center gap-2">
-					<span
-						className="overflow-hidden truncate whitespace-nowrap font-medium text-gray-900 text-sm dark:text-gray-100"
-						style={{ maxWidth: "calc(100% - 28px)" }}
-						title={filename}
-					>
-						{filename}
-					</span>
-				</div>
-			</a>
-		);
-	}
+			download={filename}
+			href={displayUrl}
+			key={fileKey}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					(e.currentTarget as HTMLAnchorElement).click();
+				}
+			}}
+			rel="noopener noreferrer"
+			style={{ minWidth: 0, minHeight: 64 }}
+			tabIndex={0}
+			target="_blank"
+		>
+			<div className="flex items-center gap-2">
+				<span
+					className="overflow-hidden truncate whitespace-nowrap font-medium text-gray-900 text-sm dark:text-gray-100"
+					style={{ maxWidth: "calc(100% - 28px)" }}
+					title={filename}
+				>
+					{filename}
+				</span>
+			</div>
+		</a>
+	);
+}
 
-	if (mediaType === "application/pdf") {
+if (mediaType === "application/pdf") {
 		if (displayUrl === "redacted") {
 			return (
 				<div className="mb-2 w-[120px] rounded-md border bg-muted px-4 py-2 text-center text-muted-foreground text-xs">
@@ -476,20 +478,20 @@ const renderFilePart = (filePart: FileUIPart, index: number) => {
 			<a
 				aria-label={`Download PDF: ${filename}`}
 				className="mb-2 flex w-35 cursor-pointer flex-col justify-between rounded-lg border border-gray-200 bg-muted px-4 py-2 shadow-sm transition-colors hover:bg-muted/80 focus:bg-muted/70 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:focus:bg-zinc-800 dark:hover:bg-zinc-700"
-				download={filename}
-				href={displayUrl}
-				key={`file-${index}`}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						(e.currentTarget as HTMLAnchorElement).click();
-					}
-				}}
-				rel="noopener noreferrer"
-				style={{ minWidth: 0, minHeight: 64 }}
-				tabIndex={0}
-				target="_blank"
-			>
-				{/* Placeholder preview lines */}
+			download={filename}
+			href={displayUrl}
+			key={fileKey}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					(e.currentTarget as HTMLAnchorElement).click();
+				}
+			}}
+			rel="noopener noreferrer"
+			style={{ minWidth: 0, minHeight: 64 }}
+			tabIndex={0}
+			target="_blank"
+		>
+			{/* Placeholder preview lines */}
 				<div
 					aria-hidden="true"
 					className="mt-1 mb-2 flex flex-1 flex-col gap-0.5"
@@ -558,7 +560,7 @@ const renderTextPart = (
 			className="relative min-w-full bg-transparent p-0"
 			id={`${id}-text-${index}`}
 			isAnimating={isAnimating}
-			key={`text-${index}`}
+			key={`${id}-text-${index}`}
 			markdown={true}
 		>
 			{part.text}
@@ -574,7 +576,7 @@ const renderReasoningPart = (
 	toggleReasoning: () => void,
 	isPartStreaming: boolean,
 ) => (
-	<div className="mb-2 w-full" key={`reasoning-${index}`}>
+	<div className="mb-2 w-full" key={`${id}-reasoning-${index}`}>
 		<Reasoning
 			expanded={showReasoning}
 			isLoading={isPartStreaming}
@@ -672,10 +674,12 @@ function ToolRenderer({
 const renderToolPart = (
 	part: ToolUIPart,
 	index: number,
-	_id: string,
+	id: string,
 ) => {
 	const extendedPart = part as ExtendedToolUIPart;
 	const toolType = part.type.replace("tool-", "");
+	const anyPart = part as Record<string, unknown>;
+	const toolKey = (anyPart.toolCallId as string) || (anyPart.callId as string) || `${id}-tool-${index}`;
 
 	// Handle search tools
 	if (toolType === "search") {
@@ -690,7 +694,7 @@ const renderToolPart = (
 			return (
 				<div
 					className="my-2 flex items-center gap-2 text-muted-foreground text-sm"
-					key={`tool-${index}`}
+					key={toolKey}
 				>
 					<Loader text="Searching the web" />
 				</div>
@@ -840,7 +844,7 @@ const renderPartDirectly = (
 		case "file":
 			return (
 				<div className="flex w-full flex-wrap gap-2" key={partKey}>
-					{renderFilePart(part as FileUIPart, index)}
+					{renderFilePart(part as FileUIPart, index, id)}
 				</div>
 			);
 
@@ -849,7 +853,7 @@ const renderPartDirectly = (
 				return renderToolPart(part as ToolUIPart, index, id);
 			}
 			if (isErrorPart(part)) {
-				return renderErrorPart(part, index);
+				return renderErrorPart(part, index, id);
 			}
 			// Skip rendering boundary markers (they're only for detection)
 			if (part.type === "data-agent-boundary") {
@@ -908,9 +912,9 @@ const renderPartInChainOfThought = (
 					label="File Attachment"
 					status="complete"
 				>
-					<div className="flex w-full flex-wrap gap-2">
-						{renderFilePart(part as FileUIPart, index)}
-					</div>
+				<div className="flex w-full flex-wrap gap-2">
+					{renderFilePart(part as FileUIPart, index, id)}
+				</div>
 				</ChainOfThoughtStep>
 			);
 
@@ -936,7 +940,7 @@ const renderPartInChainOfThought = (
 			if (isErrorPart(part)) {
 				return (
 					<ChainOfThoughtStep key={partKey} label="Error" status="complete">
-						{renderErrorPart(part, index)}
+						{renderErrorPart(part, index, id)}
 					</ChainOfThoughtStep>
 				);
 			}
@@ -948,10 +952,10 @@ const renderPartInChainOfThought = (
 	}
 };
 
-const renderErrorPart = (part: ErrorUIPart, index: number) => (
+const renderErrorPart = (part: ErrorUIPart, index: number, id: string) => (
 	<div
 		className="mt-4 flex items-start gap-3 rounded-lg bg-red-500/15 px-4 py-3 text-red-900 text-sm dark:text-red-400"
-		key={`error-${index}`}
+		key={`${id}-error-${index}`}
 		role="alert"
 	>
 		<div className="leading-relaxed">{part.error.message}</div>
@@ -1098,13 +1102,36 @@ function MessageAssistantInner({
 	}, [agentSegments]);
 
 	// State for reasoning collapse/expand functionality - track each reasoning part individually
-	const [reasoningStates, setReasoningStates] = useState<
-		Record<string, boolean>
-	>({});
-	// Track which reasoning parts were initially streaming (to show correct UI)
-	const [reasoningStreamingStates, setReasoningStreamingStates] = useState<
-		Record<string, boolean>
-	>({});
+	type ReasoningCombinedState = {
+		expanded: Record<string, boolean>;
+		streaming: Record<string, boolean>;
+	};
+	type ReasoningAction =
+		| { type: "init"; payload: ReasoningCombinedState }
+		| { type: "toggle"; key: string };
+	const [reasoningCombined, dispatchReasoning] = useReducer(
+		(state: ReasoningCombinedState, action: ReasoningAction): ReasoningCombinedState => {
+			if (action.type === "toggle") {
+				return {
+					...state,
+					expanded: { ...state.expanded, [action.key]: !state.expanded[action.key] },
+				};
+			}
+			// "init": only update if something actually changed
+			const { payload } = action;
+			const expandedSame = Object.keys(payload.expanded).every(
+				(k) => state.expanded[k] === payload.expanded[k],
+			) && Object.keys(state.expanded).length === Object.keys(payload.expanded).length;
+			const streamingSame = Object.keys(payload.streaming).every(
+				(k) => state.streaming[k] === payload.streaming[k],
+			) && Object.keys(state.streaming).length === Object.keys(payload.streaming).length;
+			if (expandedSame && streamingSame) return state;
+			return { expanded: payload.expanded, streaming: payload.streaming };
+		},
+		{ expanded: {}, streaming: {} },
+	);
+	const reasoningStates = reasoningCombined.expanded;
+	const reasoningStreamingStates = reasoningCombined.streaming;
 	const initialStatusRef = useRef<Record<string, boolean>>({});
 	const isTouch = useSyncExternalStore(
 		subscribeToTouchCapability,
@@ -1160,100 +1187,73 @@ function MessageAssistantInner({
 
 	// Initialize reasoning states - only run once when reasoning parts are first detected
 	useEffect(() => {
-		if (combinedParts) {
-			// Calculate new states in a single pass
-			let newStates: Record<string, boolean> = {};
-			let newStreamingStates: Record<string, boolean> = {};
-			let hasStateChanges = false;
-			let hasStreamingChanges = false;
+		if (!combinedParts) return;
 
-			// Update both reasoning states in a single operation
-			setReasoningStates((prevStates) => {
-				setReasoningStreamingStates((prevStreamingStates) => {
-					newStates = { ...prevStates };
-					newStreamingStates = { ...prevStreamingStates };
+		const newExpanded: Record<string, boolean> = { ...reasoningCombined.expanded };
+		const newStreaming: Record<string, boolean> = { ...reasoningCombined.streaming };
+		let hasChanges = false;
 
-					// Single pass through combinedParts to update both states
-					combinedParts.forEach((part, index) => {
-						if (part.type === "reasoning") {
-							const key = `${id}-${index}`;
+		// Single pass through combinedParts to update both states
+		combinedParts.forEach((part, index) => {
+			if (part.type === "reasoning") {
+				const key = `${id}-${index}`;
+				const hasContent = Boolean(part.text && part.text.trim().length > 0);
+				const isCurrentlyStreaming = status === "streaming";
 
-							// Handle reasoning states
-							const hasContent = Boolean(
-								part.text && part.text.trim().length > 0,
-							);
-							const isCurrentlyStreaming = status === "streaming";
+				if (!(key in newExpanded)) {
+					newExpanded[key] = hasContent && isCurrentlyStreaming;
+					hasChanges = true;
+				} else if (isCurrentlyStreaming && hasContent && !newExpanded[key]) {
+					newExpanded[key] = true;
+					hasChanges = true;
+				}
 
-							if (!(key in newStates)) {
-								// Initialize new reasoning part - start closed if no content
-								newStates[key] = hasContent && isCurrentlyStreaming;
-								hasStateChanges = true;
-							} else if (
-								isCurrentlyStreaming &&
-								hasContent &&
-								!newStates[key]
-							) {
-								// Expand if we're streaming and content appears for the first time
-								newStates[key] = true;
-								hasStateChanges = true;
-							}
+				if (!(key in newStreaming)) {
+					newStreaming[key] = isCurrentlyStreaming;
+					initialStatusRef.current[key] = isCurrentlyStreaming;
+					hasChanges = true;
+				}
+			}
+		});
 
-							// Handle streaming states
-							if (!(key in newStreamingStates)) {
-								const isInitiallyStreaming = status === "streaming";
-								newStreamingStates[key] = isInitiallyStreaming;
-								// Store the initial status in ref to avoid re-initialization
-								initialStatusRef.current[key] = isInitiallyStreaming;
-								hasStreamingChanges = true;
-							}
+		// During streaming, collapse reasoning blocks that have non-reasoning content after them
+		if (status === "streaming") {
+			combinedParts.forEach((part, index) => {
+				if (part.type === "reasoning") {
+					const key = `${id}-${index}`;
+					const hasSubsequentNonReasoningParts = combinedParts
+						.slice(index + 1)
+						.some((p) => p.type !== "reasoning");
+
+					if (hasSubsequentNonReasoningParts) {
+						if (newExpanded[key]) {
+							newExpanded[key] = false;
+							hasChanges = true;
 						}
-					});
-
-					// During streaming, handle collapsing and loading states for reasoning parts that have non-reasoning content after them
-					if (status === "streaming") {
-						combinedParts.forEach((part, index) => {
-							if (part.type === "reasoning") {
-								const key = `${id}-${index}`;
-								// Check if there are non-reasoning parts after this reasoning part
-								const hasSubsequentNonReasoningParts = combinedParts
-									.slice(index + 1)
-									.some((p) => p.type !== "reasoning");
-
-								if (hasSubsequentNonReasoningParts) {
-									// Collapse this specific reasoning block
-									if (newStates[key]) {
-										newStates[key] = false;
-										hasStateChanges = true;
-									}
-
-									// Turn off loading for this reasoning part
-									if (newStreamingStates[key]) {
-										newStreamingStates[key] = false;
-										hasStreamingChanges = true;
-									}
-								}
-							}
-						});
-					} else {
-						// When not streaming, turn off all reasoning streaming states (loading indicators)
-						combinedParts.forEach((part, index) => {
-							if (part.type === "reasoning") {
-								const key = `${id}-${index}`;
-								// Turn off loading for this reasoning part if it's currently on
-								if (newStreamingStates[key]) {
-									newStreamingStates[key] = false;
-									hasStreamingChanges = true;
-								}
-							}
-						});
+						if (newStreaming[key]) {
+							newStreaming[key] = false;
+							hasChanges = true;
+						}
 					}
-
-					return hasStreamingChanges ? newStreamingStates : prevStreamingStates;
-				});
-
-				return hasStateChanges ? newStates : prevStates;
+				}
+			});
+		} else {
+			// When not streaming, turn off all reasoning streaming states
+			combinedParts.forEach((part, index) => {
+				if (part.type === "reasoning") {
+					const key = `${id}-${index}`;
+					if (newStreaming[key]) {
+						newStreaming[key] = false;
+						hasChanges = true;
+					}
+				}
 			});
 		}
+
+		if (hasChanges) {
+			dispatchReasoning({ type: "init", payload: { expanded: newExpanded, streaming: newStreaming } });
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omitting reasoningCombined to avoid infinite loop
 	}, [combinedParts, id, status]);
 
 	// Extract model from metadata or use direct model prop as fallback
@@ -1273,10 +1273,7 @@ function MessageAssistantInner({
 	// Helper function to toggle individual reasoning part
 	const toggleReasoning = (index: number) => {
 		const key = `${id}-${index}`;
-		setReasoningStates((prev) => ({
-			...prev,
-			[key]: !prev[key],
-		}));
+		dispatchReasoning({ type: "toggle", key });
 	};
 
 	return (
