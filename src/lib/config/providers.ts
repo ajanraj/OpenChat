@@ -96,4 +96,4 @@ export const PROVIDERS = [
   },
 ] as Provider[];
 
-export const PROVIDERS_OPTIONS = PROVIDERS;
+export { PROVIDERS as PROVIDERS_OPTIONS };

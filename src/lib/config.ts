@@ -13,6 +13,5 @@ export * from "./config/models/index";
 export * from "./config/providers";
 // Schemas and types
 export * from "./config/schemas";
-export * from "./config/schemas";
 // Suggestions
 export * from "./config/suggestions";
