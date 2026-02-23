@@ -4,6 +4,36 @@ import { codeToHtml } from "shiki";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
+const HIGHLIGHT_CACHE_MAX = 128;
+const highlightCache = new Map<string, Promise<string>>();
+
+function getCachedHighlight(
+	code: string,
+	language: string,
+	theme: string,
+): Promise<string> {
+	const key = `${language}:${theme}:${code}`;
+	const cached = highlightCache.get(key);
+	if (cached) {
+		highlightCache.delete(key);
+		highlightCache.set(key, cached);
+		return cached;
+	}
+	const promise = codeToHtml(code, {
+		lang: language,
+		theme: theme === "dark" ? "github-dark" : "github-light",
+	}).catch((error: unknown) => {
+		highlightCache.delete(key);
+		throw error;
+	});
+	if (highlightCache.size >= HIGHLIGHT_CACHE_MAX) {
+		const oldest = highlightCache.keys().next().value;
+		if (oldest !== undefined) highlightCache.delete(oldest);
+	}
+	highlightCache.set(key, promise);
+	return promise;
+}
+
 export type CodeBlockProps = {
 	children?: React.ReactNode;
 	className?: string;
@@ -100,16 +130,7 @@ function HighlightedCode({
 	className,
 	props,
 }: HighlightedCodeProps) {
-	const highlightedHtml = use(
-		useMemo(
-			() =>
-				codeToHtml(code, {
-					lang: language,
-					theme: appTheme === "dark" ? "github-dark" : "github-light",
-				}),
-			[code, language, appTheme],
-		),
-	);
+	const highlightedHtml = use(getCachedHighlight(code, language, appTheme));
 	const highlightedNodes = useMemo(() => {
 		const parsed = parseDocument(highlightedHtml);
 		return renderHighlightedNodes(parsed.children, "highlighted");

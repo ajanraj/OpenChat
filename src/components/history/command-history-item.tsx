@@ -61,6 +61,12 @@ export const CommandHistoryItem = React.memo(
 		// Derived state for readability and to reduce complexity
 		const isEditing = editingId === chat._id;
 		const isDeleting = deletingId === chat._id;
+		const focusDeleteShortcutInput = React.useCallback(
+			(node: HTMLInputElement | null) => {
+				node?.focus();
+			},
+			[],
+		);
 
 		return (
 			<div className="px-0 py-0.5" key={chat._id}>
@@ -120,6 +126,7 @@ export const CommandHistoryItem = React.memo(
 											handleConfirmDelete(chat._id);
 										}
 									}}
+									ref={focusDeleteShortcutInput}
 									type="text"
 								/>
 							</div>

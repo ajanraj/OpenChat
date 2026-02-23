@@ -11,7 +11,7 @@ import {
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Drawer,
@@ -80,6 +80,12 @@ function DrawerHistoryItem({
 	const isEditing = editingId === chat._id;
 	const isDeleting = deletingId === chat._id;
 	const isCurrent = chat._id === currentChatId;
+	const focusDeleteShortcutInput = useCallback(
+		(node: HTMLInputElement | null) => {
+			node?.focus();
+		},
+		[],
+	);
 
 	if (isEditing) {
 		return (
@@ -127,15 +133,19 @@ function DrawerHistoryItem({
 				<div className="flex w-full items-center justify-between">
 					<div className="flex flex-1 items-center">
 						<span className="font-normal text-base">{chat.title}</span>
-						<input
-							className="sr-only"
-							onKeyDown={(e) => {
-								if (e.key === "Escape") {
-									e.preventDefault();
-									handleCancelDelete();
-								}
-							}}
-							type="text"
+							<input
+								className="sr-only"
+								onKeyDown={(e) => {
+									if (e.key === "Escape") {
+										e.preventDefault();
+										handleCancelDelete();
+									} else if (e.key === "Enter") {
+										e.preventDefault();
+										handleConfirmDelete(chat._id);
+									}
+								}}
+								ref={focusDeleteShortcutInput}
+								type="text"
 						/>
 					</div>
 					<div className="ml-2 flex gap-1">
