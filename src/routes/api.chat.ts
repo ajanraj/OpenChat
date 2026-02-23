@@ -2,6 +2,7 @@ import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { createFileRoute } from "@tanstack/react-router";
+import { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
 import {
   consumeStream,
   convertToModelMessages,
@@ -39,6 +40,11 @@ import {
   detectProviderErrorFromObject,
   detectProviderErrorInText,
 } from "@/lib/provider-error-detector";
+import {
+  getOpenAIStreamModel,
+  isOpenAITransportEligible,
+  type OpenAIWebSocketFetch,
+} from "@/lib/openai-websocket-transport";
 import { sanitizeUserInput } from "@/lib/sanitize";
 import { uploadBlobToR2 } from "@/lib/server-upload-helpers";
 import { createMeteredSearchTool } from "@/lib/tools/search-credit-metering";
@@ -380,8 +386,22 @@ export const Route = createFileRoute("/api/chat")({
     middleware: [authMiddleware],
     handlers: {
       POST: async ({ context, request }) => {
+        const activeWebSocketFetches = new Set<OpenAIWebSocketFetch>();
+
+        const closeWebSocketFetch = (wsFetch: OpenAIWebSocketFetch) => {
+          wsFetch.close();
+          activeWebSocketFetches.delete(wsFetch);
+        };
+
+        const closeAllWebSocketFetches = () => {
+          for (const wsFetch of activeWebSocketFetches) {
+            wsFetch.close();
+          }
+          activeWebSocketFetches.clear();
+        };
+
         request.signal.addEventListener("abort", () => {
-          // Request aborted by client
+          closeAllWebSocketFetches();
         });
 
         try {
@@ -706,6 +726,8 @@ export const Route = createFileRoute("/api/chat")({
             async execute({ writer }) {
               const runStream = async (useUserKeyOverride: boolean) => {
                 const providerOptions = makeOptions(useUserKeyOverride);
+                let modelForStream = selectedModel.api_sdk;
+                let closeTransport: (() => void) | undefined;
 
                 const toolset: Record<string, Tool> = {};
 
@@ -720,6 +742,39 @@ export const Route = createFileRoute("/api/chat")({
 
                 if (meteredSearchTool) {
                   toolset.search = meteredSearchTool;
+                }
+
+                if (isOpenAITransportEligible(selectedModel)) {
+                  try {
+                    const wsFetch = createWebSocketFetch();
+                    activeWebSocketFetches.add(wsFetch);
+                    let transportClosed = false;
+
+                    closeTransport = () => {
+                      if (transportClosed) {
+                        return;
+                      }
+                      transportClosed = true;
+                      closeWebSocketFetch(wsFetch);
+                    };
+
+                    const transportModel = getOpenAIStreamModel(
+                      selectedModel,
+                      wsFetch,
+                      shouldEnableThinking(selectedModel.id),
+                    );
+                    if (transportModel) {
+                      modelForStream = transportModel;
+                    } else {
+                      closeTransport();
+                      closeTransport = undefined;
+                    }
+                  } catch (transportError) {
+                    console.error(
+                      "OpenAI WebSocket transport init failed; falling back to HTTP transport.",
+                      transportError,
+                    );
+                  }
                 }
 
                 if (
@@ -737,83 +792,93 @@ export const Route = createFileRoute("/api/chat")({
                   });
                 }
 
-                const streamResult = streamText({
-                  model: selectedModel.api_sdk,
-                  system: finalSystemPrompt,
-                  messages: await convertToModelMessages(messages),
-                  tools: toolset,
-                  stopWhen: stepCountIs(20),
-                  experimental_transform: smoothStream({
-                    delayInMs: 20,
-                    chunking: "word",
-                  }),
-                  providerOptions,
-                  onError: async ({ error }) => {
-                    // Handle errors gracefully - save to conversation but don't throw
-                    // The throwing behavior will be handled in the fullStream processing
+                let streamResult: ReturnType<typeof streamText>;
+                try {
+                  streamResult = streamText({
+                    model: modelForStream,
+                    system: finalSystemPrompt,
+                    messages: await convertToModelMessages(messages),
+                    tools: toolset,
+                    stopWhen: stepCountIs(20),
+                    experimental_transform: smoothStream({
+                      delayInMs: 20,
+                      chunking: "word",
+                    }),
+                    providerOptions,
+                    onError: async ({ error }) => {
+                      // Handle errors gracefully - save to conversation but don't throw
+                      // The throwing behavior will be handled in the fullStream processing
 
-                    // First, try to detect provider-specific error patterns
-                    const detectedError = detectProviderErrorFromObject(
-                      error,
-                      selectedModel.provider,
-                    );
+                      // First, try to detect provider-specific error patterns
+                      const detectedError = detectProviderErrorFromObject(
+                        error,
+                        selectedModel.provider,
+                      );
 
-                    if (detectedError) {
-                      // If we detected a provider-specific error, save it with enhanced message
-                      try {
-                        await saveErrorMessage(
-                          chatId,
-                          userMsgId,
-                          detectedError, // Pass DetectedError directly, don't wrap in Error
-                          client,
-                          selectedModel.id,
-                          selectedModel.name,
-                          enableSearch,
-                          reasoningEffort,
-                        );
-                        errorMessageSaved = true; // Mark that error message was saved
-                      } catch (saveError) {
-                        console.error("Failed to save error message in onError:", saveError);
+                      if (detectedError) {
+                        // If we detected a provider-specific error, save it with enhanced message
+                        try {
+                          await saveErrorMessage(
+                            chatId,
+                            userMsgId,
+                            detectedError, // Pass DetectedError directly, don't wrap in Error
+                            client,
+                            selectedModel.id,
+                            selectedModel.name,
+                            enableSearch,
+                            reasoningEffort,
+                          );
+                          errorMessageSaved = true; // Mark that error message was saved
+                        } catch (saveError) {
+                          console.error("Failed to save error message in onError:", saveError);
+                        }
+                        closeTransport?.();
+                        return; // Exit early - error saved, no throwing
                       }
-                      return; // Exit early - error saved, no throwing
-                    }
 
-                    // Fallback to original error handling
-                    if (shouldShowInConversation(error)) {
-                      try {
-                        await saveErrorMessage(
-                          chatId,
-                          userMsgId,
-                          error,
-                          client,
-                          selectedModel.id,
-                          selectedModel.name,
-                          enableSearch,
-                          reasoningEffort,
-                        );
-                        errorMessageSaved = true; // Mark that error message was saved
-                      } catch (saveError) {
-                        console.error("Failed to save fallback error message:", saveError);
+                      // Fallback to original error handling
+                      if (shouldShowInConversation(error)) {
+                        try {
+                          await saveErrorMessage(
+                            chatId,
+                            userMsgId,
+                            error,
+                            client,
+                            selectedModel.id,
+                            selectedModel.name,
+                            enableSearch,
+                            reasoningEffort,
+                          );
+                          errorMessageSaved = true; // Mark that error message was saved
+                        } catch (saveError) {
+                          console.error("Failed to save fallback error message:", saveError);
+                        }
                       }
-                    }
-                    // No throwing - let the stream handle the error state gracefully
-                  },
-                  onFinish({ totalUsage }) {
-                    finalUsage = {
-                      inputTokens: totalUsage.inputTokens || 0,
-                      outputTokens: totalUsage.outputTokens || 0,
-                      reasoningTokens: totalUsage.reasoningTokens || 0,
-                      totalTokens: totalUsage.totalTokens || 0,
-                      cachedInputTokens: totalUsage.cachedInputTokens || 0,
-                    };
-                  },
-                });
+                      closeTransport?.();
+                      // No throwing - let the stream handle the error state gracefully
+                    },
+                    onFinish({ totalUsage }) {
+                      finalUsage = {
+                        inputTokens: totalUsage.inputTokens || 0,
+                        outputTokens: totalUsage.outputTokens || 0,
+                        reasoningTokens: totalUsage.reasoningTokens || 0,
+                        totalTokens: totalUsage.totalTokens || 0,
+                        cachedInputTokens: totalUsage.cachedInputTokens || 0,
+                      };
+                      closeTransport?.();
+                    },
+                  });
+                } catch (streamStartError) {
+                  closeTransport?.();
+                  throw streamStartError;
+                }
 
                 // Enhanced stream processing with error detection
                 void (async () => {
                   let accumulatedText = "";
+                  let providerTextErrorDetected = false;
 
-                  streamLoop: for await (const part of streamResult.fullStream) {
+                  for await (const part of streamResult.fullStream) {
                     switch (part.type) {
                       case "error": {
                         // Error parts from AI SDK - these are already handled by onError callback
@@ -829,7 +894,8 @@ export const Route = createFileRoute("/api/chat")({
                           accumulatedText,
                           selectedModel.provider,
                         );
-                        if (detectedError) {
+                        if (detectedError && !providerTextErrorDetected) {
+                          providerTextErrorDetected = true;
                           // Found an error pattern in the streaming text
                           // Save the error with the provider-specific message
                           try {
@@ -847,9 +913,6 @@ export const Route = createFileRoute("/api/chat")({
                           } catch (saveError) {
                             console.error("Failed to save stream error message:", saveError);
                           }
-
-                          // Stop processing this stream since we found an error
-                          break streamLoop;
                         }
 
                         // Limit accumulated text size to prevent memory issues
@@ -1054,6 +1117,7 @@ export const Route = createFileRoute("/api/chat")({
             consumeSseStream: consumeStream,
           });
         } catch (err) {
+          closeAllWebSocketFetches();
           return createErrorResponse(err);
         }
       },
