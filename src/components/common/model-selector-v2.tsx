@@ -70,6 +70,20 @@ export function ModelSelectorV2({
 	className,
 	openSignalEvent,
 }: ModelSelectorV2Props) {
+	return useModelSelectorV2View({
+	selectedModelId,
+	setSelectedModelId,
+	className,
+	openSignalEvent,
+	});
+}
+
+function useModelSelectorV2View({
+	selectedModelId,
+	setSelectedModelId,
+	className,
+	openSignalEvent,
+}: ModelSelectorV2Props) {
 	const { user, hasPremium, products } = useUser();
 	const { toggleFavoriteModel, favoriteModelsSet } = useModelPreferences();
 	const { categorizedModels } = useEnrichedModels();

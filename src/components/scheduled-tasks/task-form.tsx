@@ -88,6 +88,22 @@ export function TaskFormContent({
 	initialData,
 	mode = "create",
 }: CreateTaskFormProps) {
+	return useTaskFormContentView({
+	onSuccessAction,
+	onCancelAction,
+	CloseWrapper,
+	initialData,
+	mode,
+	});
+}
+
+function useTaskFormContentView({
+	onSuccessAction,
+	onCancelAction,
+	CloseWrapper,
+	initialData,
+	mode = "create",
+}: CreateTaskFormProps) {
 	// Use pure function to compute initial state - no useEffect needed
 	const [form, setForm] = useState<CreateTaskForm>(() =>
 		getInitialFormState(initialData, mode),

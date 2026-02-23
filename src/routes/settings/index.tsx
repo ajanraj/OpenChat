@@ -104,34 +104,24 @@ export function AccountSettingsPage() {
       });
   }, [deleteAccount, signOut, router]);
 
-  const renderSubscriptionButton = useCallback(() => {
-    if (hasPremium) {
-      return (
-        <Button
-          className="w-full cursor-pointer md:w-auto"
-          onClick={handleManageSubscription}
-          variant="outline"
-        >
-          Manage Subscription
-        </Button>
-      );
-    }
-
-    if (products?.premium?.id) {
-      return (
-        <Button className="w-full cursor-pointer md:w-auto" onClick={handleUpgrade}>
-          <Sparkle className="mr-2 size-4" weight="fill" />
-          Upgrade Now
-        </Button>
-      );
-    }
-
-    return (
-      <Button className="w-full md:w-auto" disabled variant="secondary">
-        Loading...
-      </Button>
-    );
-  }, [hasPremium, products?.premium?.id, handleUpgrade, handleManageSubscription]);
+  const subscriptionButton = hasPremium ? (
+    <Button
+      className="w-full cursor-pointer md:w-auto"
+      onClick={handleManageSubscription}
+      variant="outline"
+    >
+      Manage Subscription
+    </Button>
+  ) : products?.premium?.id ? (
+    <Button className="w-full cursor-pointer md:w-auto" onClick={handleUpgrade}>
+      <Sparkle className="mr-2 size-4" weight="fill" />
+      Upgrade Now
+    </Button>
+  ) : (
+    <Button className="w-full md:w-auto" disabled variant="secondary">
+      Loading...
+    </Button>
+  );
 
   const features = [
     "Access to all AI models",
@@ -184,7 +174,7 @@ export function AccountSettingsPage() {
                 </div>
               </div>
             </div>
-            {renderSubscriptionButton()}
+            {subscriptionButton}
           </>
         )}
 
@@ -215,7 +205,7 @@ export function AccountSettingsPage() {
                   <div className="flex items-baseline">
                     <span className="font-bold text-5xl tracking-tight">$10</span>
                   </div>
-                  <div className="mt-4 w-full">{renderSubscriptionButton()}</div>
+                  <div className="mt-4 w-full">{subscriptionButton}</div>
                 </div>
               </div>
             </div>

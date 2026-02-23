@@ -84,24 +84,24 @@ function DrawerHistoryItem({
 	if (isEditing) {
 		return (
 			<div className="flex items-center justify-between rounded-lg bg-accent px-2 py-2.5">
-				<form
-					className="flex w-full items-center justify-between"
-					onSubmit={(e) => {
-						e.preventDefault();
-						handleSaveEdit(chat._id);
-					}}
-				>
+				<div className="flex w-full items-center justify-between">
 					<Input
-						autoFocus
 						className="h-8 flex-1"
 						onChange={(e) => setEditTitle(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								handleSaveEdit(chat._id);
+							}
+						}}
 						value={editTitle}
 					/>
 					<div className="ml-2 flex gap-1">
 						<Button
 							className="h-8 w-8"
+							onClick={() => handleSaveEdit(chat._id)}
 							size="icon"
-							type="submit"
+							type="button"
 							variant="ghost"
 						>
 							<Check className="size-4" />
@@ -116,7 +116,7 @@ function DrawerHistoryItem({
 							<X className="size-4" />
 						</Button>
 					</div>
-				</form>
+				</div>
 			</div>
 		);
 	}
@@ -124,17 +124,10 @@ function DrawerHistoryItem({
 	if (isDeleting) {
 		return (
 			<div className="flex items-center justify-between rounded-lg bg-accent px-2 py-2.5">
-				<form
-					className="flex w-full items-center justify-between"
-					onSubmit={(e) => {
-						e.preventDefault();
-						handleConfirmDelete(chat._id);
-					}}
-				>
+				<div className="flex w-full items-center justify-between">
 					<div className="flex flex-1 items-center">
 						<span className="font-normal text-base">{chat.title}</span>
 						<input
-							autoFocus
 							className="sr-only"
 							onKeyDown={(e) => {
 								if (e.key === "Escape") {
@@ -148,8 +141,9 @@ function DrawerHistoryItem({
 					<div className="ml-2 flex gap-1">
 						<Button
 							className="size-8 text-muted-foreground hover:text-destructive"
+							onClick={() => handleConfirmDelete(chat._id)}
 							size="icon"
-							type="submit"
+							type="button"
 							variant="ghost"
 						>
 							<Check className="size-4" />
@@ -164,7 +158,7 @@ function DrawerHistoryItem({
 							<X className="size-4" />
 						</Button>
 					</div>
-				</form>
+				</div>
 			</div>
 		);
 	}

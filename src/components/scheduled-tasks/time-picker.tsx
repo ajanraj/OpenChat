@@ -246,13 +246,12 @@ function TimePickerComponent({
 									/>
 								</Button>
 							</PopoverTrigger>
-							<PopoverContent align="start" className="z-101 w-auto p-0">
-								<Calendar
-									autoFocus
-									className="rounded-md"
-									disabled={(date) =>
-										date < new Date(new Date().setHours(0, 0, 0, 0))
-									}
+								<PopoverContent align="start" className="z-101 w-auto p-0">
+									<Calendar
+										className="rounded-md"
+										disabled={(date) =>
+											date < new Date(new Date().setHours(0, 0, 0, 0))
+										}
 									mode="single"
 									onSelect={onDateChange}
 									selected={selectedDate}

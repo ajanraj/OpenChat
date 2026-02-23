@@ -51,8 +51,26 @@ function FileUpload({
 	disabled = false,
 }: FileUploadProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
-	const [isDragging, setIsDragging] = useReducer((_: boolean, next: boolean) => next, false);
-	const dragCounter = useRef(0);
+	type DragState = { isDragging: boolean; counter: number };
+	type DragAction = { type: "enter"; hasItems: boolean } | { type: "leave" } | { type: "drop" };
+	const [dragState, dispatchDrag] = useReducer(
+		(state: DragState, action: DragAction): DragState => {
+			if (action.type === "drop") {
+				return { isDragging: false, counter: 0 };
+			}
+			if (action.type === "leave") {
+				const nextCounter = Math.max(0, state.counter - 1);
+				return { isDragging: nextCounter > 0 && state.isDragging, counter: nextCounter };
+			}
+			const nextCounter = state.counter + 1;
+			return {
+				isDragging: action.hasItems || state.isDragging,
+				counter: nextCounter,
+			};
+		},
+		{ isDragging: false, counter: 0 },
+	);
+	const isDragging = dragState.isDragging;
 
 	// derive allowed label from config at runtime
 
@@ -64,20 +82,20 @@ function FileUpload({
 
 		const handleDragIn = (e: DragEvent) => {
 			handleDrag(e);
-			dragCounter.current++;
-			if (e.dataTransfer?.items.length) setIsDragging(true);
+			dispatchDrag({
+				type: "enter",
+				hasItems: Boolean(e.dataTransfer?.items.length),
+			});
 		};
 
 		const handleDragOut = (e: DragEvent) => {
 			handleDrag(e);
-			dragCounter.current--;
-			if (dragCounter.current === 0) setIsDragging(false);
+			dispatchDrag({ type: "leave" });
 		};
 
 		const handleDrop = (e: DragEvent) => {
 			handleDrag(e);
-			setIsDragging(false);
-			dragCounter.current = 0;
+			dispatchDrag({ type: "drop" });
 			if (e.dataTransfer?.files.length) {
 				const allFiles = Array.from(e.dataTransfer.files);
 				const selectedByType = (() => {
@@ -238,7 +256,7 @@ function FileUploadContent({ className, ...props }: FileUploadContentProps) {
 	const content = (
 		<div
 			className={cn(
-				"bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm",
+				"bg-background/80 fixed inset-0 z-[95] flex items-center justify-center backdrop-blur-sm",
 				"animate-in fade-in-0 slide-in-from-bottom-10 zoom-in-90 duration-150",
 				className,
 			)}

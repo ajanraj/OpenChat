@@ -104,6 +104,10 @@ const getFeatureColorClasses = (featureId: string) => {
 };
 
 export function ModelsSettingsPage() {
+  return useModelsSettingsPageView();
+}
+
+function useModelsSettingsPageView() {
   const { disabledModelsSet, setModelEnabled, bulkSetModelsDisabled } = useModelSettings();
   const { bulkSetFavoriteModels } = useModelPreferences();
   const navigate = useNavigate({ from: Route.fullPath });

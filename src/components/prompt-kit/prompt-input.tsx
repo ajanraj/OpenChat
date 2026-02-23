@@ -130,7 +130,6 @@ const PromptInputTextarea = React.forwardRef<
 		return (
 			<Textarea
 				ref={textareaRef}
-				autoFocus
 				value={value}
 				onChange={(e) => setValue(e.target.value)}
 				onKeyDown={handleKeyDown}

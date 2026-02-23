@@ -148,7 +148,7 @@ export const Suggestions = memo(function SuggestionsComponent({
 						exit="exit"
 						highlight={activeCategoryData.highlight}
 						initial="initial"
-						key={`${activeCategoryData?.label}-${suggestion}-${index}`}
+						key={`${activeCategoryData?.label}-${suggestion}`}
 						onClick={() => handleSuggestionClick(suggestion)}
 						transition={
 							shouldReduceMotion

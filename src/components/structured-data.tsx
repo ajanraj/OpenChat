@@ -141,14 +141,8 @@ export function StructuredData({
 	];
 
 	return (
-		<script
-			dangerouslySetInnerHTML={{
-				__html: JSON.stringify(combinedSchema, null, 0).replace(
-					/</g,
-					"\\u003c",
-				),
-			}}
-			type="application/ld+json"
-		/>
+		<script type="application/ld+json">
+			{JSON.stringify(combinedSchema, null, 0).replace(/</g, "\\u003c")}
+		</script>
 	);
 }

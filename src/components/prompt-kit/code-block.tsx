@@ -1,5 +1,5 @@
-import type React from "react";
-import { Suspense, use, useMemo } from "react";
+import React, { Suspense, use, useMemo } from "react";
+import { parseDocument } from "htmlparser2";
 import { codeToHtml } from "shiki";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,60 @@ type HighlightedCodeProps = {
 	props: Omit<CodeBlockCodeProps, "code" | "language" | "theme" | "className">;
 };
 
+function toCamelCase(value: string): string {
+	return value.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+}
+
+function parseStyle(style: string): React.CSSProperties {
+	const result: React.CSSProperties = {};
+	const declarations = style.split(";");
+	for (const declaration of declarations) {
+		const [rawProperty = "", rawValue = ""] = declaration.split(":");
+		const property = rawProperty.trim();
+		const value = rawValue.trim();
+		if (!property || !value) {
+			continue;
+		}
+		const cssProperty = toCamelCase(property);
+		Object.assign(result, { [cssProperty]: value });
+	}
+	return result;
+}
+
+function renderHighlightedNodes(
+	nodes: ReturnType<typeof parseDocument>["children"],
+	keyPrefix: string,
+): React.ReactNode[] {
+	const rendered: React.ReactNode[] = [];
+
+	for (const [index, node] of nodes.entries()) {
+		const key = `${keyPrefix}-${index}`;
+		if (node.type === "text") {
+			rendered.push(node.data);
+			continue;
+		}
+
+		if (node.type !== "tag") {
+			continue;
+		}
+
+		const nodeClassName = node.attribs.class;
+		const nodeStyle = node.attribs.style;
+		const props: React.HTMLAttributes<HTMLElement> & { key: string } = { key };
+		if (nodeClassName) {
+			props.className = nodeClassName;
+		}
+		if (nodeStyle) {
+			props.style = parseStyle(nodeStyle);
+		}
+
+		const children = renderHighlightedNodes(node.children, key);
+		rendered.push(React.createElement(node.name, props, children));
+	}
+
+	return rendered;
+}
+
 function HighlightedCode({
 	code,
 	language,
@@ -56,13 +110,15 @@ function HighlightedCode({
 			[code, language, appTheme],
 		),
 	);
+	const highlightedNodes = useMemo(() => {
+		const parsed = parseDocument(highlightedHtml);
+		return renderHighlightedNodes(parsed.children, "highlighted");
+	}, [highlightedHtml]);
 
 	return (
-		<div
-			className={className}
-			dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-			{...props}
-		/>
+		<div className={className} {...props}>
+			{highlightedNodes}
+		</div>
 	);
 }
 

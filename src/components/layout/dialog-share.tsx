@@ -35,6 +35,10 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export function DialogShare() {
+	return useDialogShareView();
+}
+
+function useDialogShareView() {
 	const { chatId } = useChatSession();
 	const location = useLocation();
 	const pathname = location.pathname;

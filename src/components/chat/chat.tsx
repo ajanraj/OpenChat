@@ -156,6 +156,10 @@ const DialogAuth = lazy(() =>
 );
 
 function ChatContent() {
+	return useChatContentView();
+}
+
+function useChatContentView() {
 	const { chatId, isDeleting, setIsDeleting } = useChatSession();
 	const router = useRouter();
 	const searchParams = useSearch({ strict: false }) as Record<
@@ -944,14 +948,13 @@ function ChatContent() {
 	// Message scrolling
 	const targetMessageId = searchParams.m;
 	const hasScrolledRef = useRef(false);
+	const previousTargetMessageIdRef = useRef<string | undefined>(undefined);
 
 	useEffect(() => {
-		if (targetMessageId) {
+		if (targetMessageId !== previousTargetMessageIdRef.current) {
 			hasScrolledRef.current = false;
+			previousTargetMessageIdRef.current = targetMessageId;
 		}
-	}, [targetMessageId]);
-
-	useEffect(() => {
 		if (!targetMessageId || hasScrolledRef.current || messages.length === 0) {
 			return;
 		}

@@ -560,7 +560,6 @@ const renderTextPart = (
 			className="relative min-w-full bg-transparent p-0"
 			id={`${id}-text-${index}`}
 			isAnimating={isAnimating}
-			key={`${id}-text-${index}`}
 			markdown={true}
 		>
 			{part.text}
@@ -576,7 +575,7 @@ const renderReasoningPart = (
 	toggleReasoning: () => void,
 	isPartStreaming: boolean,
 ) => (
-	<div className="mb-2 w-full" key={`${id}-reasoning-${index}`}>
+	<div className="mb-2 w-full">
 		<Reasoning
 			expanded={showReasoning}
 			isLoading={isPartStreaming}
@@ -817,7 +816,6 @@ const renderPartDirectly = (
 	index: number,
 	id: string,
 	isAnimating: boolean,
-	partKey: string,
 	reasoningStates: Record<string, boolean>,
 	reasoningStreamingStates: Record<string, boolean>,
 	toggleReasoning: (partIndex: number) => void,
@@ -841,19 +839,17 @@ const renderPartDirectly = (
 				reasoningStreamingStates[`${id}-${index}`],
 			);
 
-		case "file":
-			return (
-				<div className="flex w-full flex-wrap gap-2" key={partKey}>
-					{renderFilePart(part as FileUIPart, index, id)}
-				</div>
-			);
+		case "file": {
+			const fileNode = renderFilePart(part as FileUIPart, index, id);
+			return <div className="flex w-full flex-wrap gap-2">{fileNode}</div>;
+		}
 
 		default:
 			if (part.type.startsWith("tool-")) {
 				return renderToolPart(part as ToolUIPart, index, id);
 			}
 			if (isErrorPart(part)) {
-				return renderErrorPart(part, index, id);
+				return renderErrorPart(part);
 			}
 			// Skip rendering boundary markers (they're only for detection)
 			if (part.type === "data-agent-boundary") {
@@ -875,48 +871,52 @@ const renderPartInChainOfThought = (
 	toggleReasoning: (partIndex: number) => void,
 ) => {
 	switch (part.type) {
-		case "text":
+		case "text": {
+			const textNode = renderTextPart(
+				part as { type: "text"; text: string },
+				index,
+				id,
+				isAnimating,
+			);
 			return (
 				<ChainOfThoughtStep
 					key={partKey}
 					label="Field Report"
 					status="complete"
 				>
-					{renderTextPart(
-						part as { type: "text"; text: string },
-						index,
-						id,
-						isAnimating,
-					)}
+					{textNode}
 				</ChainOfThoughtStep>
 			);
+		}
 
-		case "reasoning":
+		case "reasoning": {
+			const reasoningNode = renderReasoningPart(
+				part as ReasoningUIPart,
+				index,
+				id,
+				reasoningStates[`${id}-${index}`],
+				() => toggleReasoning(index),
+				reasoningStreamingStates[`${id}-${index}`],
+			);
 			return (
 				<ChainOfThoughtStep key={partKey} label="Thinking" status="complete">
-					{renderReasoningPart(
-						part as ReasoningUIPart,
-						index,
-						id,
-						reasoningStates[`${id}-${index}`],
-						() => toggleReasoning(index),
-						reasoningStreamingStates[`${id}-${index}`],
-					)}
+					{reasoningNode}
 				</ChainOfThoughtStep>
 			);
+		}
 
-		case "file":
+		case "file": {
+			const chainFileNode = renderFilePart(part as FileUIPart, index, id);
 			return (
 				<ChainOfThoughtStep
 					key={partKey}
 					label="File Attachment"
 					status="complete"
 				>
-				<div className="flex w-full flex-wrap gap-2">
-					{renderFilePart(part as FileUIPart, index, id)}
-				</div>
+					<div className="flex w-full flex-wrap gap-2">{chainFileNode}</div>
 				</ChainOfThoughtStep>
 			);
+		}
 
 		default:
 			if (part.type.startsWith("tool-")) {
@@ -930,17 +930,19 @@ const renderPartInChainOfThought = (
 							).displayName,
 					)
 					: toolType;
+				const toolNode = renderToolPart(toolPart, index, id);
 
 				return (
 					<ChainOfThoughtStep key={partKey} label={toolLabel} status="complete">
-						{renderToolPart(toolPart, index, id)}
+						{toolNode}
 					</ChainOfThoughtStep>
 				);
 			}
 			if (isErrorPart(part)) {
+				const errorNode = renderErrorPart(part);
 				return (
 					<ChainOfThoughtStep key={partKey} label="Error" status="complete">
-						{renderErrorPart(part, index, id)}
+						{errorNode}
 					</ChainOfThoughtStep>
 				);
 			}
@@ -952,10 +954,9 @@ const renderPartInChainOfThought = (
 	}
 };
 
-const renderErrorPart = (part: ErrorUIPart, index: number, id: string) => (
+const renderErrorPart = (part: ErrorUIPart) => (
 	<div
 		className="mt-4 flex items-start gap-3 rounded-lg bg-red-500/15 px-4 py-3 text-red-900 text-sm dark:text-red-400"
-		key={`${id}-error-${index}`}
 		role="alert"
 	>
 		<div className="leading-relaxed">{part.error.message}</div>
@@ -1053,6 +1054,34 @@ const agentSegmentHasEnd = (segment: AgentSegment): boolean =>
 	);
 
 function MessageAssistantInner({
+	hasScrollAnchor,
+	copied,
+	copyToClipboard,
+	onReload,
+	onBranch,
+	model,
+	parts,
+	status,
+	id,
+	metadata,
+	readOnly = false,
+}: MessageAssistantProps) {
+	return useMessageAssistantInnerView({
+		hasScrollAnchor,
+		copied,
+		copyToClipboard,
+		onReload,
+		onBranch,
+		model,
+		parts,
+		status,
+		id,
+		metadata,
+		readOnly,
+	});
+}
+
+function useMessageAssistantInnerView({
 	hasScrollAnchor,
 	copied,
 	copyToClipboard,
@@ -1298,19 +1327,19 @@ function MessageAssistantInner({
 						return segment.parts.map((part, innerIndex) => {
 							const fallbackKey = `${segment.key}-${innerIndex}`;
 							const stableKey = getStablePartKey(part, fallbackKey);
+							const renderedPart = renderPartDirectly(
+								part,
+								innerIndex,
+								id,
+								status === "streaming",
+								reasoningStates,
+								reasoningStreamingStates,
+								toggleReasoning,
+							);
 
 							return (
 								<React.Fragment key={stableKey}>
-									{renderPartDirectly(
-										part,
-										innerIndex,
-										id,
-										status === "streaming",
-										stableKey,
-										reasoningStates,
-										reasoningStreamingStates,
-										toggleReasoning,
-									)}
+									{renderedPart}
 								</React.Fragment>
 							);
 						});
@@ -1340,8 +1369,7 @@ function MessageAssistantInner({
 
 									const fallbackKey = `${segment.key}-${innerIndex}`;
 									const stepKey = getStablePartKey(part, fallbackKey);
-
-									return renderPartInChainOfThought(
+									const chainPart = renderPartInChainOfThought(
 										part,
 										innerIndex,
 										id,
@@ -1351,6 +1379,8 @@ function MessageAssistantInner({
 										reasoningStreamingStates,
 										toggleReasoning,
 									);
+
+									return chainPart;
 								})}
 							</ChainOfThoughtContent>
 						</ChainOfThought>,

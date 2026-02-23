@@ -49,6 +49,10 @@ function getSnippet(text: string, query: string, length = 80): React.ReactNode {
 }
 
 export function CommandHistory() {
+	return useCommandHistoryView();
+}
+
+function useCommandHistoryView() {
 	const router = useRouter();
 	const params = useParams({ strict: false }) as { chatId?: string };
 	const { data: chatHistory } = useTanStackQuery({

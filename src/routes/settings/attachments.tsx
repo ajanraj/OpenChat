@@ -209,6 +209,7 @@ export function AttachmentsSettingsPage() {
       </div>
     );
   };
+  const attachmentsList = renderAttachmentsList();
 
   return (
     <div className="space-y-8">
@@ -279,7 +280,7 @@ export function AttachmentsSettingsPage() {
       </div>
 
       {/* Attachments List */}
-      {renderAttachmentsList()}
+      {attachmentsList}
 
       {/* Delete selected attachments dialog */}
       <Dialog onOpenChange={setShowDeleteSelectedDialog} open={showDeleteSelectedDialog}>

@@ -11,6 +11,7 @@ import React, {
 	useContext,
 	useEffect,
 	useId,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -149,7 +150,7 @@ function MorphingDialogContent({
 	className,
 	style,
 }: MorphingDialogContentProps) {
-	const { setIsOpen, isOpen, uniqueId, triggerRef } = useMorphingDialog();
+	const { setIsOpen, uniqueId, triggerRef } = useMorphingDialog();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const firstFocusableElementRef = useRef<HTMLElement | null>(null);
 	const lastFocusableElementRef = useRef<HTMLElement | null>(null);
@@ -186,38 +187,36 @@ function MorphingDialogContent({
 		};
 	}, [setIsOpen]);
 
-	useEffect(() => {
-		if (isOpen) {
-			document.body.classList.add("overflow-hidden");
-			const focusableElements = containerRef.current?.querySelectorAll(
-				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+	useLayoutEffect(() => {
+		document.body.classList.add("overflow-hidden");
+		const focusableElements = containerRef.current?.querySelectorAll(
+			'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+		);
+		if (focusableElements && focusableElements.length > 0) {
+			const firstFocusableElement = focusableElements.item(0);
+			const lastFocusableElement = focusableElements.item(
+				focusableElements.length - 1,
 			);
-			if (focusableElements && focusableElements.length > 0) {
-				const firstFocusableElement = focusableElements.item(0);
-				const lastFocusableElement = focusableElements.item(
-					focusableElements.length - 1,
-				);
-				if (
-					firstFocusableElement instanceof HTMLElement &&
-					lastFocusableElement instanceof HTMLElement
-				) {
-					firstFocusableElementRef.current = firstFocusableElement;
-					lastFocusableElementRef.current = lastFocusableElement;
-					firstFocusableElement.focus();
-				}
+			if (
+				firstFocusableElement instanceof HTMLElement &&
+				lastFocusableElement instanceof HTMLElement
+			) {
+				firstFocusableElementRef.current = firstFocusableElement;
+				lastFocusableElementRef.current = lastFocusableElement;
+				firstFocusableElement.focus();
 			}
-		} else {
+		}
+
+		return () => {
 			document.body.classList.remove("overflow-hidden");
 			firstFocusableElementRef.current = null;
 			lastFocusableElementRef.current = null;
 			triggerRef.current?.focus();
-		}
-	}, [isOpen, triggerRef]);
+		};
+	}, [triggerRef]);
 
 	useClickOutside(containerRef, () => {
-		if (isOpen) {
-			setIsOpen(false);
-		}
+		setIsOpen(false);
 	});
 
 	return (

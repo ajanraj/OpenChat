@@ -369,7 +369,6 @@ const ChatSidebar = memo(function SidebarComponent() {
 					<div className="relative">
 						<MagnifyingGlass className="-translate-y-1/2 absolute top-1/2 left-2.5 h-4 w-4 text-muted-foreground" />
 						<Input
-							autoFocus={isOpen}
 							className="h-9 w-full pl-8 text-sm"
 							onChange={handleSearchChange}
 							placeholder="Search chats..."
@@ -395,10 +394,10 @@ const ChatSidebar = memo(function SidebarComponent() {
 				>
 					{Boolean(chatsLoading) && chats.length === 0 ? (
 						<div className="space-y-2">
-						{Array.from({ length: 5 }, (_, i) => (
+						{["0", "1", "2", "3", "4"].map((skeletonId) => (
 							<div
 								className="h-8 animate-pulse rounded bg-muted/50"
-								key={`skeleton-${i}`}
+								key={`skeleton-${skeletonId}`}
 							/>
 							))}
 						</div>

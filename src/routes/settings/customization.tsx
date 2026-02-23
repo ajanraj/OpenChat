@@ -48,6 +48,10 @@ function getUserCustomizationSnapshot(
 }
 
 export function CustomizationSettingsPage() {
+  return useCustomizationSettingsPageView();
+}
+
+function useCustomizationSettingsPageView() {
   const { user, updateUser } = useUser();
   const router = useRouter();
   const themeState = useEditorStore((state) => state.themeState);

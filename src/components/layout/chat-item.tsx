@@ -66,24 +66,24 @@ const ChatItemComponent = function ChatItemComponent({
 		if (isEditing) {
 			return (
 				<div className="group/menu-item relative flex h-9 items-center rounded-lg bg-accent px-2 py-0.5">
-					<form
-						className="flex w-full items-center justify-between"
-						onSubmit={(e) => {
-							e.preventDefault();
-							onSave();
-						}}
-					>
+					<div className="flex w-full items-center justify-between">
 						<Input
-							autoFocus
 							className="h-8 flex-1 rounded-none border-0 bg-transparent px-1 text-sm shadow-none outline-none focus:ring-0"
 							onChange={(e) => setEditedTitle(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									onSave();
+								}
+							}}
 							value={editedTitle}
 						/>
 						<div className="ml-2 flex gap-0.5">
 							<Button
 								className="size-8 rounded-md p-1.5 text-muted-foreground hover:text-primary"
+								onClick={onSave}
 								size="icon"
-								type="submit"
+								type="button"
 								variant="ghost"
 							>
 								<Check className="size-4" />
@@ -98,7 +98,7 @@ const ChatItemComponent = function ChatItemComponent({
 								<X className="size-4" />
 							</Button>
 						</div>
-					</form>
+					</div>
 				</div>
 			);
 		}
@@ -113,10 +113,7 @@ const ChatItemComponent = function ChatItemComponent({
 						<div className="flex items-center gap-0.5">
 							<Button
 								className="size-8 rounded-md p-1.5 text-muted-foreground hover:text-destructive"
-								onClick={(e) => {
-									e.preventDefault();
-									onDelete();
-								}}
+								onClick={onDelete}
 								size="icon"
 								type="button"
 								variant="ghost"
@@ -125,10 +122,7 @@ const ChatItemComponent = function ChatItemComponent({
 							</Button>
 							<Button
 								className="size-8 rounded-md p-1.5 text-muted-foreground hover:text-primary"
-								onClick={(e) => {
-									e.preventDefault();
-									setIsDeleting(false);
-								}}
+								onClick={() => setIsDeleting(false)}
 								size="icon"
 								type="button"
 								variant="ghost"

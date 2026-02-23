@@ -67,15 +67,8 @@ export const CommandHistoryItem = React.memo(
 				{/* Render different UI states without nested ternaries */}
 				{isEditing ? (
 					<div className="flex items-center justify-between rounded-lg bg-accent px-2 py-2">
-						<form
-							className="flex w-full items-center justify-between"
-							onSubmit={(e) => {
-								e.preventDefault();
-								handleSaveEdit(chat._id);
-							}}
-						>
+						<div className="flex w-full items-center justify-between">
 							<Input
-								autoFocus
 								className="h-8 flex-1 rounded border border-input bg-transparent px-3 py-1"
 								onChange={(e) => setEditTitle(e.target.value)}
 								onKeyDown={(e) => {
@@ -89,8 +82,9 @@ export const CommandHistoryItem = React.memo(
 							<div className="ml-2 flex gap-1">
 								<Button
 									className="size-8 text-muted-foreground hover:text-foreground"
+									onClick={() => handleSaveEdit(chat._id)}
 									size="icon"
-									type="submit"
+									type="button"
 									variant="ghost"
 								>
 									<Check className="size-4" />
@@ -105,24 +99,17 @@ export const CommandHistoryItem = React.memo(
 									<X className="size-4" />
 								</Button>
 							</div>
-						</form>
+						</div>
 					</div>
 				) : null}
 				{isDeleting ? (
 					<div className="flex items-center justify-between rounded-lg bg-accent px-2 py-2">
-						<form
-							className="flex w-full items-center justify-between"
-							onSubmit={(e) => {
-								e.preventDefault();
-								handleConfirmDelete(chat._id);
-							}}
-						>
+						<div className="flex w-full items-center justify-between">
 							<div className="flex flex-1 items-center">
 								<span className="line-clamp-1 font-normal text-base">
 									{chat.title}
 								</span>
 								<input
-									autoFocus
 									className="sr-only"
 									onKeyDown={(e) => {
 										if (e.key === "Escape") {
@@ -139,8 +126,9 @@ export const CommandHistoryItem = React.memo(
 							<div className="ml-2 flex gap-1">
 								<Button
 									className="size-8 text-muted-foreground hover:bg-destructive-foreground/10 hover:text-destructive-foreground"
+									onClick={() => handleConfirmDelete(chat._id)}
 									size="icon"
-									type="submit"
+									type="button"
 									variant="ghost"
 								>
 									<Check className="size-4" />
@@ -155,7 +143,7 @@ export const CommandHistoryItem = React.memo(
 									<X className="size-4" />
 								</Button>
 							</div>
-						</form>
+						</div>
 					</div>
 				) : null}
 				{!(isEditing || isDeleting) && (

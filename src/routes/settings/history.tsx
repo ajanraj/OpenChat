@@ -102,6 +102,10 @@ function formatDateLines(timestamp?: number | null) {
 }
 
 export function HistorySettingsPage() {
+  return useHistorySettingsPageView();
+}
+
+function useHistorySettingsPageView() {
   const { data: chats } = useTanStackQuery({
     ...convexQuery(api.chats.listChatsForUser, {}),
   });
@@ -577,6 +581,7 @@ export function HistorySettingsPage() {
 
   const totalChats = chats?.length ?? 0;
   const sharedCount = chats?.filter((c) => c.public).length ?? 0;
+  const chatsList = renderChatsList();
 
   return (
     <div className="w-full space-y-10">
@@ -671,7 +676,7 @@ export function HistorySettingsPage() {
             </div>
           </div>
           {/* Chats List */}
-          {renderChatsList()}
+          {chatsList}
         </div>
       </div>
 
