@@ -38,6 +38,3 @@ export function ConvexProvider({ children }: { children: React.ReactNode }) {
     </ConvexAuthProvider>
   );
 }
-
-// Also export as default for backwards compatibility
-export default ConvexProvider;

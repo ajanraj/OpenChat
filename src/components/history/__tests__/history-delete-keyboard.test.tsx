@@ -97,7 +97,19 @@ vi.mock("@/components/ui/command", () => ({
 		/>
 	),
 	CommandItem: ({ children, className, onSelect, value }: CommandItemProps) => (
-		<div className={className} data-value={value} onClick={onSelect}>
+		<div
+			className={className}
+			data-value={value}
+			onClick={onSelect}
+			onKeyDown={(event) => {
+				if (event.key === "Enter" || event.key === " ") {
+					event.preventDefault();
+					onSelect?.();
+				}
+			}}
+			role="button"
+			tabIndex={0}
+		>
 			{children}
 		</div>
 	),
