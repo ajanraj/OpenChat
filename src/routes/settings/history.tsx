@@ -175,7 +175,12 @@ function useHistorySettingsPageView() {
         case "CLOSE_DELETE_SELECTED":
           return { ...s, showDeleteSelectedDialog: false };
         case "OPEN_IMPORT_DIALOG":
-          return { ...s, showImportDialog: true, importData: action.data, importChatCount: action.count };
+          return {
+            ...s,
+            showImportDialog: true,
+            importData: action.data,
+            importChatCount: action.count,
+          };
         case "CLOSE_IMPORT_DIALOG":
           return { ...s, showImportDialog: false, importData: [], importChatCount: 0 };
         case "OPEN_DELETE_ALL":
@@ -238,9 +243,7 @@ function useHistorySettingsPageView() {
         ? deleteChat({ chatId: selectedChatIds[0] })
         : deleteBulkChats({ chatIds: selectedChatIds });
 
-    const deleted = await deletePromise
-      .then(() => true)
-      .catch(() => false);
+    const deleted = await deletePromise.then(() => true).catch(() => false);
 
     if (deleted) {
       toast({ title: "Selected chats deleted", status: "success" });
@@ -555,7 +558,9 @@ function useHistorySettingsPageView() {
                           <Button
                             aria-label="Unshare conversation"
                             className="size-7"
-                            onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: chat._id as Id<"chats"> })}
+                            onClick={() =>
+                              dispatch({ type: "SET_REVOKE_CHAT", id: chat._id as Id<"chats"> })
+                            }
                             size="icon"
                             type="button"
                             variant="ghost"
@@ -708,7 +713,12 @@ function useHistorySettingsPageView() {
       </p>
 
       {/* Delete selected chats dialog */}
-      <Dialog onOpenChange={(open) => { if (!open) dispatch({ type: "CLOSE_DELETE_SELECTED" }); }} open={showDeleteSelectedDialog}>
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) dispatch({ type: "CLOSE_DELETE_SELECTED" });
+        }}
+        open={showDeleteSelectedDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete selected chats?</DialogTitle>
@@ -730,7 +740,12 @@ function useHistorySettingsPageView() {
       </Dialog>
 
       {/* Import chats dialog */}
-      <Dialog onOpenChange={(open) => { if (!open) dispatch({ type: "CLOSE_IMPORT_DIALOG" }); }} open={showImportDialog}>
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) dispatch({ type: "CLOSE_IMPORT_DIALOG" });
+        }}
+        open={showImportDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -743,10 +758,7 @@ function useHistorySettingsPageView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              onClick={() => dispatch({ type: "CLOSE_IMPORT_DIALOG" })}
-              variant="outline"
-            >
+            <Button onClick={() => dispatch({ type: "CLOSE_IMPORT_DIALOG" })} variant="outline">
               Cancel
             </Button>
             <Button onClick={confirmImport} variant="default">
@@ -804,7 +816,10 @@ function useHistorySettingsPageView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: null })} variant="outline">
+            <Button
+              onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: null })}
+              variant="outline"
+            >
               Cancel
             </Button>
             <Button

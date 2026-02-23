@@ -224,32 +224,32 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="font-sans antialiased">
         <LazyMotion features={domMax}>
-        <ConvexProvider>
-          <TooltipProvider>
-            <AuthGuard>
-              <SidebarProvider>
-                <LayoutApp>{children}</LayoutApp>
-              </SidebarProvider>
-              {/* Vercel Analytics */}
-              <Analytics />
-              <SpeedInsights />
-            </AuthGuard>
-          </TooltipProvider>
-          {isDev === true && (
-            <TanStackDevtools
-              config={{
-                position: "bottom-right",
-              }}
-              plugins={[
-                {
-                  name: "Tanstack Router",
-                  render: <TanStackRouterDevtoolsPanel />,
-                },
-                TanStackQueryDevtools,
-              ]}
-            />
-          )}
-        </ConvexProvider>
+          <ConvexProvider>
+            <TooltipProvider>
+              <AuthGuard>
+                <SidebarProvider>
+                  <LayoutApp>{children}</LayoutApp>
+                </SidebarProvider>
+                {/* Vercel Analytics */}
+                <Analytics />
+                <SpeedInsights />
+              </AuthGuard>
+            </TooltipProvider>
+            {isDev === true && (
+              <TanStackDevtools
+                config={{
+                  position: "bottom-right",
+                }}
+                plugins={[
+                  {
+                    name: "Tanstack Router",
+                    render: <TanStackRouterDevtoolsPanel />,
+                  },
+                  TanStackQueryDevtools,
+                ]}
+              />
+            )}
+          </ConvexProvider>
         </LazyMotion>
         <Scripts />
       </body>

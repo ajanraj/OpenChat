@@ -300,7 +300,10 @@ export function ApiKeysSettingsPage() {
         case "SET_INPUT":
           return { ...s, inputValues: { ...s.inputValues, [action.provider]: action.value } };
         case "SET_VALIDATION_ERROR":
-          return { ...s, validationErrors: { ...s.validationErrors, [action.provider]: action.error } };
+          return {
+            ...s,
+            validationErrors: { ...s.validationErrors, [action.provider]: action.error },
+          };
         case "SET_VALIDATING":
           return { ...s, isValidating: { ...s.isValidating, [action.provider]: action.value } };
         case "CLEAR_INPUTS":
@@ -315,9 +318,23 @@ export function ApiKeysSettingsPage() {
           return { ...s, isDeleting: false, showDeleteDialog: false, providerToDelete: null };
       }
     },
-    { inputValues: {}, validationErrors: {}, isValidating: {}, showDeleteDialog: false, providerToDelete: null, isDeleting: false },
+    {
+      inputValues: {},
+      validationErrors: {},
+      isValidating: {},
+      showDeleteDialog: false,
+      providerToDelete: null,
+      isDeleting: false,
+    },
   );
-  const { inputValues, validationErrors, isValidating, showDeleteDialog, providerToDelete, isDeleting } = apiKeysState;
+  const {
+    inputValues,
+    validationErrors,
+    isValidating,
+    showDeleteDialog,
+    providerToDelete,
+    isDeleting,
+  } = apiKeysState;
 
   useEffect(
     () => () => {
@@ -336,7 +353,11 @@ export function ApiKeysSettingsPage() {
 
       const validation = validateApiKey(provider, key);
       if (!validation.isValid) {
-        dispatch({ type: "SET_VALIDATION_ERROR", provider, error: validation.error || "Invalid API key" });
+        dispatch({
+          type: "SET_VALIDATION_ERROR",
+          provider,
+          error: validation.error || "Invalid API key",
+        });
         return;
       }
 

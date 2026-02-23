@@ -1,6 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
-import type { streamText} from "ai";
+import type { streamText } from "ai";
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 
 type StreamModel = Parameters<typeof streamText>[0]["model"];

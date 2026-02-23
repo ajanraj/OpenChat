@@ -29,9 +29,7 @@ interface ConnectPayload {
   connectionRequestId: string;
 }
 
-type ConnectResult =
-  | { ok: true; payload: ConnectPayload }
-  | { ok: false; errorMessage: string };
+type ConnectResult = { ok: true; payload: ConnectPayload } | { ok: false; errorMessage: string };
 
 const getErrorMessage = (value: unknown, fallback: string): string => {
   if (
@@ -196,10 +194,7 @@ export function ConnectorsSettingsPage() {
         return;
       }
 
-      sessionStorage.setItem(
-        `composio_connection_${type}`,
-        result.payload.connectionRequestId,
-      );
+      sessionStorage.setItem(`composio_connection_${type}`, result.payload.connectionRequestId);
       window.location.href = result.payload.redirectUrl;
     },
     [authToken, user],
