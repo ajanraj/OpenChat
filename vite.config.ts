@@ -21,7 +21,6 @@ const config = defineConfig({
       vercel: {
         functions: {
           maxDuration: 300,
-          runtime: "bun1.x",
         },
       },
     }),
