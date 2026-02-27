@@ -618,7 +618,7 @@ export const deleteAccount = mutation({
     }
 
     // --- Step 1: Fetch all documents that need to be deleted in parallel ---
-    const [attachments, messages, chats, feedback, usage, authAccounts, authSessions] =
+    const [attachments, messages, chats, feedback, usage, authAccounts, authSessions, profiles] =
       await Promise.all([
         ctx.db
           .query("chat_attachments")
@@ -647,6 +647,10 @@ export const deleteAccount = mutation({
         ctx.db
           .query("authSessions")
           .withIndex("userId", (q) => q.eq("userId", userId))
+          .collect(),
+        ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
           .collect(),
       ]);
 
@@ -689,6 +693,9 @@ export const deleteAccount = mutation({
     deletionPromises.push(
       ...authSessions.map((sess) => ctx.db.delete(sess._id as Id<"authSessions">)),
     );
+
+    // Delete profiles
+    deletionPromises.push(...profiles.map((p) => ctx.db.delete(p._id)));
 
     // Execute all deletions concurrently
     await Promise.allSettled(deletionPromises);

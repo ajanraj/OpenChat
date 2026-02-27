@@ -166,16 +166,26 @@ export const createChat = mutation({
     title: v.optional(v.string()),
     model: v.optional(v.string()),
     personaId: v.optional(v.string()),
+    profileId: v.optional(v.id("profiles")),
   },
   returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
+
+    // Use provided profileId, or fall back to user's activeProfileId
+    let resolvedProfileId = args.profileId;
+    if (!resolvedProfileId) {
+      const user = await ctx.db.get(userId);
+      resolvedProfileId = user?.activeProfileId ?? undefined;
+    }
+
     const now = Date.now();
     const chatId = await ctx.db.insert("chats", {
       userId,
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
+      profileId: resolvedProfileId,
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -413,6 +423,7 @@ export const createChatInternal = internalMutation({
     title: v.optional(v.string()),
     model: v.optional(v.string()),
     personaId: v.optional(v.string()),
+    profileId: v.optional(v.id("profiles")),
   },
   returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
@@ -422,6 +433,7 @@ export const createChatInternal = internalMutation({
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
+      profileId: args.profileId,
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
