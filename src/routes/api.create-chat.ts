@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PostHog } from "posthog-node";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { createErrorResponse } from "@/lib/error-utils";
 import { authMiddleware, badRequest, json, unauthorized } from "@/lib/middleware/auth";
 
@@ -9,6 +10,7 @@ const createChatSchema = z.object({
   title: z.string().min(1, "Title is required"),
   model: z.string().min(1, "Model is required"),
   personaId: z.string().optional(),
+  profileId: z.string().optional(),
   timezone: z.string().optional(),
 });
 
@@ -26,7 +28,7 @@ export const Route = createFileRoute("/api/create-chat")({
             return badRequest("Invalid request body");
           }
 
-          const { title, model, personaId } = parseResult.data;
+          const { title, model, personaId, profileId } = parseResult.data;
 
           const { client } = context;
           const user = await client.query(api.users.getCurrentUser, {});
@@ -45,6 +47,7 @@ export const Route = createFileRoute("/api/create-chat")({
             title,
             model,
             personaId,
+            profileId: profileId as Id<"profiles"> | undefined,
           });
 
           // Only track if PostHog is configured

@@ -442,20 +442,37 @@ export const Route = createFileRoute("/api/chat")({
 
           // --- Optimized Parallel Database Queries ---
           // Run independent queries in parallel to reduce latency
-          const [userKeys, isUserPremiumForPremiumModels, userConnectors] = await Promise.all([
-            // Get user API keys if model allows user keys
-            selectedModel.apiKeyUsage?.allowUserKey
-              ? client.query(api.api_keys.getApiKeys, {}).catch(() => [])
-              : Promise.resolve([]),
-            // Check premium status for premium models (only if needed)
-            selectedModel.premium
-              ? client.query(api.users.userHasPremium, {}).catch(() => false)
-              : Promise.resolve(false),
-            // Get user connectors from database (authoritative source)
-            user
-              ? client.query(api.connectors.listUserConnectors, {}).catch(() => [])
-              : Promise.resolve([]),
-          ]);
+          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatProfile] =
+            await Promise.all([
+              // Get user API keys if model allows user keys
+              selectedModel.apiKeyUsage?.allowUserKey
+                ? client.query(api.api_keys.getApiKeys, {}).catch(() => [])
+                : Promise.resolve([]),
+              // Check premium status for premium models (only if needed)
+              selectedModel.premium
+                ? client.query(api.users.userHasPremium, {}).catch(() => false)
+                : Promise.resolve(false),
+              // Get user connectors from database (authoritative source)
+              user
+                ? client.query(api.connectors.listUserConnectors, {}).catch(() => [])
+                : Promise.resolve([]),
+              // Fetch chat's profile for system prompt personalization
+              (async () => {
+                try {
+                  const chatDoc = await client.query(api.chats.getChat, {
+                    chatId: chatId,
+                  });
+                  if (chatDoc?.profileId) {
+                    return client.query(api.profiles.getProfile, {
+                      profileId: chatDoc.profileId,
+                    });
+                  }
+                } catch {
+                  // Non-critical: fall back to user-level settings
+                }
+                return null;
+              })(),
+            ]);
 
           // Calculate connector status from database (server is authoritative)
           const connectorsStatus = calculateConnectorStatus(userConnectors);
@@ -592,6 +609,7 @@ export const Route = createFileRoute("/api/chat")({
             undefined,
             undefined,
             connectorsStatus,
+            chatProfile,
           );
 
           // Check if this is an image generation model

@@ -411,6 +411,13 @@ Structure your response like this:
 
 export type UserProfile = Doc<"users">;
 
+export interface ProfileData {
+  preferredName?: string;
+  occupation?: string;
+  traits?: string;
+  about?: string;
+}
+
 export function buildSystemPrompt(
   user?: UserProfile | null,
   basePrompt?: string,
@@ -420,6 +427,7 @@ export function buildSystemPrompt(
   emailMode?: boolean,
   taskMode?: boolean,
   connectorsStatus?: ConnectorStatusLists,
+  profile?: ProfileData | null,
 ) {
   // Choose the appropriate base prompt based on mode
   let prompt =
@@ -456,21 +464,24 @@ export function buildSystemPrompt(
   if (!user) {
     return prompt;
   }
+
+  // Use profile data when available, falling back to user-level fields
+  const source = profile ?? user;
   const details: string[] = [];
   if (user.name) {
     details.push(`Name: ${user.name}`);
   }
-  if (user.preferredName) {
-    details.push(`Preferred Name: ${user.preferredName}`);
+  if (source.preferredName) {
+    details.push(`Preferred Name: ${source.preferredName}`);
   }
-  if (user.occupation) {
-    details.push(`Occupation: ${user.occupation}`);
+  if (source.occupation) {
+    details.push(`Occupation: ${source.occupation}`);
   }
-  if (user.traits) {
-    details.push(`Traits: ${user.traits}`);
+  if (source.traits) {
+    details.push(`Traits: ${source.traits}`);
   }
-  if (user.about) {
-    details.push(`About: ${user.about}`);
+  if (source.about) {
+    details.push(`About: ${source.about}`);
   }
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(
