@@ -462,9 +462,12 @@ export const Route = createFileRoute("/api/chat")({
                   const chatDoc = await client.query(api.chats.getChat, {
                     chatId: chatId,
                   });
-                  if (chatDoc?.profileId) {
+                  // Use chat's profile, or fall back to user's active profile
+                  // (legacy chats pre-profiles have no profileId)
+                  const profileId = chatDoc?.profileId ?? user?.activeProfileId;
+                  if (profileId) {
                     return client.query(api.profiles.getProfile, {
-                      profileId: chatDoc.profileId,
+                      profileId,
                     });
                   }
                 } catch {

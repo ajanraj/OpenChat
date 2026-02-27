@@ -73,6 +73,7 @@ export function CustomizationSettingsPage() {
 function useCustomizationSettingsPageView() {
   const { profiles, activeProfile, setActiveProfile } = useProfile();
   const updateProfile = useMutation(api.profiles.updateProfile);
+  const updateUserProfile = useMutation(api.users.updateUserProfile);
   const deleteProfileMutation = useMutation(api.profiles.deleteProfile);
   const router = useRouter();
   const themeState = useEditorStore((state) => state.themeState);
@@ -186,18 +187,27 @@ function useCustomizationSettingsPageView() {
   }, [hasUnsavedChanges, shouldInterceptAnchor, handleNavigationAttempt]);
 
   const handleSave = async () => {
-    if (!activeProfile) {
-      return;
+    if (activeProfile) {
+      await updateProfile({
+        profileId: activeProfile._id,
+        updates: {
+          preferredName,
+          occupation,
+          traits: traits.join(", "),
+          about,
+        },
+      });
+    } else {
+      // Fallback for anonymous users or before profiles are loaded
+      await updateUserProfile({
+        updates: {
+          preferredName,
+          occupation,
+          traits: traits.join(", "),
+          about,
+        },
+      });
     }
-    await updateProfile({
-      profileId: activeProfile._id,
-      updates: {
-        preferredName,
-        occupation,
-        traits: traits.join(", "),
-        about,
-      },
-    });
     setDraft(null);
     toast({ title: "Preferences saved", status: "success" });
   };
