@@ -1,7 +1,13 @@
-import { Plus, X } from "@phosphor-icons/react";
+import { PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
 import { useCallback, useEffect, useState } from "react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { CodeBlock, CodeBlockCode } from "@/components/prompt-kit/code-block";
+import { CreateProfileDialog } from "@/components/profile/create-profile-dialog";
+import { ProfileIconPicker } from "@/components/profile/profile-icon-picker";
+import { PhosphorIcon } from "@/components/profile/profile-form-fields";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,16 +20,27 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ThemeFontControls } from "@/components/ui/theme-font-controls";
 import { ThemeSelector } from "@/components/ui/theme-selector";
 import { toast } from "@/components/ui/toast";
 import { APP_NAME } from "@/lib/config";
+import { PROFILE_ICONS } from "@/lib/config/profile-icons";
+import type { ProfileIconName } from "@/lib/config/profile-icons";
 import { useEditorStore } from "@/lib/store/editor-store";
 import type { FontCategory, FontOption } from "@/lib/theme/theme-fonts";
-import { useUser } from "@/providers/user-provider";
+import type { Profile } from "@/providers/profile-provider";
+import { useProfile } from "@/providers/profile-provider";
 
 export const Route = createFileRoute("/settings/customization")({
   component: CustomizationSettingsPage,
@@ -36,15 +53,17 @@ interface CustomizationDraft {
   about: string;
 }
 
-function getUserCustomizationSnapshot(
-  user: ReturnType<typeof useUser>["user"],
-): CustomizationDraft {
+function getProfileCustomizationSnapshot(profile: Profile | undefined): CustomizationDraft {
   return {
-    preferredName: user?.preferredName ?? "",
-    occupation: user?.occupation ?? "",
-    traits: user?.traits ? user.traits.split(", ") : [],
-    about: user?.about ?? "",
+    preferredName: profile?.preferredName ?? "",
+    occupation: profile?.occupation ?? "",
+    traits: profile?.traits ? profile.traits.split(", ") : [],
+    about: profile?.about ?? "",
   };
+}
+
+function isProfileIconName(icon: string): icon is ProfileIconName {
+  return PROFILE_ICONS.some((profileIcon) => profileIcon === icon);
 }
 
 export function CustomizationSettingsPage() {
@@ -52,28 +71,52 @@ export function CustomizationSettingsPage() {
 }
 
 function useCustomizationSettingsPageView() {
-  const { user, updateUser } = useUser();
+  const { profiles, activeProfile, setActiveProfile } = useProfile();
+  const updateProfile = useMutation(api.profiles.updateProfile);
+  const deleteProfileMutation = useMutation(api.profiles.deleteProfile);
   const router = useRouter();
   const themeState = useEditorStore((state) => state.themeState);
   const updateFont = useEditorStore((state) => state.updateFont);
 
-  const userSnapshot = getUserCustomizationSnapshot(user);
+  const [isProfileSelectOpen, setIsProfileSelectOpen] = useState(false);
+  const [deleteConfirmProfileId, setDeleteConfirmProfileId] = useState<Id<"profiles"> | null>(null);
+  const [editProfileId, setEditProfileId] = useState<Id<"profiles"> | null>(null);
+  const [editProfileName, setEditProfileName] = useState("");
+  const [editProfileIcon, setEditProfileIcon] = useState<ProfileIconName>(PROFILE_ICONS[0]);
+  const [isSavingProfileEdit, setIsSavingProfileEdit] = useState(false);
+
+  const profileSnapshot = getProfileCustomizationSnapshot(activeProfile);
   const [draft, setDraft] = useState<CustomizationDraft | null>(null);
   const [traitInput, setTraitInput] = useState("");
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
 
-  const currentValues = draft ?? userSnapshot;
+  const currentValues = draft ?? profileSnapshot;
   const { preferredName, occupation, traits, about } = currentValues;
+  const profileBeingEdited = profiles.find((profile) => profile._id === editProfileId);
+  const trimmedEditProfileName = editProfileName.trim();
+  const hasProfileEditChanges =
+    Boolean(profileBeingEdited) &&
+    (trimmedEditProfileName !== profileBeingEdited?.name || editProfileIcon !== profileBeingEdited?.icon);
+  const canSaveProfileEdit =
+    Boolean(profileBeingEdited) &&
+    trimmedEditProfileName.length > 0 &&
+    hasProfileEditChanges &&
+    !isSavingProfileEdit;
   const hasUnsavedChanges =
-    userSnapshot.preferredName !== preferredName ||
-    userSnapshot.occupation !== occupation ||
-    userSnapshot.traits.join(", ") !== traits.join(", ") ||
-    userSnapshot.about !== about;
+    profileSnapshot.preferredName !== preferredName ||
+    profileSnapshot.occupation !== occupation ||
+    profileSnapshot.traits.join(", ") !== traits.join(", ") ||
+    profileSnapshot.about !== about;
 
   const updateDraft = (updater: (current: CustomizationDraft) => CustomizationDraft) => {
-    setDraft((previousDraft) => updater(previousDraft ?? userSnapshot));
+    setDraft((previousDraft) => updater(previousDraft ?? profileSnapshot));
   };
+
+  // Reset draft when profile changes
+  useEffect(() => {
+    setDraft(null);
+  }, [activeProfile?._id]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -141,11 +184,17 @@ function useCustomizationSettingsPageView() {
   }, [hasUnsavedChanges, shouldInterceptAnchor, handleNavigationAttempt]);
 
   const handleSave = async () => {
-    await updateUser({
-      preferredName,
-      occupation,
-      traits: traits.join(", "),
-      about,
+    if (!activeProfile) {
+      return;
+    }
+    await updateProfile({
+      profileId: activeProfile._id,
+      updates: {
+        preferredName,
+        occupation,
+        traits: traits.join(", "),
+        about,
+      },
     });
     setDraft(null);
     toast({ title: "Preferences saved", status: "success" });
@@ -190,6 +239,52 @@ function useCustomizationSettingsPageView() {
     updateFont(category, fontOption);
   };
 
+  const handleOpenEditProfile = (profile: Profile) => {
+    setIsProfileSelectOpen(false);
+    setEditProfileId(profile._id);
+    setEditProfileName(profile.name);
+    setEditProfileIcon(isProfileIconName(profile.icon) ? profile.icon : PROFILE_ICONS[0]);
+  };
+
+  const handleDeleteFromDropdown = (profile: Profile) => {
+    if (profile.isDefault) {
+      return;
+    }
+    setIsProfileSelectOpen(false);
+    setDeleteConfirmProfileId(profile._id);
+  };
+
+  const closeEditDialog = () => {
+    setEditProfileId(null);
+    setEditProfileName("");
+    setEditProfileIcon(PROFILE_ICONS[0]);
+    setIsSavingProfileEdit(false);
+  };
+
+  const handleSaveProfileEdit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!profileBeingEdited || !canSaveProfileEdit) {
+      return;
+    }
+
+    try {
+      setIsSavingProfileEdit(true);
+      await updateProfile({
+        profileId: profileBeingEdited._id,
+        updates: {
+          name: trimmedEditProfileName,
+          icon: editProfileIcon,
+        },
+      });
+      toast({ title: "Profile updated", status: "success" });
+      closeEditDialog();
+    } catch {
+      toast({ title: "Failed to update profile", status: "error" });
+    } finally {
+      setIsSavingProfileEdit(false);
+    }
+  };
+
   const defaultTraits = [
     "friendly",
     "witty",
@@ -202,7 +297,86 @@ function useCustomizationSettingsPageView() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* Profile Section */}
+      {profiles.length > 0 && (
+        <>
+          <header className="space-y-4">
+            <h1 className="font-semibold text-2xl tracking-tight">Profile</h1>
+            <p className="text-muted-foreground leading-relaxed">
+              Profiles let you maintain separate settings and chat spaces.
+            </p>
+          </header>
+
+          <section className="space-y-4">
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <Label className="mb-1.5 block text-sm" htmlFor="active-profile">
+                  Active Profile
+                </Label>
+                <Select
+                  onOpenChange={setIsProfileSelectOpen}
+                  onValueChange={(val) => setActiveProfile(val as Id<"profiles">)}
+                  open={isProfileSelectOpen}
+                  value={activeProfile?._id}
+                >
+                  <SelectTrigger className="w-full" id="active-profile">
+                    {activeProfile ? (
+                      <span className="flex items-center gap-2">
+                        <PhosphorIcon className="size-3.5" name={activeProfile.icon} weight="fill" />
+                        {activeProfile.name}
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Select profile" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {profiles.map((p) => (
+                      <SelectItem className="pr-16 [&>span.absolute]:hidden" key={p._id} value={p._id}>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <PhosphorIcon className="size-3.5" name={p.icon} weight="fill" />
+                          <span className="truncate">{p.name}</span>
+                        </span>
+                        <span className="absolute top-1/2 right-1.5 z-10 flex -translate-y-1/2 items-center gap-1">
+                          <button
+                            aria-label={`Edit ${p.name}`}
+                            className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            onPointerDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenEditProfile(p);
+                            }}
+                            type="button"
+                          >
+                            <PencilSimple className="size-3.5" />
+                          </button>
+                          <button
+                            aria-label={`Delete ${p.name}`}
+                            className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                            disabled={p.isDefault}
+                            onPointerDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteFromDropdown(p);
+                            }}
+                            type="button"
+                          >
+                            <Trash className="size-3.5" />
+                          </button>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {profiles.length < 5 && <CreateProfileDialog />}
+            </div>
+
+          </section>
+        </>
+      )}
+
+      {/* Customization Header */}
       <header className="space-y-4">
         <div className="flex items-baseline justify-between">
           <h1 className="font-semibold text-2xl tracking-tight">Customization</h1>
@@ -220,8 +394,6 @@ function useCustomizationSettingsPageView() {
 
       {/* Personal Information Section */}
       <section className="space-y-6">
-        <h2 className="font-medium text-foreground text-sm tracking-wide">Personal Information</h2>
-
         {/* Preferred Name */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -365,7 +537,7 @@ function useCustomizationSettingsPageView() {
 
       {/* Visual Options Section */}
       <section className="space-y-4">
-        <h2 className="font-medium text-foreground text-sm tracking-wide">Visual Options</h2>
+        <h1 className="font-semibold text-2xl tracking-tight">Visual Options</h1>
 
         {/* Theme Card */}
         <div className="rounded-xl border bg-card p-4">
@@ -426,6 +598,55 @@ function useCustomizationSettingsPageView() {
         </div>
       </section>
 
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            closeEditDialog();
+          }
+        }}
+        open={Boolean(profileBeingEdited)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+          {profileBeingEdited && (
+            <form onSubmit={handleSaveProfileEdit}>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label className="text-sm" htmlFor="edit-profile-name">
+                    Name
+                  </Label>
+                  <div className="flex gap-2">
+                    <ProfileIconPicker onChange={setEditProfileIcon} value={editProfileIcon} />
+                    <Input
+                      id="edit-profile-name"
+                      maxLength={50}
+                      onChange={(e) => setEditProfileName(e.target.value)}
+                      placeholder="Work, Personal, etc."
+                      value={editProfileName}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                <Button
+                  className="cursor-pointer"
+                  onClick={closeEditDialog}
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                <Button className="cursor-pointer" disabled={!canSaveProfileEdit} type="submit">
+                  {isSavingProfileEdit ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Unsaved Changes Dialog */}
       <AlertDialog onOpenChange={setShowUnsavedChangesDialog} open={showUnsavedChangesDialog}>
         <AlertDialogContent>
@@ -447,6 +668,47 @@ function useCustomizationSettingsPageView() {
               }}
             >
               Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Profile Confirmation Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmProfileId(null);
+          }
+        }}
+        open={Boolean(deleteConfirmProfileId)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Profile</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the profile and move its chats to the Default profile. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deleteConfirmProfileId) {
+                  return;
+                }
+                try {
+                  await deleteProfileMutation({
+                    profileId: deleteConfirmProfileId,
+                  });
+                  setDeleteConfirmProfileId(null);
+                  toast({ title: "Profile deleted", status: "success" });
+                } catch {
+                  toast({ title: "Failed to delete profile", status: "error" });
+                }
+              }}
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
