@@ -3,7 +3,7 @@ import { MagnifyingGlass, Plus, SidebarSimple } from "@phosphor-icons/react";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModifierKey } from "@/lib/hooks/use-modifier-key";
 import { useTheme } from "@/components/theme-provider";
@@ -22,10 +22,12 @@ import {
 } from "@/lib/chat-utils/time-grouping";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
 import { useChatSession } from "@/providers/chat-session-provider";
+import { useProfile } from "@/providers/profile-provider";
 import { useSidebar } from "@/providers/sidebar-provider";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import { SidebarProfileSection } from "../profile/sidebar-profile-section";
 import { ChatList } from "./chat-list";
 
 const ChatSidebar = memo(function SidebarComponent() {
@@ -48,10 +50,29 @@ const ChatSidebar = memo(function SidebarComponent() {
 		activeChatIdRef.current = activeChatId;
 	}, [activeChatId]);
 	const { user } = useUser();
+	const { activeProfile, slideDirection, getLastChatForProfile } = useProfile();
 
 	const router = useRouter();
 	const location = useLocation();
 	const pathname = location.pathname;
+
+	// Navigate to last active chat when profile switches
+	const prevActiveProfileIdRef = useRef<string | undefined>(undefined);
+	useEffect(() => {
+		const profileId = activeProfile?._id;
+		if (!profileId || profileId === prevActiveProfileIdRef.current) return;
+
+		// Skip on initial mount
+		if (prevActiveProfileIdRef.current !== undefined) {
+			const lastChat = getLastChatForProfile(profileId);
+			if (lastChat) {
+				router.navigate({ to: "/c/$chatId", params: { chatId: lastChat } });
+			} else {
+				router.navigate({ to: "/" });
+			}
+		}
+		prevActiveProfileIdRef.current = profileId;
+	}, [activeProfile?._id, getLastChatForProfile, router]);
 
 	// State for search and edit/delete in the main sidebar list
 	const [searchQuery, setSearchQuery] = useState("");
@@ -151,15 +172,28 @@ const ChatSidebar = memo(function SidebarComponent() {
 		if (!chats?.length) {
 			return [];
 		}
+
+		// Filter by active profile first
+		let profileFiltered = chats;
+		if (activeProfile) {
+			profileFiltered = chats.filter((chat) => {
+				if (activeProfile.isDefault) {
+					// Default profile: show chats with no profileId or matching
+					return !chat.profileId || chat.profileId === activeProfile._id;
+				}
+				return chat.profileId === activeProfile._id;
+			});
+		}
+
 		if (!searchQuery.trim()) {
-			return chats;
+			return profileFiltered;
 		}
 
 		const lowerQuery = searchQuery.toLowerCase();
-		return chats.filter((chat) =>
+		return profileFiltered.filter((chat) =>
 			(chat.title || "").toLowerCase().includes(lowerQuery),
 		);
-	}, [chats, searchQuery]);
+	}, [chats, searchQuery, activeProfile]);
 
 	// Memoize pinned and unpinned chats with optimized single-pass separation
 	const { pinnedChats, unpinnedChats } = useMemo(() => {
@@ -383,7 +417,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 					animate={{
 						opacity: isOpen ? 1 : 0,
 					}}
-					className="flex flex-grow flex-col overflow-y-auto px-4 pt-4 pb-4"
+					className="relative flex flex-grow flex-col overflow-hidden"
 					initial={{
 						opacity: isOpen ? 1 : 0,
 					}}
@@ -392,27 +426,58 @@ const ChatSidebar = memo(function SidebarComponent() {
 						delay: isOpen ? 0.15 : 0,
 					}}
 				>
-					{Boolean(chatsLoading) && chats.length === 0 ? (
-						<div className="space-y-2">
-						{["0", "1", "2", "3", "4"].map((skeletonId) => (
-							<div
-								className="h-8 animate-pulse rounded bg-muted/50"
-								key={`skeleton-${skeletonId}`}
-							/>
-							))}
-						</div>
-					) : (
-						<ChatList
-							activeChatId={activeChatId}
-							groupedChats={groupedChats}
-							handleConfirmDelete={handleConfirmDelete}
-							handleSaveEdit={handleSaveEdit}
-							handleTogglePin={handleTogglePin}
-							hasChatsInGroup={hasChatsInGroup}
-							orderedGroupKeys={orderedGroupKeys}
-							pinnedChats={pinnedChats}
-						/>
-					)}
+					<div className="relative flex-grow overflow-hidden">
+						<AnimatePresence custom={slideDirection} initial={false} mode="popLayout">
+							<m.div
+								key={activeProfile?._id ?? "default"}
+								animate="center"
+								className="overflow-y-auto px-4 pt-4 pb-4"
+								custom={slideDirection}
+								exit="exit"
+								initial="enter"
+								style={{ willChange: "transform" }}
+								transition={{ duration: 0.25, ease: [0.645, 0.045, 0.355, 1] }}
+								variants={{
+									enter: (dir: number) => ({ transform: `translateX(${dir * 100}%)`, opacity: 0 }),
+									center: { transform: "translateX(0%)", opacity: 1 },
+									exit: (dir: number) => ({ transform: `translateX(${dir * -100}%)`, opacity: 0 }),
+								}}
+							>
+								{Boolean(chatsLoading) && chats.length === 0 ? (
+									<div className="space-y-2">
+										{["0", "1", "2", "3", "4"].map((skeletonId) => (
+											<div
+												className="h-8 animate-pulse rounded bg-muted/50"
+												key={`skeleton-${skeletonId}`}
+											/>
+										))}
+									</div>
+								) : (
+									<ChatList
+										activeChatId={activeChatId}
+										groupedChats={groupedChats}
+										handleConfirmDelete={handleConfirmDelete}
+										handleSaveEdit={handleSaveEdit}
+										handleTogglePin={handleTogglePin}
+										hasChatsInGroup={hasChatsInGroup}
+										orderedGroupKeys={orderedGroupKeys}
+										pinnedChats={pinnedChats}
+									/>
+								)}
+							</m.div>
+						</AnimatePresence>
+					</div>
+					{/* Bottom fade gradient */}
+					<div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background to-transparent" />
+				</m.div>
+
+				{/* Profile Switcher */}
+				<m.div
+					animate={{ opacity: isOpen ? 1 : 0 }}
+					initial={{ opacity: isOpen ? 1 : 0 }}
+					transition={{ ...TRANSITION_LAYOUT, delay: isOpen ? 0.15 : 0 }}
+				>
+					<SidebarProfileSection />
 				</m.div>
 			</m.aside>
 		</div>
