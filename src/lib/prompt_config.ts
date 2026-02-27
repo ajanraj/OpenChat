@@ -465,23 +465,21 @@ export function buildSystemPrompt(
     return prompt;
   }
 
-  // Use profile data when available, falling back to user-level fields
-  const source = profile ?? user;
   const details: string[] = [];
   if (user.name) {
     details.push(`Name: ${user.name}`);
   }
-  if (source.preferredName) {
-    details.push(`Preferred Name: ${source.preferredName}`);
+  if (profile?.preferredName ?? user.preferredName) {
+    details.push(`Preferred Name: ${profile?.preferredName ?? user.preferredName}`);
   }
-  if (source.occupation) {
-    details.push(`Occupation: ${source.occupation}`);
+  if (profile?.occupation ?? user.occupation) {
+    details.push(`Occupation: ${profile?.occupation ?? user.occupation}`);
   }
-  if (source.traits) {
-    details.push(`Traits: ${source.traits}`);
+  if (profile?.traits ?? user.traits) {
+    details.push(`Traits: ${profile?.traits ?? user.traits}`);
   }
-  if (source.about) {
-    details.push(`About: ${source.about}`);
+  if (profile?.about ?? user.about) {
+    details.push(`About: ${profile?.about ?? user.about}`);
   }
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(

@@ -27,6 +27,9 @@ describe("ERROR_CODES", () => {
     expect(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED).toBe("PREMIUM_MODEL_ACCESS_DENIED");
     expect(ERROR_CODES.USER_KEY_REQUIRED).toBe("USER_KEY_REQUIRED");
     expect(ERROR_CODES.UNSUPPORTED_MODEL).toBe("UNSUPPORTED_MODEL");
+    expect(ERROR_CODES.PROFILE_LIMIT_REACHED).toBe("PROFILE_LIMIT_REACHED");
+    expect(ERROR_CODES.PROFILE_NOT_FOUND).toBe("PROFILE_NOT_FOUND");
+    expect(ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE).toBe("CANNOT_DELETE_DEFAULT_PROFILE");
   });
 
   it("includes all file error codes", () => {
@@ -92,6 +95,13 @@ describe("getErrorMessage", () => {
     );
     expect(getErrorMessage(ERROR_CODES.USER_KEY_REQUIRED)).toBe(
       "This model requires your own API key. Please add your API key in settings.",
+    );
+    expect(getErrorMessage(ERROR_CODES.PROFILE_LIMIT_REACHED)).toBe(
+      "Maximum of 5 profiles allowed.",
+    );
+    expect(getErrorMessage(ERROR_CODES.PROFILE_NOT_FOUND)).toBe("Profile not found.");
+    expect(getErrorMessage(ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE)).toBe(
+      "The default profile cannot be deleted.",
     );
   });
 
