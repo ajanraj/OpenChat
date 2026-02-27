@@ -87,6 +87,7 @@ function useCustomizationSettingsPageView() {
 
   const profileSnapshot = getProfileCustomizationSnapshot(activeProfile);
   const [draft, setDraft] = useState<CustomizationDraft | null>(null);
+  const [draftProfileId, setDraftProfileId] = useState<string | undefined>(activeProfile?._id);
   const [traitInput, setTraitInput] = useState("");
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
@@ -113,10 +114,11 @@ function useCustomizationSettingsPageView() {
     setDraft((previousDraft) => updater(previousDraft ?? profileSnapshot));
   };
 
-  // Reset draft when profile changes
-  useEffect(() => {
+  // Reset draft when profile changes (replaces useEffect + setState)
+  if (activeProfile?._id !== draftProfileId) {
+    setDraftProfileId(activeProfile?._id);
     setDraft(null);
-  }, [activeProfile?._id]);
+  }
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -277,11 +279,11 @@ function useCustomizationSettingsPageView() {
         },
       });
       toast({ title: "Profile updated", status: "success" });
+      setIsSavingProfileEdit(false);
       closeEditDialog();
     } catch {
-      toast({ title: "Failed to update profile", status: "error" });
-    } finally {
       setIsSavingProfileEdit(false);
+      toast({ title: "Failed to update profile", status: "error" });
     }
   };
 

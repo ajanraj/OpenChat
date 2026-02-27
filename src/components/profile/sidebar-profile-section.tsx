@@ -1,7 +1,7 @@
 import { CaretLeft, CaretRight, UserPlus, X } from "@phosphor-icons/react";
 import { useMutation } from "convex/react";
 import { AnimatePresence, m } from "motion/react";
-import { useCallback, useState } from "react";
+import { useCallback, useReducer } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -24,53 +24,90 @@ import { useProfile } from "@/providers/profile-provider";
 import { ProfileIconPicker } from "./profile-icon-picker";
 import { PhosphorIcon } from "./profile-form-fields";
 
+interface FormState {
+	showForm: boolean;
+	name: string;
+	selectedIcon: ProfileIconName;
+	copyFrom: string | undefined;
+	isSubmitting: boolean;
+}
+
+type FormAction =
+	| { type: "OPEN_FORM"; defaultIcon: ProfileIconName }
+	| { type: "CLOSE_FORM" }
+	| { type: "SET_NAME"; value: string }
+	| { type: "SET_ICON"; value: ProfileIconName }
+	| { type: "SET_COPY_FROM"; value: string | undefined }
+	| { type: "SUBMIT_START" }
+	| { type: "SUBMIT_SUCCESS" }
+	| { type: "SUBMIT_ERROR" };
+
+function formReducer(state: FormState, action: FormAction): FormState {
+	switch (action.type) {
+		case "OPEN_FORM":
+			return { ...state, showForm: true, name: "", selectedIcon: action.defaultIcon, copyFrom: undefined };
+		case "CLOSE_FORM":
+			return { ...state, showForm: false };
+		case "SET_NAME":
+			return { ...state, name: action.value };
+		case "SET_ICON":
+			return { ...state, selectedIcon: action.value };
+		case "SET_COPY_FROM":
+			return { ...state, copyFrom: action.value };
+		case "SUBMIT_START":
+			return { ...state, isSubmitting: true };
+		case "SUBMIT_SUCCESS":
+			return { ...state, isSubmitting: false, showForm: false, name: "", copyFrom: undefined };
+		case "SUBMIT_ERROR":
+			return { ...state, isSubmitting: false };
+	}
+}
+
 export function SidebarProfileSection() {
 	const { profiles, activeProfile, setActiveProfile } = useProfile();
 	const { chatId: activeChatId } = useChatSession();
 	const createProfile = useMutation(api.profiles.createProfile);
 
-	const [showForm, setShowForm] = useState(false);
-	const [name, setName] = useState("");
-	const [selectedIcon, setSelectedIcon] = useState<ProfileIconName>(
-		getDefaultIconForIndex(profiles.length),
-	);
-	const [copyFrom, setCopyFrom] = useState<string | undefined>(undefined);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [form, dispatch] = useReducer(formReducer, {
+		showForm: false,
+		name: "",
+		selectedIcon: "ChatCircle" as ProfileIconName,
+		copyFrom: undefined,
+		isSubmitting: false,
+	});
 
 	const canCreate = profiles.length < 5;
-	const canSubmit = name.trim().length > 0 && !isSubmitting;
+	const canSubmit = form.name.trim().length > 0 && !form.isSubmitting;
 
 	const handleSubmit = useCallback(async () => {
 		if (!canSubmit) return;
-		setIsSubmitting(true);
+		const trimmedName = form.name.trim();
+		const copyFromId =
+			form.copyFrom && form.copyFrom !== "scratch"
+				? (form.copyFrom as Id<"profiles">)
+				: undefined;
+		dispatch({ type: "SUBMIT_START" });
 		try {
 			const newProfileId = await createProfile({
-				name: name.trim(),
-				icon: selectedIcon,
-				copyFromProfileId:
-					copyFrom && copyFrom !== "scratch"
-						? (copyFrom as Id<"profiles">)
-						: undefined,
+				name: trimmedName,
+				icon: form.selectedIcon,
+				copyFromProfileId: copyFromId,
 			});
 			setActiveProfile(newProfileId);
-			setShowForm(false);
-			setName("");
-			setCopyFrom(undefined);
-			toast({ title: `Profile "${name.trim()}" created`, status: "success" });
+			dispatch({ type: "SUBMIT_SUCCESS" });
+			toast({ title: `Profile "${trimmedName}" created`, status: "success" });
 		} catch {
+			dispatch({ type: "SUBMIT_ERROR" });
 			toast({ title: "Failed to create profile", status: "error" });
-		} finally {
-			setIsSubmitting(false);
 		}
-	}, [canSubmit, createProfile, name, selectedIcon, copyFrom]);
+	}, [canSubmit, createProfile, form.name, form.selectedIcon, form.copyFrom, setActiveProfile]);
 
 	const toggleForm = () => {
-		if (!showForm) {
-			setName("");
-			setSelectedIcon(getDefaultIconForIndex(profiles.length));
-			setCopyFrom(undefined);
+		if (form.showForm) {
+			dispatch({ type: "CLOSE_FORM" });
+		} else {
+			dispatch({ type: "OPEN_FORM", defaultIcon: getDefaultIconForIndex(profiles.length) });
 		}
-		setShowForm((prev) => !prev);
 	};
 
 	if (profiles.length === 0) return null;
@@ -79,7 +116,7 @@ export function SidebarProfileSection() {
 		<div className="shrink-0 overflow-visible px-2 pb-2">
 			{/* Create Form (expandable) */}
 			<AnimatePresence>
-				{showForm && canCreate && (
+				{form.showForm && canCreate && (
 					<m.div
 						animate={{ height: "auto", opacity: 1 }}
 						className="overflow-hidden"
@@ -97,26 +134,26 @@ export function SidebarProfileSection() {
 
 							<div className="flex gap-2">
 								<ProfileIconPicker
-									onChange={setSelectedIcon}
-									value={selectedIcon}
+									onChange={(v) => dispatch({ type: "SET_ICON", value: v })}
+									value={form.selectedIcon}
 								/>
 
 								<Input
 									maxLength={50}
-									onChange={(e) => setName(e.target.value)}
+									onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })}
 									onKeyDown={(e) => {
 										if (e.key === "Enter" && canSubmit) {
 											void handleSubmit();
 										}
 									}}
 									placeholder="Profile name"
-									value={name}
+									value={form.name}
 								/>
 							</div>
 
 							<Select
-								onValueChange={setCopyFrom}
-								value={copyFrom}
+								onValueChange={(v) => dispatch({ type: "SET_COPY_FROM", value: v })}
+								value={form.copyFrom}
 							>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Copy settings from..." />
@@ -156,7 +193,7 @@ export function SidebarProfileSection() {
 			<div
 				className={cn(
 					"flex items-center px-2 py-1.5 transition-colors duration-200 ease-out",
-					showForm && canCreate
+					form.showForm && canCreate
 						? "rounded-b-xl bg-muted/30"
 						: "rounded-xl",
 				)}
@@ -225,7 +262,7 @@ export function SidebarProfileSection() {
 						onClick={toggleForm}
 						type="button"
 					>
-						{showForm ? <X className="size-5" /> : <UserPlus className="size-5" />}
+						{form.showForm ? <X className="size-5" /> : <UserPlus className="size-5" />}
 					</button>
 				)}
 			</div>

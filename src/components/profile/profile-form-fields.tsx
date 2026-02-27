@@ -99,7 +99,6 @@ export function ProfileFormFields({
 						<PhosphorIcon className="size-4" name={selectedIcon} weight="fill" />
 					</div>
 					<Input
-						autoFocus
 						id="profile-name"
 						maxLength={30}
 						onChange={(e) => setName(e.target.value)}

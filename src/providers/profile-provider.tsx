@@ -52,14 +52,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, profiles.length, ensureDefault, themeState]);
 
+  const activeProfileId = user?.activeProfileId;
   const activeProfile = useMemo(() => {
-    if (!user?.activeProfileId || profiles.length === 0) {
+    if (!activeProfileId || profiles.length === 0) {
       return profiles.find((p) => p.isDefault);
     }
     return (
-      profiles.find((p) => p._id === user.activeProfileId) ?? profiles.find((p) => p.isDefault)
+      profiles.find((p) => p._id === activeProfileId) ?? profiles.find((p) => p.isDefault)
     );
-  }, [user?.activeProfileId, profiles]);
+  }, [activeProfileId, profiles]);
 
   // Apply theme config when active profile changes
   const prevProfileIdRef = useRef<Id<"profiles"> | undefined>(undefined);

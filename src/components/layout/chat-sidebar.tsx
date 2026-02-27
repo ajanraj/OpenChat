@@ -435,7 +435,6 @@ const ChatSidebar = memo(function SidebarComponent() {
 								custom={slideDirection}
 								exit="exit"
 								initial="enter"
-								style={{ willChange: "transform" }}
 								transition={{ duration: 0.25, ease: [0.645, 0.045, 0.355, 1] }}
 								variants={{
 									enter: (dir: number) => ({ transform: `translateX(${dir * 100}%)`, opacity: 0 }),
