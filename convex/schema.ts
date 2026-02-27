@@ -5,6 +5,7 @@ import { ChatAttachment } from "./schema/chat_attachment";
 import { Connector } from "./schema/connectors";
 import { Feedback } from "./schema/feedback";
 import { Message } from "./schema/message";
+import { Profile } from "./schema/profile";
 import { ScheduledTask } from "./schema/scheduled_task";
 import { TaskHistory } from "./schema/task_history";
 import { UsageHistory } from "./schema/usage_history";
@@ -15,7 +16,12 @@ import { UserApiKey } from "./schema/user_api_key";
 export default defineSchema({
   ...authTables,
   users: defineTable(User).index("email", ["email"]),
-  chats: defineTable(Chat).index("by_user", ["userId"]),
+  chats: defineTable(Chat)
+    .index("by_user", ["userId"])
+    .index("by_user_and_profile", ["userId", "profileId"]),
+  profiles: defineTable(Profile)
+    .index("by_user", ["userId"])
+    .index("by_user_and_default", ["userId", "isDefault"]),
   messages: defineTable(Message)
     .index("by_chat_and_created", ["chatId", "createdAt"])
     .index("by_user", ["userId"])

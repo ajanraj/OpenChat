@@ -13,4 +13,5 @@ export const User = v.object({
   about: v.optional(v.string()),
   disabledModels: v.optional(v.array(v.string())),
   favoriteModels: v.optional(v.array(v.string())),
+  activeProfileId: v.optional(v.id("profiles")),
 });
