@@ -179,6 +179,14 @@ export const createChat = mutation({
       resolvedProfileId = user?.activeProfileId ?? undefined;
     }
 
+    // Validate profile belongs to this user
+    if (resolvedProfileId) {
+      const profile = await ctx.db.get(resolvedProfileId);
+      if (!profile || profile.userId !== userId) {
+        resolvedProfileId = undefined;
+      }
+    }
+
     const now = Date.now();
     const chatId = await ctx.db.insert("chats", {
       userId,

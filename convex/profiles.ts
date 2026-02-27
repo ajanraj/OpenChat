@@ -39,7 +39,15 @@ export const getProfile = query({
     }),
   ),
   handler: async (ctx, { profileId }) => {
-    return await ctx.db.get(profileId);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+    const profile = await ctx.db.get(profileId);
+    if (!profile || profile.userId !== userId) {
+      return null;
+    }
+    return profile;
   },
 });
 
@@ -163,12 +171,14 @@ export const createProfile = mutation({
       }
     }
 
+    const maxOrder = existing.reduce((max, p) => Math.max(max, p.order), -1);
+
     const profileId = await ctx.db.insert("profiles", {
       userId,
       name: args.name.trim(),
       icon: args.icon,
       isDefault: false,
-      order: existing.length,
+      order: maxOrder + 1,
       ...copyData,
     });
 
