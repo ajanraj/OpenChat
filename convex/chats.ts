@@ -100,11 +100,13 @@ export const forkFromShared = mutation({
     }
 
     const now = Date.now();
+    const user = await ctx.db.get(userId);
     const newChatId = await ctx.db.insert("chats", {
       userId,
       title: source.title || "Forked Chat",
       model: source.model,
       personaId: source.personaId,
+      profileId: user?.activeProfileId,
       createdAt: now,
       updatedAt: now,
       // Do not mark fork as public by default
@@ -353,6 +355,7 @@ export const branchChat = mutation({
       title: originalChat.title || "New Chat",
       model: originalChat.model,
       personaId: originalChat.personaId,
+      profileId: originalChat.profileId,
       originalChatId: args.originalChatId,
       createdAt: now,
       updatedAt: now,

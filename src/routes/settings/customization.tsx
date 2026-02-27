@@ -187,29 +187,33 @@ function useCustomizationSettingsPageView() {
   }, [hasUnsavedChanges, shouldInterceptAnchor, handleNavigationAttempt]);
 
   const handleSave = async () => {
-    if (activeProfile) {
-      await updateProfile({
-        profileId: activeProfile._id,
-        updates: {
-          preferredName,
-          occupation,
-          traits: traits.join(", "),
-          about,
-        },
-      });
-    } else {
-      // Fallback for anonymous users or before profiles are loaded
-      await updateUserProfile({
-        updates: {
-          preferredName,
-          occupation,
-          traits: traits.join(", "),
-          about,
-        },
-      });
+    try {
+      if (activeProfile) {
+        await updateProfile({
+          profileId: activeProfile._id,
+          updates: {
+            preferredName,
+            occupation,
+            traits: traits.join(", "),
+            about,
+          },
+        });
+      } else {
+        // Fallback for anonymous users or before profiles are loaded
+        await updateUserProfile({
+          updates: {
+            preferredName,
+            occupation,
+            traits: traits.join(", "),
+            about,
+          },
+        });
+      }
+      setDraft(null);
+      toast({ title: "Preferences saved", status: "success" });
+    } catch {
+      toast({ title: "Failed to save preferences", status: "error" });
     }
-    setDraft(null);
-    toast({ title: "Preferences saved", status: "success" });
   };
 
   const handleAddTrait = (trait: string) => {

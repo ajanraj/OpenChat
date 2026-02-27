@@ -197,8 +197,6 @@ export const updateProfile = mutation({
       traits: v.optional(v.string()),
       about: v.optional(v.string()),
       preferredModel: v.optional(v.string()),
-      disabledModels: v.optional(v.array(v.string())),
-      favoriteModels: v.optional(v.array(v.string())),
       themeConfig: v.optional(v.string()),
     }),
   },

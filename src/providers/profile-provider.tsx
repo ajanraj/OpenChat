@@ -72,16 +72,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     prevProfileIdRef.current = activeProfile._id;
     isProfileSwitchRef.current = true;
 
-    // Reset theme dedupe so the new profile's theme is tracked independently
-    lastSavedThemeRef.current = "";
-
     if (activeProfile.themeConfig) {
       try {
         const parsed = JSON.parse(activeProfile.themeConfig) as ThemeEditorState;
         setThemeState(parsed);
+        // Track what we applied so debounce won't re-save the same value
+        lastSavedThemeRef.current = activeProfile.themeConfig;
       } catch {
-        // Invalid theme config, skip
+        // Invalid theme config — snapshot current state to prevent stale save
+        lastSavedThemeRef.current = JSON.stringify(useEditorStore.getState().themeState);
       }
+    } else {
+      // No theme config on this profile — snapshot current Zustand state
+      // so the debounce doesn't save the previous profile's theme here
+      lastSavedThemeRef.current = JSON.stringify(useEditorStore.getState().themeState);
     }
 
     // Reset switch flag after a tick so the debounce doesn't immediately fire
