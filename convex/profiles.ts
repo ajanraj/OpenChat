@@ -207,8 +207,10 @@ export const updateProfile = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    if (updates.name !== undefined && !updates.name.trim()) {
-      throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
+    if (updates.name !== undefined) {
+      const trimmed = updates.name.trim();
+      if (!trimmed) throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
+      updates = { ...updates, name: trimmed };
     }
 
     const profile = await ctx.db.get(profileId);
