@@ -50,15 +50,10 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
     profileId: Id<"profiles"> | undefined;
   }>({ draft: null, profileId: activeProfile?._id });
 
-  // Keep profileId in sync with activeProfile when no draft is active
-  useEffect(() => {
-    setDraftState((prev) => {
-      if (prev.draft || prev.profileId === activeProfile?._id) return prev;
-      return { ...prev, profileId: activeProfile?._id };
-    });
-  }, [activeProfile?._id]);
-
-  const { draft, profileId: draftProfileId } = draftState;
+  const { draft } = draftState;
+  // When no draft is active, always use the current activeProfile id
+  // (avoids stale undefined from initial state before profiles load).
+  const draftProfileId = draft ? draftState.profileId : activeProfile?._id;
   const currentValues = draft ?? profileSnapshot;
   const { preferredName, occupation, traits, about } = currentValues;
   const hasUnsavedChanges =
