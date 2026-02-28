@@ -173,19 +173,24 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 	// Memoize filtered chats with single-pass profile + search filtering
 	const filteredChats = useMemo(() => {
-		// Block renders until profile is resolved to enforce isolation
-		if (isProfilesLoading || !activeProfile || !chats?.length) {
+		if (!chats?.length) return [];
+
+		const isAnonymous = !user || user.isAnonymous;
+		// Block renders until profile is resolved to enforce isolation (signed-in only)
+		if (!isAnonymous && (isProfilesLoading || !activeProfile)) {
 			return [];
 		}
 
 		const lowerQuery = searchQuery.trim().toLowerCase();
 
 		return chats.filter((chat) => {
-			// Profile filter
-			if (activeProfile.isDefault) {
-				if (chat.profileId && chat.profileId !== activeProfile._id) return false;
-			} else {
-				if (chat.profileId !== activeProfile._id) return false;
+			// Profile filter (skipped for anonymous users who have no profiles)
+			if (!isAnonymous && activeProfile) {
+				if (activeProfile.isDefault) {
+					if (chat.profileId && chat.profileId !== activeProfile._id) return false;
+				} else {
+					if (chat.profileId !== activeProfile._id) return false;
+				}
 			}
 			// Search filter
 			if (lowerQuery) {
@@ -193,7 +198,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 			}
 			return true;
 		});
-	}, [chats, searchQuery, activeProfile, isProfilesLoading]);
+	}, [chats, searchQuery, activeProfile, isProfilesLoading, user]);
 
 	// Memoize pinned and unpinned chats with optimized single-pass separation
 	const { pinnedChats, unpinnedChats } = useMemo(() => {
