@@ -50,7 +50,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 		activeChatIdRef.current = activeChatId;
 	}, [activeChatId]);
 	const { user } = useUser();
-	const { activeProfile, slideDirection, getLastChatForProfile } = useProfile();
+	const { activeProfile, isProfilesLoading, slideDirection, getLastChatForProfile } = useProfile();
 
 	const router = useRouter();
 	const location = useLocation();
@@ -173,7 +173,8 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 	// Memoize filtered chats with single-pass profile + search filtering
 	const filteredChats = useMemo(() => {
-		if (!chats?.length) {
+		// Block renders until profile is resolved to enforce isolation
+		if (isProfilesLoading || !activeProfile || !chats?.length) {
 			return [];
 		}
 
@@ -181,12 +182,10 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 		return chats.filter((chat) => {
 			// Profile filter
-			if (activeProfile) {
-				if (activeProfile.isDefault) {
-					if (chat.profileId && chat.profileId !== activeProfile._id) return false;
-				} else {
-					if (chat.profileId !== activeProfile._id) return false;
-				}
+			if (activeProfile.isDefault) {
+				if (chat.profileId && chat.profileId !== activeProfile._id) return false;
+			} else {
+				if (chat.profileId !== activeProfile._id) return false;
 			}
 			// Search filter
 			if (lowerQuery) {
@@ -194,7 +193,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 			}
 			return true;
 		});
-	}, [chats, searchQuery, activeProfile]);
+	}, [chats, searchQuery, activeProfile, isProfilesLoading]);
 
 	// Memoize pinned and unpinned chats with optimized single-pass separation
 	const { pinnedChats, unpinnedChats } = useMemo(() => {
