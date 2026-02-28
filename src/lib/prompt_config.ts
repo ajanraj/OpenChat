@@ -469,18 +469,14 @@ export function buildSystemPrompt(
   if (user.name) {
     details.push(`Name: ${user.name}`);
   }
-  if (profile?.preferredName ?? user.preferredName) {
-    details.push(`Preferred Name: ${profile?.preferredName ?? user.preferredName}`);
-  }
-  if (profile?.occupation ?? user.occupation) {
-    details.push(`Occupation: ${profile?.occupation ?? user.occupation}`);
-  }
-  if (profile?.traits ?? user.traits) {
-    details.push(`Traits: ${profile?.traits ?? user.traits}`);
-  }
-  if (profile?.about ?? user.about) {
-    details.push(`About: ${profile?.about ?? user.about}`);
-  }
+  const preferredName = profile?.preferredName || user.preferredName;
+  const occupation = profile?.occupation || user.occupation;
+  const traits = profile?.traits || user.traits;
+  const about = profile?.about || user.about;
+  if (preferredName) details.push(`Preferred Name: ${preferredName}`);
+  if (occupation) details.push(`Occupation: ${occupation}`);
+  if (traits) details.push(`Traits: ${traits}`);
+  if (about) details.push(`About: ${about}`);
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(
         "\n",
