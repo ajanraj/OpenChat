@@ -64,6 +64,7 @@ import {
 } from "@/lib/user-utils";
 import { cn } from "@/lib/utils";
 import { useChatSession } from "@/providers/chat-session-provider";
+import { useProfile } from "@/providers/profile-provider";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -267,6 +268,7 @@ function useChatContentView() {
 			);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
+	const { activeProfile } = useProfile();
 	const isAuthenticated = isUserAuthenticated(user);
 
 	// Get chat instance from context and bind useChat
@@ -485,6 +487,7 @@ function useChatContentView() {
 						trimmedQuery,
 						modelId,
 						personaId,
+						activeProfile?._id,
 					);
 					if (!newChatId) {
 						return;
@@ -538,6 +541,7 @@ function useChatContentView() {
 					inputMessage,
 					selectedModel,
 					personaId,
+					activeProfile?._id,
 				);
 				if (!currentChatId) {
 					return;
