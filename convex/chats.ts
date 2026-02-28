@@ -101,12 +101,19 @@ export const forkFromShared = mutation({
 
     const now = Date.now();
     const user = await ctx.db.get(userId);
+    let profileId = user?.activeProfileId;
+    if (profileId) {
+      const profile = await ctx.db.get(profileId);
+      if (!profile || profile.userId !== userId) {
+        profileId = undefined;
+      }
+    }
     const newChatId = await ctx.db.insert("chats", {
       userId,
       title: source.title || "Forked Chat",
       model: source.model,
       personaId: source.personaId,
-      profileId: user?.activeProfileId,
+      profileId,
       createdAt: now,
       updatedAt: now,
       // Do not mark fork as public by default
