@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,10 +18,18 @@ interface UnsavedChangesDialogProps {
 }
 
 export function UnsavedChangesDialog({ open, onDiscard, onCancel }: UnsavedChangesDialogProps) {
+  const discardedRef = useRef(false);
+
   return (
     <AlertDialog
       onOpenChange={(isOpen) => {
-        if (!isOpen) onCancel();
+        if (!isOpen) {
+          if (discardedRef.current) {
+            discardedRef.current = false;
+          } else {
+            onCancel();
+          }
+        }
       }}
       open={open}
     >
@@ -31,8 +41,15 @@ export function UnsavedChangesDialog({ open, onDiscard, onCancel }: UnsavedChang
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Stay</AlertDialogCancel>
-          <AlertDialogAction onClick={onDiscard}>Leave</AlertDialogAction>
+          <AlertDialogCancel>Stay</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              discardedRef.current = true;
+              onDiscard();
+            }}
+          >
+            Leave
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

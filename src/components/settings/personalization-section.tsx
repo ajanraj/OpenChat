@@ -154,10 +154,11 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && hasUnsavedChanges) {
-      e.preventDefault();
-      void handleSave();
-    }
+    if (e.key !== "Enter" || !hasUnsavedChanges) return;
+    const isTextarea = e.currentTarget instanceof HTMLTextAreaElement;
+    if (isTextarea && !e.metaKey && !e.ctrlKey) return;
+    e.preventDefault();
+    void handleSave();
   };
 
   return (

@@ -10,7 +10,7 @@ const createChatSchema = z.object({
   title: z.string().min(1, "Title is required"),
   model: z.string().min(1, "Model is required"),
   personaId: z.string().optional(),
-  profileId: z.string().optional(),
+  profileId: z.string().min(1).optional(),
   timezone: z.string().optional(),
 });
 

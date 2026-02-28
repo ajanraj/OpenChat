@@ -51,6 +51,7 @@ export function ProfileFormFields({
 			<div className="grid grid-cols-7 gap-1">
 				{PROFILE_ICONS.map((iconName) => (
 					<button
+						aria-label={iconName}
 						className={cn(
 							"flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors",
 							selectedIcon === iconName

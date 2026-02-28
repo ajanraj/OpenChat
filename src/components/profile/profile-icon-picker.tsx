@@ -23,6 +23,7 @@ export function ProfileIconPicker({
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
         <Button
+          aria-label="Pick profile icon"
           className={cn("size-9 shrink-0 cursor-pointer rounded-lg text-lg", triggerClassName)}
           type="button"
           variant="outline"
@@ -34,6 +35,7 @@ export function ProfileIconPicker({
         <div className="grid grid-cols-7 gap-1">
           {PROFILE_ICONS.map((iconName) => (
             <button
+              aria-label={iconName}
               className={cn(
                 "flex size-9 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground",
                 value === iconName && "bg-accent text-accent-foreground",

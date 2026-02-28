@@ -24,6 +24,7 @@ export function CreateProfileDialog() {
 				<TooltipTrigger asChild>
 					<DialogTrigger asChild>
 						<button
+							aria-label="New profile"
 							className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:border-muted-foreground/40 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							type="button"
 						>

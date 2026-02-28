@@ -41,6 +41,7 @@ export function TraitsEditor({ traits, onAdd, onRemove }: TraitsEditorProps) {
           >
             {trait}
             <button
+              aria-label={`Remove ${trait}`}
               className="ml-0.5 cursor-pointer rounded-sm text-primary/60 hover:bg-primary/20 hover:text-primary"
               onClick={(e) => {
                 e.stopPropagation();
