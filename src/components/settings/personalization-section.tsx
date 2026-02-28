@@ -79,16 +79,13 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
   useEffect(() => {
     draftRef.current = draft;
   });
-  const savingRef = useRef(false);
-
   useEffect(() => {
-    if (activeProfile?._id === draftProfileId || savingRef.current) return;
+    if (activeProfile?._id === draftProfileId) return;
 
     const currentDraft = draftRef.current;
     if (!currentDraft) return;
 
     let stale = false;
-    savingRef.current = true;
 
     const updates = {
       preferredName: currentDraft.preferredName,
@@ -109,9 +106,6 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
       .catch(() => {
         if (stale) return;
         toast({ title: "Failed to save preferences for previous profile", status: "error" });
-      })
-      .finally(() => {
-        savingRef.current = false;
       });
 
     return () => {
