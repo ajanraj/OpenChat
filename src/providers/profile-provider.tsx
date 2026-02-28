@@ -92,12 +92,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!activeProfile || activeProfile._id === prevProfileIdRef.current) {
       return;
     }
+    const previousProfileId = prevProfileIdRef.current;
     prevProfileIdRef.current = activeProfile._id;
 
-    // Cancel any pending save for the previous profile
+    // Flush any pending theme save for the previous profile before switching
     if (themeSaveTimerRef.current) {
       clearTimeout(themeSaveTimerRef.current);
       themeSaveTimerRef.current = undefined;
+
+      if (previousProfileId) {
+        const serialized = JSON.stringify(themeStateRef.current);
+        if (serialized !== lastSavedThemeRef.current) {
+          void updateProfileMut({
+            profileId: previousProfileId,
+            updates: { themeConfig: serialized },
+          });
+        }
+      }
     }
 
     if (activeProfile.themeConfig) {
@@ -115,7 +126,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // so the debounce doesn't save the previous profile's theme here
       lastSavedThemeRef.current = JSON.stringify(useEditorStore.getState().themeState);
     }
-  }, [activeProfile, setThemeState]);
+  }, [activeProfile, setThemeState, updateProfileMut]);
 
   // Debounced theme config save to Convex
   useEffect(() => {

@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,8 +81,24 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
     setDraft((previousDraft) => updater(previousDraft ?? profileSnapshot));
   };
 
-  // Reset draft when profile changes
+  // Auto-save dirty draft to previous profile before resetting
   if (activeProfile?._id !== draftProfileId) {
+    if (draft) {
+      const updates = {
+        preferredName: draft.preferredName,
+        occupation: draft.occupation,
+        traits: draft.traits.join(", "),
+        about: draft.about,
+      };
+      if (draftProfileId) {
+        void updateProfile({
+          profileId: draftProfileId as Id<"profiles">,
+          updates,
+        });
+      } else {
+        void updateUserProfile({ updates });
+      }
+    }
     setDraftProfileId(activeProfile?._id);
     setDraft(null);
   }
