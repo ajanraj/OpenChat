@@ -50,6 +50,14 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
     profileId: Id<"profiles"> | undefined;
   }>({ draft: null, profileId: activeProfile?._id });
 
+  // Keep profileId in sync with activeProfile when no draft is active
+  useEffect(() => {
+    setDraftState((prev) => {
+      if (prev.draft || prev.profileId === activeProfile?._id) return prev;
+      return { ...prev, profileId: activeProfile?._id };
+    });
+  }, [activeProfile?._id]);
+
   const { draft, profileId: draftProfileId } = draftState;
   const currentValues = draft ?? profileSnapshot;
   const { preferredName, occupation, traits, about } = currentValues;
@@ -65,7 +73,9 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
     setDraftState((prev) => ({
       draft: updater(prev.draft ?? profileSnapshot),
       // Preserve original draft ownership across profile switches until save succeeds.
-      profileId: prev.draft ? prev.profileId : activeProfile?._id,
+      // If activeProfile hasn't resolved yet, keep the previous profileId to avoid
+      // capturing undefined as the owner (which would route saves to the global user row).
+      profileId: prev.draft ? prev.profileId : (activeProfile?._id ?? prev.profileId),
     }));
   };
 
