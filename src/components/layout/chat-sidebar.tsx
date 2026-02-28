@@ -56,7 +56,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 	const location = useLocation();
 	const pathname = location.pathname;
 
-	// Navigate to last active chat when profile switches
+	// Navigate to last active chat when profile switches (only from chat routes)
 	const prevActiveProfileIdRef = useRef<string | undefined>(undefined);
 	useEffect(() => {
 		const profileId = activeProfile?._id;
@@ -64,15 +64,19 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 		// Skip on initial mount
 		if (prevActiveProfileIdRef.current !== undefined) {
-			const lastChat = getLastChatForProfile(profileId);
-			if (lastChat) {
-				router.navigate({ to: "/c/$chatId", params: { chatId: lastChat } });
-			} else {
-				router.navigate({ to: "/" });
+			// Only navigate when on chat routes — don't disrupt settings/tasks pages
+			const isChatRoute = pathname === "/" || pathname.startsWith("/c/");
+			if (isChatRoute) {
+				const lastChat = getLastChatForProfile(profileId);
+				if (lastChat) {
+					router.navigate({ to: "/c/$chatId", params: { chatId: lastChat } });
+				} else {
+					router.navigate({ to: "/" });
+				}
 			}
 		}
 		prevActiveProfileIdRef.current = profileId;
-	}, [activeProfile?._id, getLastChatForProfile, router]);
+	}, [activeProfile?._id, getLastChatForProfile, router, pathname]);
 
 	// State for search and edit/delete in the main sidebar list
 	const [searchQuery, setSearchQuery] = useState("");
@@ -431,7 +435,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 							<m.div
 								key={activeProfile?._id ?? "default"}
 								animate="center"
-								className="overflow-y-auto px-4 pt-4 pb-4"
+								className="h-full overflow-y-auto px-4 pt-4 pb-4"
 								custom={slideDirection}
 								exit="exit"
 								initial="enter"

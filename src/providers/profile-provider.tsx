@@ -122,10 +122,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
 
     themeSaveTimerRef.current = setTimeout(() => {
-      lastSavedThemeRef.current = serialized;
-      void updateProfileMut({
+      updateProfileMut({
         profileId: activeProfile._id,
         updates: { themeConfig: serialized },
+      }).then(() => {
+        lastSavedThemeRef.current = serialized;
+      }).catch(() => {
+        // Reset so next render retries the save
+        lastSavedThemeRef.current = "";
       });
     }, THEME_SAVE_DEBOUNCE_MS);
 
