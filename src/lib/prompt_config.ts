@@ -469,10 +469,10 @@ export function buildSystemPrompt(
   if (user.name) {
     details.push(`Name: ${user.name}`);
   }
-  const preferredName = profile?.preferredName || user.preferredName;
-  const occupation = profile?.occupation || user.occupation;
-  const traits = profile?.traits || user.traits;
-  const about = profile?.about || user.about;
+  const preferredName = profile?.preferredName ?? user.preferredName;
+  const occupation = profile?.occupation ?? user.occupation;
+  const traits = profile?.traits ?? user.traits;
+  const about = profile?.about ?? user.about;
   if (preferredName) details.push(`Preferred Name: ${preferredName}`);
   if (occupation) details.push(`Occupation: ${occupation}`);
   if (traits) details.push(`Traits: ${traits}`);
