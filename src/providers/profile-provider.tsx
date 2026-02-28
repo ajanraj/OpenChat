@@ -30,7 +30,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const updateProfileMut = useMutation(api.profiles.updateProfile);
   const setThemeState = useEditorStore((s) => s.setThemeState);
   const themeState = useEditorStore((s) => s.themeState);
-  const initRef = useRef(false);
+  const [initDone, setInitDone] = useState(false);
 
   const { data: profiles = [], isLoading } = useTanStackQuery({
     ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
@@ -40,17 +40,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Lazy init: ensure default profile exists on first load
   useEffect(() => {
-    if (!user || user.isAnonymous || isLoading || initRef.current) {
+    if (!user || user.isAnonymous || isLoading || initDone) {
       return;
     }
 
     if (profiles.length === 0) {
-      initRef.current = true;
-      void ensureDefault({
+      setInitDone(true);
+      ensureDefault({
         themeConfig: JSON.stringify(themeState),
+      }).catch(() => {
+        // Reset to allow retry — setState triggers re-render + effect re-run
+        setInitDone(false);
       });
     }
-  }, [user, isLoading, profiles.length, ensureDefault, themeState]);
+  }, [user, isLoading, profiles.length, ensureDefault, themeState, initDone]);
 
   const activeProfileId = user?.activeProfileId;
   const activeProfile = useMemo(() => {

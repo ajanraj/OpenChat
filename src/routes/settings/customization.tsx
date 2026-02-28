@@ -41,6 +41,7 @@ import { useEditorStore } from "@/lib/store/editor-store";
 import type { FontCategory, FontOption } from "@/lib/theme/theme-fonts";
 import type { Profile } from "@/providers/profile-provider";
 import { useProfile } from "@/providers/profile-provider";
+import { useUser } from "@/providers/user-provider";
 
 export const Route = createFileRoute("/settings/customization")({
   component: CustomizationSettingsPage,
@@ -53,12 +54,16 @@ interface CustomizationDraft {
   about: string;
 }
 
-function getProfileCustomizationSnapshot(profile: Profile | undefined): CustomizationDraft {
+function getProfileCustomizationSnapshot(
+  profile: Profile | undefined,
+  user: { preferredName?: string; occupation?: string; traits?: string; about?: string } | null,
+): CustomizationDraft {
+  const source = profile ?? user;
   return {
-    preferredName: profile?.preferredName ?? "",
-    occupation: profile?.occupation ?? "",
-    traits: profile?.traits ? profile.traits.split(", ") : [],
-    about: profile?.about ?? "",
+    preferredName: source?.preferredName ?? "",
+    occupation: source?.occupation ?? "",
+    traits: source?.traits ? source.traits.split(", ") : [],
+    about: source?.about ?? "",
   };
 }
 
@@ -72,6 +77,7 @@ export function CustomizationSettingsPage() {
 
 function useCustomizationSettingsPageView() {
   const { profiles, activeProfile, setActiveProfile } = useProfile();
+  const { user } = useUser();
   const updateProfile = useMutation(api.profiles.updateProfile);
   const updateUserProfile = useMutation(api.users.updateUserProfile);
   const deleteProfileMutation = useMutation(api.profiles.deleteProfile);
@@ -86,7 +92,7 @@ function useCustomizationSettingsPageView() {
   const [editProfileIcon, setEditProfileIcon] = useState<ProfileIconName>(PROFILE_ICONS[0]);
   const [isSavingProfileEdit, setIsSavingProfileEdit] = useState(false);
 
-  const profileSnapshot = getProfileCustomizationSnapshot(activeProfile);
+  const profileSnapshot = getProfileCustomizationSnapshot(activeProfile, user);
   const [draft, setDraft] = useState<CustomizationDraft | null>(null);
   const [draftProfileId, setDraftProfileId] = useState<string | undefined>(activeProfile?._id);
   const [traitInput, setTraitInput] = useState("");
