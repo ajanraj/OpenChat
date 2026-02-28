@@ -39,11 +39,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const setThemeState = useEditorStore((s) => s.setThemeState);
   const themeState = useEditorStore((s) => s.themeState);
   const defaultProfileInitInFlightRef = useRef(false);
-  // Ref to capture themeState at call time without adding it as a dep
+  // Refs kept current during render so unmount-only effects always see latest values
   const themeStateRef = useRef(themeState);
-  useEffect(() => {
-    themeStateRef.current = themeState;
-  }, [themeState]);
+  themeStateRef.current = themeState;
+  const updateProfileMutRef = useRef(updateProfileMut);
+  updateProfileMutRef.current = updateProfileMut;
 
   const { data: profiles = [], isLoading } = useTanStackQuery({
     ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
@@ -178,24 +178,26 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }, THEME_SAVE_DEBOUNCE_MS);
 
     return () => {
-      // Cancel the timer; leave pendingThemeSaveRef.current intact so the
+      // Only cancel the timer; leave pendingThemeSaveRef.current intact so the
       // profile-switch effect can detect and flush the unsaved edit.
       clearTimeout(themeSaveTimerRef.current);
       themeSaveTimerRef.current = undefined;
-
-      // Best-effort flush on unmount (tab close, sign-out, etc.) so the theme
-      // change is not silently lost within the debounce window.
-      if (
-        prevProfileIdRef.current === targetProfileId &&
-        serialized !== lastSavedThemeRef.current
-      ) {
-        void updateProfileMut({
-          profileId: targetProfileId,
-          updates: { themeConfig: serialized },
-        });
-      }
     };
   }, [themeState, activeProfile, updateProfileMut]);
+
+  // Best-effort flush on true unmount only (tab close, sign-out, etc.)
+  // Uses refs so the empty-dep array is safe and always sees latest values.
+  useEffect(() => {
+    return () => {
+      if (!pendingThemeSaveRef.current || !prevProfileIdRef.current) return;
+      const serialized = JSON.stringify(themeStateRef.current);
+      if (serialized === lastSavedThemeRef.current) return;
+      void updateProfileMutRef.current({
+        profileId: prevProfileIdRef.current,
+        updates: { themeConfig: serialized },
+      });
+    };
+  }, []);
 
   const [slideDirection, setSlideDirection] = useState(0);
   const chatByProfileRef = useRef<Map<string, string>>(new Map());
