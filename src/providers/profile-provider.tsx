@@ -87,6 +87,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const prevProfileIdRef = useRef<Id<"profiles"> | undefined>(undefined);
   const themeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedThemeRef = useRef<string>("");
+  // Tracks whether a theme edit is pending flush (survives debounce-effect cleanup)
+  const pendingThemeSaveRef = useRef(false);
 
   useEffect(() => {
     if (!activeProfile || activeProfile._id === prevProfileIdRef.current) {
@@ -96,9 +98,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     prevProfileIdRef.current = activeProfile._id;
 
     // Flush any pending theme save for the previous profile before switching
-    if (themeSaveTimerRef.current) {
+    if (pendingThemeSaveRef.current) {
       clearTimeout(themeSaveTimerRef.current);
       themeSaveTimerRef.current = undefined;
+      pendingThemeSaveRef.current = false;
 
       if (previousProfileId) {
         const serialized = JSON.stringify(themeStateRef.current);
@@ -146,7 +149,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     // Capture the profile ID at scheduling time to guard against profile switches
     const targetProfileId = activeProfile._id;
 
+    pendingThemeSaveRef.current = true;
     themeSaveTimerRef.current = setTimeout(() => {
+      pendingThemeSaveRef.current = false;
+      themeSaveTimerRef.current = undefined;
+
       // Abort if the active profile has changed since we scheduled
       if (prevProfileIdRef.current !== targetProfileId) {
         return;
@@ -171,9 +178,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }, THEME_SAVE_DEBOUNCE_MS);
 
     return () => {
-      if (themeSaveTimerRef.current) {
-        clearTimeout(themeSaveTimerRef.current);
-      }
+      // Only cancel the timer; leave pendingThemeSaveRef.current intact so the
+      // profile-switch effect can detect and flush the unsaved edit.
+      clearTimeout(themeSaveTimerRef.current);
+      themeSaveTimerRef.current = undefined;
     };
   }, [themeState, activeProfile, updateProfileMut]);
 
