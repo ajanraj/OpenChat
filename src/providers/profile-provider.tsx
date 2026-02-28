@@ -39,11 +39,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const setThemeState = useEditorStore((s) => s.setThemeState);
   const themeState = useEditorStore((s) => s.themeState);
   const defaultProfileInitInFlightRef = useRef(false);
-  // Refs kept current during render so unmount-only effects always see latest values
   const themeStateRef = useRef(themeState);
-  themeStateRef.current = themeState;
   const updateProfileMutRef = useRef(updateProfileMut);
-  updateProfileMutRef.current = updateProfileMut;
+
+  useEffect(() => {
+    themeStateRef.current = themeState;
+    updateProfileMutRef.current = updateProfileMut;
+  }, [themeState, updateProfileMut]);
 
   const { data: profiles = [], isLoading } = useTanStackQuery({
     ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
