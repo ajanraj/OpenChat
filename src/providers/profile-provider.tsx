@@ -30,7 +30,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const updateProfileMut = useMutation(api.profiles.updateProfile);
   const setThemeState = useEditorStore((s) => s.setThemeState);
   const themeState = useEditorStore((s) => s.themeState);
-  const [initDone, setInitDone] = useState(false);
+  const defaultProfileInitInFlightRef = useRef(false);
 
   const { data: profiles = [], isLoading } = useTanStackQuery({
     ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
@@ -40,20 +40,27 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Lazy init: ensure default profile exists on first load
   useEffect(() => {
-    if (!user || user.isAnonymous || isLoading || initDone) {
+    if (!user || user.isAnonymous || isLoading) {
+      defaultProfileInitInFlightRef.current = false;
       return;
     }
 
-    if (profiles.length === 0) {
-      setInitDone(true);
-      ensureDefault({
-        themeConfig: JSON.stringify(themeState),
-      }).catch(() => {
-        // Reset to allow retry — setState triggers re-render + effect re-run
-        setInitDone(false);
-      });
+    if (profiles.length > 0) {
+      defaultProfileInitInFlightRef.current = false;
+      return;
     }
-  }, [user, isLoading, profiles.length, ensureDefault, themeState, initDone]);
+
+    if (defaultProfileInitInFlightRef.current) {
+      return;
+    }
+
+    defaultProfileInitInFlightRef.current = true;
+    void ensureDefault({
+      themeConfig: JSON.stringify(themeState),
+    }).catch(() => {
+      defaultProfileInitInFlightRef.current = false;
+    });
+  }, [user, isLoading, profiles.length, ensureDefault, themeState]);
 
   const activeProfileId = user?.activeProfileId;
   const activeProfile = useMemo(() => {
