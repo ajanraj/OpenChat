@@ -178,10 +178,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }, THEME_SAVE_DEBOUNCE_MS);
 
     return () => {
-      // Only cancel the timer; leave pendingThemeSaveRef.current intact so the
+      // Cancel the timer; leave pendingThemeSaveRef.current intact so the
       // profile-switch effect can detect and flush the unsaved edit.
       clearTimeout(themeSaveTimerRef.current);
       themeSaveTimerRef.current = undefined;
+
+      // Best-effort flush on unmount (tab close, sign-out, etc.) so the theme
+      // change is not silently lost within the debounce window.
+      if (
+        prevProfileIdRef.current === targetProfileId &&
+        serialized !== lastSavedThemeRef.current
+      ) {
+        void updateProfileMut({
+          profileId: targetProfileId,
+          updates: { themeConfig: serialized },
+        });
+      }
     };
   }, [themeState, activeProfile, updateProfileMut]);
 
