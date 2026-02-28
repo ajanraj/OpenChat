@@ -1,7 +1,15 @@
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { useEditorStore } from "../lib/store/editor-store";
@@ -31,6 +39,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const setThemeState = useEditorStore((s) => s.setThemeState);
   const themeState = useEditorStore((s) => s.themeState);
   const defaultProfileInitInFlightRef = useRef(false);
+  // Ref to capture themeState at call time without adding it as a dep
+  const themeStateRef = useRef(themeState);
+  useEffect(() => {
+    themeStateRef.current = themeState;
+  }, [themeState]);
 
   const { data: profiles = [], isLoading } = useTanStackQuery({
     ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
@@ -56,31 +69,36 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     defaultProfileInitInFlightRef.current = true;
     void ensureDefault({
-      themeConfig: JSON.stringify(themeState),
+      themeConfig: JSON.stringify(themeStateRef.current),
     }).catch(() => {
       defaultProfileInitInFlightRef.current = false;
     });
-  }, [user, isLoading, profiles.length, ensureDefault, themeState]);
+  }, [user, isLoading, profiles.length, ensureDefault]);
 
   const activeProfileId = user?.activeProfileId;
   const activeProfile = useMemo(() => {
     if (!activeProfileId || profiles.length === 0) {
       return profiles.find((p) => p.isDefault);
     }
-    return (
-      profiles.find((p) => p._id === activeProfileId) ?? profiles.find((p) => p.isDefault)
-    );
+    return profiles.find((p) => p._id === activeProfileId) ?? profiles.find((p) => p.isDefault);
   }, [activeProfileId, profiles]);
 
   // Apply theme config when active profile changes
   const prevProfileIdRef = useRef<Id<"profiles"> | undefined>(undefined);
-  const isProfileSwitchRef = useRef(false);
+  const themeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastSavedThemeRef = useRef<string>("");
+
   useEffect(() => {
     if (!activeProfile || activeProfile._id === prevProfileIdRef.current) {
       return;
     }
     prevProfileIdRef.current = activeProfile._id;
-    isProfileSwitchRef.current = true;
+
+    // Cancel any pending save for the previous profile
+    if (themeSaveTimerRef.current) {
+      clearTimeout(themeSaveTimerRef.current);
+      themeSaveTimerRef.current = undefined;
+    }
 
     if (activeProfile.themeConfig) {
       try {
@@ -97,18 +115,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // so the debounce doesn't save the previous profile's theme here
       lastSavedThemeRef.current = JSON.stringify(useEditorStore.getState().themeState);
     }
-
-    // Reset switch flag after a tick so the debounce doesn't immediately fire
-    requestAnimationFrame(() => {
-      isProfileSwitchRef.current = false;
-    });
   }, [activeProfile, setThemeState]);
 
   // Debounced theme config save to Convex
-  const themeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const lastSavedThemeRef = useRef<string>("");
   useEffect(() => {
-    if (!activeProfile || isProfileSwitchRef.current) {
+    if (!activeProfile) {
       return;
     }
 
@@ -121,16 +132,31 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(themeSaveTimerRef.current);
     }
 
+    // Capture the profile ID at scheduling time to guard against profile switches
+    const targetProfileId = activeProfile._id;
+
     themeSaveTimerRef.current = setTimeout(() => {
+      // Abort if the active profile has changed since we scheduled
+      if (prevProfileIdRef.current !== targetProfileId) {
+        return;
+      }
+
       updateProfileMut({
-        profileId: activeProfile._id,
+        profileId: targetProfileId,
         updates: { themeConfig: serialized },
-      }).then(() => {
-        lastSavedThemeRef.current = serialized;
-      }).catch(() => {
-        // Reset so next render retries the save
-        lastSavedThemeRef.current = "";
-      });
+      })
+        .then(() => {
+          // Only update ref if still on the same profile
+          if (prevProfileIdRef.current === targetProfileId) {
+            lastSavedThemeRef.current = serialized;
+          }
+        })
+        .catch(() => {
+          // Reset so next render retries the save
+          if (prevProfileIdRef.current === targetProfileId) {
+            lastSavedThemeRef.current = "";
+          }
+        });
     }, THEME_SAVE_DEBOUNCE_MS);
 
     return () => {

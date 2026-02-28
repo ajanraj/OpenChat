@@ -1,8 +1,5 @@
-import { useMutation } from "convex/react";
-import { useCallback, useState } from "react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import { Plus } from "@phosphor-icons/react";
+import { useCallback, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -11,31 +8,15 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { toast } from "@/components/ui/toast";
+import { useCreateProfile } from "@/hooks/use-create-profile";
 import { useProfile } from "@/providers/profile-provider";
 import { ProfileFormFields } from "./profile-form-fields";
 
 export function CreateProfileDialog() {
 	const [open, setOpen] = useState(false);
 	const { profiles } = useProfile();
-	const createProfile = useMutation(api.profiles.createProfile);
-
-	const handleSubmit = useCallback(
-		async (data: { name: string; icon: string; copyFromProfileId?: string }) => {
-			try {
-				await createProfile({
-					name: data.name,
-					icon: data.icon,
-					copyFromProfileId: data.copyFromProfileId as Id<"profiles"> | undefined,
-				});
-				setOpen(false);
-				toast({ title: `Profile "${data.name}" created`, status: "success" });
-			} catch {
-				toast({ title: "Failed to create profile", status: "error" });
-			}
-		},
-		[createProfile],
-	);
+	const onSuccess = useCallback(() => setOpen(false), []);
+	const handleSubmit = useCreateProfile(onSuccess);
 
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>

@@ -442,7 +442,7 @@ export const Route = createFileRoute("/api/chat")({
 
           // --- Optimized Parallel Database Queries ---
           // Run independent queries in parallel to reduce latency
-          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatProfile] =
+          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatDoc] =
             await Promise.all([
               // Get user API keys if model allows user keys
               selectedModel.apiKeyUsage?.allowUserKey
@@ -456,26 +456,15 @@ export const Route = createFileRoute("/api/chat")({
               user
                 ? client.query(api.connectors.listUserConnectors, {}).catch(() => [])
                 : Promise.resolve([]),
-              // Fetch chat's profile for system prompt personalization
-              (async () => {
-                try {
-                  const chatDoc = await client.query(api.chats.getChat, {
-                    chatId: chatId,
-                  });
-                  // Use chat's profile, or fall back to user's active profile
-                  // (legacy chats pre-profiles have no profileId)
-                  const profileId = chatDoc?.profileId ?? user?.activeProfileId;
-                  if (profileId) {
-                    return client.query(api.profiles.getProfile, {
-                      profileId,
-                    });
-                  }
-                } catch {
-                  // Non-critical: fall back to user-level settings
-                }
-                return null;
-              })(),
+              // Fetch chat doc in parallel (profile lookup depends on this)
+              client.query(api.chats.getChat, { chatId }).catch(() => null),
             ]);
+
+          // Sequential follow-up: fetch the chat's profile
+          const profileId = chatDoc?.profileId ?? user?.activeProfileId;
+          const chatProfile = profileId
+            ? await client.query(api.profiles.getProfile, { profileId }).catch(() => null)
+            : null;
 
           // Calculate connector status from database (server is authoritative)
           const connectorsStatus = calculateConnectorStatus(userConnectors);

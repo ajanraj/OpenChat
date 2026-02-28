@@ -1,8 +1,6 @@
 import { CaretLeft, CaretRight, UserPlus, X } from "@phosphor-icons/react";
-import { useMutation } from "convex/react";
 import { AnimatePresence, m } from "motion/react";
 import { useCallback, useReducer } from "react";
-import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,14 +13,14 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { toast } from "@/components/ui/toast";
+import { useCreateProfile } from "@/hooks/use-create-profile";
 import { getDefaultIconForIndex } from "@/lib/config/profile-icons";
 import type { ProfileIconName } from "@/lib/config/profile-icons";
 import { cn } from "@/lib/utils";
 import { useChatSession } from "@/providers/chat-session-provider";
 import { useProfile } from "@/providers/profile-provider";
 import { ProfileIconPicker } from "./profile-icon-picker";
-import { PhosphorIcon } from "./profile-form-fields";
+import { PhosphorIcon } from "./phosphor-icon";
 
 interface FormState {
 	showForm: boolean;
@@ -66,7 +64,6 @@ function formReducer(state: FormState, action: FormAction): FormState {
 export function SidebarProfileSection() {
 	const { profiles, activeProfile, setActiveProfile } = useProfile();
 	const { chatId: activeChatId } = useChatSession();
-	const createProfile = useMutation(api.profiles.createProfile);
 
 	const [form, dispatch] = useReducer(formReducer, {
 		showForm: false,
@@ -75,6 +72,12 @@ export function SidebarProfileSection() {
 		copyFrom: undefined,
 		isSubmitting: false,
 	});
+
+	const onCreateSuccess = useCallback((id: Id<"profiles">) => {
+		setActiveProfile(id);
+		dispatch({ type: "SUBMIT_SUCCESS" });
+	}, [setActiveProfile]);
+	const createProfile = useCreateProfile(onCreateSuccess);
 
 	const canCreate = profiles.length < 5;
 	const canSubmit = form.name.trim().length > 0 && !form.isSubmitting;
@@ -87,20 +90,15 @@ export function SidebarProfileSection() {
 				? (form.copyFrom as Id<"profiles">)
 				: undefined;
 		dispatch({ type: "SUBMIT_START" });
-		try {
-			const newProfileId = await createProfile({
-				name: trimmedName,
-				icon: form.selectedIcon,
-				copyFromProfileId: copyFromId,
-			});
-			setActiveProfile(newProfileId);
-			dispatch({ type: "SUBMIT_SUCCESS" });
-			toast({ title: `Profile "${trimmedName}" created`, status: "success" });
-		} catch {
+		const result = await createProfile({
+			name: trimmedName,
+			icon: form.selectedIcon,
+			copyFromProfileId: copyFromId,
+		});
+		if (!result) {
 			dispatch({ type: "SUBMIT_ERROR" });
-			toast({ title: "Failed to create profile", status: "error" });
 		}
-	}, [canSubmit, createProfile, form.name, form.selectedIcon, form.copyFrom, setActiveProfile]);
+	}, [canSubmit, createProfile, form.name, form.selectedIcon, form.copyFrom]);
 
 	const toggleForm = () => {
 		if (form.showForm) {
@@ -204,14 +202,9 @@ export function SidebarProfileSection() {
 				)}
 
 				{/* Left chevron (layout spacer) */}
-				<button
-					aria-label="Previous profile"
-					className="pointer-events-none flex shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all"
-					disabled
-					type="button"
-				>
-					<CaretLeft className="size-5" />
-				</button>
+				<div aria-hidden="true" className="flex shrink-0 items-center justify-center">
+					<CaretLeft className="size-5 opacity-0" />
+				</div>
 
 				{/* Profile Icons */}
 				<div className="relative flex flex-1 items-center justify-center overflow-hidden">
@@ -246,14 +239,9 @@ export function SidebarProfileSection() {
 				</div>
 
 				{/* Right chevron (layout spacer) */}
-				<button
-					aria-label="Next profile"
-					className="pointer-events-none flex shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all"
-					disabled
-					type="button"
-				>
-					<CaretRight className="size-5" />
-				</button>
+				<div aria-hidden="true" className="flex shrink-0 items-center justify-center">
+					<CaretRight className="size-5 opacity-0" />
+				</div>
 
 				{/* Toggle create form */}
 				{canCreate && (

@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PROFILE_ICONS } from "@/lib/config/profile-icons";
 import type { ProfileIconName } from "@/lib/config/profile-icons";
 import { cn } from "@/lib/utils";
-import { PhosphorIcon } from "./profile-form-fields";
+import { PhosphorIcon } from "./phosphor-icon";
 
 interface ProfileIconPickerProps {
   value: ProfileIconName;

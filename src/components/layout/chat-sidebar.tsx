@@ -171,32 +171,29 @@ const ChatSidebar = memo(function SidebarComponent() {
 		[pinChatToggle],
 	);
 
-	// Memoize filtered chats with early return for empty arrays
+	// Memoize filtered chats with single-pass profile + search filtering
 	const filteredChats = useMemo(() => {
 		if (!chats?.length) {
 			return [];
 		}
 
-		// Filter by active profile first
-		let profileFiltered = chats;
-		if (activeProfile) {
-			profileFiltered = chats.filter((chat) => {
+		const lowerQuery = searchQuery.trim().toLowerCase();
+
+		return chats.filter((chat) => {
+			// Profile filter
+			if (activeProfile) {
 				if (activeProfile.isDefault) {
-					// Default profile: show chats with no profileId or matching
-					return !chat.profileId || chat.profileId === activeProfile._id;
+					if (chat.profileId && chat.profileId !== activeProfile._id) return false;
+				} else {
+					if (chat.profileId !== activeProfile._id) return false;
 				}
-				return chat.profileId === activeProfile._id;
-			});
-		}
-
-		if (!searchQuery.trim()) {
-			return profileFiltered;
-		}
-
-		const lowerQuery = searchQuery.toLowerCase();
-		return profileFiltered.filter((chat) =>
-			(chat.title || "").toLowerCase().includes(lowerQuery),
-		);
+			}
+			// Search filter
+			if (lowerQuery) {
+				if (!(chat.title || "").toLowerCase().includes(lowerQuery)) return false;
+			}
+			return true;
+		});
 	}, [chats, searchQuery, activeProfile]);
 
 	// Memoize pinned and unpinned chats with optimized single-pass separation

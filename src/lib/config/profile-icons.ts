@@ -123,7 +123,7 @@ export type ProfileIconName = (typeof PROFILE_ICONS)[number];
 
 export type { IconWeight };
 
-export const ICON_MAP: Record<string, Icon> = {
+export const ICON_MAP: Record<ProfileIconName, Icon> = {
   ChatCircle,
   User,
   Briefcase,
@@ -184,4 +184,8 @@ export const ICON_MAP: Record<string, Icon> = {
 
 export function getDefaultIconForIndex(n: number): ProfileIconName {
   return PROFILE_ICONS[n % PROFILE_ICONS.length];
+}
+
+export function isProfileIconName(icon: string): icon is ProfileIconName {
+  return PROFILE_ICONS.some((name) => name === icon);
 }

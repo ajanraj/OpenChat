@@ -9,31 +9,17 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { ICON_MAP, PROFILE_ICONS, getDefaultIconForIndex } from "@/lib/config/profile-icons";
-import type { IconWeight, ProfileIconName } from "@/lib/config/profile-icons";
+import { PROFILE_ICONS, getDefaultIconForIndex } from "@/lib/config/profile-icons";
+import type { ProfileIconName } from "@/lib/config/profile-icons";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/providers/profile-provider";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { PhosphorIcon } from "./phosphor-icon";
 
 interface ProfileFormFieldsProps {
 	existingProfiles: Profile[];
-	onSubmit: (data: { name: string; icon: string; copyFromProfileId?: string }) => void;
+	onSubmit: (data: { name: string; icon: ProfileIconName; copyFromProfileId?: Id<"profiles"> }) => void;
 	isSubmitting?: boolean;
-}
-
-function PhosphorIcon({
-	name,
-	className,
-	weight = "regular",
-}: {
-	name: string;
-	className?: string;
-	weight?: IconWeight;
-}) {
-	const IconComponent = ICON_MAP[name];
-	if (!IconComponent) {
-		return null;
-	}
-	return <IconComponent className={className} weight={weight} />;
 }
 
 export function ProfileFormFields({
@@ -55,7 +41,7 @@ export function ProfileFormFields({
 		onSubmit({
 			name: name.trim(),
 			icon: selectedIcon,
-			copyFromProfileId: copyFrom !== "scratch" ? copyFrom : undefined,
+			copyFromProfileId: copyFrom !== "scratch" ? copyFrom as Id<"profiles"> : undefined,
 		});
 	};
 
@@ -154,4 +140,3 @@ export function ProfileFormFields({
 	);
 }
 
-export { PhosphorIcon };
