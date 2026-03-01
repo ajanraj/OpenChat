@@ -74,6 +74,11 @@ export const executeTask = internalAction({
         return null;
       }
 
+      // Get profile if assigned
+      const profile = task.profileId
+        ? await ctx.runQuery(internal.profiles.getProfileInternal, { profileId: task.profileId })
+        : null;
+
       // Create execution history record (after all validations pass)
       historyRecordId = await ctx.runMutation(internal.task_history.createExecutionHistory, {
         taskId: args.taskId,
@@ -181,6 +186,7 @@ export const executeTask = internalAction({
         task.emailNotifications, // Enable email mode when notifications are enabled
         true, // Enable task mode for autonomous execution
         connectorsStatus,
+        profile,
       );
 
       // Get MiniMax M2.5 model

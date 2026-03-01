@@ -10,7 +10,10 @@ const createChatSchema = z.object({
   title: z.string().min(1, "Title is required"),
   model: z.string().min(1, "Model is required"),
   personaId: z.string().optional(),
-  profileId: z.string().regex(/^\S+$/, "profileId must be a non-empty string without whitespace").optional(),
+  profileId: z
+    .string()
+    .regex(/^\S+$/, "profileId must be a non-empty string without whitespace")
+    .optional(),
   timezone: z.string().optional(),
 });
 

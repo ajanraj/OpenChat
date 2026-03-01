@@ -136,6 +136,7 @@ export const createScheduledTask = mutation({
     enabledToolSlugs: v.optional(v.array(v.string())),
     emailNotifications: v.optional(v.boolean()),
     chatId: v.optional(v.id("chats")),
+    profileId: v.optional(v.id("profiles")),
   },
   returns: v.id("scheduled_tasks"),
   handler: async (ctx, args) => {
@@ -187,6 +188,7 @@ export const createScheduledTask = mutation({
       enabledToolSlugs: args.enabledToolSlugs,
       emailNotifications: args.emailNotifications,
       chatId: args.chatId,
+      profileId: args.profileId,
       createdAt: now,
       nextExecution,
     });
@@ -233,6 +235,7 @@ export const listScheduledTasks = query({
       scheduledFunctionId: v.optional(v.string()),
       createdAt: v.number(),
       chatId: v.optional(v.id("chats")),
+      profileId: v.optional(v.id("profiles")),
     }),
   ),
   handler: async (ctx) => {
@@ -261,6 +264,7 @@ export const updateScheduledTask = mutation({
     enableSearch: v.optional(v.boolean()),
     enabledToolSlugs: v.optional(v.array(v.string())),
     emailNotifications: v.optional(v.boolean()),
+    profileId: v.optional(v.id("profiles")),
     status: v.optional(
       v.union(
         v.literal("active"),
@@ -301,6 +305,9 @@ export const updateScheduledTask = mutation({
     }
     if (args.emailNotifications !== undefined) {
       updates.emailNotifications = args.emailNotifications;
+    }
+    if (args.profileId !== undefined) {
+      updates.profileId = args.profileId;
     }
     if (args.status !== undefined) {
       updates.status = args.status;
@@ -450,6 +457,7 @@ export const getTask = internalQuery({
       scheduledFunctionId: v.optional(v.string()),
       createdAt: v.number(),
       chatId: v.optional(v.id("chats")),
+      profileId: v.optional(v.id("profiles")),
     }),
   ),
   handler: async (ctx, args) => await ctx.db.get(args.taskId),

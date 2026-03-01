@@ -10,6 +10,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProgressRing } from "@/components/ui/progress-ring";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -18,6 +25,8 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatWeeklyTime, parseWeeklyTime } from "@/utils/time-utils";
+import { useProfile } from "@/providers/profile-provider";
+import { PhosphorIcon } from "@/components/profile/phosphor-icon";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TimePicker } from "./time-picker";
@@ -70,6 +79,7 @@ const getInitialFormState = (
 		enableSearch: parsedData?.enableSearch,
 		enabledToolSlugs: parsedData?.enabledToolSlugs || [],
 		emailNotifications: parsedData?.emailNotifications,
+		profileId: parsedData?.profileId,
 	};
 };
 
@@ -112,6 +122,10 @@ function useTaskFormContentView({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const createTask = useMutation(api.scheduled_tasks.createScheduledTask);
 	const updateTask = useMutation(api.scheduled_tasks.updateScheduledTask);
+	const { profiles, activeProfile } = useProfile();
+
+	// Default profileId to active profile on create when none provided
+	const effectiveProfileId = form.profileId ?? activeProfile?._id;
 
 	// Memoize query configuration to prevent recreation
 	const queryConfig = useMemo(
@@ -148,6 +162,7 @@ function useTaskFormContentView({
 			enableSearch: form.enableSearch,
 			enabledToolSlugs: form.enabledToolSlugs,
 			emailNotifications: form.emailNotifications,
+			profileId: effectiveProfileId,
 		};
 			const submitTask = (() => {
 				if (mode === "edit" && initialData?.taskId) {
@@ -266,6 +281,33 @@ function useTaskFormContentView({
 						value={form.title}
 					/>
 				</div>
+
+				{/* Profile */}
+				{profiles.length > 1 ? (
+					<div className="space-y-2">
+						<Label htmlFor="profileId">Profile</Label>
+						<Select
+							onValueChange={(value: string) =>
+							updateForm("profileId", value as Id<"profiles">)
+						}
+							value={effectiveProfileId}
+						>
+							<SelectTrigger id="profileId">
+								<SelectValue placeholder="Select profile" />
+							</SelectTrigger>
+							<SelectContent className="z-[200]">
+								{profiles.map((p) => (
+									<SelectItem key={p._id} value={p._id}>
+										<span className="flex items-center gap-2">
+											<PhosphorIcon className="h-4 w-4" name={p.icon} />
+											{p.name}
+										</span>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+				) : null}
 
 				{/* Frequency */}
 				<div className="space-y-3">
