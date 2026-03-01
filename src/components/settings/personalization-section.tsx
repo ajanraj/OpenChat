@@ -94,8 +94,9 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
       about: currentDraft.about,
     };
 
-    const savePromise = draftProfileId
-      ? updateProfile({ profileId: draftProfileId, updates })
+    const targetProfileId = draftProfileId ?? activeProfile?._id;
+    const savePromise = targetProfileId
+      ? updateProfile({ profileId: targetProfileId, updates })
       : updateUserProfile({ updates });
 
     savePromise
