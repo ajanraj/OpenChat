@@ -24,7 +24,8 @@ export function useNavigationGuard(hasUnsavedChanges: boolean) {
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
       if (!hasUnsavedChanges) return;
-      const anchor = (e.target as HTMLElement).closest("a");
+      if (!(e.target instanceof Element)) return;
+      const anchor = e.target.closest("a");
       if (!anchor) return;
       const url = shouldInterceptAnchor(anchor);
       if (url) {

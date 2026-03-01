@@ -246,6 +246,7 @@ export function SidebarProfileSection() {
 				{/* Toggle create form */}
 				{canCreate && (
 					<button
+						aria-label={form.showForm ? "Close create profile form" : "Create new profile"}
 						className="ml-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/40 hover:text-foreground"
 						onClick={toggleForm}
 						type="button"
