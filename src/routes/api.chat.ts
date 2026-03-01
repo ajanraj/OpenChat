@@ -444,9 +444,7 @@ export const Route = createFileRoute("/api/chat")({
 
           // --- Optimized Parallel Database Queries ---
           // Run independent queries in parallel to reduce latency
-          // When profileId is provided by client, we can fetch profile in parallel with chat doc
-          const resolvedProfileId = profileId ?? user?.activeProfileId;
-          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatProfile] =
+          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatDoc] =
             await Promise.all([
               // Get user API keys if model allows user keys
               selectedModel.apiKeyUsage?.allowUserKey
@@ -460,13 +458,18 @@ export const Route = createFileRoute("/api/chat")({
               user
                 ? client.query(api.connectors.listUserConnectors, {}).catch(() => [])
                 : Promise.resolve([]),
-              // Fetch profile in parallel (resolvedProfileId available from client or user doc)
-              resolvedProfileId
-                ? client
-                    .query(api.profiles.getProfile, { profileId: resolvedProfileId })
-                    .catch(() => null)
-                : Promise.resolve(null),
+              // Fetch the chat document (authoritative source for profileId)
+              client.query(api.chats.getChat, { chatId }).catch(() => null),
             ]);
+
+          // Resolve profile from chat's bound profileId (authoritative),
+          // falling back to client-provided / active profile for new chats
+          const chatProfileId = chatDoc?.profileId ?? profileId ?? user?.activeProfileId;
+          const chatProfile = chatProfileId
+            ? await client
+                .query(api.profiles.getProfile, { profileId: chatProfileId })
+                .catch(() => null)
+            : null;
 
           // Calculate connector status from database (server is authoritative)
           const connectorsStatus = calculateConnectorStatus(userConnectors);

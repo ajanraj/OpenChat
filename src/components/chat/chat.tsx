@@ -266,7 +266,7 @@ function useChatContentView() {
 	const selectedModel = currentChat?.model
 		? getValidModel(currentChat.model, disabledModels)
 		: getValidModel(
-				tempSelectedModel ?? user?.preferredModel ?? MODEL_DEFAULT,
+				tempSelectedModel ?? activeProfile?.preferredModel ?? user?.preferredModel ?? MODEL_DEFAULT,
 				disabledModels,
 			);
 

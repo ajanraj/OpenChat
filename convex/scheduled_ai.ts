@@ -74,10 +74,11 @@ export const executeTask = internalAction({
         return null;
       }
 
-      // Get profile if assigned
-      const profile = task.profileId
+      // Get profile if assigned (validate ownership to prevent cross-user data leakage)
+      const fetchedProfile = task.profileId
         ? await ctx.runQuery(internal.profiles.getProfileInternal, { profileId: task.profileId })
         : null;
+      const profile = fetchedProfile?.userId === task.userId ? fetchedProfile : null;
 
       // Create execution history record (after all validations pass)
       historyRecordId = await ctx.runMutation(internal.task_history.createExecutionHistory, {
@@ -99,7 +100,7 @@ export const executeTask = internalAction({
         userId: task.userId,
         title: `${task.title} - ${currentDate} ${currentTime}`,
         model: "minimax/minimax-m2.5",
-        profileId: task.profileId,
+        profileId: profile?._id,
       });
 
       // Update task with the latest chat ID and set status to 'running'

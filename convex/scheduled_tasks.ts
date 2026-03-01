@@ -174,6 +174,17 @@ export const createScheduledTask = mutation({
       args.scheduledDate,
     );
 
+    // Validate profile ownership
+    if (args.profileId) {
+      const profile = await ctx.db.get(args.profileId);
+      if (!profile || profile.userId !== userId) {
+        throw new ConvexError({
+          message: "Profile not found",
+          code: ERROR_CODES.INVALID_INPUT,
+        });
+      }
+    }
+
     // Insert the task
     const taskId = await ctx.db.insert("scheduled_tasks", {
       userId,
@@ -307,6 +318,13 @@ export const updateScheduledTask = mutation({
       updates.emailNotifications = args.emailNotifications;
     }
     if (args.profileId !== undefined) {
+      const profile = await ctx.db.get(args.profileId);
+      if (!profile || profile.userId !== userId) {
+        throw new ConvexError({
+          message: "Profile not found",
+          code: ERROR_CODES.INVALID_INPUT,
+        });
+      }
       updates.profileId = args.profileId;
     }
     if (args.status !== undefined) {

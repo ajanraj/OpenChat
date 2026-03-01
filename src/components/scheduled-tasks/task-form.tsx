@@ -124,8 +124,8 @@ function useTaskFormContentView({
 	const updateTask = useMutation(api.scheduled_tasks.updateScheduledTask);
 	const { profiles, activeProfile } = useProfile();
 
-	// Default profileId to active profile on create when none provided
-	const effectiveProfileId = form.profileId ?? activeProfile?._id;
+	// Default profileId to active profile only on create; preserve undefined for legacy tasks in edit
+	const effectiveProfileId = form.profileId ?? (mode === "create" ? activeProfile?._id : undefined);
 
 	// Memoize query configuration to prevent recreation
 	const queryConfig = useMemo(
