@@ -18,6 +18,7 @@
 - **⏰ Smart Automation** - Deploy background agents with email notifications - let your assistant work while you sleep
 - **🧠 50+ AI Models** - Access the latest from OpenAI, Anthropic, Google, Meta, and more in one interface
 - **🎯 Truly Personal** - Customize personality traits, personal context, and preferences for tailored interactions
+- **👤 Multi-Profile Setup** - Use separate profiles for Work, Personal, Study, etc. with isolated chats and settings (up to 5 total)
 - **🔒 Privacy-First** - Open source, self-hostable, with encrypted API key storage
 
 ## ✨ Features
@@ -48,6 +49,8 @@
 
 ### 💬 Chat Management
 
+- **Profile-Based Spaces** - Keep separate threads and preferences per profile (for example: Work vs Personal)
+- **Up to 5 Profiles** - 1 default profile plus 4 additional profiles per account
 - **Smart Organization** - Automatic grouping by Today, Yesterday, Last 7 Days, etc.
 - **Pinned Chats** - Keep important conversations at the top
 - **Chat Branching** - Create alternative conversation paths from any assistant message
