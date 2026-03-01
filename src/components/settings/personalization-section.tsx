@@ -45,6 +45,27 @@ interface MissingProfileDraftParams {
   isProfilesLoading: boolean;
 }
 
+interface PersonalizationSectionContentProps {
+  about: string;
+  dialogOpen: boolean;
+  draftBelongsToPreviousProfile: boolean;
+  hasUnsavedChanges: boolean;
+  occupation: string;
+  preferredName: string;
+  traits: string[];
+  onAboutChange: (value: string) => void;
+  onAddTrait: (trait: string) => void;
+  onDialogCancel: () => void;
+  onDialogDiscard: () => void;
+  onInputKeyDown: (
+    event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  onOccupationChange: (value: string) => void;
+  onPreferredNameChange: (value: string) => void;
+  onRemoveTrait: (trait: string) => void;
+  onSave: () => void;
+}
+
 export function shouldDiscardDraftForMissingProfile({
   draftProfileId,
   profileIds,
@@ -55,6 +76,124 @@ export function shouldDiscardDraftForMissingProfile({
   }
 
   return !profileIds.includes(draftProfileId);
+}
+
+function PersonalizationSectionContent({
+  about,
+  dialogOpen,
+  draftBelongsToPreviousProfile,
+  hasUnsavedChanges,
+  occupation,
+  preferredName,
+  traits,
+  onAboutChange,
+  onAddTrait,
+  onDialogCancel,
+  onDialogDiscard,
+  onInputKeyDown,
+  onOccupationChange,
+  onPreferredNameChange,
+  onRemoveTrait,
+  onSave,
+}: PersonalizationSectionContentProps) {
+  return (
+    <>
+      <header className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <h1 className="font-semibold text-2xl tracking-tight">Customization</h1>
+          {hasUnsavedChanges && (
+            <span className="rounded-full bg-amber-500/10 px-2.5 py-1 font-medium text-amber-600 text-xs dark:text-amber-400">
+              Unsaved changes
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground leading-relaxed">
+          Personalize how {APP_NAME} interacts with you. Set your preferences for a more tailored
+          experience.
+        </p>
+      </header>
+
+      <section className="space-y-6">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="font-medium text-sm" htmlFor="preferred-name">
+              What should {APP_NAME} call you?
+            </Label>
+            <span className="text-muted-foreground text-xs">{preferredName.length}/50</span>
+          </div>
+          <Input
+            id="preferred-name"
+            maxLength={50}
+            onChange={(event) => {
+              onPreferredNameChange(event.target.value);
+            }}
+            onKeyDown={onInputKeyDown}
+            placeholder="Enter your name…"
+            value={preferredName}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="font-medium text-sm" htmlFor="occupation">
+              What do you do?
+            </Label>
+            <span className="text-muted-foreground text-xs">{occupation.length}/100</span>
+          </div>
+          <Input
+            id="occupation"
+            maxLength={100}
+            onChange={(event) => {
+              onOccupationChange(event.target.value);
+            }}
+            onKeyDown={onInputKeyDown}
+            placeholder="Engineer, student, etc…"
+            value={occupation}
+          />
+        </div>
+
+        <TraitsEditor traits={traits} onAdd={onAddTrait} onRemove={onRemoveTrait} />
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="font-medium text-sm" htmlFor="about">
+              Anything else {APP_NAME} should know about you?
+            </Label>
+            <span className="text-muted-foreground text-xs">{about.length}/3000</span>
+          </div>
+          <Textarea
+            className="min-h-[120px] resize-none"
+            id="about"
+            maxLength={3000}
+            onChange={(event) => {
+              onAboutChange(event.target.value);
+            }}
+            onKeyDown={onInputKeyDown}
+            placeholder="Interests, values, or preferences to keep in mind…"
+            rows={5}
+            value={about}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-3">
+          {draftBelongsToPreviousProfile && (
+            <span className="text-muted-foreground text-xs">
+              Unsaved changes belong to previous profile; save will apply there.
+            </span>
+          )}
+          <Button className="cursor-pointer" disabled={!hasUnsavedChanges} onClick={onSave}>
+            Save Preferences
+          </Button>
+        </div>
+      </section>
+
+      <UnsavedChangesDialog
+        open={dialogOpen}
+        onCancel={onDialogCancel}
+        onDiscard={onDialogDiscard}
+      />
+    </>
+  );
 }
 
 export function PersonalizationSection({ activeProfile, user }: PersonalizationSectionProps) {
@@ -156,12 +295,17 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
       isProfilesLoading,
     });
     if (shouldDiscardDraft) {
-      setDraftState({ draft: null, profileId: activeProfile?._id });
+      queueMicrotask(() => {
+        if (stale) return;
+        setDraftState({ draft: null, profileId: activeProfile?._id });
+      });
       toast({
         title: "Unsaved preferences were discarded because the profile was deleted",
         status: "info",
       });
-      return;
+      return () => {
+        stale = true;
+      };
     }
 
     const savePromise = targetProfileId
@@ -191,6 +335,27 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
   ]);
 
   const draftBelongsToPreviousProfile = draft !== null && draftProfileId !== activeProfile?._id;
+
+  const handlePreferredNameChange = (nextPreferredName: string) => {
+    updateDraft((current) => ({
+      ...current,
+      preferredName: nextPreferredName,
+    }));
+  };
+
+  const handleOccupationChange = (nextOccupation: string) => {
+    updateDraft((current) => ({
+      ...current,
+      occupation: nextOccupation,
+    }));
+  };
+
+  const handleAboutChange = (nextAbout: string) => {
+    updateDraft((current) => ({
+      ...current,
+      about: nextAbout,
+    }));
+  };
 
   const handleSave = async () => {
     const nextProfileId = activeProfile?._id;
@@ -252,113 +417,23 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
   };
 
   return (
-    <>
-      <header className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h1 className="font-semibold text-2xl tracking-tight">Customization</h1>
-          {hasUnsavedChanges && (
-            <span className="rounded-full bg-amber-500/10 px-2.5 py-1 font-medium text-amber-600 text-xs dark:text-amber-400">
-              Unsaved changes
-            </span>
-          )}
-        </div>
-        <p className="text-muted-foreground leading-relaxed">
-          Personalize how {APP_NAME} interacts with you. Set your preferences for a more tailored
-          experience.
-        </p>
-      </header>
-
-      <section className="space-y-6">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="font-medium text-sm" htmlFor="preferred-name">
-              What should {APP_NAME} call you?
-            </Label>
-            <span className="text-muted-foreground text-xs">{preferredName.length}/50</span>
-          </div>
-          <Input
-            id="preferred-name"
-            maxLength={50}
-            onChange={(e) => {
-              const nextPreferredName = e.target.value;
-              updateDraft((current) => ({
-                ...current,
-                preferredName: nextPreferredName,
-              }));
-            }}
-            onKeyDown={handleInputKeyDown}
-            placeholder="Enter your name…"
-            value={preferredName}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="font-medium text-sm" htmlFor="occupation">
-              What do you do?
-            </Label>
-            <span className="text-muted-foreground text-xs">{occupation.length}/100</span>
-          </div>
-          <Input
-            id="occupation"
-            maxLength={100}
-            onChange={(e) => {
-              const nextOccupation = e.target.value;
-              updateDraft((current) => ({
-                ...current,
-                occupation: nextOccupation,
-              }));
-            }}
-            onKeyDown={handleInputKeyDown}
-            placeholder="Engineer, student, etc…"
-            value={occupation}
-          />
-        </div>
-
-        <TraitsEditor traits={traits} onAdd={handleAddTrait} onRemove={handleRemoveTrait} />
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="font-medium text-sm" htmlFor="about">
-              Anything else {APP_NAME} should know about you?
-            </Label>
-            <span className="text-muted-foreground text-xs">{about.length}/3000</span>
-          </div>
-          <Textarea
-            className="min-h-[120px] resize-none"
-            id="about"
-            maxLength={3000}
-            onChange={(e) => {
-              const nextAbout = e.target.value;
-              updateDraft((current) => ({
-                ...current,
-                about: nextAbout,
-              }));
-            }}
-            onKeyDown={handleInputKeyDown}
-            placeholder="Interests, values, or preferences to keep in mind…"
-            rows={5}
-            value={about}
-          />
-        </div>
-
-        <div className="flex items-center justify-end gap-3">
-          {draftBelongsToPreviousProfile && (
-            <span className="text-muted-foreground text-xs">
-              Unsaved changes belong to previous profile; save will apply there.
-            </span>
-          )}
-          <Button className="cursor-pointer" disabled={!hasUnsavedChanges} onClick={handleSave}>
-            Save Preferences
-          </Button>
-        </div>
-      </section>
-
-      <UnsavedChangesDialog
-        open={dialogOpen}
-        onCancel={handleDialogCancel}
-        onDiscard={handleDialogDiscard}
-      />
-    </>
+    <PersonalizationSectionContent
+      about={about}
+      dialogOpen={dialogOpen}
+      draftBelongsToPreviousProfile={draftBelongsToPreviousProfile}
+      hasUnsavedChanges={hasUnsavedChanges}
+      occupation={occupation}
+      onAboutChange={handleAboutChange}
+      onAddTrait={handleAddTrait}
+      onDialogCancel={handleDialogCancel}
+      onDialogDiscard={handleDialogDiscard}
+      onInputKeyDown={handleInputKeyDown}
+      onOccupationChange={handleOccupationChange}
+      onPreferredNameChange={handlePreferredNameChange}
+      onRemoveTrait={handleRemoveTrait}
+      onSave={handleSave}
+      preferredName={preferredName}
+      traits={traits}
+    />
   );
 }
