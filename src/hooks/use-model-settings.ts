@@ -80,13 +80,21 @@ export function useModelSettings() {
         const currentDisabled = p.disabledModels ?? [];
         const modelsToDisable = modelIds.filter((id) => id !== MODEL_DEFAULT);
 
-        let newFavorites = currentFavorites.filter((id) => !modelsToDisable.includes(id));
-        let newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
+        let newFavorites: string[];
+        let newDisabled: string[];
 
-        if (newFavorites.length === 0 && currentFavorites.length > 0) {
-          const firstFavorite = currentFavorites[0];
-          newFavorites = [firstFavorite];
-          newDisabled = newDisabled.filter((id) => id !== firstFavorite);
+        if (modelsToDisable.length === 0) {
+          newDisabled = [];
+          newFavorites = currentFavorites;
+        } else {
+          newFavorites = currentFavorites.filter((id) => !modelsToDisable.includes(id));
+          newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
+
+          if (newFavorites.length === 0 && currentFavorites.length > 0) {
+            const firstFavorite = currentFavorites[0];
+            newFavorites = [firstFavorite];
+            newDisabled = newDisabled.filter((id) => id !== firstFavorite);
+          }
         }
 
         return { ...p, disabledModels: newDisabled, favoriteModels: newFavorites };
