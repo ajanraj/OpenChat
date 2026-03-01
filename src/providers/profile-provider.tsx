@@ -40,9 +40,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const themeState = useEditorStore((s) => s.themeState);
   const defaultProfileInitInFlightRef = useRef(false);
   const themeStateRef = useRef(themeState);
-  themeStateRef.current = themeState;
   const updateProfileMutRef = useRef(updateProfileMut);
-  updateProfileMutRef.current = updateProfileMut;
+
+  // Sync refs after render so React Compiler can optimize (refs must not be written during render)
+  useEffect(() => {
+    themeStateRef.current = themeState;
+    updateProfileMutRef.current = updateProfileMut;
+  });
 
   const { data: profiles = [], isLoading } = useTanStackQuery({
     ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
