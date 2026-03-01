@@ -100,11 +100,20 @@ export const forkFromShared = mutation({
     }
 
     const now = Date.now();
+    const user = await ctx.db.get(userId);
+    let profileId = user?.activeProfileId;
+    if (profileId) {
+      const profile = await ctx.db.get(profileId);
+      if (!profile || profile.userId !== userId) {
+        profileId = undefined;
+      }
+    }
     const newChatId = await ctx.db.insert("chats", {
       userId,
       title: source.title || "Forked Chat",
       model: source.model,
       personaId: source.personaId,
+      profileId,
       createdAt: now,
       updatedAt: now,
       // Do not mark fork as public by default
@@ -166,16 +175,34 @@ export const createChat = mutation({
     title: v.optional(v.string()),
     model: v.optional(v.string()),
     personaId: v.optional(v.string()),
+    profileId: v.optional(v.id("profiles")),
   },
   returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
+
+    // Use provided profileId, or fall back to user's activeProfileId
+    let resolvedProfileId = args.profileId;
+    if (!resolvedProfileId) {
+      const user = await ctx.db.get(userId);
+      resolvedProfileId = user?.activeProfileId ?? undefined;
+    }
+
+    // Validate profile belongs to this user
+    if (resolvedProfileId) {
+      const profile = await ctx.db.get(resolvedProfileId);
+      if (!profile || profile.userId !== userId) {
+        resolvedProfileId = undefined;
+      }
+    }
+
     const now = Date.now();
     const chatId = await ctx.db.insert("chats", {
       userId,
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
+      profileId: resolvedProfileId,
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -335,6 +362,7 @@ export const branchChat = mutation({
       title: originalChat.title || "New Chat",
       model: originalChat.model,
       personaId: originalChat.personaId,
+      profileId: originalChat.profileId,
       originalChatId: args.originalChatId,
       createdAt: now,
       updatedAt: now,
@@ -413,6 +441,7 @@ export const createChatInternal = internalMutation({
     title: v.optional(v.string()),
     model: v.optional(v.string()),
     personaId: v.optional(v.string()),
+    profileId: v.optional(v.id("profiles")),
   },
   returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
@@ -422,6 +451,7 @@ export const createChatInternal = internalMutation({
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
+      profileId: args.profileId,
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)

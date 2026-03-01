@@ -58,6 +58,7 @@ export function useChatValidation() {
       user: Doc<"users"> | null,
       hasPremium: boolean,
       hasApiKey: Map<string, boolean>,
+      disabledModels?: string[],
     ) => {
       const model = MODELS_MAP[modelId];
 
@@ -66,7 +67,7 @@ export function useChatValidation() {
         return false;
       }
 
-      if (user?.disabledModels?.includes(modelId)) {
+      if ((disabledModels ?? user?.disabledModels)?.includes(modelId)) {
         toast({
           title: "This model is disabled in your settings",
           status: "error",

@@ -236,4 +236,35 @@ describe("buildSystemPrompt", () => {
     expect(result).toContain("Name: Jane");
     expect(result).not.toContain("Preferred Name:");
   });
+
+  it("prefers profile fields and falls back to user fields", () => {
+    const user = {
+      name: "Jane Doe",
+      preferredName: "Jane",
+      occupation: "Engineer",
+      traits: "curious",
+      about: "Likes robotics",
+    };
+    const profile = {
+      preferredName: "JD",
+      traits: "focused",
+    };
+    const result = buildSystemPrompt(
+      user as never,
+      undefined,
+      false,
+      false,
+      undefined,
+      false,
+      false,
+      undefined,
+      profile,
+    );
+
+    expect(result).toContain("Name: Jane Doe");
+    expect(result).toContain("Preferred Name: JD");
+    expect(result).toContain("Occupation: Engineer");
+    expect(result).toContain("Traits: focused");
+    expect(result).toContain("About: Likes robotics");
+  });
 });

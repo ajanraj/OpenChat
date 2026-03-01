@@ -1,4 +1,4 @@
-import type { Doc } from "../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../convex/_generated/dataModel";
 
 export type ScheduledTask = Doc<"scheduled_tasks">;
 
@@ -15,6 +15,7 @@ export type CreateTaskForm = {
 	enableSearch?: boolean;
 	enabledToolSlugs?: string[];
 	emailNotifications?: boolean;
+	profileId?: Id<"profiles">;
 };
 
 export type TaskStatus = "active" | "paused" | "archived" | "running";

@@ -64,6 +64,7 @@ import {
 } from "@/lib/user-utils";
 import { cn } from "@/lib/utils";
 import { useChatSession } from "@/providers/chat-session-provider";
+import { useProfile } from "@/providers/profile-provider";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -139,6 +140,7 @@ const ChatBodySchema = z.object({
 	chatId: z.string(),
 	model: z.string(),
 	personaId: z.string().optional(),
+	profileId: z.string().optional(),
 	enableSearch: z.boolean().optional(),
 	reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
 	userInfo: z
@@ -259,11 +261,13 @@ function useChatContentView() {
 	});
 
 	// Derived state
+	const { activeProfile } = useProfile();
+	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
 	const selectedModel = currentChat?.model
-		? getValidModel(currentChat.model, user?.disabledModels)
+		? getValidModel(currentChat.model, disabledModels)
 		: getValidModel(
-				tempSelectedModel ?? user?.preferredModel ?? MODEL_DEFAULT,
-				user?.disabledModels,
+				tempSelectedModel ?? activeProfile?.preferredModel ?? user?.preferredModel ?? MODEL_DEFAULT,
+				disabledModels,
 			);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
@@ -396,6 +400,7 @@ function useChatContentView() {
 				chatId: chatIdToUse,
 				model: selectedModel,
 				personaId,
+				profileId: activeProfile?._id,
 				...(typeof options?.enableSearch !== "undefined"
 					? { enableSearch: options.enableSearch }
 					: {}),
@@ -450,6 +455,7 @@ function useChatContentView() {
 			chatId,
 			selectedModel,
 			personaId,
+			activeProfile?._id,
 			reasoningEffort,
 			hasFiles,
 			createOptimisticFiles,
@@ -476,7 +482,7 @@ function useChatContentView() {
 				return;
 			}
 
-			if (!validateModelAccess(modelId, user, hasPremium, hasApiKey)) {
+			if (!validateModelAccess(modelId, user, hasPremium, hasApiKey, disabledModels)) {
 				return;
 			}
 
@@ -485,6 +491,7 @@ function useChatContentView() {
 						trimmedQuery,
 						modelId,
 						personaId,
+						activeProfile?._id,
 					);
 					if (!newChatId) {
 						return;
@@ -510,6 +517,8 @@ function useChatContentView() {
 		hasApiKey,
 		handleCreateChat,
 		personaId,
+		activeProfile?._id,
+		disabledModels,
 		validateSearchQuery,
 		validateModelAccess,
 		sendMessageHelper,
@@ -538,6 +547,7 @@ function useChatContentView() {
 					inputMessage,
 					selectedModel,
 					personaId,
+					activeProfile?._id,
 				);
 				if (!currentChatId) {
 					return;
@@ -565,6 +575,7 @@ function useChatContentView() {
 			handleCreateChat,
 			selectedModel,
 			personaId,
+			activeProfile?._id,
 			clearFiles,
 			sendMessageHelper,
 			router,
@@ -675,6 +686,7 @@ function useChatContentView() {
 					chatId,
 					model: selectedModel,
 					personaId,
+					profileId: activeProfile?._id,
 					reloadAssistantMessageId: serverMessageId,
 					...(typeof opts?.enableSearch !== "undefined"
 						? { enableSearch: opts.enableSearch }
@@ -690,6 +702,7 @@ function useChatContentView() {
 			chatId,
 			selectedModel,
 			personaId,
+			activeProfile?._id,
 			reasoningEffort,
 			setMessages,
 			handleDeleteMessage,
@@ -860,6 +873,7 @@ function useChatContentView() {
 							chatId,
 							model: editOptions.model, // Use the model selected in edit mode
 							personaId,
+							profileId: activeProfile?._id,
 							editMessageId: serverMessageId,
 							enableSearch: editOptions.enableSearch, // Use edit-specific search setting
 							...(isEditReasoningModel
@@ -886,6 +900,7 @@ function useChatContentView() {
 		[
 			chatId,
 			personaId,
+			activeProfile?._id,
 			setMessages,
 			regenerate,
 			uploadFile,

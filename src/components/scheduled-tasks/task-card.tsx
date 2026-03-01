@@ -49,6 +49,7 @@ type TaskDialogData = {
 	enableSearch?: boolean;
 	enabledToolSlugs?: string[];
 	emailNotifications?: boolean;
+	profileId?: ScheduledTask["profileId"];
 };
 
 // Static constants moved outside component for better performance
@@ -671,6 +672,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 			enableSearch: task.enableSearch,
 			enabledToolSlugs: task.enabledToolSlugs,
 			emailNotifications: task.emailNotifications,
+			profileId: task.profileId,
 		}),
 		[
 			task._id,
@@ -682,6 +684,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 			task.enableSearch,
 			task.enabledToolSlugs,
 			task.emailNotifications,
+			task.profileId,
 		],
 	);
 
@@ -748,6 +751,7 @@ export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
 		prevTask.prompt === nextTask.prompt &&
 		prevTask.timezone === nextTask.timezone &&
 		prevTask.enableSearch === nextTask.enableSearch &&
+		prevTask.profileId === nextTask.profileId &&
 		JSON.stringify(prevTask.enabledToolSlugs) === JSON.stringify(nextTask.enabledToolSlugs)
 	);
 });

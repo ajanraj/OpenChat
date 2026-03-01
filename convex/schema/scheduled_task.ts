@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 export const ScheduledTask = v.object({
   userId: v.id("users"),
+  profileId: v.optional(v.id("profiles")),
   title: v.string(),
   prompt: v.string(),
   scheduleType: v.union(v.literal("onetime"), v.literal("daily"), v.literal("weekly")),

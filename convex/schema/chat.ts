@@ -9,6 +9,7 @@ export const Chat = v.object({
   updatedAt: v.optional(v.number()),
   originalChatId: v.optional(v.id("chats")),
   isPinned: v.optional(v.boolean()),
+  profileId: v.optional(v.id("profiles")),
   // Public sharing controls (undefined = false, but never write undefined again)
   public: v.optional(v.boolean()),
   shareAttachments: v.optional(v.boolean()),

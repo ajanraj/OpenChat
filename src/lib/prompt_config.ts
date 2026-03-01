@@ -411,6 +411,13 @@ Structure your response like this:
 
 export type UserProfile = Doc<"users">;
 
+export interface ProfileData {
+  preferredName?: string;
+  occupation?: string;
+  traits?: string;
+  about?: string;
+}
+
 export function buildSystemPrompt(
   user?: UserProfile | null,
   basePrompt?: string,
@@ -420,6 +427,7 @@ export function buildSystemPrompt(
   emailMode?: boolean,
   taskMode?: boolean,
   connectorsStatus?: ConnectorStatusLists,
+  profile?: ProfileData | null,
 ) {
   // Choose the appropriate base prompt based on mode
   let prompt =
@@ -456,22 +464,21 @@ export function buildSystemPrompt(
   if (!user) {
     return prompt;
   }
+
   const details: string[] = [];
   if (user.name) {
     details.push(`Name: ${user.name}`);
   }
-  if (user.preferredName) {
-    details.push(`Preferred Name: ${user.preferredName}`);
-  }
-  if (user.occupation) {
-    details.push(`Occupation: ${user.occupation}`);
-  }
-  if (user.traits) {
-    details.push(`Traits: ${user.traits}`);
-  }
-  if (user.about) {
-    details.push(`About: ${user.about}`);
-  }
+  // Use || (not ??): the UI saves cleared inputs as "" (not undefined),
+  // so empty strings must fall through to user-level values.
+  const preferredName = profile?.preferredName || user.preferredName;
+  const occupation = profile?.occupation || user.occupation;
+  const traits = profile?.traits || user.traits;
+  const about = profile?.about || user.about;
+  if (preferredName) details.push(`Preferred Name: ${preferredName}`);
+  if (occupation) details.push(`Occupation: ${occupation}`);
+  if (traits) details.push(`Traits: ${traits}`);
+  if (about) details.push(`About: ${about}`);
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(
         "\n",

@@ -136,6 +136,7 @@ export const createScheduledTask = mutation({
     enabledToolSlugs: v.optional(v.array(v.string())),
     emailNotifications: v.optional(v.boolean()),
     chatId: v.optional(v.id("chats")),
+    profileId: v.optional(v.id("profiles")),
   },
   returns: v.id("scheduled_tasks"),
   handler: async (ctx, args) => {
@@ -173,6 +174,17 @@ export const createScheduledTask = mutation({
       args.scheduledDate,
     );
 
+    // Validate profile ownership
+    if (args.profileId) {
+      const profile = await ctx.db.get(args.profileId);
+      if (!profile || profile.userId !== userId) {
+        throw new ConvexError({
+          message: "Profile not found",
+          code: ERROR_CODES.INVALID_INPUT,
+        });
+      }
+    }
+
     // Insert the task
     const taskId = await ctx.db.insert("scheduled_tasks", {
       userId,
@@ -187,6 +199,7 @@ export const createScheduledTask = mutation({
       enabledToolSlugs: args.enabledToolSlugs,
       emailNotifications: args.emailNotifications,
       chatId: args.chatId,
+      profileId: args.profileId,
       createdAt: now,
       nextExecution,
     });
@@ -233,6 +246,7 @@ export const listScheduledTasks = query({
       scheduledFunctionId: v.optional(v.string()),
       createdAt: v.number(),
       chatId: v.optional(v.id("chats")),
+      profileId: v.optional(v.id("profiles")),
     }),
   ),
   handler: async (ctx) => {
@@ -261,6 +275,7 @@ export const updateScheduledTask = mutation({
     enableSearch: v.optional(v.boolean()),
     enabledToolSlugs: v.optional(v.array(v.string())),
     emailNotifications: v.optional(v.boolean()),
+    profileId: v.optional(v.id("profiles")),
     status: v.optional(
       v.union(
         v.literal("active"),
@@ -301,6 +316,16 @@ export const updateScheduledTask = mutation({
     }
     if (args.emailNotifications !== undefined) {
       updates.emailNotifications = args.emailNotifications;
+    }
+    if (args.profileId !== undefined) {
+      const profile = await ctx.db.get(args.profileId);
+      if (!profile || profile.userId !== userId) {
+        throw new ConvexError({
+          message: "Profile not found",
+          code: ERROR_CODES.INVALID_INPUT,
+        });
+      }
+      updates.profileId = args.profileId;
     }
     if (args.status !== undefined) {
       updates.status = args.status;
@@ -450,6 +475,7 @@ export const getTask = internalQuery({
       scheduledFunctionId: v.optional(v.string()),
       createdAt: v.number(),
       chatId: v.optional(v.id("chats")),
+      profileId: v.optional(v.id("profiles")),
     }),
   ),
   handler: async (ctx, args) => await ctx.db.get(args.taskId),

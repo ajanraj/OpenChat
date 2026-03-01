@@ -34,6 +34,9 @@ export const BUSINESS_ERRORS = {
   UNSUPPORTED_MODEL: "UNSUPPORTED_MODEL",
   UNSUPPORTED_OPERATION: "UNSUPPORTED_OPERATION",
   REDACTED_CONTENT: "REDACTED_CONTENT",
+  PROFILE_LIMIT_REACHED: "PROFILE_LIMIT_REACHED",
+  PROFILE_NOT_FOUND: "PROFILE_NOT_FOUND",
+  CANNOT_DELETE_DEFAULT_PROFILE: "CANNOT_DELETE_DEFAULT_PROFILE",
 } as const;
 
 // File operation errors
@@ -121,6 +124,12 @@ export function getErrorMessage(code: ErrorCode): string {
       return "This operation is not supported.";
     case ERROR_CODES.REDACTED_CONTENT:
       return "Cannot fork chat with redacted content. Forking disabled to maintain conversation integrity.";
+    case ERROR_CODES.PROFILE_LIMIT_REACHED:
+      return "Maximum of 5 profiles allowed.";
+    case ERROR_CODES.PROFILE_NOT_FOUND:
+      return "Profile not found.";
+    case ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE:
+      return "The default profile cannot be deleted.";
 
     // File errors
     case ERROR_CODES.UNSUPPORTED_FILE_TYPE:

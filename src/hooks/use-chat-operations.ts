@@ -21,12 +21,13 @@ export function useChatOperations() {
   const deleteMessage = useMutation(api.messages.deleteMessageAndDescendants);
 
   const handleCreateChat = useCallback(
-    async (title: string, model: string, personaId?: string) => {
+    async (title: string, model: string, personaId?: string, profileId?: Id<"profiles">) => {
       try {
         const result = await createChat({
           title: title.substring(0, 50),
           model,
           personaId,
+          profileId,
         });
         return result.chatId;
       } catch {

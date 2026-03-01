@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ChatSessionProvider } from "@/providers/chat-session-provider";
 import { CSPostHogProvider } from "@/providers/posthog-provider";
+import { ProfileProvider } from "@/providers/profile-provider";
 import { UserProvider } from "@/providers/user-provider";
 import { AnonymousSignIn } from "./anonymous-sign-in";
 
@@ -29,12 +30,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
 			{/* Authenticated State - Covers both Google users AND anonymous users */}
 			<Authenticated>
 				<UserProvider>
-					<CSPostHogProvider>
-						<ChatSessionProvider>
-							<Toaster position="top-center" />
-							{children}
-						</ChatSessionProvider>
-					</CSPostHogProvider>
+					<ProfileProvider>
+						<CSPostHogProvider>
+							<ChatSessionProvider>
+								<Toaster position="top-center" />
+								{children}
+							</ChatSessionProvider>
+						</CSPostHogProvider>
+					</ProfileProvider>
 				</UserProvider>
 			</Authenticated>
 		</ThemeProvider>
