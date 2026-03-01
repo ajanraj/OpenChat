@@ -163,6 +163,7 @@ interface ChatRequest {
   chatId: Id<"chats">;
   model: string;
   personaId?: string;
+  profileId?: Id<"profiles">;
   reloadAssistantMessageId?: Id<"messages">;
   editMessageId?: Id<"messages">;
   enableSearch?: boolean;
@@ -410,6 +411,7 @@ export const Route = createFileRoute("/api/chat")({
             chatId,
             model,
             personaId,
+            profileId,
             reloadAssistantMessageId,
             editMessageId,
             enableSearch,
@@ -442,7 +444,9 @@ export const Route = createFileRoute("/api/chat")({
 
           // --- Optimized Parallel Database Queries ---
           // Run independent queries in parallel to reduce latency
-          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatDoc] =
+          // When profileId is provided by client, we can fetch profile in parallel with chat doc
+          const resolvedProfileId = profileId ?? user?.activeProfileId;
+          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatProfile] =
             await Promise.all([
               // Get user API keys if model allows user keys
               selectedModel.apiKeyUsage?.allowUserKey
@@ -456,15 +460,13 @@ export const Route = createFileRoute("/api/chat")({
               user
                 ? client.query(api.connectors.listUserConnectors, {}).catch(() => [])
                 : Promise.resolve([]),
-              // Fetch chat doc in parallel (profile lookup depends on this)
-              client.query(api.chats.getChat, { chatId }).catch(() => null),
+              // Fetch profile in parallel (resolvedProfileId available from client or user doc)
+              resolvedProfileId
+                ? client
+                    .query(api.profiles.getProfile, { profileId: resolvedProfileId })
+                    .catch(() => null)
+                : Promise.resolve(null),
             ]);
-
-          // Sequential follow-up: fetch the chat's profile
-          const profileId = chatDoc?.profileId ?? user?.activeProfileId;
-          const chatProfile = profileId
-            ? await client.query(api.profiles.getProfile, { profileId }).catch(() => null)
-            : null;
 
           // Calculate connector status from database (server is authoritative)
           const connectorsStatus = calculateConnectorStatus(userConnectors);
