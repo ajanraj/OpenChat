@@ -78,6 +78,16 @@ export function shouldDiscardDraftForMissingProfile({
   return !profileIds.includes(draftProfileId);
 }
 
+export function resolveDraftTargetProfileId<TProfileId extends string>({
+  draftProfileId,
+  activeProfileId,
+}: {
+  draftProfileId: TProfileId | undefined;
+  activeProfileId: TProfileId | undefined;
+}): TProfileId | undefined {
+  return draftProfileId ?? activeProfileId;
+}
+
 function PersonalizationSectionContent({
   about,
   dialogOpen,
@@ -288,7 +298,10 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
       about: currentDraft.about,
     };
 
-    const targetProfileId = draftProfileId ?? activeProfile?._id;
+    const targetProfileId = resolveDraftTargetProfileId({
+      draftProfileId,
+      activeProfileId: activeProfile?._id,
+    });
     const shouldDiscardDraft = shouldDiscardDraftForMissingProfile({
       draftProfileId: targetProfileId,
       profileIds,
@@ -359,8 +372,12 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
 
   const handleSave = async () => {
     const nextProfileId = activeProfile?._id;
-    const shouldDiscardDraft = shouldDiscardDraftForMissingProfile({
+    const targetProfileId = resolveDraftTargetProfileId({
       draftProfileId,
+      activeProfileId: nextProfileId,
+    });
+    const shouldDiscardDraft = shouldDiscardDraftForMissingProfile({
+      draftProfileId: targetProfileId,
       profileIds,
       isProfilesLoading,
     });
@@ -380,8 +397,8 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
       about,
     };
     try {
-      if (draftProfileId) {
-        await updateProfile({ profileId: draftProfileId, updates });
+      if (targetProfileId) {
+        await updateProfile({ profileId: targetProfileId, updates });
       } else {
         await updateUserProfile({ updates });
       }

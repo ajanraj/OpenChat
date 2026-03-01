@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldDiscardDraftForMissingProfile } from "../personalization-section";
+import {
+  resolveDraftTargetProfileId,
+  shouldDiscardDraftForMissingProfile,
+} from "../personalization-section";
 
 describe("shouldDiscardDraftForMissingProfile", () => {
   it("returns true when draft owner profile no longer exists", () => {
@@ -40,5 +43,34 @@ describe("shouldDiscardDraftForMissingProfile", () => {
     });
 
     expect(shouldDiscard).toBe(false);
+  });
+});
+
+describe("resolveDraftTargetProfileId", () => {
+  it("uses draft profile id when present", () => {
+    const targetProfileId = resolveDraftTargetProfileId({
+      draftProfileId: "profile-draft",
+      activeProfileId: "profile-active",
+    });
+
+    expect(targetProfileId).toBe("profile-draft");
+  });
+
+  it("falls back to active profile id when draft owner is undefined", () => {
+    const targetProfileId = resolveDraftTargetProfileId({
+      draftProfileId: undefined,
+      activeProfileId: "profile-active",
+    });
+
+    expect(targetProfileId).toBe("profile-active");
+  });
+
+  it("returns undefined when both ids are undefined", () => {
+    const targetProfileId = resolveDraftTargetProfileId({
+      draftProfileId: undefined,
+      activeProfileId: undefined,
+    });
+
+    expect(targetProfileId).toBeUndefined();
   });
 });
