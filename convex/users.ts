@@ -618,41 +618,76 @@ export const deleteAccount = mutation({
     }
 
     // --- Step 1: Fetch all documents that need to be deleted in parallel ---
-    const [attachments, messages, chats, feedback, usage, authAccounts, authSessions, profiles] =
-      await Promise.all([
-        ctx.db
-          .query("chat_attachments")
-          .withIndex("by_userId", (q) => q.eq("userId", userId))
-          .collect(),
-        ctx.db
-          .query("messages")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect(),
-        ctx.db
-          .query("chats")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect(),
-        ctx.db
-          .query("feedback")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect(),
-        ctx.db
-          .query("usage_history")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect(),
-        ctx.db
-          .query("authAccounts")
-          .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
-          .collect(),
-        ctx.db
-          .query("authSessions")
-          .withIndex("userId", (q) => q.eq("userId", userId))
-          .collect(),
-        ctx.db
-          .query("profiles")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect(),
-      ]);
+    const [
+      attachments,
+      messages,
+      chats,
+      feedback,
+      usage,
+      authAccounts,
+      authSessions,
+      profiles,
+      scheduledTasks,
+      connectors,
+      apiKeys,
+    ] = await Promise.all([
+      ctx.db
+        .query("chat_attachments")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("messages")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("chats")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("feedback")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("usage_history")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("authSessions")
+        .withIndex("userId", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("profiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("scheduled_tasks")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("connectors")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("user_api_keys")
+        .withIndex("by_user_provider", (q) => q.eq("userId", userId))
+        .collect(),
+    ]);
+
+    // Fetch task history for each scheduled task (no userId index on task_history)
+    const taskHistoryEntries = (
+      await Promise.all(
+        scheduledTasks.map((task) =>
+          ctx.db
+            .query("task_history")
+            .withIndex("by_task", (q) => q.eq("taskId", task._id))
+            .collect(),
+        ),
+      )
+    ).flat();
 
     // --- Step 2: Collect all deletion promises and execute them concurrently ---
     const deletionPromises: Promise<unknown>[] = [];
@@ -696,6 +731,25 @@ export const deleteAccount = mutation({
 
     // Delete profiles
     deletionPromises.push(...profiles.map((p) => ctx.db.delete(p._id)));
+
+    // Cancel active scheduled functions, then delete tasks + history
+    for (const task of scheduledTasks) {
+      if (task.scheduledFunctionId) {
+        deletionPromises.push(
+          ctx.scheduler
+            .cancel(task.scheduledFunctionId as Id<"_scheduled_functions">)
+            .catch(() => {}),
+        );
+      }
+    }
+    deletionPromises.push(...scheduledTasks.map((t) => ctx.db.delete(t._id)));
+    deletionPromises.push(...taskHistoryEntries.map((h) => ctx.db.delete(h._id)));
+
+    // Delete connectors
+    deletionPromises.push(...connectors.map((c) => ctx.db.delete(c._id)));
+
+    // Delete API keys
+    deletionPromises.push(...apiKeys.map((k) => ctx.db.delete(k._id)));
 
     // Execute all deletions concurrently
     await Promise.allSettled(deletionPromises);
