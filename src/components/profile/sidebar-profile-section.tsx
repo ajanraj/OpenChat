@@ -74,9 +74,9 @@ export function SidebarProfileSection() {
 	});
 
 	const onCreateSuccess = useCallback((id: Id<"profiles">) => {
-		setActiveProfile(id);
+		setActiveProfile(id, activeChatId);
 		dispatch({ type: "SUBMIT_SUCCESS" });
-	}, [setActiveProfile]);
+	}, [setActiveProfile, activeChatId]);
 	const createProfile = useCreateProfile(onCreateSuccess);
 
 	const canCreate = profiles.length < 5;
