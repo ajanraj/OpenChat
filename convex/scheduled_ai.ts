@@ -99,6 +99,7 @@ export const executeTask = internalAction({
         userId: task.userId,
         title: `${task.title} - ${currentDate} ${currentTime}`,
         model: "minimax/minimax-m2.5",
+        profileId: task.profileId,
       });
 
       // Update task with the latest chat ID and set status to 'running'
