@@ -114,13 +114,13 @@ export function useModelSettings() {
     isModelEnabled,
     setModelEnabled: (args: { modelId: string; enabled: boolean }) => {
       if (!activeProfile?._id) {
-        return Promise.resolve(null);
+        return Promise.reject(new Error("Profile not loaded"));
       }
       return setModelEnabled({ profileId: activeProfile._id, ...args });
     },
     bulkSetModelsDisabled: (args: { modelIds: string[] }) => {
       if (!activeProfile?._id) {
-        return Promise.resolve(null);
+        return Promise.reject(new Error("Profile not loaded"));
       }
       return bulkSetModelsDisabled({ profileId: activeProfile._id, ...args });
     },
