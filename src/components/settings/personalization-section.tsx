@@ -1,6 +1,6 @@
 import { useBlocker } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -39,10 +39,30 @@ interface PersonalizationSectionProps {
   user: { preferredName?: string; occupation?: string; traits?: string; about?: string } | null;
 }
 
+interface MissingProfileDraftParams {
+  draftProfileId: string | undefined;
+  profileIds: readonly string[];
+  isProfilesLoading: boolean;
+}
+
+export function shouldDiscardDraftForMissingProfile({
+  draftProfileId,
+  profileIds,
+  isProfilesLoading,
+}: MissingProfileDraftParams): boolean {
+  if (!draftProfileId || isProfilesLoading) {
+    return false;
+  }
+
+  return !profileIds.includes(draftProfileId);
+}
+
 export function PersonalizationSection({ activeProfile, user }: PersonalizationSectionProps) {
   const updateProfile = useMutation(api.profiles.updateProfile);
   const updateUserProfile = useMutation(api.users.updateUserProfile);
   const {
+    profiles,
+    isProfilesLoading,
     pendingSwitch,
     executePendingSwitch,
     clearPendingSwitch,
@@ -60,6 +80,7 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
   // When no draft is active, always use the current activeProfile id
   // (avoids stale undefined from initial state before profiles load).
   const draftProfileId = draft ? draftState.profileId : activeProfile?._id;
+  const profileIds = useMemo(() => profiles.map((profile) => profile._id), [profiles]);
   const currentValues = draft ?? profileSnapshot;
   const { preferredName, occupation, traits, about } = currentValues;
   const hasUnsavedChanges =
@@ -129,6 +150,20 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
     };
 
     const targetProfileId = draftProfileId ?? activeProfile?._id;
+    const shouldDiscardDraft = shouldDiscardDraftForMissingProfile({
+      draftProfileId: targetProfileId,
+      profileIds,
+      isProfilesLoading,
+    });
+    if (shouldDiscardDraft) {
+      setDraftState({ draft: null, profileId: activeProfile?._id });
+      toast({
+        title: "Unsaved preferences were discarded because the profile was deleted",
+        status: "info",
+      });
+      return;
+    }
+
     const savePromise = targetProfileId
       ? updateProfile({ profileId: targetProfileId, updates })
       : updateUserProfile({ updates });
@@ -146,12 +181,33 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
     return () => {
       stale = true;
     };
-  }, [activeProfile?._id, draftProfileId, updateProfile, updateUserProfile]);
+  }, [
+    activeProfile?._id,
+    draftProfileId,
+    isProfilesLoading,
+    profileIds,
+    updateProfile,
+    updateUserProfile,
+  ]);
 
   const draftBelongsToPreviousProfile = draft !== null && draftProfileId !== activeProfile?._id;
 
   const handleSave = async () => {
     const nextProfileId = activeProfile?._id;
+    const shouldDiscardDraft = shouldDiscardDraftForMissingProfile({
+      draftProfileId,
+      profileIds,
+      isProfilesLoading,
+    });
+    if (shouldDiscardDraft) {
+      setDraftState({ draft: null, profileId: nextProfileId });
+      toast({
+        title: "Unsaved preferences were discarded because the profile was deleted",
+        status: "info",
+      });
+      return;
+    }
+
     const updates = {
       preferredName,
       occupation,
