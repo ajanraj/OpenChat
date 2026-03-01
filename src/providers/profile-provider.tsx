@@ -18,6 +18,11 @@ import { useUser } from "./user-provider";
 
 export type Profile = Doc<"profiles">;
 
+interface PendingProfileSwitch {
+  profileId: Id<"profiles">;
+  currentChatId?: string | null;
+}
+
 interface ProfileContextType {
   profiles: Profile[];
   activeProfile: Profile | undefined;
@@ -25,6 +30,11 @@ interface ProfileContextType {
   isProfilesLoading: boolean;
   slideDirection: number;
   getLastChatForProfile: (profileId: Id<"profiles">) => string | null;
+  pendingSwitch: PendingProfileSwitch | null;
+  executePendingSwitch: () => void;
+  clearPendingSwitch: () => void;
+  registerBeforeProfileSwitch: (fn: () => boolean) => void;
+  unregisterBeforeProfileSwitch: () => void;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -210,15 +220,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const setActiveProfile = useCallback(
+  // --- Profile switch guard ---
+  const beforeProfileSwitchRef = useRef<(() => boolean) | null>(null);
+  const [pendingSwitch, setPendingSwitch] = useState<PendingProfileSwitch | null>(null);
+
+  const executeSwitch = useCallback(
     (profileId: Id<"profiles">, currentChatId?: string | null) => {
-      // Save current chat for current profile before switching
       if (activeProfile && currentChatId) {
         chatByProfileRef.current.set(activeProfile._id, currentChatId);
       } else if (activeProfile && currentChatId === null) {
         chatByProfileRef.current.delete(activeProfile._id);
       }
-
       const currentIndex = profiles.findIndex((p) => p._id === activeProfile?._id);
       const nextIndex = profiles.findIndex((p) => p._id === profileId);
       setSlideDirection(nextIndex > currentIndex ? 1 : -1);
@@ -226,6 +238,33 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     },
     [setActive, profiles, activeProfile],
   );
+
+  const setActiveProfile = useCallback(
+    (profileId: Id<"profiles">, currentChatId?: string | null) => {
+      if (beforeProfileSwitchRef.current && !beforeProfileSwitchRef.current()) {
+        setPendingSwitch({ profileId, currentChatId });
+        return;
+      }
+      executeSwitch(profileId, currentChatId);
+    },
+    [executeSwitch],
+  );
+
+  const executePendingSwitch = useCallback(() => {
+    if (!pendingSwitch) return;
+    executeSwitch(pendingSwitch.profileId, pendingSwitch.currentChatId);
+    setPendingSwitch(null);
+  }, [pendingSwitch, executeSwitch]);
+
+  const clearPendingSwitch = useCallback(() => setPendingSwitch(null), []);
+
+  const registerBeforeProfileSwitch = useCallback((fn: () => boolean) => {
+    beforeProfileSwitchRef.current = fn;
+  }, []);
+
+  const unregisterBeforeProfileSwitch = useCallback(() => {
+    beforeProfileSwitchRef.current = null;
+  }, []);
 
   const contextValue = useMemo(
     () => ({
@@ -235,8 +274,25 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       isProfilesLoading: isLoading,
       slideDirection,
       getLastChatForProfile,
+      pendingSwitch,
+      executePendingSwitch,
+      clearPendingSwitch,
+      registerBeforeProfileSwitch,
+      unregisterBeforeProfileSwitch,
     }),
-    [profiles, activeProfile, setActiveProfile, isLoading, slideDirection, getLastChatForProfile],
+    [
+      profiles,
+      activeProfile,
+      setActiveProfile,
+      isLoading,
+      slideDirection,
+      getLastChatForProfile,
+      pendingSwitch,
+      executePendingSwitch,
+      clearPendingSwitch,
+      registerBeforeProfileSwitch,
+      unregisterBeforeProfileSwitch,
+    ],
   );
 
   return <ProfileContext.Provider value={contextValue}>{children}</ProfileContext.Provider>;

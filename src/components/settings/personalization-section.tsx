@@ -1,6 +1,6 @@
-import { useRouter } from "@tanstack/react-router";
+import { useBlocker } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { APP_NAME } from "@/lib/config";
 import type { Profile } from "@/providers/profile-provider";
+import { useProfile } from "@/providers/profile-provider";
 import { TraitsEditor } from "./traits-editor";
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog";
-import { useNavigationGuard } from "./use-navigation-guard";
 
 interface CustomizationDraft {
   preferredName: string;
@@ -42,7 +42,13 @@ interface PersonalizationSectionProps {
 export function PersonalizationSection({ activeProfile, user }: PersonalizationSectionProps) {
   const updateProfile = useMutation(api.profiles.updateProfile);
   const updateUserProfile = useMutation(api.users.updateUserProfile);
-  const router = useRouter();
+  const {
+    pendingSwitch,
+    executePendingSwitch,
+    clearPendingSwitch,
+    registerBeforeProfileSwitch,
+    unregisterBeforeProfileSwitch,
+  } = useProfile();
 
   const profileSnapshot = getProfileCustomizationSnapshot(activeProfile, user);
   const [draftState, setDraftState] = useState<{
@@ -62,7 +68,35 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
     profileSnapshot.traits.join(", ") !== traits.join(", ") ||
     profileSnapshot.about !== about;
 
-  const { pendingUrl, setPendingUrl } = useNavigationGuard(hasUnsavedChanges);
+  // Route navigation blocker (intercepts router.navigate, <Link>, back/forward, beforeunload)
+  const { proceed, reset, status } = useBlocker({
+    shouldBlockFn: () => hasUnsavedChanges,
+    enableBeforeUnload: () => hasUnsavedChanges,
+    withResolver: true,
+  });
+
+  // Profile switch guard (intercepts setActiveProfile calls from sidebar/dropdown)
+  const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges;
+  });
+  const guardFn = useCallback(() => !hasUnsavedChangesRef.current, []);
+  useEffect(() => {
+    registerBeforeProfileSwitch(guardFn);
+    return unregisterBeforeProfileSwitch;
+  }, [guardFn, registerBeforeProfileSwitch, unregisterBeforeProfileSwitch]);
+
+  // Unified dialog — open when route blocked OR profile switch pending
+  const dialogOpen = status === "blocked" || pendingSwitch !== null;
+  const handleDialogCancel = () => {
+    if (status === "blocked") reset();
+    clearPendingSwitch();
+  };
+  const handleDialogDiscard = () => {
+    setDraftState((prev) => ({ ...prev, draft: null }));
+    if (status === "blocked") proceed();
+    if (pendingSwitch) executePendingSwitch();
+  };
 
   const updateDraft = (updater: (current: CustomizationDraft) => CustomizationDraft) => {
     setDraftState((prev) => ({
@@ -265,15 +299,9 @@ export function PersonalizationSection({ activeProfile, user }: PersonalizationS
       </section>
 
       <UnsavedChangesDialog
-        open={Boolean(pendingUrl)}
-        onCancel={() => setPendingUrl(null)}
-        onDiscard={() => {
-          if (pendingUrl) {
-            setDraftState((prev) => ({ ...prev, draft: null }));
-            setPendingUrl(null);
-            void router.navigate({ to: pendingUrl });
-          }
-        }}
+        open={dialogOpen}
+        onCancel={handleDialogCancel}
+        onDiscard={handleDialogDiscard}
       />
     </>
   );
