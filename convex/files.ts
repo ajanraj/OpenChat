@@ -7,6 +7,7 @@ import { sanitizeAndValidateFileName } from "../src/lib/filename";
 import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, mutation, query } from "./_generated/server";
+import { supportsFileUploadModel } from "./lib/fileUploadModels";
 
 // R2 client and client API exports (used by React upload hook and server routes)
 const r2 = new R2(components.r2);
@@ -69,62 +70,7 @@ export const { generateUploadUrl, syncMetadata, onSyncMetadata } = r2.clientApi(
 
 // Allowed MIME types and file size limit (centralized config)
 
-// Only these models currently support file inputs. Update as new ones roll out.
-const FILE_UPLOAD_MODELS = [
-  // Anthropic models
-  "claude-4-5-opus",
-  "claude-4-5-sonnet",
-  "claude-4-5-sonnet-reasoning",
-  "claude-4-5-haiku",
-  "claude-4-5-haiku-reasoning",
-
-  // OpenAI models
-  "gpt-4o",
-  "gpt-4o-mini",
-  "o4-mini",
-  "o3",
-  "o3-pro",
-  "gpt-4.1",
-  "gpt-4.1-mini",
-  "gpt-4.1-nano",
-  "gpt-4.5",
-  "gpt-5",
-  "gpt-5-mini",
-  "gpt-5-nano",
-  "gpt-5.1",
-  "gpt-5.1-instant",
-  "gpt-5.2",
-  "gpt-5.2-pro",
-  "gpt-5.2-instant",
-
-  "glm-4.5v",
-
-  // Google models
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-thinking",
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-flash-lite-thinking",
-  "gemini-2.5-pro",
-  "gemini-3.1-pro-preview",
-
-  // Meta models
-  "meta-llama/llama-4-maverick:free",
-  "meta-llama/llama-4-scout:free",
-
-  // Mistral models
-  "pixtral-large-latest",
-
-  // Grok models
-  "grok-3",
-  "grok-3-mini",
-  "x-ai/grok-4.1-fast-thinking",
-  "x-ai/grok-4.1-fast",
-] as const;
-
 type AllowedMimeType = (typeof UPLOAD_ALLOWED_MIME)[number];
-type FileUploadModel = (typeof FILE_UPLOAD_MODELS)[number];
 
 interface SavedAttachment {
   _id: Id<"chat_attachments">;
@@ -294,7 +240,7 @@ export const internalSave = internalMutation({
 
     // Check that the chat's model can accept file uploads
     const modelName = chat.model ?? undefined;
-    if (!(modelName && FILE_UPLOAD_MODELS.includes(modelName as FileUploadModel))) {
+    if (!(modelName && supportsFileUploadModel(modelName))) {
       await r2.deleteObject(ctx, args.key);
       throw new ConvexError(ERROR_CODES.UNSUPPORTED_MODEL);
     }
