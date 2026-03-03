@@ -11,7 +11,9 @@ import {
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useCallback, useMemo, useState } from "react";
+import { PhosphorIcon } from "@/components/profile/phosphor-icon";
 import { Button } from "@/components/ui/button";
 import {
 	Drawer,
@@ -33,6 +35,7 @@ import {
 	groupChatsByTime,
 	hasChatsInGroup,
 } from "@/lib/chat-utils/time-grouping";
+import { useChatSession } from "@/providers/chat-session-provider";
 import { useProfile } from "@/providers/profile-provider";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
@@ -177,12 +180,12 @@ function DrawerHistoryItem({
 
 	return (
 		<div
-			className={`group flex items-center justify-between rounded-lg px-2 py-1.5 ${
+			className={`group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-lg px-2 py-1.5 ${
 				isCurrent ? "bg-accent/50" : ""
 			}`}
 		>
 			<Link
-				className="flex flex-1 flex-col items-start"
+				className="flex min-w-0 flex-col items-start"
 				to={isCurrent ? "/" : "/c/$chatId"}
 				params={isCurrent ? undefined : { chatId: chat._id }}
 				onClick={(e) => {
@@ -194,51 +197,52 @@ function DrawerHistoryItem({
 					}
 				}}
 			>
-				<span className="line-clamp-1 font-normal text-base">{chat.title}</span>
+				<span className="w-full truncate font-normal text-base">{chat.title}</span>
 			</Link>
-			<div className="flex items-center">
-				<div className="flex gap-1">
-					<Button
-						className="size-8 text-muted-foreground hover:text-orange-600"
-						onClick={(e) => {
-							e.preventDefault();
-							handleTogglePin(chat);
-						}}
-						size="icon"
-						type="button"
-						variant="ghost"
-					>
-						{pinned ? (
-							<PushPinSimpleSlashIcon className="size-4" />
-						) : (
-							<PushPinSimpleIcon className="size-4" />
-						)}
-					</Button>
-					<Button
-						className="size-8 text-muted-foreground hover:text-foreground"
-						onClick={(e) => {
-							e.preventDefault();
-							handleEdit(chat);
-						}}
-						size="icon"
-						type="button"
-						variant="ghost"
-					>
-						<PencilSimple className="size-4" />
-					</Button>
-					<Button
-						className="size-8 text-muted-foreground hover:text-destructive"
-						onClick={(e) => {
-							e.preventDefault();
-							handleDelete(chat._id);
-						}}
-						size="icon"
-						type="button"
-						variant="ghost"
-					>
-						<TrashSimple className="size-4" />
-					</Button>
-				</div>
+			<div className="ml-1 flex shrink-0 items-center gap-1">
+				<Button
+					aria-label={pinned ? "Unpin chat" : "Pin chat"}
+					className="size-8 text-muted-foreground hover:text-orange-600"
+					onClick={(e) => {
+						e.preventDefault();
+						handleTogglePin(chat);
+					}}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					{pinned ? (
+						<PushPinSimpleSlashIcon className="size-4" />
+					) : (
+						<PushPinSimpleIcon className="size-4" />
+					)}
+				</Button>
+				<Button
+					aria-label="Edit chat"
+					className="size-8 text-muted-foreground hover:text-foreground"
+					onClick={(e) => {
+						e.preventDefault();
+						handleEdit(chat);
+					}}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					<PencilSimple className="size-4" />
+				</Button>
+				<Button
+					aria-label="Delete chat"
+					className="size-8 text-muted-foreground hover:text-destructive"
+					onClick={(e) => {
+						e.preventDefault();
+						handleDelete(chat._id);
+					}}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					<TrashSimple className="size-4" />
+				</Button>
 			</div>
 		</div>
 	);
@@ -249,10 +253,19 @@ export function DrawerHistory({
 	isOpen,
 	setIsOpen,
 }: DrawerHistoryProps) {
+	const prefersReducedMotion = useReducedMotion();
+	const profileSwitchDuration = prefersReducedMotion ? 0 : 0.16;
 	const params = useParams({ strict: false }) as { chatId?: string };
 	const currentChatId = params.chatId;
+	const { chatId: activeChatId } = useChatSession();
 	const { user } = useUser();
-	const { activeProfile, isProfilesLoading } = useProfile();
+	const {
+		profiles,
+		activeProfile,
+		isProfilesLoading,
+		setActiveProfile,
+		slideDirection,
+	} = useProfile();
 	const { data: chatHistory } = useTanStackQuery({
 		...convexQuery(api.chats.listChatsForUser, {}),
 	});
@@ -306,10 +319,18 @@ export function DrawerHistory({
 		await pinChatToggle({ chatId: chat._id });
 	};
 
+	const handleProfileSwitch = (profileId: Id<"profiles">) => {
+		if (profileId === activeProfile?._id) {
+			return;
+		}
+		setActiveProfile(profileId, activeChatId);
+	};
+
+	const isAnonymous = !user || user.isAnonymous;
+
 	const profileScopedChats = useMemo(() => {
 		if (!chatHistory?.length) return [];
 
-		const isAnonymous = !user || user.isAnonymous;
 		if (!isAnonymous && (isProfilesLoading || !activeProfile)) {
 			return [];
 		}
@@ -324,7 +345,7 @@ export function DrawerHistory({
 			}
 			return true;
 		});
-	}, [chatHistory, user, isProfilesLoading, activeProfile]);
+	}, [chatHistory, isAnonymous, isProfilesLoading, activeProfile]);
 
 	const filteredChat = profileScopedChats.filter((chat) =>
 		(chat.title || "").toLowerCase().includes(searchQuery.toLowerCase()),
@@ -347,8 +368,41 @@ export function DrawerHistory({
 				<TooltipContent>History</TooltipContent>
 			</Tooltip>
 			<DrawerContent>
-				<DrawerHeader>
-					<DrawerTitle>History</DrawerTitle>
+				<DrawerHeader className="pb-0">
+					<div className="flex items-center justify-between gap-2">
+						<DrawerTitle>History</DrawerTitle>
+						{!isAnonymous && profiles.length > 0 && (
+							<div className="flex items-center gap-1">
+								{profiles.map((profile) => (
+									<Tooltip key={profile._id}>
+										<TooltipTrigger asChild>
+											<button
+												aria-label={`Switch to ${profile.name}`}
+												className={`flex size-11 items-center justify-center rounded-md transition-colors ${
+													activeProfile?._id === profile._id
+														? "text-foreground"
+														: "text-muted-foreground hover:text-foreground"
+												}`}
+												onClick={() => handleProfileSwitch(profile._id)}
+												type="button"
+											>
+												<PhosphorIcon
+													className="size-6"
+													name={profile.icon}
+													weight={
+														activeProfile?._id === profile._id
+															? "fill"
+															: "regular"
+													}
+												/>
+											</button>
+										</TooltipTrigger>
+										<TooltipContent>{profile.name}</TooltipContent>
+									</Tooltip>
+								))}
+							</div>
+						)}
+					</div>
 					<DrawerDescription className="hidden">
 						History of your chats
 					</DrawerDescription>
@@ -367,68 +421,93 @@ export function DrawerHistory({
 					</div>
 
 					<ScrollArea className="flex-1 overflow-auto">
-						<div className="flex flex-col space-y-2 px-4 pt-4 pb-8">
-							{/* Pinned Chats Section */}
-							{pinnedChats.length > 0 && (
-								<div className="space-y-2">
-									<h3 className="flex items-center px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
-										<PushPinSimpleIcon className="mr-1 h-3 w-3" />
-										Pinned
-									</h3>
-									{pinnedChats.map((chat) => (
-										<DrawerHistoryItem
-											chat={chat}
-											closeDrawer={() => setIsOpen(false)}
-											currentChatId={currentChatId}
-											deletingId={deletingId}
-											editingId={editingId}
-											editTitle={editTitle}
-											handleCancelDelete={handleCancelDelete}
-											handleCancelEdit={handleCancelEdit}
-											handleConfirmDelete={handleConfirmDelete}
-											handleDelete={handleDelete}
-											handleEdit={handleEdit}
-											handleSaveEdit={handleSaveEdit}
-											handleTogglePin={handleTogglePin}
-											key={chat._id}
-											pinned
-											setEditTitle={setEditTitle}
-										/>
-									))}
-								</div>
-							)}
-							{/* Time-based Groups */}
-							{orderedGroupKeys.map(
-								(groupKey) =>
-									hasChatsInGroup(groupedChats, groupKey) && (
-										<div className="space-y-2" key={groupKey}>
-											<h3 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
-												{groupKey}
-											</h3>
-											{groupedChats[groupKey].map((chat) => (
-												<DrawerHistoryItem
-													chat={chat}
-													closeDrawer={() => setIsOpen(false)}
-													currentChatId={currentChatId}
-													deletingId={deletingId}
-													editingId={editingId}
-													editTitle={editTitle}
-													handleCancelDelete={handleCancelDelete}
-													handleCancelEdit={handleCancelEdit}
-													handleConfirmDelete={handleConfirmDelete}
-													handleDelete={handleDelete}
-													handleEdit={handleEdit}
-													handleSaveEdit={handleSaveEdit}
-													handleTogglePin={handleTogglePin}
-													key={chat._id}
-													pinned={false}
-													setEditTitle={setEditTitle}
-												/>
-											))}
-										</div>
-									),
-							)}
-						</div>
+						<AnimatePresence custom={slideDirection} initial={false} mode="popLayout">
+							<m.div
+								key={activeProfile?._id ?? "default"}
+								animate="center"
+								className="flex h-full flex-col space-y-2 px-4 pt-4 pb-8"
+								custom={slideDirection}
+								exit="exit"
+								initial="enter"
+								transition={{
+									duration: profileSwitchDuration,
+									ease: [0.645, 0.045, 0.355, 1],
+								}}
+								variants={{
+									enter: (dir: number) => ({
+										transform: `translateX(${dir * 100}%)`,
+										opacity: 0,
+									}),
+									center: { transform: "translateX(0%)", opacity: 1 },
+									exit: (dir: number) => ({
+										transform: `translateX(${dir * -100}%)`,
+										opacity: 0,
+									}),
+								}}
+							>
+								{/* Pinned Chats Section */}
+								{pinnedChats.length > 0 && (
+									<div className="space-y-2">
+										<h3 className="flex items-center px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+											<PushPinSimpleIcon className="mr-1 h-3 w-3" />
+											Pinned
+										</h3>
+										{pinnedChats.map((chat) => (
+											<DrawerHistoryItem
+												chat={chat}
+												closeDrawer={() => setIsOpen(false)}
+												currentChatId={currentChatId}
+												deletingId={deletingId}
+												editTitle={editTitle}
+												editingId={editingId}
+												handleCancelDelete={handleCancelDelete}
+												handleCancelEdit={handleCancelEdit}
+												handleConfirmDelete={handleConfirmDelete}
+												handleDelete={handleDelete}
+												handleEdit={handleEdit}
+												handleSaveEdit={handleSaveEdit}
+												handleTogglePin={handleTogglePin}
+												key={chat._id}
+												pinned
+												setEditTitle={setEditTitle}
+											/>
+										))}
+									</div>
+								)}
+
+								{/* Time-based Groups */}
+								{orderedGroupKeys.map(
+									(groupKey) =>
+										hasChatsInGroup(groupedChats, groupKey) && (
+											<div className="space-y-2" key={groupKey}>
+												<h3 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+													{groupKey}
+												</h3>
+												{groupedChats[groupKey].map((chat) => (
+													<DrawerHistoryItem
+														chat={chat}
+														closeDrawer={() => setIsOpen(false)}
+														currentChatId={currentChatId}
+														deletingId={deletingId}
+														editTitle={editTitle}
+														editingId={editingId}
+														handleCancelDelete={handleCancelDelete}
+														handleCancelEdit={handleCancelEdit}
+														handleConfirmDelete={handleConfirmDelete}
+														handleDelete={handleDelete}
+														handleEdit={handleEdit}
+														handleSaveEdit={handleSaveEdit}
+														handleTogglePin={handleTogglePin}
+														key={chat._id}
+														pinned={false}
+														setEditTitle={setEditTitle}
+													/>
+												))}
+											</div>
+										),
+								)}
+							</m.div>
+						</AnimatePresence>
 					</ScrollArea>
 				</div>
 			</DrawerContent>

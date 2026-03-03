@@ -12,6 +12,7 @@ const useRouterMock = vi.hoisted(() => vi.fn());
 const convexQueryMock = vi.hoisted(() => vi.fn(() => ({})));
 const useUserMock = vi.hoisted(() => vi.fn());
 const useProfileMock = vi.hoisted(() => vi.fn());
+const useChatSessionMock = vi.hoisted(() => vi.fn());
 
 type ChildrenProps = {
 	children?: ReactNode;
@@ -62,6 +63,20 @@ vi.mock("@/providers/user-provider", () => ({
 
 vi.mock("@/providers/profile-provider", () => ({
 	useProfile: useProfileMock,
+}));
+
+vi.mock("@/providers/chat-session-provider", () => ({
+	useChatSession: useChatSessionMock,
+}));
+
+vi.mock("motion/react", () => ({
+	AnimatePresence: ({ children }: ChildrenProps) => <>{children}</>,
+	m: {
+		div: ({ children, ...props }: ChildrenProps & Record<string, unknown>) => (
+			<div {...props}>{children}</div>
+		),
+	},
+	useReducedMotion: () => false,
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -196,12 +211,27 @@ describe("history delete keyboard flow", () => {
 		useUserMock.mockReturnValue({
 			user: { isAnonymous: false },
 		});
+		useChatSessionMock.mockReturnValue({
+			chatId: "chat-current",
+		});
 		useProfileMock.mockReturnValue({
+			profiles: [
+				{
+					_id: "profile-default",
+					name: "Default",
+					icon: "ChatCircle",
+					isDefault: true,
+				},
+			],
 			activeProfile: {
 				_id: "profile-default",
+				name: "Default",
+				icon: "ChatCircle",
 				isDefault: true,
 			},
+			setActiveProfile: vi.fn(),
 			isProfilesLoading: false,
+			slideDirection: 0,
 		});
 		useRouterMock.mockReturnValue({
 			navigate: vi.fn(),
@@ -302,11 +332,29 @@ describe("history delete keyboard flow", () => {
 
 	it("scopes drawer history to active non-default profile chats", () => {
 		useProfileMock.mockReturnValue({
+			profiles: [
+				{
+					_id: "profile-default",
+					name: "Default",
+					icon: "ChatCircle",
+					isDefault: true,
+				},
+				{
+					_id: "profile-p2",
+					name: "Profile 2",
+					icon: "Briefcase",
+					isDefault: false,
+				},
+			],
 			activeProfile: {
 				_id: "profile-p2",
+				name: "Profile 2",
+				icon: "Briefcase",
 				isDefault: false,
 			},
+			setActiveProfile: vi.fn(),
 			isProfilesLoading: false,
+			slideDirection: 1,
 		});
 		primeQueryMocks([
 			buildChatWithOverrides({
@@ -337,5 +385,71 @@ describe("history delete keyboard flow", () => {
 		expect(getByText("Profile two chat")).toBeTruthy();
 		expect(queryByText("Default profile chat")).toBeNull();
 		expect(queryByText("Profile one chat")).toBeNull();
+	});
+
+	it("switches profile from drawer header icon buttons", () => {
+		const setActiveProfile = vi.fn();
+		useProfileMock.mockReturnValue({
+			profiles: [
+				{
+					_id: "profile-default",
+					name: "Default",
+					icon: "ChatCircle",
+					isDefault: true,
+				},
+				{
+					_id: "profile-work",
+					name: "Work",
+					icon: "Briefcase",
+					isDefault: false,
+				},
+			],
+			activeProfile: {
+				_id: "profile-default",
+				name: "Default",
+				icon: "ChatCircle",
+				isDefault: true,
+			},
+			setActiveProfile,
+			isProfilesLoading: false,
+			slideDirection: 1,
+		});
+		primeQueryMocks();
+		primeMutationMocks(vi.fn(async () => {}));
+
+		const { getByLabelText } = render(
+			<DrawerHistory
+				isOpen
+				setIsOpen={vi.fn()}
+				trigger={<span>history</span>}
+			/>,
+		);
+
+		fireEvent.click(getByLabelText("Switch to Work"));
+		expect(setActiveProfile).toHaveBeenCalledWith("profile-work", "chat-current");
+	});
+
+	it("keeps action buttons visible for long chat titles", () => {
+		primeQueryMocks([
+			buildChatWithOverrides({
+				_id: "chat-long",
+				title:
+					"This is a very long chat title that should truncate with ellipsis and still keep actions visible",
+				isPinned: false,
+			}),
+		]);
+		primeMutationMocks(vi.fn(async () => {}));
+
+		const { getByLabelText } = render(
+			<DrawerHistory
+				isOpen
+				setIsOpen={vi.fn()}
+				trigger={<span>history</span>}
+			/>,
+		);
+
+		expect(getByLabelText("Pin chat")).toBeTruthy();
+		expect(getByLabelText("Edit chat")).toBeTruthy();
+		expect(getByLabelText("Delete chat")).toBeTruthy();
 	});
 });
