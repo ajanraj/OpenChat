@@ -1,6 +1,7 @@
-import { Plus } from "@phosphor-icons/react";
+import { Plus, X } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import {
+	DialogClose,
 	Dialog,
 	DialogContent,
 	DialogHeader,
@@ -34,9 +35,16 @@ export function CreateProfileDialog() {
 				</TooltipTrigger>
 				<TooltipContent>New profile</TooltipContent>
 			</Tooltip>
-			<DialogContent className="max-w-md">
-				<DialogHeader>
+			<DialogContent
+				className="max-w-[calc(100%-2rem)] sm:max-w-md"
+				hasCloseButton={false}
+			>
+				<DialogHeader className="flex-row items-center justify-between text-left">
 					<DialogTitle>Create Profile</DialogTitle>
+					<DialogClose className="rounded-sm p-1 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						<X className="size-4" />
+						<span className="sr-only">Close</span>
+					</DialogClose>
 				</DialogHeader>
 				<ProfileFormFields
 					existingProfiles={profiles}

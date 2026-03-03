@@ -48,12 +48,12 @@ export function ProfileFormFields({
 	// Memoize icon grid to avoid re-renders
 	const iconGrid = useMemo(
 		() => (
-			<div className="grid grid-cols-7 gap-1">
+			<div className="grid grid-cols-7 justify-items-center gap-1">
 				{PROFILE_ICONS.map((iconName) => (
 					<button
 						aria-label={iconName}
 						className={cn(
-							"flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors",
+							"flex size-9 cursor-pointer items-center justify-center rounded-md transition-colors",
 							selectedIcon === iconName
 								? "bg-primary text-primary-foreground"
 								: "hover:bg-muted",
@@ -63,7 +63,7 @@ export function ProfileFormFields({
 						type="button"
 					>
 						<PhosphorIcon
-							className="size-4"
+							className="size-5"
 							name={iconName}
 							weight={selectedIcon === iconName ? "fill" : "regular"}
 						/>
@@ -83,7 +83,7 @@ export function ProfileFormFields({
 				</Label>
 				<div className="flex items-center gap-2">
 					<div className="flex size-9 shrink-0 items-center justify-center rounded-md border bg-muted">
-						<PhosphorIcon className="size-4" name={selectedIcon} weight="fill" />
+						<PhosphorIcon className="size-5" name={selectedIcon} weight="fill" />
 					</div>
 					<Input
 						id="profile-name"
@@ -140,4 +140,3 @@ export function ProfileFormFields({
 		</div>
 	);
 }
-

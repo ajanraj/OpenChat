@@ -28,11 +28,11 @@ export function ProfileIconPicker({
           type="button"
           variant="outline"
         >
-          <PhosphorIcon className="size-5" name={value} weight="fill" />
+          <PhosphorIcon className="size-6" name={value} weight="fill" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="z-[120] w-auto p-2" side="top">
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 justify-items-center gap-1">
           {PROFILE_ICONS.map((iconName) => (
             <button
               aria-label={iconName}
@@ -48,7 +48,7 @@ export function ProfileIconPicker({
               type="button"
             >
               <PhosphorIcon
-                className="size-5"
+                className="size-6"
                 name={iconName}
                 weight={value === iconName ? "fill" : "regular"}
               />

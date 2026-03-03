@@ -11,7 +11,7 @@ import {
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Drawer,
@@ -33,6 +33,8 @@ import {
 	groupChatsByTime,
 	hasChatsInGroup,
 } from "@/lib/chat-utils/time-grouping";
+import { useProfile } from "@/providers/profile-provider";
+import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 
@@ -249,6 +251,8 @@ export function DrawerHistory({
 }: DrawerHistoryProps) {
 	const params = useParams({ strict: false }) as { chatId?: string };
 	const currentChatId = params.chatId;
+	const { user } = useUser();
+	const { activeProfile, isProfilesLoading } = useProfile();
 	const { data: chatHistory } = useTanStackQuery({
 		...convexQuery(api.chats.listChatsForUser, {}),
 	});
@@ -302,10 +306,29 @@ export function DrawerHistory({
 		await pinChatToggle({ chatId: chat._id });
 	};
 
-	const filteredChat =
-		chatHistory?.filter((chat) =>
-			(chat.title || "").toLowerCase().includes(searchQuery.toLowerCase()),
-		) ?? [];
+	const profileScopedChats = useMemo(() => {
+		if (!chatHistory?.length) return [];
+
+		const isAnonymous = !user || user.isAnonymous;
+		if (!isAnonymous && (isProfilesLoading || !activeProfile)) {
+			return [];
+		}
+
+		return chatHistory.filter((chat) => {
+			if (!isAnonymous && activeProfile) {
+				if (activeProfile.isDefault) {
+					if (chat.profileId && chat.profileId !== activeProfile._id) return false;
+				} else {
+					if (chat.profileId !== activeProfile._id) return false;
+				}
+			}
+			return true;
+		});
+	}, [chatHistory, user, isProfilesLoading, activeProfile]);
+
+	const filteredChat = profileScopedChats.filter((chat) =>
+		(chat.title || "").toLowerCase().includes(searchQuery.toLowerCase()),
+	);
 
 	// Separate pinned and unpinned chats
 	const pinnedChats = filteredChat.filter((chat) => chat.isPinned);

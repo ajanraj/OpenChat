@@ -46,7 +46,6 @@ export function ProfileManagementSection({
   const updateProfile = useMutation(api.profiles.updateProfile);
   const deleteProfileMutation = useMutation(api.profiles.deleteProfile);
 
-  const [isProfileSelectOpen, setIsProfileSelectOpen] = useState(false);
   const [deleteConfirmProfileId, setDeleteConfirmProfileId] = useState<Id<"profiles"> | null>(null);
   const [editProfile, setEditProfile] = useState<{
     id: Id<"profiles">;
@@ -67,7 +66,6 @@ export function ProfileManagementSection({
     !editProfile?.isSaving;
 
   const handleOpenEdit = (profile: Profile) => {
-    setIsProfileSelectOpen(false);
     setEditProfile({
       id: profile._id,
       name: profile.name,
@@ -78,8 +76,13 @@ export function ProfileManagementSection({
 
   const handleDeleteFromDropdown = (profile: Profile) => {
     if (profile.isDefault) return;
-    setIsProfileSelectOpen(false);
     setDeleteConfirmProfileId(profile._id);
+  };
+
+  const handleActiveProfileChange = (profileId: string) => {
+    const profile = profiles.find((p) => p._id === profileId);
+    if (!profile) return;
+    setActiveProfile(profile._id);
   };
 
   const closeEditDialog = () => setEditProfile(null);
@@ -119,12 +122,7 @@ export function ProfileManagementSection({
             <Label className="mb-1.5 block text-sm" htmlFor="active-profile">
               Active Profile
             </Label>
-            <Select
-              onOpenChange={setIsProfileSelectOpen}
-              onValueChange={(val) => setActiveProfile(val as Id<"profiles">)}
-              open={isProfileSelectOpen}
-              value={activeProfile?._id}
-            >
+            <Select onValueChange={handleActiveProfileChange} value={activeProfile?._id}>
               <SelectTrigger className="w-full" id="active-profile">
                 {activeProfile ? (
                   <span className="flex items-center gap-2">
@@ -135,43 +133,56 @@ export function ProfileManagementSection({
                   <SelectValue placeholder="Select profile" />
                 )}
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[80]">
                 {profiles.map((p) => (
-                  <SelectItem
-                    className="pr-16 [&>span.absolute]:hidden"
-                    key={p._id}
-                    value={p._id}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
+                  <SelectItem indicatorSide="left" key={p._id} value={p._id}>
+                    <span className="flex min-w-0 items-center gap-2 pr-14">
                       <PhosphorIcon className="size-3.5" name={p.icon} weight="fill" />
                       <span className="truncate">{p.name}</span>
                     </span>
-                    <span className="absolute top-1/2 right-1.5 z-10 flex -translate-y-1/2 items-center gap-1">
-                      <button
+
+                    <span className="absolute top-1/2 right-2 z-10 flex -translate-y-1/2 items-center gap-1">
+                      <Button
                         aria-label={`Edit ${p.name}`}
-                        className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                        className="size-6"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
                           handleOpenEdit(p);
                         }}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                        }}
+                        onPointerUp={(event) => {
+                          event.stopPropagation();
+                        }}
+                        size="icon"
                         type="button"
+                        variant="ghost"
                       >
                         <PencilSimple className="size-3.5" />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         aria-label={`Delete ${p.name}`}
-                        className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                        className="size-6"
                         disabled={p.isDefault}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
                           handleDeleteFromDropdown(p);
                         }}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                        }}
+                        onPointerUp={(event) => {
+                          event.stopPropagation();
+                        }}
+                        size="icon"
                         type="button"
+                        variant="ghost"
                       >
                         <Trash className="size-3.5" />
-                      </button>
+                      </Button>
                     </span>
                   </SelectItem>
                 ))}
@@ -179,7 +190,9 @@ export function ProfileManagementSection({
             </Select>
           </div>
 
-          {profiles.length < 5 && <CreateProfileDialog />}
+          <div className="flex items-end gap-2">
+            {profiles.length < 5 && <CreateProfileDialog />}
+          </div>
         </div>
       </section>
 
@@ -218,7 +231,7 @@ export function ProfileManagementSection({
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button className="cursor-pointer" onClick={closeEditDialog} type="button" variant="outline">
                   Cancel
                 </Button>

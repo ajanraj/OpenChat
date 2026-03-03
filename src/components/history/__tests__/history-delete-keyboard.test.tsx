@@ -10,6 +10,8 @@ const useMutationMock = vi.hoisted(() => vi.fn());
 const useParamsMock = vi.hoisted(() => vi.fn());
 const useRouterMock = vi.hoisted(() => vi.fn());
 const convexQueryMock = vi.hoisted(() => vi.fn(() => ({})));
+const useUserMock = vi.hoisted(() => vi.fn());
+const useProfileMock = vi.hoisted(() => vi.fn());
 
 type ChildrenProps = {
 	children?: ReactNode;
@@ -52,6 +54,14 @@ vi.mock("convex/react", () => ({
 
 vi.mock("@convex-dev/react-query", () => ({
 	convexQuery: convexQueryMock,
+}));
+
+vi.mock("@/providers/user-provider", () => ({
+	useUser: useUserMock,
+}));
+
+vi.mock("@/providers/profile-provider", () => ({
+	useProfile: useProfileMock,
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -117,21 +127,32 @@ vi.mock("@/components/ui/command", () => ({
 }));
 
 function buildChat() {
+	return buildChatWithOverrides({});
+}
+
+function buildChatWithOverrides(overrides: {
+	_id?: string;
+	title?: string;
+	isPinned?: boolean;
+	createdAt?: number;
+	profileId?: string;
+}) {
 	return {
-		_id: "chat-1",
-		title: "Keyboard chat",
-		isPinned: false,
-		createdAt: Date.now(),
+		_id: overrides._id ?? "chat-1",
+		title: overrides.title ?? "Keyboard chat",
+		isPinned: overrides.isPinned ?? false,
+		createdAt: overrides.createdAt ?? Date.now(),
+		profileId: overrides.profileId,
 	};
 }
 
-function primeQueryMocks() {
+function primeQueryMocks(chats = [buildChat()]) {
 	useQueryMock.mockImplementation((options: { enabled?: boolean }) => {
 		if (options.enabled !== undefined) {
 			return { data: [] };
 		}
 
-		return { data: [buildChat()] };
+		return { data: chats };
 	});
 }
 
@@ -172,6 +193,16 @@ describe("history delete keyboard flow", () => {
 		vi.clearAllMocks();
 		convexQueryMock.mockReturnValue({});
 		useParamsMock.mockReturnValue({ chatId: "chat-current" });
+		useUserMock.mockReturnValue({
+			user: { isAnonymous: false },
+		});
+		useProfileMock.mockReturnValue({
+			activeProfile: {
+				_id: "profile-default",
+				isDefault: true,
+			},
+			isProfilesLoading: false,
+		});
 		useRouterMock.mockReturnValue({
 			navigate: vi.fn(),
 			preloadRoute: vi.fn(),
@@ -267,5 +298,44 @@ describe("history delete keyboard flow", () => {
 		await waitFor(() => {
 			expect(container.querySelector("input.sr-only")).toBeNull();
 		});
+	});
+
+	it("scopes drawer history to active non-default profile chats", () => {
+		useProfileMock.mockReturnValue({
+			activeProfile: {
+				_id: "profile-p2",
+				isDefault: false,
+			},
+			isProfilesLoading: false,
+		});
+		primeQueryMocks([
+			buildChatWithOverrides({
+				_id: "chat-default",
+				title: "Default profile chat",
+			}),
+			buildChatWithOverrides({
+				_id: "chat-p1",
+				title: "Profile one chat",
+				profileId: "profile-p1",
+			}),
+			buildChatWithOverrides({
+				_id: "chat-p2",
+				title: "Profile two chat",
+				profileId: "profile-p2",
+			}),
+		]);
+		primeMutationMocks(vi.fn(async () => {}));
+
+		const { getByText, queryByText } = render(
+			<DrawerHistory
+				isOpen
+				setIsOpen={vi.fn()}
+				trigger={<span>history</span>}
+			/>,
+		);
+
+		expect(getByText("Profile two chat")).toBeTruthy();
+		expect(queryByText("Default profile chat")).toBeNull();
+		expect(queryByText("Profile one chat")).toBeNull();
 	});
 });
