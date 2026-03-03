@@ -26,7 +26,7 @@ export const OPENAI_MODELS = [
       REASONING_FEATURE_DISABLED,
       TOOL_CALLING_FEATURE,
     ],
-    api_sdk: openai.responses("gpt-5.3-instant"),
+    api_sdk: openai.responses("gpt-5.3-chat-latest"),
   },
   {
     id: "gpt-5.2",
