@@ -173,6 +173,18 @@ export const GOOGLE_MODELS = [
     api_sdk: fal.image("fal-ai/gemini-25-flash-image"),
   },
   {
+    id: "nano-banana-2",
+    name: "Nano Banana 2",
+    provider: "gemini",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Google's latest high-efficiency image model based on Gemini 3.1 Flash Image.\nDelivers faster generation and editing with strong quality for high-volume workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [IMAGE_GENERATION_FEATURE],
+    api_sdk: fal.image("fal-ai/gemini-3.1-flash-image-preview"),
+  },
+  {
     id: "nano-banana-pro",
     name: "Nano Banana Pro",
     provider: "gemini",

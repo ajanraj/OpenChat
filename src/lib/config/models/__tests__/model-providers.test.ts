@@ -253,6 +253,7 @@ describe("Legacy Model Curation", () => {
         "gemini-3-flash-preview-thinking",
         "gemini-3.1-pro-preview",
         "nano-banana",
+        "nano-banana-2",
         "nano-banana-pro",
       ].sort(),
     );
