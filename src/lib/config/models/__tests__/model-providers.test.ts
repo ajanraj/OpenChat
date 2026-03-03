@@ -220,6 +220,7 @@ describe("Legacy Model Curation", () => {
   it("keeps only the curated OpenAI set as non-legacy", () => {
     expect(getNonLegacyModelIds(OPENAI_MODELS)).toEqual(
       [
+        "gpt-5.3-instant",
         "gpt-5-mini",
         "gpt-5.2",
         "gpt-5.2-instant",

@@ -12,6 +12,23 @@ import {
 
 export const OPENAI_MODELS = [
   {
+    id: "gpt-5.3-instant",
+    name: "GPT-5.3 Instant",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Newest ultra-fast GPT-5.3 instant model tuned for low-latency interactions.\nBest for quick responses, live chat, and tool-augmented workflows.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_DISABLED,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.3-instant"),
+  },
+  {
     id: "gpt-5.2",
     name: "GPT-5.2",
     provider: "openai",
