@@ -247,6 +247,8 @@ describe("Legacy Model Curation", () => {
   it("keeps only the curated Gemini set as non-legacy", () => {
     expect(getNonLegacyModelIds(GOOGLE_MODELS)).toEqual(
       [
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3.1-flash-lite-preview-thinking",
         "gemini-3-flash-preview",
         "gemini-3-flash-preview-thinking",
         "gemini-3.1-pro-preview",

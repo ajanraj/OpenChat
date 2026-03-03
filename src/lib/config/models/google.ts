@@ -236,4 +236,39 @@ export const GOOGLE_MODELS = [
     ],
     api_sdk: google("gemini-3-flash-preview"),
   },
+  {
+    id: "gemini-3.1-flash-lite-preview",
+    name: "Gemini 3.1 Flash Lite",
+    provider: "gemini",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Google's fastest Gemini 3.1 preview model for high-volume, low-latency tasks.\nOptimized for cost-efficient multimodal processing and lightweight agentic workflows.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_DISABLED,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: google("gemini-3.1-flash-lite-preview"),
+  },
+  {
+    id: "gemini-3.1-flash-lite-preview-thinking",
+    name: "Gemini 3.1 Flash Lite",
+    subName: "Thinking",
+    provider: "gemini",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Gemini 3.1 Flash Lite Preview with reasoning enabled.\nAdds deeper thinking for multi-step tasks while keeping low latency and cost efficiency.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: google("gemini-3.1-flash-lite-preview"),
+  },
 ];
