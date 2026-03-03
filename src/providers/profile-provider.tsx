@@ -88,7 +88,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user, isLoading, profiles.length, ensureDefault]);
 
-  const activeProfileId = user?.activeProfileId;
+  const [optimisticActiveProfileId, setOptimisticActiveProfileId] = useState<
+    Id<"profiles"> | undefined
+  >(undefined);
+  const activeProfileId = optimisticActiveProfileId ?? user?.activeProfileId;
+
+  useEffect(() => {
+    if (!user || user.isAnonymous) {
+      setOptimisticActiveProfileId(undefined);
+      return;
+    }
+
+    if (optimisticActiveProfileId && user.activeProfileId === optimisticActiveProfileId) {
+      setOptimisticActiveProfileId(undefined);
+    }
+  }, [user, optimisticActiveProfileId]);
+
   const activeProfile = useMemo(() => {
     if (!activeProfileId || profiles.length === 0) {
       return profiles.find((p) => p.isDefault);
@@ -214,6 +229,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const [slideDirection, setSlideDirection] = useState(0);
   const chatByProfileRef = useRef<Map<string, string>>(new Map());
+  const profileSwitchRequestRef = useRef(0);
 
   const getLastChatForProfile = useCallback(
     (profileId: Id<"profiles">) => chatByProfileRef.current.get(profileId) ?? null,
@@ -226,6 +242,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const executeSwitch = useCallback(
     (profileId: Id<"profiles">, currentChatId?: string | null) => {
+      const previousActiveProfileId = activeProfile?._id;
+      if (previousActiveProfileId === profileId) {
+        return;
+      }
+
       if (activeProfile && currentChatId) {
         chatByProfileRef.current.set(activeProfile._id, currentChatId);
       } else if (activeProfile && currentChatId === null) {
@@ -234,7 +255,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const currentIndex = profiles.findIndex((p) => p._id === activeProfile?._id);
       const nextIndex = profiles.findIndex((p) => p._id === profileId);
       setSlideDirection(nextIndex > currentIndex ? 1 : -1);
-      void setActive({ profileId });
+      const requestId = profileSwitchRequestRef.current + 1;
+      profileSwitchRequestRef.current = requestId;
+      setOptimisticActiveProfileId(profileId);
+      void setActive({ profileId }).catch(() => {
+        if (profileSwitchRequestRef.current !== requestId) {
+          return;
+        }
+        // Clear optimistic state and fall back to server-authoritative user.activeProfileId.
+        setOptimisticActiveProfileId(undefined);
+      });
     },
     [setActive, profiles, activeProfile],
   );

@@ -3,7 +3,7 @@ import { MagnifyingGlass, Plus, SidebarSimple } from "@phosphor-icons/react";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModifierKey } from "@/lib/hooks/use-modifier-key";
 import { useTheme } from "@/components/theme-provider";
@@ -34,6 +34,8 @@ const ChatSidebar = memo(function SidebarComponent() {
 	const { isSidebarOpen: isOpen, toggleSidebar } = useSidebar();
 	const modKey = useModifierKey();
 	const { theme } = useTheme();
+	const prefersReducedMotion = useReducedMotion();
+	const profileSwitchDuration = prefersReducedMotion ? 0 : 0.16;
 	const { data: chatsQuery = [], isLoading: chatsLoading } = useTanStackQuery({
 		...convexQuery(api.chats.listChatsForUser, {}),
 		// Extended cache for chat list to prevent flickering
@@ -430,20 +432,20 @@ const ChatSidebar = memo(function SidebarComponent() {
 						...TRANSITION_LAYOUT,
 						delay: isOpen ? 0.15 : 0,
 					}}
-				>
-					<div className="relative flex-grow overflow-hidden">
-						<AnimatePresence custom={slideDirection} initial={false} mode="popLayout">
-							<m.div
-								key={activeProfile?._id ?? "default"}
-								animate="center"
-								className="h-full overflow-y-auto px-4 pt-4 pb-4"
-								custom={slideDirection}
-								exit="exit"
-								initial="enter"
-								transition={{ duration: 0.25, ease: [0.645, 0.045, 0.355, 1] }}
-								variants={{
-									enter: (dir: number) => ({ transform: `translateX(${dir * 100}%)`, opacity: 0 }),
-									center: { transform: "translateX(0%)", opacity: 1 },
+					>
+						<div className="relative flex-grow overflow-hidden">
+							<AnimatePresence custom={slideDirection} initial={false} mode="popLayout">
+								<m.div
+									key={activeProfile?._id ?? "default"}
+									animate="center"
+									className="h-full overflow-y-auto px-4 pt-4 pb-4"
+									custom={slideDirection}
+									exit="exit"
+									initial="enter"
+									transition={{ duration: profileSwitchDuration, ease: [0.645, 0.045, 0.355, 1] }}
+									variants={{
+										enter: (dir: number) => ({ transform: `translateX(${dir * 100}%)`, opacity: 0 }),
+										center: { transform: "translateX(0%)", opacity: 1 },
 									exit: (dir: number) => ({ transform: `translateX(${dir * -100}%)`, opacity: 0 }),
 								}}
 							>
