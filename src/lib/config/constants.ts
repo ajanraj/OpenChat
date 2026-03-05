@@ -15,7 +15,7 @@ export const RECOMMENDED_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-pro",
   "imagen-4",
-  "gpt-5.2",
+  "gpt-5.4",
   "gpt-5-mini",
   "gpt-5-nano",
   "x-ai/grok-4.1-fast",

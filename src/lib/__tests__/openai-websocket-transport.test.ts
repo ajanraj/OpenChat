@@ -7,7 +7,7 @@ describe("openai websocket transport helpers", () => {
     expect(
       isOpenAITransportEligible({
         provider: "openai",
-        api_sdk: { provider: "openai.responses", modelId: "gpt-5.2" },
+        api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
       }),
     ).toBe(true);
 
@@ -21,7 +21,7 @@ describe("openai websocket transport helpers", () => {
     expect(
       isOpenAITransportEligible({
         provider: "anthropic",
-        api_sdk: { provider: "openai.responses", modelId: "gpt-5.2" },
+        api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
       }),
     ).toBe(false);
   });
@@ -30,7 +30,7 @@ describe("openai websocket transport helpers", () => {
     const wsFetch = createWebSocketFetch();
     const model = getOpenAIStreamModel(
       {
-        id: "gpt-5.2",
+        id: "gpt-5.4",
         provider: "openai",
         api_sdk: { provider: "openai.responses" },
       },
@@ -46,9 +46,9 @@ describe("openai websocket transport helpers", () => {
     const wsFetch = createWebSocketFetch();
     const model = getOpenAIStreamModel(
       {
-        id: "gpt-5.2",
+        id: "gpt-5.4",
         provider: "openai",
-        api_sdk: { provider: "openai.responses", modelId: "gpt-5.2" },
+        api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
       },
       wsFetch,
       true,
