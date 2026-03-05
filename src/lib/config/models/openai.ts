@@ -12,6 +12,40 @@ import {
 
 export const OPENAI_MODELS = [
   {
+    id: "gpt-5.4",
+    name: "GPT-5.4",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's latest flagship model for professional work.\nStronger on reasoning, coding, tool use, and long-running workflows.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.4"),
+  },
+  {
+    id: "gpt-5.4-pro",
+    name: "GPT-5.4 Pro",
+    provider: "openai",
+    premium: false,
+    usesPremiumCredits: false,
+    description:
+      "Maximum-performance GPT-5.4 variant for the hardest reasoning and agentic tasks.\nBest reserved for expert analysis and long-horizon workflows.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: true },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.4-pro"),
+  },
+  {
     id: "gpt-5.3-instant",
     name: "GPT-5.3 Instant",
     provider: "openai",
@@ -34,7 +68,9 @@ export const OPENAI_MODELS = [
     provider: "openai",
     premium: true,
     usesPremiumCredits: true,
-    description: `OpenAI's latest reasoning model. \nDelivers state-of-the-art performance in logic, coding, and multi-step reasoning.`,
+    legacy: true,
+    description:
+      "Previous-generation GPT-5 reasoning model.\nStill strong for logic, coding, and multi-step reasoning workloads.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -50,7 +86,9 @@ export const OPENAI_MODELS = [
     provider: "openai",
     premium: false,
     usesPremiumCredits: false,
-    description: `OpenAI's most advanced model with 400K context window.\nExcels at complex reasoning, expert-level analysis, and long-context tasks.`,
+    legacy: true,
+    description:
+      "Previous-generation GPT-5 pro reasoning model.\nExcels at complex reasoning and expert analysis with user-supplied API keys.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: true },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -66,6 +104,7 @@ export const OPENAI_MODELS = [
     provider: "openai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "Ultra-fast variant of GPT-5.2 optimized for low-latency.\nIdeal for real-time conversations, quick answers, and high-throughput tasks.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
