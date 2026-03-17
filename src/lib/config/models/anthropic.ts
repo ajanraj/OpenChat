@@ -43,11 +43,47 @@ export const ANTHROPIC_MODELS = [
     api_sdk: anthropic("claude-opus-4-6"),
   },
   {
+    id: "claude-4-6-sonnet",
+    name: "Claude 4.6 Sonnet",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Anthropic's most capable Sonnet with Opus-level coding and computer use.\nFeatures 1M token context window, improved planning, and agentic workflows.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_DISABLED,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-sonnet-4-6"),
+  },
+  {
+    id: "claude-4-6-sonnet-reasoning",
+    name: "Claude 4.6 Sonnet",
+    subName: "Reasoning",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Claude 4.6 Sonnet with thinking capabilities enabled.\nDeep reasoning for complex problem-solving and agentic tasks.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-sonnet-4-6"),
+  },
+  {
     id: "claude-4-5-sonnet",
     name: "Claude 4.5 Sonnet",
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "Anthropic's smartest model for complex agents and coding.\nOffers best balance of intelligence, speed, and cost.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
@@ -66,6 +102,7 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "Claude 4.5 Sonnet with thinking capabilities enabled.\nDelivers enhanced performance for complex reasoning tasks.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },

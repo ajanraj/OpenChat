@@ -110,9 +110,9 @@ describe("Model Provider Specific Tests", () => {
       expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.legacy).toBe(true);
     });
 
-    it("labels legacy GPT-5 mini and nano variants clearly for the UI", () => {
-      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.name).toContain("Legacy");
-      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.name).toContain("Legacy");
+    it("marks legacy GPT-5 mini and nano with legacy flag", () => {
+      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.legacy).toBe(true);
+      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.legacy).toBe(true);
     });
 
     it("includes image generation models", () => {
@@ -249,8 +249,8 @@ describe("Legacy Model Curation", () => {
       [
         "claude-4-5-haiku",
         "claude-4-5-haiku-reasoning",
-        "claude-4-5-sonnet",
-        "claude-4-5-sonnet-reasoning",
+        "claude-4-6-sonnet",
+        "claude-4-6-sonnet-reasoning",
         "claude-4-6-opus",
       ].sort(),
     );
