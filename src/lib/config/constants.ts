@@ -19,7 +19,7 @@ export const RECOMMENDED_MODELS = [
   "gpt-5.4-mini",
   "gpt-5.4-nano",
   "x-ai/grok-4.1-fast",
-  "gpt-image-1",
+  "gpt-image-1.5",
   "claude-4-6-sonnet",
   "claude-4-6-sonnet-reasoning",
   "deepseek-r1-0528",
