@@ -103,6 +103,18 @@ describe("Model Provider Specific Tests", () => {
       expect(gpt5Models.length).toBeGreaterThan(0);
     });
 
+    it("includes GPT-5.4 mini and nano variants and marks prior mini/nano as legacy", () => {
+      expect(OPENAI_MODELS.some((model) => model.id === "gpt-5.4-mini")).toBe(true);
+      expect(OPENAI_MODELS.some((model) => model.id === "gpt-5.4-nano")).toBe(true);
+      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.legacy).toBe(true);
+      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.legacy).toBe(true);
+    });
+
+    it("labels legacy GPT-5 mini and nano variants clearly for the UI", () => {
+      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.name).toContain("Legacy");
+      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.name).toContain("Legacy");
+    });
+
     it("includes image generation models", () => {
       const imageModels = OPENAI_MODELS.filter((m) =>
         m.features?.some((f) => f.id === "image-generation" && f.enabled),
@@ -222,8 +234,9 @@ describe("Legacy Model Curation", () => {
       [
         "gpt-5.4",
         "gpt-5.4-pro",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
         "gpt-5.3-instant",
-        "gpt-5-mini",
         "gpt-image-1.5",
         "gpt-oss-120b",
         "gpt-oss-20b",

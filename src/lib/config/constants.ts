@@ -9,15 +9,15 @@ export const APP_DESCRIPTION =
   "OS Chat is a free, open-source AI personal assistant with 40+ language models from OpenAI, Anthropic, Google, Meta, and more. Features background agents, service connectors (Gmail, Calendar, Notion, GitHub, Slack), multi-modal support, image generation, reasoning models, and web search in one powerful interface.";
 export const APP_BASE_URL = process.env.VITE_APP_URL ?? "http://localhost:3000";
 
-export const MODEL_DEFAULT = "gpt-5-nano";
+export const MODEL_DEFAULT = "gpt-5.4-nano";
 
 export const RECOMMENDED_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-pro",
   "imagen-4",
   "gpt-5.4",
-  "gpt-5-mini",
-  "gpt-5-nano",
+  "gpt-5.4-mini",
+  "gpt-5.4-nano",
   "x-ai/grok-4.1-fast",
   "gpt-image-1",
   "claude-4-5-sonnet",
