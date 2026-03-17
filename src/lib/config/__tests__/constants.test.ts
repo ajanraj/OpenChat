@@ -76,6 +76,7 @@ describe("App Constants", () => {
       expect(MODEL_DEFAULT).toBeDefined();
       expect(typeof MODEL_DEFAULT).toBe("string");
       expect(MODEL_DEFAULT.length).toBeGreaterThan(0);
+      expect(MODEL_DEFAULT).toBe("gpt-5.4-nano");
     });
 
     it("RECOMMENDED_MODELS is a non-empty array", () => {
@@ -87,6 +88,13 @@ describe("App Constants", () => {
       for (const model of RECOMMENDED_MODELS) {
         expect(typeof model).toBe("string");
       }
+    });
+
+    it("prefers GPT-5.4 mini/nano in the curated recommendations", () => {
+      expect(RECOMMENDED_MODELS).toContain("gpt-5.4-mini");
+      expect(RECOMMENDED_MODELS).toContain("gpt-5.4-nano");
+      expect(RECOMMENDED_MODELS).not.toContain("gpt-5-mini");
+      expect(RECOMMENDED_MODELS).not.toContain("gpt-5-nano");
     });
   });
 });

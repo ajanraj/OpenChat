@@ -68,7 +68,7 @@
 
 ### 💬 Text & Chat Models
 
-- **OpenAI**: GPT-5.2, GPT-5.2 Pro, GPT-5.1, GPT-5, GPT-5 Mini/Nano, GPT OSS 20B/120B, o3, o4 Mini
+- **OpenAI**: GPT-5.2, GPT-5.2 Pro, GPT-5.1, GPT-5, GPT-5.4 Mini/Nano, GPT-5 Mini/Nano (Legacy), GPT OSS 20B/120B, o3, o4 Mini
 - **Anthropic**: Claude 4.5 Opus, Claude 4.5 Sonnet, Claude 4.5 Haiku (with reasoning)
 - **Google**: Gemini 3 Pro/Flash, Gemini 2.5 Pro/Flash (with thinking)
 - **Meta**: Llama 4 Maverick, Llama 4 Scout

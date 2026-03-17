@@ -46,6 +46,40 @@ export const OPENAI_MODELS = [
     api_sdk: openai.responses("gpt-5.4-pro"),
   },
   {
+    id: "gpt-5.4-mini",
+    name: "GPT-5.4 Mini",
+    provider: "openai",
+    premium: false,
+    usesPremiumCredits: false,
+    description:
+      "OpenAI's strongest mini model yet for coding, computer use, and subagents.\nBest for high-volume GPT-5.4-class workflows that still need reasoning and tools.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.4-mini"),
+  },
+  {
+    id: "gpt-5.4-nano",
+    name: "GPT-5.4 Nano",
+    provider: "openai",
+    premium: false,
+    usesPremiumCredits: false,
+    description:
+      "OpenAI's cheapest GPT-5.4-class model for simple high-volume tasks.\nStrong fit for classification, extraction, ranking, and lightweight subagents.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.4-nano"),
+  },
+  {
     id: "gpt-5.3-instant",
     name: "GPT-5.3 Instant",
     provider: "openai",
@@ -170,11 +204,13 @@ export const OPENAI_MODELS = [
   },
   {
     id: "gpt-5-mini",
-    name: "GPT-5 Mini",
+    name: "GPT-5 Mini (Legacy)",
     provider: "openai",
     premium: false,
     usesPremiumCredits: false,
-    description: `OpenAI's lightweight cost-effective model. \nOptimized for quick tasks and budget-conscious applications while maintaining core functionality.`,
+    legacy: true,
+    description:
+      "Legacy GPT-5 mini snapshot for compatibility.\nFor most new low-latency, high-volume workloads, start with GPT-5.4 Mini instead.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -186,12 +222,13 @@ export const OPENAI_MODELS = [
   },
   {
     id: "gpt-5-nano",
-    name: "GPT-5 Nano",
+    name: "GPT-5 Nano (Legacy)",
     provider: "openai",
     premium: false,
     usesPremiumCredits: false,
     legacy: true,
-    description: `OpenAI's ultra-fast speed-optimized model. \nBuilt for instant responses and low-latency applications, perfect for mobile and real-time use.`,
+    description:
+      "Legacy GPT-5 nano snapshot for compatibility.\nFor most new speed- and cost-sensitive workloads, start with GPT-5.4 Nano instead.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
