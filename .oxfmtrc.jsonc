@@ -3,8 +3,11 @@
   "ignorePatterns": [
     "**/dev-dist/**",
     "**/.opencode/**",
+    "**/.github/instructions/**",
+    "**/.github/copilot-instructions.md",
     "**/src/components/**",
     "**/.openchat_old/**",
+    "**/agent_rules/**",
     "**/src/routeTree.gen.ts",
     "**/src/styles.css",
     "**/node_modules/**",

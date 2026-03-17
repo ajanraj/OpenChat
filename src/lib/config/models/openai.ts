@@ -204,7 +204,7 @@ export const OPENAI_MODELS = [
   },
   {
     id: "gpt-5-mini",
-    name: "GPT-5 Mini (Legacy)",
+    name: "GPT-5 Mini",
     provider: "openai",
     premium: false,
     usesPremiumCredits: false,
@@ -222,7 +222,7 @@ export const OPENAI_MODELS = [
   },
   {
     id: "gpt-5-nano",
-    name: "GPT-5 Nano (Legacy)",
+    name: "GPT-5 Nano",
     provider: "openai",
     premium: false,
     usesPremiumCredits: false,

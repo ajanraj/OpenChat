@@ -12,16 +12,16 @@ export const APP_BASE_URL = process.env.VITE_APP_URL ?? "http://localhost:3000";
 export const MODEL_DEFAULT = "gpt-5.4-nano";
 
 export const RECOMMENDED_MODELS = [
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-pro",
+  "gemini-3.1-flash-lite-preview",
+  "gemini-3.1-pro-preview",
   "imagen-4",
   "gpt-5.4",
   "gpt-5.4-mini",
   "gpt-5.4-nano",
   "x-ai/grok-4.1-fast",
-  "gpt-image-1",
-  "claude-4-5-sonnet",
-  "claude-4-5-sonnet-reasoning",
+  "gpt-image-1.5",
+  "claude-4-6-sonnet",
+  "claude-4-6-sonnet-reasoning",
   "deepseek-r1-0528",
 ];
 

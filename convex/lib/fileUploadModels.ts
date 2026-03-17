@@ -4,6 +4,8 @@ export const FILE_UPLOAD_MODELS = [
   // Anthropic models
   "claude-4-5-opus",
   "claude-4-6-opus",
+  "claude-4-6-sonnet",
+  "claude-4-6-sonnet-reasoning",
   "claude-4-5-sonnet",
   "claude-4-5-sonnet-reasoning",
   "claude-4-5-haiku",
