@@ -146,7 +146,6 @@
     "vite": "^8.0.0",
     "vite-plugin-oxlint": "^1.7.0",
     "vite-plugin-pwa": "^1.2.0",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.0",
     "web-vitals": "^5.1.0"
   },

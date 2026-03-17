@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sanitizeMessageParts } from "../sanitization_helper";
 
 describe("sanitizeMessageParts", () => {
@@ -181,6 +181,7 @@ describe("sanitizeMessageParts", () => {
 
   describe("error handling", () => {
     it("returns safe placeholder when processing throws", () => {
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       // Create a part that will throw when cloned
       const badPart = {
         type: "tool-call",
@@ -192,6 +193,7 @@ describe("sanitizeMessageParts", () => {
       // Accessing input will throw, but the function should handle it
       const parts = [badPart];
       const result = sanitizeMessageParts(parts, { hideFiles: false });
+      consoleSpy.mockRestore();
 
       // Should return a safe placeholder
       expect(result[0]).toEqual({
