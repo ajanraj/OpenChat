@@ -16,4 +16,9 @@ describe("File Upload Model Allowlist", () => {
   it("returns false for unknown models", () => {
     expect(supportsFileUploadModel("non-existent-model")).toBe(false);
   });
+
+  it("includes the new GPT-5.4 mini and nano allowlist entries", () => {
+    expect(FILE_UPLOAD_MODELS).toContain("gpt-5.4-mini");
+    expect(FILE_UPLOAD_MODELS).toContain("gpt-5.4-nano");
+  });
 });
