@@ -182,24 +182,27 @@ describe("sanitizeMessageParts", () => {
   describe("error handling", () => {
     it("returns safe placeholder when processing throws", () => {
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      // Create a part that will throw when cloned
-      const badPart = {
-        type: "tool-call",
-        get input() {
-          throw new Error("Cannot access input");
-        },
-      };
+      try {
+        // Create a part that will throw when cloned
+        const badPart = {
+          type: "tool-call",
+          get input() {
+            throw new Error("Cannot access input");
+          },
+        };
 
-      // Accessing input will throw, but the function should handle it
-      const parts = [badPart];
-      const result = sanitizeMessageParts(parts, { hideFiles: false });
-      consoleSpy.mockRestore();
+        // Accessing input will throw, but the function should handle it
+        const parts = [badPart];
+        const result = sanitizeMessageParts(parts, { hideFiles: false });
 
-      // Should return a safe placeholder
-      expect(result[0]).toEqual({
-        type: "redacted",
-        error: "Content sanitization failed",
-      });
+        // Should return a safe placeholder
+        expect(result[0]).toEqual({
+          type: "redacted",
+          error: "Content sanitization failed",
+        });
+      } finally {
+        consoleSpy.mockRestore();
+      }
     });
   });
 });
