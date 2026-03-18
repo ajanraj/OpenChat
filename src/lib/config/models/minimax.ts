@@ -3,6 +3,19 @@ import { openrouter } from "../openrouter";
 
 export const MINIMAX_MODELS = [
   {
+    id: "minimax/minimax-m2.7",
+    name: "MiniMax M2.7",
+    provider: "openrouter",
+    displayProvider: "minimax",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "MiniMax M2.7, released March 18, 2026 with 204,800 context.\nBegins MiniMax's recursive self-improvement phase with stronger multi-agent productivity, software engineering, and tool-driven workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE],
+    api_sdk: openrouter("minimax/minimax-m2.7"),
+  },
+  {
     id: "minimax/minimax-m2.5",
     name: "MiniMax M2.5",
     provider: "openrouter",
@@ -22,8 +35,9 @@ export const MINIMAX_MODELS = [
     displayProvider: "minimax",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "MiniMax's latest model with 204K context.\nExcels in multilingual coding, agentic workflows, and clean concise outputs with faster response times.",
+      "MiniMax M2.1, released December 23, 2025 with 204,800 context.\nExcels in multilingual coding, agentic workflows, and cleaner concise outputs with faster response times.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE, REASONING_FEATURE],
     api_sdk: openrouter("minimax/minimax-m2.1"),

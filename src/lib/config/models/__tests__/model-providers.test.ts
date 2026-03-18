@@ -217,13 +217,13 @@ describe("Model Provider Specific Tests", () => {
   });
 
   describe("MiniMax Models", () => {
-    it("includes MiniMax M2.5", () => {
-      expect(MINIMAX_MODELS.some((m) => m.id === "minimax/minimax-m2.5")).toBe(true);
+    it("includes MiniMax M2.7", () => {
+      expect(MINIMAX_MODELS.some((m) => m.id === "minimax/minimax-m2.7")).toBe(true);
     });
 
-    it("marks all MiniMax models as legacy except M2.5 and M2.1", () => {
+    it("marks all MiniMax models as legacy except M2.7 and M2.5", () => {
       const nonLegacyIds = new Set(MINIMAX_MODELS.filter((m) => !m.legacy).map((m) => m.id));
-      expect(nonLegacyIds).toEqual(new Set(["minimax/minimax-m2.5", "minimax/minimax-m2.1"]));
+      expect(nonLegacyIds).toEqual(new Set(["minimax/minimax-m2.7", "minimax/minimax-m2.5"]));
     });
   });
 });
@@ -307,9 +307,9 @@ describe("Legacy Model Curation", () => {
     );
   });
 
-  it("keeps only MiniMax M2.5 and M2.1 as non-legacy", () => {
+  it("keeps only MiniMax M2.7 and M2.5 as non-legacy", () => {
     expect(getNonLegacyModelIds(MINIMAX_MODELS)).toEqual(
-      ["minimax/minimax-m2.1", "minimax/minimax-m2.5"].sort(),
+      ["minimax/minimax-m2.5", "minimax/minimax-m2.7"].sort(),
     );
   });
 
