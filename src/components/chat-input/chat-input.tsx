@@ -9,6 +9,7 @@ import {
 } from "@/components/prompt-kit/prompt-input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import type { ReasoningEffort } from "@/lib/config";
 import {
 	getAllowedLabel,
 	PASTE_ALLOWED_MIME,
@@ -21,8 +22,6 @@ import { FileList } from "./file-list";
 import { PromptSystem } from "./prompt-system";
 import { SelectModel } from "./select-model";
 import { SelectReasoningEffort } from "./select-reasoning-effort";
-
-type ReasoningEffort = "low" | "medium" | "high";
 
 type ChatInputProps = {
 	status: ChatStatus;
@@ -303,6 +302,7 @@ export function ChatInput({
 							{isReasoningModel ? (
 								<SelectReasoningEffort
 									isUserAuthenticated={isUserAuthenticated}
+									modelId={selectedModel}
 									onSelectReasoningEffortAction={onSelectReasoningEffortAction}
 									reasoningEffort={reasoningEffort}
 								/>

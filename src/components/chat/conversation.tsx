@@ -10,7 +10,7 @@ import {
 } from "@/components/prompt-kit/chat-container";
 import { ImageSkeleton } from "@/components/prompt-kit/image-skeleton";
 import { Loader } from "@/components/prompt-kit/loader";
-import { MODELS_MAP } from "@/lib/config";
+import { MODELS_MAP, type ReasoningEffort } from "@/lib/config";
 import type { Message as MessageSchema } from "../../../convex/schema/message";
 import { Message } from "./message";
 
@@ -32,7 +32,7 @@ type ConversationProps = {
 			model: string;
 			enableSearch: boolean;
 			files: File[];
-			reasoningEffort: "low" | "medium" | "high";
+			reasoningEffort: ReasoningEffort;
 			removedFileUrls?: string[];
 		},
 	) => void;
@@ -42,7 +42,7 @@ type ConversationProps = {
 	selectedModel?: string;
 	isUserAuthenticated?: boolean;
 	isReasoningModel?: boolean;
-	reasoningEffort?: "low" | "medium" | "high";
+	reasoningEffort?: ReasoningEffort;
 };
 
 const Conversation = React.memo(
@@ -56,7 +56,7 @@ const Conversation = React.memo(
 		selectedModel,
 		isUserAuthenticated = false,
 		isReasoningModel = false,
-		reasoningEffort = "medium",
+		reasoningEffort = "none",
 	}: ConversationProps) => {
 		const [initialMessageCount] = useState(messages.length);
 		const [resizeMode, setResizeMode] = useState<"instant" | "smooth">(

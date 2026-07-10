@@ -1,6 +1,7 @@
 import type { UIMessage as MessageType } from "@ai-sdk/react";
 import type { Infer } from "convex/values";
 import React, { useCallback, useState } from "react";
+import type { ReasoningEffort } from "@/lib/config";
 import type { Message as MessageSchema } from "../../../convex/schema/message";
 import { MessageAssistant } from "./message-assistant";
 import { MessageUser } from "./message-user";
@@ -19,7 +20,7 @@ export type MessageProps = {
 			model: string;
 			enableSearch: boolean;
 			files: File[];
-			reasoningEffort: "low" | "medium" | "high";
+			reasoningEffort: ReasoningEffort;
 			removedFileUrls?: string[];
 		},
 	) => void;
@@ -32,7 +33,7 @@ export type MessageProps = {
 	selectedModel?: string;
 	isUserAuthenticated?: boolean;
 	isReasoningModel?: boolean;
-	reasoningEffort?: "low" | "medium" | "high";
+	reasoningEffort?: ReasoningEffort;
 };
 
 function MessageComponent({
@@ -52,7 +53,7 @@ function MessageComponent({
 	selectedModel,
 	isUserAuthenticated = false,
 	isReasoningModel = false,
-	reasoningEffort = "medium",
+	reasoningEffort = "none",
 }: MessageProps) {
 	const [copied, setCopied] = useState(false);
 
