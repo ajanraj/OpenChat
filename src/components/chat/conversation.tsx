@@ -11,6 +11,10 @@ import {
 import { ImageSkeleton } from "@/components/prompt-kit/image-skeleton";
 import { Loader } from "@/components/prompt-kit/loader";
 import { MODELS_MAP, type ReasoningEffort } from "@/lib/config";
+import {
+	getMessageReasoningEffort,
+	supportsReasoningEffort,
+} from "@/lib/model-utils";
 import type { Message as MessageSchema } from "../../../convex/schema/message";
 import { Message } from "./message";
 
@@ -41,8 +45,7 @@ type ConversationProps = {
 	autoScroll?: boolean;
 	selectedModel?: string;
 	isUserAuthenticated?: boolean;
-	isReasoningModel?: boolean;
-	reasoningEffort?: ReasoningEffort;
+	fallbackReasoningEffort?: ReasoningEffort;
 };
 
 const Conversation = React.memo(
@@ -55,8 +58,7 @@ const Conversation = React.memo(
 		onBranch,
 		selectedModel,
 		isUserAuthenticated = false,
-		isReasoningModel = false,
-		reasoningEffort = "none",
+		fallbackReasoningEffort = "none",
 	}: ConversationProps) => {
 		const [initialMessageCount] = useState(messages.length);
 		const [resizeMode, setResizeMode] = useState<"instant" | "smooth">(
@@ -122,24 +124,30 @@ const Conversation = React.memo(
 							const messageStatus = isLast ? status : "ready";
 							const stableKey =
 								(message as MessageWithExtras).clientId ?? message.id;
+							const messageModel =
+								message.model ?? (message.role === "user" ? (selectedModel ?? "") : "");
+							const messageReasoningEffort = getMessageReasoningEffort(
+								messageModel,
+								message.metadata?.reasoningEffort,
+								fallbackReasoningEffort,
+							);
 
 							return (
 								<Message
 									hasScrollAnchor={hasScrollAnchor}
 									id={message.id}
 									isLast={isLast}
-									isReasoningModel={isReasoningModel}
+									isReasoningModel={supportsReasoningEffort(messageModel)}
 									isUserAuthenticated={isUserAuthenticated}
 									key={stableKey}
 									metadata={message.metadata}
-									model={message.model}
+									model={messageModel}
 									onBranch={() => onBranch(message.id)}
 									onDelete={onDelete}
 									onEdit={onEdit}
 									onReload={() => onReload(message.id)}
 									parts={message.parts}
-									reasoningEffort={reasoningEffort}
-									selectedModel={selectedModel}
+									reasoningEffort={messageReasoningEffort}
 									status={messageStatus}
 									variant={message.role}
 								/>

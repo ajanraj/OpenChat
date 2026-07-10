@@ -14,17 +14,16 @@ describe("Message", () => {
 		mockMessageUser.mockClear();
 	});
 
-	it("uses the historical message effort when editing", () => {
+	it("passes the resolved message effort to the editor", () => {
 		render(
 			<Message
 				id="message-1"
-				metadata={{ reasoningEffort: "high" }}
 				model="xai/grok-4.5"
 				onBranch={noop}
 				onDelete={noop}
 				onEdit={noop}
 				onReload={noop}
-				reasoningEffort="none"
+				reasoningEffort="high"
 				variant="user"
 			/>,
 		);
@@ -37,11 +36,10 @@ describe("Message", () => {
 		);
 	});
 
-	it("normalizes an incompatible chat effort to the message model", () => {
+	it("uses an empty model only when no message model is available", () => {
 		render(
 			<Message
 				id="message-2"
-				model="xai/grok-4.5"
 				onBranch={noop}
 				onDelete={noop}
 				onEdit={noop}
@@ -52,7 +50,7 @@ describe("Message", () => {
 		);
 
 		expect(mockMessageUser.mock.calls[0]?.[0]).toEqual(
-			expect.objectContaining({ reasoningEffort: "low" }),
+			expect.objectContaining({ selectedModel: "" }),
 		);
 	});
 });

@@ -1120,7 +1120,7 @@ function useChatContentView() {
 				) : (
 					<Conversation
 						autoScroll={!targetMessageId}
-						isReasoningModel={supportsReasoningEffort(selectedModel)}
+						fallbackReasoningEffort={selectedReasoningEffort}
 						isUserAuthenticated={isAuthenticated}
 						key="conversation"
 						messages={messages as MessageWithExtras[]}
@@ -1134,7 +1134,6 @@ function useChatContentView() {
 						onDelete={handleDelete}
 						onEdit={handleEdit}
 						onReload={handleReload}
-						reasoningEffort={selectedReasoningEffort}
 						selectedModel={selectedModel}
 					/>
 				)}

@@ -1,8 +1,7 @@
 import type { UIMessage as MessageType } from "@ai-sdk/react";
 import type { Infer } from "convex/values";
 import React, { useCallback, useState } from "react";
-import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config";
-import { normalizeReasoningEffort } from "@/lib/model-utils";
+import type { ReasoningEffort } from "@/lib/config";
 import type { Message as MessageSchema } from "../../../convex/schema/message";
 import { MessageAssistant } from "./message-assistant";
 import { MessageUser } from "./message-user";
@@ -31,7 +30,6 @@ export type MessageProps = {
 	parts?: MessageType["parts"];
 	status?: "streaming" | "ready" | "submitted" | "error"; // Add status prop
 	metadata?: Infer<typeof MessageSchema>["metadata"];
-	selectedModel?: string;
 	isUserAuthenticated?: boolean;
 	isReasoningModel?: boolean;
 	reasoningEffort?: ReasoningEffort;
@@ -51,7 +49,6 @@ function MessageComponent({
 	parts,
 	status, // Receive status prop
 	metadata,
-	selectedModel,
 	isUserAuthenticated = false,
 	isReasoningModel = false,
 	reasoningEffort = "none",
@@ -71,15 +68,6 @@ function MessageComponent({
 	}, [parts]);
 
 	if (variant === "user") {
-		const messageModel = model || selectedModel || "";
-		const storedReasoningEffort = ReasoningEffortSchema.safeParse(
-			metadata?.reasoningEffort,
-		);
-		const editReasoningEffort = normalizeReasoningEffort(
-			messageModel,
-			storedReasoningEffort.success ? storedReasoningEffort.data : reasoningEffort,
-		);
-
 		return (
 			<MessageUser
 				copied={copied}
@@ -94,8 +82,8 @@ function MessageComponent({
 				onEdit={onEdit}
 				parts={parts}
 				readOnly={readOnly}
-				reasoningEffort={editReasoningEffort}
-				selectedModel={messageModel}
+				reasoningEffort={reasoningEffort}
+				selectedModel={model ?? ""}
 				status={status}
 			/>
 		);
@@ -133,7 +121,6 @@ const equalMessage = (a: MessageProps, b: MessageProps) =>
 	a.readOnly === b.readOnly &&
 	a.status === b.status &&
 	a.metadata === b.metadata &&
-	a.selectedModel === b.selectedModel &&
 	a.isUserAuthenticated === b.isUserAuthenticated &&
 	a.isReasoningModel === b.isReasoningModel &&
 	a.reasoningEffort === b.reasoningEffort &&

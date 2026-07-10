@@ -5,7 +5,7 @@
 
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider";
 import { MODEL_DEFAULT, MODELS } from "@/lib/config";
-import type { ReasoningEffort } from "@/lib/config/schemas";
+import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
 
 export function getReasoningEffortOptions(modelId: string): ReasoningEffort[] {
   const model = MODELS.find((candidate) => candidate.id === modelId);
@@ -28,6 +28,18 @@ export function normalizeReasoningEffort(
   return effortOptions.includes(requestedEffort)
     ? requestedEffort
     : (getDefaultReasoningEffort(modelId) ?? requestedEffort);
+}
+
+export function getMessageReasoningEffort(
+  modelId: string,
+  storedEffort: string | undefined,
+  fallbackEffort: ReasoningEffort,
+): ReasoningEffort {
+  const parsedEffort = ReasoningEffortSchema.safeParse(storedEffort);
+  return normalizeReasoningEffort(
+    modelId,
+    parsedEffort.success ? parsedEffort.data : fallbackEffort,
+  );
 }
 
 export function resolveReasoningEffort(

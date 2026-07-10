@@ -3,6 +3,7 @@ import { MODEL_DEFAULT, MODELS } from "@/lib/config";
 import {
   createModelValidator,
   getDefaultReasoningEffort,
+  getMessageReasoningEffort,
   getModelById,
   getModelProvider,
   getOpenRouterReasoningOptions,
@@ -81,6 +82,12 @@ describe("model-utils", () => {
       expect(normalizeReasoningEffort("xai/grok-4.5", "none")).toBe("low");
       expect(normalizeReasoningEffort("xai/grok-4.5", "high")).toBe("high");
       expect(normalizeReasoningEffort("z-ai/glm-5.2", "medium")).toBe("none");
+    });
+
+    it("resolves edit effort from message history before chat fallback", () => {
+      expect(getMessageReasoningEffort("xai/grok-4.5", "high", "none")).toBe("high");
+      expect(getMessageReasoningEffort("xai/grok-4.5", undefined, "none")).toBe("low");
+      expect(getMessageReasoningEffort("xai/grok-4.5", "invalid", "medium")).toBe("medium");
     });
 
     it("matches provider-specific reasoning capabilities", () => {
