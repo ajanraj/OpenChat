@@ -52,4 +52,4 @@ export const MODELS_MAP: Record<string, (typeof MODELS)[0]> = Object.fromEntries
   MODELS.map((model) => [model.id, model]),
 );
 
-export { MODELS as MODELS_OPTIONS };
+export const MODELS_OPTIONS = MODELS.filter((model) => !model.retired);

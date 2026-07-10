@@ -1,11 +1,17 @@
 import { z } from "zod";
 
+export const ReasoningEffortSchema = z.enum(["none", "low", "medium", "high"]);
+
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+
 export const ModelFeatureSchema = z.object({
   id: z.string(),
   enabled: z.boolean(),
   label: z.string().optional(),
-  supportsEffort: z.boolean().optional(),
+  effortOptions: z.array(ReasoningEffortSchema).min(1).optional(),
 });
+
+export type ModelFeature = z.infer<typeof ModelFeatureSchema>;
 
 export const ApiKeyUsageSchema = z.object({
   allowUserKey: z.boolean(),
@@ -23,6 +29,7 @@ export const ModelSchema = z.object({
   usesPremiumCredits: z.boolean(),
   skipRateLimit: z.boolean().optional(), // Skip rate limiting completely for this model
   legacy: z.boolean().optional(), // Mark older models as legacy
+  retired: z.boolean().optional(), // Preserve metadata but prevent new requests
   description: z.string(),
   features: z.array(ModelFeatureSchema).default([]),
   apiKeyUsage: ApiKeyUsageSchema.default({

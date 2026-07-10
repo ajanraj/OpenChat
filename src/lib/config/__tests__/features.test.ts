@@ -4,8 +4,11 @@ import {
   IMAGE_GENERATION_FEATURE,
   PDF_PROCESSING_FEATURE,
   REASONING_FEATURE,
+  REASONING_FEATURE_ALWAYS,
   REASONING_FEATURE_BASIC,
   REASONING_FEATURE_DISABLED,
+  REASONING_FEATURE_FIXED,
+  REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
 } from "../features";
 
@@ -40,16 +43,20 @@ describe("Feature Constants", () => {
   });
 
   describe("REASONING_FEATURE variants", () => {
-    it("REASONING_FEATURE has correct id and supports effort", () => {
+    it("REASONING_FEATURE supports optional reasoning effort", () => {
       expect(REASONING_FEATURE.id).toBe("reasoning");
       expect(REASONING_FEATURE.enabled).toBe(true);
-      expect(REASONING_FEATURE.supportsEffort).toBe(true);
+      expect(REASONING_FEATURE.effortOptions).toEqual(["none", "low", "medium", "high"]);
     });
 
-    it("REASONING_FEATURE_BASIC has correct id but does not support effort", () => {
-      expect(REASONING_FEATURE_BASIC.id).toBe("reasoning");
-      expect(REASONING_FEATURE_BASIC.enabled).toBe(true);
-      expect(REASONING_FEATURE_BASIC.supportsEffort).toBe(false);
+    it("defines always-on and toggle effort options", () => {
+      expect(REASONING_FEATURE_ALWAYS.effortOptions).toEqual(["low", "medium", "high"]);
+      expect(REASONING_FEATURE_TOGGLE.effortOptions).toEqual(["none", "high"]);
+    });
+
+    it("keeps basic reasoning compatible with fixed reasoning", () => {
+      expect(REASONING_FEATURE_BASIC).toBe(REASONING_FEATURE_FIXED);
+      expect(REASONING_FEATURE_FIXED).not.toHaveProperty("effortOptions");
     });
 
     it("REASONING_FEATURE_DISABLED has correct id and is disabled", () => {

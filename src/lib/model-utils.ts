@@ -3,25 +3,67 @@
  * Helper functions for model validation, feature detection, and configuration
  */
 
+import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider";
 import { MODEL_DEFAULT, MODELS } from "@/lib/config";
+import type { ReasoningEffort } from "@/lib/config/schemas";
+
+export function getReasoningEffortOptions(modelId: string): ReasoningEffort[] {
+  const model = MODELS.find((candidate) => candidate.id === modelId);
+  const reasoningFeature = model?.features.find(
+    (feature) => feature.id === "reasoning" && feature.enabled,
+  );
+  return reasoningFeature?.effortOptions ?? [];
+}
+
+export function getDefaultReasoningEffort(modelId: string): ReasoningEffort | undefined {
+  const effortOptions = getReasoningEffortOptions(modelId);
+  return effortOptions.includes("none") ? "none" : effortOptions[0];
+}
+
+export function resolveReasoningEffort(
+  modelId: string,
+  requestedEffort?: ReasoningEffort,
+): { success: true; effort: ReasoningEffort | undefined } | { success: false } {
+  const effortOptions = getReasoningEffortOptions(modelId);
+  if (requestedEffort === undefined) {
+    return { success: true, effort: getDefaultReasoningEffort(modelId) };
+  }
+  return effortOptions.includes(requestedEffort)
+    ? { success: true, effort: requestedEffort }
+    : { success: false };
+}
+
+export function getOpenRouterReasoningOptions(
+  modelId: string,
+  reasoningEffort?: ReasoningEffort,
+): OpenRouterProviderOptions {
+  const model = MODELS.find((candidate) => candidate.id === modelId);
+  const hasReasoning = model?.features.some(
+    (feature) => feature.id === "reasoning" && feature.enabled,
+  );
+  if (model?.provider !== "openrouter" || !hasReasoning || reasoningEffort === undefined) {
+    return {};
+  }
+  return {
+    reasoning:
+      reasoningEffort === "none"
+        ? { enabled: false, effort: "none" }
+        : { enabled: true, effort: reasoningEffort },
+  };
+}
 
 /**
  * Checks if a model supports configurable reasoning effort
  */
 export function supportsReasoningEffort(modelId: string): boolean {
-  const model = MODELS.find((m) => m.id === modelId);
-  if (!model?.features) {
-    return false;
-  }
-  const reasoningFeature = model.features.find((f) => f.id === "reasoning");
-  return reasoningFeature?.enabled === true && reasoningFeature?.supportsEffort === true;
+  return getReasoningEffortOptions(modelId).length > 0;
 }
 
 /**
  * Creates a memoized model validator function
  */
 export function createModelValidator() {
-  const validModels = new Set(MODELS.map((m) => m.id));
+  const validModels = new Set(MODELS.filter((model) => !model.retired).map((model) => model.id));
 
   return function getValidModel(preferredModel: string, disabledModels: string[] = []): string {
     // Check if model exists and is not disabled

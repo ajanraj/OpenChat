@@ -12,6 +12,7 @@ import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { createScheduledAgent } from "../src/lib/ai/agent";
 import { MODELS_MAP } from "../src/lib/config";
+import { SCHEDULED_AGENT_MODEL_ID } from "../src/lib/config/models/minimax";
 import type { ConnectorStatusLists } from "../src/lib/connector-utils";
 import { createAgentTool } from "../src/lib/create-agent-tool";
 import { limitDepth } from "../src/lib/depth-limiter";
@@ -99,7 +100,7 @@ export const executeTask = internalAction({
       const { chatId } = await ctx.runMutation(internal.chats.createChatInternal, {
         userId: task.userId,
         title: `${task.title} - ${currentDate} ${currentTime}`,
-        model: "minimax/minimax-m2.5",
+        model: SCHEDULED_AGENT_MODEL_ID,
         profileId: profile?._id,
       });
 
@@ -191,8 +192,8 @@ export const executeTask = internalAction({
         profile,
       );
 
-      // Get MiniMax M2.5 model
-      const selectedModel = MODELS_MAP["minimax/minimax-m2.5"];
+      // Get the scheduled-agent model
+      const selectedModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
       if (!selectedModel) {
         // console.log('Kimi K2 0905 model not found');
         return null;

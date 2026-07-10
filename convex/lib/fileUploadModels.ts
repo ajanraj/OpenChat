@@ -2,6 +2,9 @@
 // Keep in sync with frontend model feature flags.
 export const FILE_UPLOAD_MODELS = [
   // Anthropic models
+  "claude-sonnet-5",
+  "claude-opus-4-8",
+  "claude-fable-5",
   "claude-4-5-opus",
   "claude-4-6-opus",
   "claude-4-6-sonnet",
@@ -12,6 +15,10 @@ export const FILE_UPLOAD_MODELS = [
   "claude-4-5-haiku-reasoning",
 
   // OpenAI models
+  "gpt-5.5",
+  "gpt-5.6-luna",
+  "gpt-5.6-terra",
+  "gpt-5.6-sol",
   "gpt-4o",
   "gpt-4o-mini",
   "o4-mini",
@@ -38,6 +45,8 @@ export const FILE_UPLOAD_MODELS = [
   "glm-4.5v",
 
   // Google models
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
   "gemini-2.0-flash",
   "gemini-2.0-flash-lite",
   "gemini-2.5-flash",
@@ -52,26 +61,40 @@ export const FILE_UPLOAD_MODELS = [
   "gemini-3.1-pro-preview",
 
   // Meta models
+  "meta/muse-spark-1.1",
   "meta-llama/llama-4-maverick",
   "meta-llama/llama-4-scout",
   "meta-llama/llama-4-maverick:free",
   "meta-llama/llama-4-scout:free",
 
   // Mistral models
+  "mistral-large-latest",
+  "mistral-medium-latest",
+  "mistral-small-latest",
   "pixtral-large-latest",
 
   // Moonshot models
+  "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
   "moonshotai/kimi-k2.5:reasoning",
 
   // Grok models
+  "xai/grok-4.5",
+  "x-ai/grok-4.20",
   "grok-3",
   "grok-3-mini",
   "x-ai/grok-4.1-fast-thinking",
   "x-ai/grok-4.1-fast",
 
   // Z.AI models
+  "z-ai/glm-5v-turbo",
   "glm-4.6v",
+
+  // Qwen models
+  "qwen/qwen3.7-plus",
+
+  // MiniMax models
+  "minimax/minimax-m3",
 ] as const;
 
 const FILE_UPLOAD_MODEL_SET = new Set<string>(FILE_UPLOAD_MODELS);

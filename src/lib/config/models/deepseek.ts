@@ -3,17 +3,42 @@ import {
   REASONING_FEATURE,
   REASONING_FEATURE_BASIC,
   REASONING_FEATURE_DISABLED,
+  REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
 } from "../features";
 import { openrouter } from "../openrouter";
 
 export const DEEPSEEK_MODELS = [
   {
+    id: "deepseek/deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    provider: "deepseek",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "DeepSeek's fastest V4 model with one-million-token context.\nSupports optional reasoning and tool-driven agentic work.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: gateway("deepseek/deepseek-v4-flash"),
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+  },
+  {
+    id: "deepseek/deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    provider: "deepseek",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "DeepSeek's high-capability V4 model with one-million-token context.\nSupports optional reasoning and tool-driven agentic work.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: gateway("deepseek/deepseek-v4-pro"),
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+  },
+  {
     id: "deepseek/deepseek-chat-v3.1",
     name: "DeepSeek V3.1",
     provider: "openrouter",
     displayProvider: "deepseek",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description: `DeepSeek V3.1's non-thinking mode for fast, efficient responses.\nHybrid model with 128K context, enhanced agent capabilities, and improved performance.`,
@@ -40,9 +65,10 @@ export const DEEPSEEK_MODELS = [
     name: "DeepSeek V3 0324",
     provider: "openrouter",
     displayProvider: "deepseek",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
+    retired: true,
     description: `DeepSeek's experimental chat model for research exploration.\nProvides cost-effective access to DeepSeek capabilities.`,
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: openrouter("deepseek/deepseek-chat-v3-0324:free"),
@@ -52,7 +78,7 @@ export const DEEPSEEK_MODELS = [
     id: "deepseek-r1-0528",
     name: "DeepSeek R1 (0528)",
     provider: "deepseek",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -70,6 +96,7 @@ export const DEEPSEEK_MODELS = [
     premium: true,
     usesPremiumCredits: false,
     legacy: true,
+    retired: true,
     description:
       "Llama-distilled reasoning model optimized for efficiency.\nCombines DeepSeek R1 capabilities with improved performance.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
@@ -112,6 +139,7 @@ export const DEEPSEEK_MODELS = [
     displayProvider: "deepseek",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "DeepSeek's flagship model with GPT-5 class performance.\nFeatures sparse attention for efficiency, 164K context, and native tool-use with thinking integration.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
@@ -126,6 +154,7 @@ export const DEEPSEEK_MODELS = [
     displayProvider: "deepseek",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "DeepSeek V3.2 with thinking mode enabled.\nGold-medal performance on IMO/IOI 2025, optimized for complex reasoning and agentic tasks.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },

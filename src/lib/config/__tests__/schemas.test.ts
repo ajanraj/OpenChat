@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ApiKeyUsageSchema, ModelFeatureSchema, ModelSchema } from "../schemas";
+import {
+  ApiKeyUsageSchema,
+  ModelFeatureSchema,
+  ModelSchema,
+  ReasoningEffortSchema,
+} from "../schemas";
 
 describe("ModelFeatureSchema", () => {
   it("parses valid feature object", () => {
@@ -26,16 +31,17 @@ describe("ModelFeatureSchema", () => {
     expect(result.label).toBe("Extended Thinking");
   });
 
-  it("accepts optional supportsEffort", () => {
+  it("accepts exact optional effort choices", () => {
     const feature = {
       id: "reasoning",
       enabled: true,
-      supportsEffort: true,
+      effortOptions: ["none", "high"],
     };
 
     const result = ModelFeatureSchema.parse(feature);
 
-    expect(result.supportsEffort).toBe(true);
+    expect(result.effortOptions).toEqual(["none", "high"]);
+    expect(ReasoningEffortSchema.safeParse("minimal").success).toBe(false);
   });
 
   it("rejects missing required fields", () => {
@@ -117,6 +123,20 @@ describe("ModelSchema", () => {
     const result = ModelSchema.parse(model);
 
     expect(result.subName).toBe("Turbo");
+  });
+
+  it("accepts retired model metadata", () => {
+    const result = ModelSchema.parse({
+      id: "retired-model",
+      name: "Retired Model",
+      provider: "test",
+      premium: false,
+      usesPremiumCredits: false,
+      retired: true,
+      description: "No longer callable",
+    });
+
+    expect(result.retired).toBe(true);
   });
 
   it("accepts optional displayProvider", () => {

@@ -91,13 +91,14 @@ describe("App Constants", () => {
     });
 
     it("prefers latest model versions in the curated recommendations", () => {
-      expect(RECOMMENDED_MODELS).toContain("gpt-5.4-mini");
       expect(RECOMMENDED_MODELS).toContain("gpt-5.4-nano");
-      expect(RECOMMENDED_MODELS).toContain("claude-4-6-sonnet");
+      expect(RECOMMENDED_MODELS).toContain("gpt-5.6-sol");
+      expect(RECOMMENDED_MODELS).toContain("claude-sonnet-5");
+      expect(RECOMMENDED_MODELS).toContain("gemini-3.5-flash");
       expect(RECOMMENDED_MODELS).toContain("gemini-3.1-pro-preview");
       expect(RECOMMENDED_MODELS).not.toContain("gpt-5-mini");
       expect(RECOMMENDED_MODELS).not.toContain("gpt-5-nano");
-      expect(RECOMMENDED_MODELS).not.toContain("claude-4-5-sonnet");
+      expect(RECOMMENDED_MODELS).not.toContain("claude-4-6-sonnet");
       expect(RECOMMENDED_MODELS).not.toContain("gemini-2.5-pro");
     });
   });

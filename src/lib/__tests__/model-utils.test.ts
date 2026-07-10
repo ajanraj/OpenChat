@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import { MODEL_DEFAULT, MODELS } from "@/lib/config";
 import {
   createModelValidator,
+  getDefaultReasoningEffort,
   getModelById,
   getModelProvider,
+  getOpenRouterReasoningOptions,
+  getReasoningEffortOptions,
   isModelPremium,
   requiresUserApiKey,
+  resolveReasoningEffort,
   supportsReasoningEffort,
 } from "../model-utils";
 
@@ -24,22 +28,120 @@ describe("model-utils", () => {
       expect(supportsReasoningEffort(modelWithoutReasoning!.id)).toBe(false);
     });
 
-    it("returns true for models with reasoning + supportsEffort", () => {
-      // Find a model with reasoning that supports effort
+    it("returns true for models with reasoning effort options", () => {
       const modelWithReasoning = MODELS.find((m) =>
-        m.features?.some((f) => f.id === "reasoning" && f.enabled && f.supportsEffort),
+        m.features?.some(
+          (f) => f.id === "reasoning" && f.enabled && (f.effortOptions?.length ?? 0) > 0,
+        ),
       );
       expect(modelWithReasoning).toBeDefined();
       expect(supportsReasoningEffort(modelWithReasoning!.id)).toBe(true);
     });
 
-    it("returns false for reasoning models without supportsEffort", () => {
-      // Find a model with reasoning but no supportsEffort
+    it("returns false for fixed reasoning models", () => {
       const modelWithBasicReasoning = MODELS.find((m) =>
-        m.features?.some((f) => f.id === "reasoning" && f.enabled && !f.supportsEffort),
+        m.features?.some((f) => f.id === "reasoning" && f.enabled && f.effortOptions === undefined),
       );
       expect(modelWithBasicReasoning).toBeDefined();
       expect(supportsReasoningEffort(modelWithBasicReasoning!.id)).toBe(false);
+    });
+
+    it("returns configured options and defaults", () => {
+      const optionalModel = MODELS.find((model) =>
+        model.features.some((feature) => feature.effortOptions?.includes("none")),
+      );
+      expect(optionalModel).toBeDefined();
+      expect(getReasoningEffortOptions(optionalModel!.id)).toContain("none");
+      expect(getDefaultReasoningEffort(optionalModel!.id)).toBe("none");
+      expect(resolveReasoningEffort(optionalModel!.id, "high")).toEqual({
+        success: true,
+        effort: "high",
+      });
+      expect(resolveReasoningEffort(optionalModel!.id)).toEqual({
+        success: true,
+        effort: "none",
+      });
+    });
+
+    it("rejects efforts outside the model's exact options", () => {
+      const toggleModel = MODELS.find((model) =>
+        model.features.some(
+          (feature) =>
+            feature.effortOptions?.length === 2 && feature.effortOptions.includes("high"),
+        ),
+      );
+      if (!toggleModel) {
+        throw new Error("Expected a model with toggle reasoning");
+      }
+      expect(resolveReasoningEffort(toggleModel.id, "medium")).toEqual({ success: false });
+    });
+
+    it("matches provider-specific reasoning capabilities", () => {
+      expect(getReasoningEffortOptions("xai/grok-4.5")).toEqual(["low", "medium", "high"]);
+      expect(getReasoningEffortOptions("mistral-medium-latest")).toEqual([]);
+      expect(getReasoningEffortOptions("z-ai/glm-5.2")).toEqual(["none", "high"]);
+
+      const fixedReasoningModelIds = [
+        "minimax/minimax-m2.7",
+        "minimax/minimax-m2.5",
+        "minimax/minimax-m2.1",
+        "minimax/minimax-m2",
+        "qwen/qwen3-235b-a22b-thinking-2507",
+      ];
+
+      for (const modelId of fixedReasoningModelIds) {
+        const reasoningFeature = MODELS.find((model) => model.id === modelId)?.features.find(
+          (feature) => feature.id === "reasoning",
+        );
+        expect(reasoningFeature).toMatchObject({ enabled: true });
+        expect(reasoningFeature).not.toHaveProperty("effortOptions");
+        expect(supportsReasoningEffort(modelId)).toBe(false);
+      }
+    });
+
+    it("rejects unsupported provider-specific efforts", () => {
+      expect(resolveReasoningEffort("xai/grok-4.5", "none")).toEqual({ success: false });
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "low")).toEqual({ success: false });
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "medium")).toEqual({ success: false });
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "high")).toEqual({
+        success: true,
+        effort: "high",
+      });
+      expect(resolveReasoningEffort("mistral-medium-latest", "high")).toEqual({
+        success: false,
+      });
+
+      for (const modelId of [
+        "minimax/minimax-m2.7",
+        "minimax/minimax-m2.5",
+        "minimax/minimax-m2.1",
+        "minimax/minimax-m2",
+        "qwen/qwen3-235b-a22b-thinking-2507",
+      ]) {
+        expect(resolveReasoningEffort(modelId, "none")).toEqual({ success: false });
+        expect(resolveReasoningEffort(modelId)).toEqual({
+          success: true,
+          effort: undefined,
+        });
+      }
+    });
+
+    it("maps OpenRouter effort to call-level provider options", () => {
+      const openRouterReasoningModel = MODELS.find(
+        (model) =>
+          model.provider === "openrouter" && getReasoningEffortOptions(model.id).length > 0,
+      );
+      if (!openRouterReasoningModel) {
+        throw new Error("Expected a configurable OpenRouter reasoning model");
+      }
+
+      expect(getOpenRouterReasoningOptions(openRouterReasoningModel.id, "none")).toEqual({
+        reasoning: { enabled: false, effort: "none" },
+      });
+      expect(getOpenRouterReasoningOptions(openRouterReasoningModel.id, "high")).toEqual({
+        reasoning: { enabled: true, effort: "high" },
+      });
+      expect(getOpenRouterReasoningOptions(MODEL_DEFAULT, "high")).toEqual({});
     });
   });
 
@@ -66,6 +168,13 @@ describe("model-utils", () => {
       const validModel = MODELS[0]?.id;
       expect(validModel).toBeDefined();
       expect(validator(validModel, [validModel])).toBe(MODEL_DEFAULT);
+    });
+
+    it("returns default model for retired models", () => {
+      const validator = createModelValidator();
+      const retiredModel = MODELS.find((model) => model.retired);
+      expect(retiredModel).toBeDefined();
+      expect(validator(retiredModel!.id)).toBe(MODEL_DEFAULT);
     });
 
     it("returns preferred model when not in disabled list", () => {

@@ -210,20 +210,20 @@ describe("Model Provider Specific Tests", () => {
       expect(ZAI_MODELS.some((m) => m.id === "glm-5-thinking")).toBe(true);
     });
 
-    it("marks all Z.ai models as legacy except GLM 5, GLM 5 Thinking, and GLM 4.6V", () => {
+    it("keeps only GLM 5.2 and GLM 5V Turbo active", () => {
       const nonLegacyIds = new Set(ZAI_MODELS.filter((m) => !m.legacy).map((m) => m.id));
-      expect(nonLegacyIds).toEqual(new Set(["glm-5", "glm-5-thinking", "glm-4.6v"]));
+      expect(nonLegacyIds).toEqual(new Set(["z-ai/glm-5.2", "z-ai/glm-5v-turbo"]));
     });
   });
 
   describe("MiniMax Models", () => {
-    it("includes MiniMax M2.7", () => {
-      expect(MINIMAX_MODELS.some((m) => m.id === "minimax/minimax-m2.7")).toBe(true);
+    it("includes MiniMax M3", () => {
+      expect(MINIMAX_MODELS.some((m) => m.id === "minimax/minimax-m3")).toBe(true);
     });
 
-    it("marks all MiniMax models as legacy except M2.7 and M2.5", () => {
+    it("marks all MiniMax models as legacy except M3", () => {
       const nonLegacyIds = new Set(MINIMAX_MODELS.filter((m) => !m.legacy).map((m) => m.id));
-      expect(nonLegacyIds).toEqual(new Set(["minimax/minimax-m2.7", "minimax/minimax-m2.5"]));
+      expect(nonLegacyIds).toEqual(new Set(["minimax/minimax-m3"]));
     });
   });
 });
@@ -232,12 +232,13 @@ describe("Legacy Model Curation", () => {
   it("keeps only the curated OpenAI set as non-legacy", () => {
     expect(getNonLegacyModelIds(OPENAI_MODELS)).toEqual(
       [
-        "gpt-5.4",
-        "gpt-5.4-pro",
         "gpt-5.4-mini",
         "gpt-5.4-nano",
-        "gpt-5.3-instant",
-        "gpt-image-1.5",
+        "gpt-5.5",
+        "gpt-5.6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-image-2",
         "gpt-oss-120b",
         "gpt-oss-20b",
       ].sort(),
@@ -246,25 +247,17 @@ describe("Legacy Model Curation", () => {
 
   it("keeps only the curated Anthropic set as non-legacy", () => {
     expect(getNonLegacyModelIds(ANTHROPIC_MODELS)).toEqual(
-      [
-        "claude-4-5-haiku",
-        "claude-4-5-haiku-reasoning",
-        "claude-4-6-sonnet",
-        "claude-4-6-sonnet-reasoning",
-        "claude-4-6-opus",
-      ].sort(),
+      ["claude-4-5-haiku", "claude-fable-5", "claude-opus-4-8", "claude-sonnet-5"].sort(),
     );
   });
 
   it("keeps only the curated Gemini set as non-legacy", () => {
     expect(getNonLegacyModelIds(GOOGLE_MODELS)).toEqual(
       [
-        "gemini-3.1-flash-lite-preview",
-        "gemini-3.1-flash-lite-preview-thinking",
-        "gemini-3-flash-preview",
-        "gemini-3-flash-preview-thinking",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-flash-lite-image",
         "gemini-3.1-pro-preview",
-        "nano-banana",
+        "gemini-3.5-flash",
         "nano-banana-2",
         "nano-banana-pro",
       ].sort(),
@@ -273,51 +266,54 @@ describe("Legacy Model Curation", () => {
 
   it("keeps only the curated Meta set as non-legacy", () => {
     expect(getNonLegacyModelIds(META_MODELS)).toEqual(
-      ["meta-llama/llama-4-maverick", "meta-llama/llama-4-scout"].sort(),
+      ["meta/muse-spark-1.1", "meta-llama/llama-4-maverick", "meta-llama/llama-4-scout"].sort(),
+    );
+  });
+
+  it("keeps Mistral Large, Medium, and Small active", () => {
+    expect(getNonLegacyModelIds(MISTRAL_MODELS)).toEqual(
+      ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"].sort(),
     );
   });
 
   it("keeps only the curated DeepSeek set as non-legacy", () => {
     expect(getNonLegacyModelIds(DEEPSEEK_MODELS)).toEqual(
-      ["deepseek/deepseek-v3.2", "deepseek/deepseek-v3.2:reasoning"].sort(),
+      ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-pro"].sort(),
     );
   });
 
   it("keeps only the curated xAI set as non-legacy", () => {
-    expect(getNonLegacyModelIds(XAI_MODELS)).toEqual(
-      ["x-ai/grok-4.1-fast", "x-ai/grok-4.1-fast-thinking"].sort(),
-    );
+    expect(getNonLegacyModelIds(XAI_MODELS)).toEqual(["x-ai/grok-4.20", "xai/grok-4.5"].sort());
   });
 
   it("keeps only the curated Qwen set as non-legacy", () => {
     expect(getNonLegacyModelIds(QWEN_MODELS)).toEqual(
-      ["qwen/qwen3-235b-a22b-2507", "qwen/qwen3-235b-a22b-thinking-2507"].sort(),
+      ["qwen/qwen3.7-max", "qwen/qwen3.7-plus"].sort(),
     );
   });
 
   it("keeps only the curated Moonshot set as non-legacy", () => {
     expect(getNonLegacyModelIds(MOONSHOT_MODELS)).toEqual(
-      ["moonshotai/kimi-k2-0905", "moonshotai/kimi-k2.5", "moonshotai/kimi-k2.5:reasoning"].sort(),
+      ["moonshotai/kimi-k2.6", "moonshotai/kimi-k2.7-code"].sort(),
     );
   });
 
   it("keeps only the curated Z.AI set as non-legacy", () => {
-    expect(getNonLegacyModelIds(ZAI_MODELS)).toEqual(
-      ["glm-4.6v", "glm-5", "glm-5-thinking"].sort(),
+    expect(getNonLegacyModelIds(ZAI_MODELS)).toEqual(["z-ai/glm-5.2", "z-ai/glm-5v-turbo"].sort());
+  });
+
+  it("keeps only MiniMax M3 as non-legacy", () => {
+    expect(getNonLegacyModelIds(MINIMAX_MODELS)).toEqual(["minimax/minimax-m3"]);
+  });
+
+  it("keeps Flux 2 and Flux 2 Pro as non-legacy", () => {
+    expect(getNonLegacyModelIds(FAL_MODELS)).toEqual(["flux-2", "flux-2-pro"]);
+  });
+
+  it("keeps OpenRouter Free active and Aurora retired", () => {
+    expect(getNonLegacyModelIds(OPENROUTER_MODELS)).toEqual(["openrouter/free"]);
+    expect(OPENROUTER_MODELS.find((model) => model.id === "openrouter/aurora-alpha")?.retired).toBe(
+      true,
     );
-  });
-
-  it("keeps only MiniMax M2.7 and M2.5 as non-legacy", () => {
-    expect(getNonLegacyModelIds(MINIMAX_MODELS)).toEqual(
-      ["minimax/minimax-m2.5", "minimax/minimax-m2.7"].sort(),
-    );
-  });
-
-  it("keeps Flux Schnell as non-legacy", () => {
-    expect(getNonLegacyModelIds(FAL_MODELS)).toEqual(["flux-schnell"]);
-  });
-
-  it("removes Pony Alpha from OpenRouter models", () => {
-    expect(OPENROUTER_MODELS.some((model) => model.id === "openrouter/pony-alpha")).toBe(false);
   });
 });
