@@ -1,7 +1,8 @@
 import type { UIMessage as MessageType } from "@ai-sdk/react";
 import type { Infer } from "convex/values";
 import React, { useCallback, useState } from "react";
-import type { ReasoningEffort } from "@/lib/config";
+import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config";
+import { normalizeReasoningEffort } from "@/lib/model-utils";
 import type { Message as MessageSchema } from "../../../convex/schema/message";
 import { MessageAssistant } from "./message-assistant";
 import { MessageUser } from "./message-user";
@@ -70,6 +71,15 @@ function MessageComponent({
 	}, [parts]);
 
 	if (variant === "user") {
+		const messageModel = model || selectedModel || "";
+		const storedReasoningEffort = ReasoningEffortSchema.safeParse(
+			metadata?.reasoningEffort,
+		);
+		const editReasoningEffort = normalizeReasoningEffort(
+			messageModel,
+			storedReasoningEffort.success ? storedReasoningEffort.data : reasoningEffort,
+		);
+
 		return (
 			<MessageUser
 				copied={copied}
@@ -84,8 +94,8 @@ function MessageComponent({
 				onEdit={onEdit}
 				parts={parts}
 				readOnly={readOnly}
-				reasoningEffort={reasoningEffort}
-				selectedModel={model || selectedModel || ""}
+				reasoningEffort={editReasoningEffort}
+				selectedModel={messageModel}
 				status={status}
 			/>
 		);

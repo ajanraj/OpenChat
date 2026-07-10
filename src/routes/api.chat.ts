@@ -774,6 +774,7 @@ export const Route = createFileRoute("/api/chat")({
                     messages: await convertToModelMessages(messages),
                     tools: toolset,
                     stopWhen: isStepCount(20),
+                    // AI SDK 7 maps this standardized value into each provider's request.
                     reasoning: reasoningEffort,
                     experimental_transform: smoothStream({
                       delayInMs: 20,

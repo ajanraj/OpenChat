@@ -256,8 +256,13 @@ describe("Models Configuration", () => {
   describe("Catalog curation", () => {
     it("keeps every recommendation available and non-legacy", () => {
       for (const modelId of RECOMMENDED_MODELS) {
-        expect(MODELS_MAP[modelId]?.legacy).not.toBe(true);
-        expect(MODELS_MAP[modelId]?.retired).not.toBe(true);
+        const model = MODELS_MAP[modelId];
+        expect(model).toBeDefined();
+        if (!model) {
+          throw new Error(`Recommended model ${modelId} is missing from the catalog`);
+        }
+        expect(model.legacy).not.toBe(true);
+        expect(model.retired).not.toBe(true);
       }
     });
 

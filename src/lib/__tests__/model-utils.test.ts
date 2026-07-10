@@ -8,6 +8,7 @@ import {
   getOpenRouterReasoningOptions,
   getReasoningEffortOptions,
   isModelPremium,
+  normalizeReasoningEffort,
   requiresUserApiKey,
   resolveReasoningEffort,
   supportsReasoningEffort,
@@ -74,6 +75,12 @@ describe("model-utils", () => {
         throw new Error("Expected a model with toggle reasoning");
       }
       expect(resolveReasoningEffort(toggleModel.id, "medium")).toEqual({ success: false });
+    });
+
+    it("normalizes edit effort to the selected model", () => {
+      expect(normalizeReasoningEffort("xai/grok-4.5", "none")).toBe("low");
+      expect(normalizeReasoningEffort("xai/grok-4.5", "high")).toBe("high");
+      expect(normalizeReasoningEffort("z-ai/glm-5.2", "medium")).toBe("none");
     });
 
     it("matches provider-specific reasoning capabilities", () => {

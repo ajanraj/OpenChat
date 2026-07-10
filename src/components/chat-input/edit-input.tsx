@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useEditClickOutside } from "@/hooks/use-edit-click-outside";
 import { MODEL_DEFAULT, MODELS_MAP, type ReasoningEffort } from "@/lib/config";
 import {
-	getDefaultReasoningEffort,
-	getReasoningEffortOptions,
+	normalizeReasoningEffort,
 	supportsReasoningEffort,
 } from "@/lib/model-utils";
 import { ButtonFileUpload } from "./button-file-upload";
@@ -70,14 +69,17 @@ export function EditInput({
 }: EditInputProps) {
 	// Local state for edit mode (isolated from global chat state)
 	const [value, setValue] = useState(() => initialValue);
-	const [editOptions, setEditOptions] = useState(() => ({
-		searchEnabled: isSearchEnabled,
-		model:
+	const [editOptions, setEditOptions] = useState(() => {
+		const model =
 			selectedModel && MODELS_MAP[selectedModel]
 				? selectedModel
-				: MODEL_DEFAULT,
-		reasoningEffort,
-	}));
+				: MODEL_DEFAULT;
+		return {
+			searchEnabled: isSearchEnabled,
+			model,
+			reasoningEffort: normalizeReasoningEffort(model, reasoningEffort),
+		};
+	});
 	const [editFiles, setEditFiles] = useState<File[]>(() => initialFiles);
 	const canConfigureReasoning = supportsReasoningEffort(editOptions.model);
 	const [keptExistingUrls, setKeptExistingUrls] = useState<Set<string>>(
@@ -169,12 +171,11 @@ export function EditInput({
 
 	const handleModelChange = useCallback((model: string) => {
 		setEditOptions((previous) => {
-			const effortOptions = getReasoningEffortOptions(model);
-			const nextEffort = effortOptions.includes(previous.reasoningEffort)
-				? previous.reasoningEffort
-				: (getDefaultReasoningEffort(model) ?? previous.reasoningEffort);
-
-			return { ...previous, model, reasoningEffort: nextEffort };
+			return {
+				...previous,
+				model,
+				reasoningEffort: normalizeReasoningEffort(model, previous.reasoningEffort),
+			};
 		});
 	}, []);
 

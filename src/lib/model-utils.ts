@@ -20,6 +20,16 @@ export function getDefaultReasoningEffort(modelId: string): ReasoningEffort | un
   return effortOptions.includes("none") ? "none" : effortOptions[0];
 }
 
+export function normalizeReasoningEffort(
+  modelId: string,
+  requestedEffort: ReasoningEffort,
+): ReasoningEffort {
+  const effortOptions = getReasoningEffortOptions(modelId);
+  return effortOptions.includes(requestedEffort)
+    ? requestedEffort
+    : (getDefaultReasoningEffort(modelId) ?? requestedEffort);
+}
+
 export function resolveReasoningEffort(
   modelId: string,
   requestedEffort?: ReasoningEffort,

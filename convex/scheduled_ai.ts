@@ -81,6 +81,38 @@ export const executeTask = internalAction({
         : null;
       const profile = fetchedProfile?.userId === task.userId ? fetchedProfile : null;
 
+      const selectedModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
+      if (!selectedModel) {
+        return null;
+      }
+
+      // Enforce subscription access and rate limits before creating execution artifacts.
+      try {
+        await ctx.runMutation(internal.users.assertNotOverLimitInternal, {
+          userId: task.userId,
+          requiresPremium: selectedModel.premium === true,
+          usesPremiumCredits: selectedModel.usesPremiumCredits === true,
+        });
+      } catch (error) {
+        if (error instanceof ConvexError) {
+          const errorCode = error.data;
+          if (
+            errorCode === ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED ||
+            errorCode === ERROR_CODES.DAILY_LIMIT_REACHED ||
+            errorCode === ERROR_CODES.MONTHLY_LIMIT_REACHED ||
+            errorCode === ERROR_CODES.PREMIUM_LIMIT_REACHED
+          ) {
+            await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
+              taskId: args.taskId,
+              lastExecuted: Date.now(),
+              newStatus: "paused",
+            });
+            return null;
+          }
+        }
+        throw error;
+      }
+
       // Create execution history record (after all validations pass)
       historyRecordId = await ctx.runMutation(internal.task_history.createExecutionHistory, {
         taskId: args.taskId,
@@ -191,43 +223,6 @@ export const executeTask = internalAction({
         connectorsStatus,
         profile,
       );
-
-      // Get the scheduled-agent model
-      const selectedModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
-      if (!selectedModel) {
-        // console.log('Kimi K2 0905 model not found');
-        return null;
-      }
-
-      // --- Rate Limiting Check (same as chat route) ---
-      try {
-        // Check if the selected model uses premium credits
-        const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
-
-        await ctx.runMutation(internal.users.assertNotOverLimitInternal, {
-          userId: task.userId,
-          usesPremiumCredits,
-        });
-      } catch (error) {
-        if (error instanceof ConvexError) {
-          const errorCode = error.data;
-          if (
-            errorCode === ERROR_CODES.DAILY_LIMIT_REACHED ||
-            errorCode === ERROR_CODES.MONTHLY_LIMIT_REACHED ||
-            errorCode === ERROR_CODES.PREMIUM_LIMIT_REACHED
-          ) {
-            // Rate limit reached - pause the task (don't reschedule)
-            await ctx.runMutation(internal.scheduled_tasks.updateTaskAfterExecution, {
-              taskId: args.taskId,
-              lastExecuted: Date.now(),
-              newStatus: "paused",
-            });
-            return null;
-          }
-        }
-        // Re-throw non-rate-limit errors
-        throw error;
-      }
 
       // console.log('Selected model:', selectedModel);
 

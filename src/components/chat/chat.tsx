@@ -302,14 +302,21 @@ function useChatContentView() {
 		}
 
 		retiredFallbackChatIds.current.add(chatId);
-		const retiredName = retiredChatModel?.name ?? currentChatModelId;
-		const fallbackName = MODELS_MAP[MODEL_DEFAULT]?.name ?? MODEL_DEFAULT;
-		toast({
-			title: "Model updated",
-			description: `${retiredName} was retired. This chat now uses ${fallbackName}.`,
-			status: "info",
-		});
-		void handleModelUpdate(chatId, MODEL_DEFAULT, null);
+		void (async () => {
+			const updated = await handleModelUpdate(chatId, MODEL_DEFAULT, null);
+			if (!updated) {
+				retiredFallbackChatIds.current.delete(chatId);
+				return;
+			}
+
+			const retiredName = retiredChatModel?.name ?? currentChatModelId;
+			const fallbackName = MODELS_MAP[MODEL_DEFAULT]?.name ?? MODEL_DEFAULT;
+			toast({
+				title: "Model updated",
+				description: `${retiredName} was retired. This chat now uses ${fallbackName}.`,
+				status: "info",
+			});
+		})();
 	}, [
 		chatId,
 		currentChatModelId,
@@ -350,6 +357,12 @@ function useChatContentView() {
 						mappedMessage.metadata = {
 							...mappedMessage.metadata,
 							includeSearch: nextMsg.metadata.includeSearch,
+						};
+					}
+					if (nextMsg.metadata?.reasoningEffort !== undefined) {
+						mappedMessage.metadata = {
+							...mappedMessage.metadata,
+							reasoningEffort: nextMsg.metadata.reasoningEffort,
 						};
 					}
 				}
