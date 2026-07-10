@@ -3,6 +3,7 @@
   "ignorePatterns": [
     "**/dev-dist/**",
     "**/.opencode/**",
+    "**/.agents/**",
     "**/.github/instructions/**",
     "**/.github/copilot-instructions.md",
     "**/src/components/**",
