@@ -1,15 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+interface MiddlewareOptions {
+  next: () => Promise<Response>;
+  request: Request;
+}
+
+type MiddlewareHandler = (options: MiddlewareOptions) => Promise<Response>;
+
 // Mock dependencies
 vi.mock("@tanstack/react-start", () => ({
-  createMiddleware: vi.fn(() => ({
-    server: vi.fn((handler) => handler),
-  })),
+  createMiddleware: vi.fn<() => { server: (handler: MiddlewareHandler) => MiddlewareHandler }>(
+    () => ({
+      server: vi.fn<(handler: MiddlewareHandler) => MiddlewareHandler>((handler) => handler),
+    }),
+  ),
 }));
 
 vi.mock("convex/browser", () => ({
-  ConvexHttpClient: vi.fn().mockImplementation(() => ({
-    setAuth: vi.fn(),
+  ConvexHttpClient: vi.fn<() => { setAuth: (token: string) => void }>().mockImplementation(() => ({
+    setAuth: vi.fn<(token: string) => void>(),
   })),
 }));
 

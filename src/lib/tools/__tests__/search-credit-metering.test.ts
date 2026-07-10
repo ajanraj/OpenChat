@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   consumeOneStandardCreditForSearch,
   createMeteredSearchTool,
+  type ConsumeStandardCredits,
 } from "../search-credit-metering";
 
-const createSearchToolMock = vi.fn();
+interface SearchToolOptions {
+  onSearchSuccess?: () => Promise<void> | void;
+}
+
+const createSearchToolMock = vi.fn<(options?: SearchToolOptions) => object>();
 
 vi.mock("../search", () => ({
-  createSearchTool: (...args: unknown[]) => createSearchToolMock(...args),
+  createSearchTool: (options?: SearchToolOptions) => createSearchToolMock(options),
 }));
 
 describe("search-credit-metering", () => {
@@ -18,7 +23,7 @@ describe("search-credit-metering", () => {
   });
 
   it("charges exactly one standard credit per search success callback", async () => {
-    const consumeStandardCredits = vi.fn().mockResolvedValue(undefined);
+    const consumeStandardCredits = vi.fn<ConsumeStandardCredits>().mockResolvedValue(undefined);
 
     await consumeOneStandardCreditForSearch(consumeStandardCredits);
 
@@ -27,7 +32,9 @@ describe("search-credit-metering", () => {
   });
 
   it("propagates errors when credit consumption fails", async () => {
-    const consumeStandardCredits = vi.fn().mockRejectedValue(new Error("billing unavailable"));
+    const consumeStandardCredits = vi
+      .fn<ConsumeStandardCredits>()
+      .mockRejectedValue(new Error("billing unavailable"));
 
     await expect(consumeOneStandardCreditForSearch(consumeStandardCredits)).rejects.toThrow(
       "billing unavailable",
@@ -35,7 +42,7 @@ describe("search-credit-metering", () => {
   });
 
   it("does not create a search tool when search is disabled", () => {
-    const consumeStandardCredits = vi.fn();
+    const consumeStandardCredits = vi.fn<ConsumeStandardCredits>();
 
     const tool = createMeteredSearchTool({
       enableSearch: false,
@@ -47,7 +54,7 @@ describe("search-credit-metering", () => {
   });
 
   it("wires search tool callback to consume one standard credit", async () => {
-    const consumeStandardCredits = vi.fn().mockResolvedValue(undefined);
+    const consumeStandardCredits = vi.fn<ConsumeStandardCredits>().mockResolvedValue(undefined);
 
     createMeteredSearchTool({
       enableSearch: true,
@@ -73,7 +80,9 @@ describe("search-credit-metering", () => {
   });
 
   it("propagates errors through onSearchSuccess callback", async () => {
-    const consumeStandardCredits = vi.fn().mockRejectedValue(new Error("billing unavailable"));
+    const consumeStandardCredits = vi
+      .fn<ConsumeStandardCredits>()
+      .mockRejectedValue(new Error("billing unavailable"));
 
     createMeteredSearchTool({
       enableSearch: true,

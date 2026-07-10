@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
+import type { toast } from "@/components/ui/toast";
+import type { convertConvexToAISDK } from "../ai-sdk-utils";
 import { createPlaceholderId, createTempMessageId, validateQueryParam } from "../message-utils";
 
 // Mock dependencies
 vi.mock("@/components/ui/toast", () => ({
-  toast: vi.fn(),
+  toast: vi.fn<typeof toast>(),
 }));
 
 vi.mock("@/lib/ai-sdk-utils", () => ({
-  convertConvexToAISDK: vi.fn((msg) => ({
+  convertConvexToAISDK: vi.fn<typeof convertConvexToAISDK>((msg) => ({
     id: msg._id,
     role: msg.role,
     parts: msg.parts || [],

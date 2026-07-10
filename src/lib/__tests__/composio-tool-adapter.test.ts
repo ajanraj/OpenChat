@@ -33,7 +33,7 @@ const createMockComposioTool = (overrides: Partial<ComposioToolMock> = {}): Comp
       required: ["name"],
     },
   },
-  execute: vi.fn().mockResolvedValue({
+  execute: vi.fn<ComposioToolMock["execute"]>().mockResolvedValue({
     data: { result: "success" },
     error: null,
     successful: true,
@@ -171,7 +171,7 @@ describe("composio-tool-adapter", () => {
     });
 
     it("preserves execute function", async () => {
-      const mockExecute = vi.fn().mockResolvedValue({
+      const mockExecute = vi.fn<ComposioToolMock["execute"]>().mockResolvedValue({
         data: { test: "value" },
         error: null,
         successful: true,
@@ -297,7 +297,7 @@ describe("composio-tool-adapter", () => {
           parameters: {
             jsonSchema: undefined as unknown as JSONSchema7,
           },
-          execute: vi.fn(),
+          execute: vi.fn<ComposioToolMock["execute"]>(),
         },
       };
 
