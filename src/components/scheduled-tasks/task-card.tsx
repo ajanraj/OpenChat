@@ -34,6 +34,8 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ERROR_CODES } from "@/lib/error-codes";
+import { classifyError } from "@/lib/error-utils";
 import { api } from "../../../convex/_generated/api";
 import { ExecutionHistoryTrigger } from "./execution-history-trigger";
 import { TaskTrigger } from "./task-trigger";
@@ -567,8 +569,13 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 		try {
 			await updateTask({ taskId: task._id, status: newStatus });
 			toast.success(successMessage);
-		} catch (_error) {
-			toast.error(errorMessage);
+		} catch (error) {
+			const classifiedError = classifyError(error);
+			toast.error(
+				classifiedError.code === ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED
+					? classifiedError.userFriendlyMessage
+					: errorMessage,
+			);
 		}
 	};
 
@@ -576,8 +583,13 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 		try {
 			await triggerTask({ taskId: task._id });
 			toast.success("Background Agent triggered successfully");
-		} catch (_error) {
-			toast.error("Failed to trigger task");
+		} catch (error) {
+			const classifiedError = classifyError(error);
+			toast.error(
+				classifiedError.code === ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED
+					? classifiedError.userFriendlyMessage
+					: "Failed to trigger task",
+			);
 		}
 	};
 

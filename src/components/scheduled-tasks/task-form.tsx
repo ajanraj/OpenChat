@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ERROR_CODES } from "@/lib/error-codes";
+import { classifyError } from "@/lib/error-utils";
 import {
 	Tooltip,
 	TooltipContent,
@@ -186,8 +188,13 @@ function useTaskFormContentView({
 				toast.success(successMessage);
 				onSuccessAction();
 			})
-			.catch(() => {
-				toast.error(errorMessage);
+			.catch((error: unknown) => {
+				const classifiedError = classifyError(error);
+				toast.error(
+					classifiedError.code === ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED
+						? classifiedError.userFriendlyMessage
+						: errorMessage,
+				);
 			})
 			.finally(() => {
 				setIsSubmitting(false);
