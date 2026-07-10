@@ -233,6 +233,7 @@ describe("createSearchTool", () => {
   const executionOptions = {
     toolCallId: "tool-call-1",
     messages: [],
+    context: {},
   };
 
   const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>

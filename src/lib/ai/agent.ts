@@ -1,4 +1,4 @@
-import { ToolLoopAgent, stepCountIs } from "ai";
+import { isStepCount, ToolLoopAgent } from "ai";
 import type { LanguageModel, Tool } from "ai";
 
 export const createScheduledAgent = ({
@@ -14,6 +14,6 @@ export const createScheduledAgent = ({
     model,
     instructions: systemPrompt,
     tools,
-    stopWhen: stepCountIs(10),
+    stopWhen: isStepCount(10),
   });
 };

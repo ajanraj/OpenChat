@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   analyzeSubAgentExecution,
+  appendComposioToolRouterInstructions,
   createAgentInputSchema,
   toolListSchema,
 } from "../create-agent-tool";
@@ -146,7 +147,10 @@ describe("create-agent-tool", () => {
   describe("analyzeSubAgentExecution", () => {
     it("returns success when all conditions are met", () => {
       const result = analyzeSubAgentExecution({
-        toolCalls: [{ toolName: "GMAIL_SEND" }, { toolName: "GMAIL_READ" }],
+        toolCalls: [
+          { toolName: "COMPOSIO_SEARCH_TOOLS" },
+          { toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" },
+        ],
         finishReason: "stop",
         finalText: "Successfully sent the email to the recipient.",
         subAgentError: null,
@@ -154,7 +158,7 @@ describe("create-agent-tool", () => {
 
       expect(result.success).toBe(true);
       expect(result.toolCallCount).toBe(2);
-      expect(result.toolNames).toEqual(["GMAIL_SEND", "GMAIL_READ"]);
+      expect(result.toolNames).toEqual(["COMPOSIO_SEARCH_TOOLS", "COMPOSIO_MULTI_EXECUTE_TOOL"]);
       expect(result.finishReason).toBe("stop");
       expect(result.issues).toHaveLength(0);
     });
@@ -171,9 +175,21 @@ describe("create-agent-tool", () => {
       expect(result.issues).toContain("No tools were called");
     });
 
+    it("returns failure when the agent only searches for tools", () => {
+      const result = analyzeSubAgentExecution({
+        toolCalls: [{ toolName: "COMPOSIO_SEARCH_TOOLS" }],
+        finishReason: "stop",
+        finalText: "Found the Gmail send tool but did not execute it.",
+        subAgentError: null,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.issues).toContain("No connector action was executed");
+    });
+
     it("returns failure when finish reason is error", () => {
       const result = analyzeSubAgentExecution({
-        toolCalls: [{ toolName: "GMAIL_SEND" }],
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
         finishReason: "error",
         finalText: "An error occurred during execution.",
         subAgentError: null,
@@ -185,7 +201,7 @@ describe("create-agent-tool", () => {
 
     it("returns failure when finish reason is tool-calls", () => {
       const result = analyzeSubAgentExecution({
-        toolCalls: [{ toolName: "GMAIL_SEND" }],
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
         finishReason: "tool-calls",
         finalText: "Started sending but got interrupted.",
         subAgentError: null,
@@ -197,7 +213,7 @@ describe("create-agent-tool", () => {
 
     it("returns failure when output is too short", () => {
       const result = analyzeSubAgentExecution({
-        toolCalls: [{ toolName: "GMAIL_SEND" }],
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
         finishReason: "stop",
         finalText: "Done", // Less than 25 characters
         subAgentError: null,
@@ -210,7 +226,7 @@ describe("create-agent-tool", () => {
     it("returns failure when there is an error", () => {
       const error = new Error("API rate limit exceeded");
       const result = analyzeSubAgentExecution({
-        toolCalls: [{ toolName: "GMAIL_SEND" }],
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
         finishReason: "stop",
         finalText: "Attempted to send email but failed due to rate limit.",
         subAgentError: error,
@@ -224,7 +240,7 @@ describe("create-agent-tool", () => {
     it("truncates summary to 300 characters", () => {
       const longText = "a".repeat(500);
       const result = analyzeSubAgentExecution({
-        toolCalls: [{ toolName: "GMAIL_SEND" }],
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
         finishReason: "stop",
         finalText: longText,
         subAgentError: null,
@@ -235,7 +251,7 @@ describe("create-agent-tool", () => {
 
     it("handles length finish reason as success", () => {
       const result = analyzeSubAgentExecution({
-        toolCalls: [{ toolName: "GMAIL_SEND" }],
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
         finishReason: "length",
         finalText: "Successfully completed the task with full details.",
         subAgentError: null,
@@ -258,6 +274,19 @@ describe("create-agent-tool", () => {
       expect(result.issues).toContain("No tools were called");
       expect(result.issues).toContain("Sub-agent encountered an error");
       expect(result.issues).toContain("Insufficient output produced");
+    });
+  });
+
+  describe("appendComposioToolRouterInstructions", () => {
+    it("preserves a custom prompt and appends search-then-execute guidance", () => {
+      const result = appendComposioToolRouterInstructions("Follow the user's custom policy.");
+
+      expect(result).toContain("Follow the user's custom policy.");
+      expect(result).toContain("COMPOSIO_SEARCH_TOOLS");
+      expect(result).toContain("COMPOSIO_MULTI_EXECUTE_TOOL");
+      expect(result).toContain("session_id");
+      expect(result).toContain("A search alone does not complete the task");
+      expect(result).toContain("reconnect it in Settings");
     });
   });
 

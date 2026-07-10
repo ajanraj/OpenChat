@@ -138,11 +138,11 @@ export const useEditorStore = create<EditorStore>()(
         const updatedLightStyles = {
           ...currentThemeState.styles.light,
           ...updateThemeFont(currentThemeState.styles.light, category, fontOption),
-        } as typeof currentThemeState.styles.light;
+        };
         const updatedDarkStyles = {
           ...currentThemeState.styles.dark,
           ...updateThemeFont(currentThemeState.styles.dark, category, fontOption),
-        } as typeof currentThemeState.styles.dark;
+        };
 
         // Determine custom font usage based on (updated) light styles
         const shouldMarkAsCustom = hasCustomFonts(updatedLightStyles);

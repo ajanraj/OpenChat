@@ -44,8 +44,9 @@ describe("useDocumentTitle", () => {
   });
 
   it("resets to APP_NAME when chatTitle becomes undefined", () => {
+    const initialProps: { chatTitle: string | undefined } = { chatTitle: "My Chat" };
     const { rerender } = renderHook(({ chatTitle }) => useDocumentTitle(chatTitle), {
-      initialProps: { chatTitle: "My Chat" as string | undefined },
+      initialProps,
     });
 
     expect(document.title).toBe("My Chat - OpenChat");

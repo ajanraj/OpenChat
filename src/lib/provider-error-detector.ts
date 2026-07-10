@@ -542,7 +542,7 @@ export function detectProviderErrorFromObject(
   } else if (error instanceof Error) {
     errorText = error.message;
   } else if (typeof error === "object" && "message" in error) {
-    errorText = String((error as { message: unknown }).message);
+    errorText = String(error.message);
   } else {
     errorText = "";
   }

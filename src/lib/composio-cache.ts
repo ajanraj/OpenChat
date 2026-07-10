@@ -1,5 +1,4 @@
 import { Redis } from "@upstash/redis";
-import type { Tool } from "ai";
 
 // Initialize Redis client using environment variables
 const redis = new Redis({
@@ -9,48 +8,66 @@ const redis = new Redis({
 
 // Cache TTL values (in seconds)
 const CACHE_TTL = {
-  CONVERTED_TOOLS: 48 * 60 * 60, // 48 hours for converted v5 tools
+  SESSION: 48 * 60 * 60,
 } as const;
 
 // Cache key prefixes
 const CACHE_PREFIX = {
-  CONVERTED_TOOLS: "composio:converted:",
+  SESSION: "composio:session:",
 } as const;
 
-// Note: We cannot cache raw tools because they contain non-serializable functions
-// We'll only cache the converted tools which are serializable
+const SESSION_STRATEGY = "router-meta-v1";
+
+interface CachedComposioSession {
+  sessionId: string;
+  strategy: typeof SESSION_STRATEGY;
+}
+
+const createToolkitsCacheKey = (toolkitSlugs: string[]): string =>
+  [...toolkitSlugs].sort().join(",");
+
+const createSessionCacheKey = (userId: string, toolkitSlugs: string[]): string =>
+  `${CACHE_PREFIX.SESSION}${userId}:${createToolkitsCacheKey(toolkitSlugs)}`;
+
+const isCachedComposioSession = (value: unknown): value is CachedComposioSession =>
+  typeof value === "object" &&
+  value !== null &&
+  "sessionId" in value &&
+  typeof value.sessionId === "string" &&
+  value.sessionId.length > 0 &&
+  "strategy" in value &&
+  value.strategy === SESSION_STRATEGY;
 
 /**
- * Get cached converted tools from Redis
+ * Get cached Composio Tool Router session id from Redis.
  */
-export async function getCachedConvertedTools(
+export async function getCachedSessionId(
   userId: string,
   toolkitSlugs: string[],
-): Promise<Record<string, Tool> | null> {
-  const sortedSlugs = toolkitSlugs.sort().join(",");
-  const cacheKey = `${CACHE_PREFIX.CONVERTED_TOOLS}${userId}:${sortedSlugs}`;
-  const cached = await redis.json.get(cacheKey, "$");
+): Promise<string | null> {
+  const cacheKey = createSessionCacheKey(userId, toolkitSlugs);
+  const cached = await redis.json.get<unknown>(cacheKey, "$");
 
   if (!(cached && Array.isArray(cached)) || cached.length === 0) {
     return null;
   }
 
-  return cached[0] as Record<string, Tool>;
+  const [record] = cached;
+  return isCachedComposioSession(record) ? record.sessionId : null;
 }
 
 /**
- * Set converted tools in Redis cache
+ * Set Composio Tool Router session id in Redis cache.
  */
-export async function setCachedConvertedTools(
+export async function setCachedSessionId(
   userId: string,
   toolkitSlugs: string[],
-  tools: Record<string, Tool>,
+  sessionId: string,
 ): Promise<void> {
   try {
-    const sortedSlugs = toolkitSlugs.sort().join(",");
-    const cacheKey = `${CACHE_PREFIX.CONVERTED_TOOLS}${userId}:${sortedSlugs}`;
-    await redis.json.set(cacheKey, "$", tools);
-    await redis.expire(cacheKey, CACHE_TTL.CONVERTED_TOOLS);
+    const cacheKey = createSessionCacheKey(userId, toolkitSlugs);
+    await redis.json.set(cacheKey, "$", { sessionId, strategy: SESSION_STRATEGY });
+    await redis.expire(cacheKey, CACHE_TTL.SESSION);
   } catch {
     // Silently fail - caching is optional
   }
@@ -62,7 +79,7 @@ export async function setCachedConvertedTools(
 export async function invalidateUserToolsCache(userId: string): Promise<void> {
   try {
     // Find all tools cache keys for this user
-    const pattern = `${CACHE_PREFIX.CONVERTED_TOOLS}${userId}:*`;
+    const pattern = `${CACHE_PREFIX.SESSION}${userId}:*`;
     const keys = await redis.keys(pattern);
 
     if (keys.length > 0) {

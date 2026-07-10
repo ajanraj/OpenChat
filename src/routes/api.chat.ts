@@ -1,5 +1,5 @@
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { createFileRoute } from "@tanstack/react-router";
 import { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
@@ -9,11 +9,12 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   type FileUIPart,
-  experimental_generateImage as generateImage,
+  generateImage,
+  isStepCount,
   type JSONValue,
   smoothStream,
-  stepCountIs,
   streamText,
+  toUIMessageStream,
   type Tool,
   type UIMessage,
 } from "ai";
@@ -207,7 +208,7 @@ const buildGoogleProviderOptions = (
         includeThoughts: true,
         thinkingBudget: config.tokens,
       },
-    } satisfies GoogleGenerativeAIProviderOptions;
+    } satisfies GoogleLanguageModelOptions;
     return options;
   }
 
@@ -426,6 +427,10 @@ export const Route = createFileRoute("/api/chat")({
           // --- Enhanced Input Validation ---
           if (!Array.isArray(messages) || messages.length === 0) {
             return createErrorResponse(new Error("'messages' must be a non-empty array."));
+          }
+
+          if (messages.some((message) => message?.role === "system")) {
+            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
           }
 
           if (typeof chatId !== "string" || chatId.trim() === "") {
@@ -811,10 +816,10 @@ export const Route = createFileRoute("/api/chat")({
                 try {
                   streamResult = streamText({
                     model: modelForStream,
-                    system: finalSystemPrompt,
+                    instructions: finalSystemPrompt,
                     messages: await convertToModelMessages(messages),
                     tools: toolset,
-                    stopWhen: stepCountIs(20),
+                    stopWhen: isStepCount(20),
                     experimental_transform: smoothStream({
                       delayInMs: 20,
                       chunking: "word",
@@ -822,7 +827,7 @@ export const Route = createFileRoute("/api/chat")({
                     providerOptions,
                     onError: async ({ error }) => {
                       // Handle errors gracefully - save to conversation but don't throw
-                      // The throwing behavior will be handled in the fullStream processing
+                      // The throwing behavior will be handled while processing the stream
 
                       // First, try to detect provider-specific error patterns
                       const detectedError = detectProviderErrorFromObject(
@@ -872,13 +877,13 @@ export const Route = createFileRoute("/api/chat")({
                       closeTransport?.();
                       // No throwing - let the stream handle the error state gracefully
                     },
-                    onFinish({ totalUsage }) {
+                    onEnd({ usage }) {
                       finalUsage = {
-                        inputTokens: totalUsage.inputTokens || 0,
-                        outputTokens: totalUsage.outputTokens || 0,
-                        reasoningTokens: totalUsage.reasoningTokens || 0,
-                        totalTokens: totalUsage.totalTokens || 0,
-                        cachedInputTokens: totalUsage.cachedInputTokens || 0,
+                        inputTokens: usage.inputTokens ?? 0,
+                        outputTokens: usage.outputTokens ?? 0,
+                        reasoningTokens: usage.outputTokenDetails.reasoningTokens ?? 0,
+                        totalTokens: usage.totalTokens ?? 0,
+                        cachedInputTokens: usage.inputTokenDetails.cacheReadTokens ?? 0,
                       };
                       closeTransport?.();
                     },
@@ -893,7 +898,7 @@ export const Route = createFileRoute("/api/chat")({
                   let accumulatedText = "";
                   let providerTextErrorDetected = false;
 
-                  streamLoop: for await (const part of streamResult.fullStream) {
+                  streamLoop: for await (const part of streamResult.stream) {
                     switch (part.type) {
                       case "error": {
                         // Error parts from AI SDK - these are already handled by onError callback
@@ -946,7 +951,8 @@ export const Route = createFileRoute("/api/chat")({
 
                 // Merge the regular UI stream for normal processing
                 writer.merge(
-                  streamResult.toUIMessageStream({
+                  toUIMessageStream({
+                    stream: streamResult.stream,
                     sendReasoning: true,
                     sendSources: true,
                   }),
@@ -1028,7 +1034,7 @@ export const Route = createFileRoute("/api/chat")({
 
               await tryRun();
             },
-            async onFinish({ responseMessage }) {
+            async onEnd({ responseMessage }) {
               if (!result || errorMessageSaved) {
                 return; // Don't save if no result or error message was already saved
               }

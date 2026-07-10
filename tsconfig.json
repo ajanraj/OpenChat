@@ -20,6 +20,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
+      "@convex-dev/react-query": ["./node_modules/@convex-dev/react-query/dist/esm/index"],
       "@/*": ["./src/*"],
       "@/convex/*": ["./convex/*"]
     }

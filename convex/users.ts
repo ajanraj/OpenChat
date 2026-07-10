@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
-import { calculateRateLimit, type RateLimitConfig } from "@convex-dev/rate-limiter";
+import { calculateRateLimit } from "@convex-dev/rate-limiter";
 import { ConvexError, v } from "convex/values";
 import { MODEL_DEFAULT } from "../src/lib/config";
 import { ERROR_CODES } from "../src/lib/error-codes";
@@ -529,7 +529,7 @@ export const getRateLimitStatus = query({
 
       // For fixed windows, the next reset is the end of the current window
       if (dailyRateLimit.windowStart !== undefined) {
-        const config = dailyConfig.config as RateLimitConfig;
+        const config = dailyConfig.config;
         dailyReset = dailyRateLimit.windowStart + config.period;
       }
     }
@@ -550,7 +550,7 @@ export const getRateLimitStatus = query({
     // For fixed windows, the next reset is the end of the current window
     let monthlyReset: number | undefined;
     if (monthlyRateLimit.windowStart !== undefined) {
-      const config = monthlyConfig.config as RateLimitConfig;
+      const config = monthlyConfig.config;
       monthlyReset = monthlyRateLimit.windowStart + config.period;
     }
 
@@ -575,7 +575,7 @@ export const getRateLimitStatus = query({
 
       // For fixed windows, the next reset is the end of the current window
       if (premiumRateLimit.windowStart !== undefined) {
-        const config = premiumConfig.config as RateLimitConfig;
+        const config = premiumConfig.config;
         premiumReset = premiumRateLimit.windowStart + config.period;
       }
     }
@@ -720,14 +720,10 @@ export const deleteAccount = mutation({
     deletionPromises.push(...usage.map((u) => ctx.db.delete(u._id)));
 
     // Delete auth accounts
-    deletionPromises.push(
-      ...authAccounts.map((acc) => ctx.db.delete(acc._id as Id<"authAccounts">)),
-    );
+    deletionPromises.push(...authAccounts.map((acc) => ctx.db.delete(acc._id)));
 
     // Delete auth sessions
-    deletionPromises.push(
-      ...authSessions.map((sess) => ctx.db.delete(sess._id as Id<"authSessions">)),
-    );
+    deletionPromises.push(...authSessions.map((sess) => ctx.db.delete(sess._id)));
 
     // Delete profiles
     deletionPromises.push(...profiles.map((p) => ctx.db.delete(p._id)));

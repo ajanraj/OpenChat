@@ -129,14 +129,14 @@ Visit [http://localhost:3000](http://localhost:3000) to see OS Chat running loca
 
 ## 📜 Development Commands
 
-| Command             | Description                            |
-| ------------------- | -------------------------------------- |
-| `bun dev`           | Start development server on port 3000  |
-| `bun build`         | Build for production                   |
-| `bun test`          | Run tests with Vitest                  |
-| `bun run lint`      | Run Ultracite linter                   |
-| `bun run typecheck` | Run TypeScript type checking with tsgo |
-| `bunx convex dev`   | Run Convex development server          |
+| Command             | Description                           |
+| ------------------- | ------------------------------------- |
+| `bun dev`           | Start development server on port 3000 |
+| `bun build`         | Build for production                  |
+| `bun test`          | Run tests with Vitest                 |
+| `bun run lint`      | Run Ultracite linter                  |
+| `bun run typecheck` | Run TypeScript type checking with tsc |
+| `bunx convex dev`   | Run Convex development server         |
 
 ## 🗺️ Roadmap
 

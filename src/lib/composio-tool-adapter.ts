@@ -98,7 +98,7 @@ function cleanJsonSchema(schema: JSONSchema7): JSONSchema7 {
       result.items = { type: "object", properties: {} };
     }
 
-    return result as JSONSchema7;
+    return result;
   }
 
   return cleanObject(cleaned);

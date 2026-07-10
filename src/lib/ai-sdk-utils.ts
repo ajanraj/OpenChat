@@ -1,5 +1,6 @@
 import type {
   FileUIPart,
+  ReasoningFileUIPart,
   ReasoningUIPart,
   SourceUrlUIPart,
   TextUIPart,
@@ -9,7 +10,9 @@ import type {
 import type { Doc } from "../../convex/_generated/dataModel";
 
 // Type alias for message parts array
-type MessageParts = Array<TextUIPart | ReasoningUIPart | ToolUIPart | SourceUrlUIPart | FileUIPart>;
+type MessageParts = Array<
+  TextUIPart | ReasoningUIPart | ReasoningFileUIPart | ToolUIPart | SourceUrlUIPart | FileUIPart
+>;
 
 // Compile regex once at module level for performance
 const CONVEX_STORAGE_ID_REGEX = /^[a-z0-9]{32}$/;

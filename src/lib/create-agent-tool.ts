@@ -1,11 +1,17 @@
 import type { Tool, UIMessage, UIMessageStreamWriter } from "ai";
-import { convertToModelMessages, stepCountIs, streamText, tool } from "ai";
+import { convertToModelMessages, isStepCount, streamText, toUIMessageStream, tool } from "ai";
 import { z } from "zod";
 import { getComposioTools } from "@/lib/composio-server";
 import type { ConnectorStatusLists } from "@/lib/connector-utils";
 import { getToolSpecificPrompts } from "@/lib/prompt-tool-config";
 
 const toolNameSchema = z.string().min(1, "Tool name is required");
+const COMPOSIO_MULTI_EXECUTE_TOOL = "COMPOSIO_MULTI_EXECUTE_TOOL";
+const COMPOSIO_TOOL_ROUTER_INSTRUCTIONS =
+  "Use COMPOSIO_SEARCH_TOOLS first with atomic, toolkit-scoped queries to discover the required tool schemas. Reuse its returned session_id for later schema lookups and COMPOSIO_MULTI_EXECUTE_TOOL calls. Then execute connector actions with COMPOSIO_MULTI_EXECUTE_TOOL. A search alone does not complete the task. Do not claim success unless COMPOSIO_MULTI_EXECUTE_TOOL returns a successful result. If an account is disconnected, stop and ask the user to reconnect it in Settings; do not attempt connection management.";
+
+export const appendComposioToolRouterInstructions = (instructions: string): string =>
+  `${instructions}\n\n${COMPOSIO_TOOL_ROUTER_INSTRUCTIONS}`;
 
 export const toolListSchema = z.union([
   toolNameSchema,
@@ -69,11 +75,14 @@ export const analyzeSubAgentExecution = ({
 
   // Determine completion status
   const attemptedTools = toolCallCount > 0;
+  const executedConnectorAction = toolNames.some(
+    (toolName) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
+  );
   const normalFinish = finishReason === "stop" || finishReason === "length";
   const hasSubstantialOutput = finalText.length > 25;
   const hasError = subAgentError !== null;
 
-  const success = attemptedTools && normalFinish && hasSubstantialOutput && !hasError;
+  const success = executedConnectorAction && normalFinish && hasSubstantialOutput && !hasError;
 
   const issues: string[] = [];
   if (hasError) {
@@ -81,6 +90,8 @@ export const analyzeSubAgentExecution = ({
   }
   if (!attemptedTools) {
     issues.push("No tools were called");
+  } else if (!executedConnectorAction) {
+    issues.push("No connector action was executed");
   }
   if (finishReason === "error") {
     issues.push("Sub-agent encountered an error");
@@ -143,7 +154,7 @@ export const createAgentTool = ({
   const connectorListDescription =
     availableToolkits.length > 0 ? availableToolkits.join(", ") : "(no connectors available)";
 
-  return tool<CreateAgentInput, string>({
+  return tool({
     description: `Create a temporary agent that can use specific connectors to complete a task. Provide the connectors via the \`tool\` field, the high-level goal via \`task\`, and optional context from previous operations via \`context\`. Available connectors: ${connectorListDescription}.`,
     inputSchema: createAgentInputSchema,
     toModelOutput: ({ output }) => {
@@ -199,25 +210,15 @@ export const createAgentTool = ({
         );
       }
 
-      const rawTools = await getComposioTools(userId, requestedToolkits);
-      const filteredTools: Record<string, Tool> = {};
-      for (const [toolName, candidate] of Object.entries(rawTools)) {
-        if (
-          candidate &&
-          typeof candidate === "object" &&
-          "execute" in candidate &&
-          typeof (candidate as Tool).execute === "function"
-        ) {
-          filteredTools[toolName] = candidate as Tool;
-        }
-      }
+      const filteredTools = await getComposioTools(userId, requestedToolkits);
 
       if (Object.keys(filteredTools).length === 0) {
         throw new Error("No connector tools available for the requested selection.");
       }
 
-      const innerSystem =
-        systemPrompt ?? buildInnerSystemPrompt(input.task, requestedToolkits, connectorsStatus);
+      const innerSystem = appendComposioToolRouterInstructions(
+        systemPrompt ?? buildInnerSystemPrompt(input.task, requestedToolkits, connectorsStatus),
+      );
 
       // Build messages array based on whether context is provided
       const messages: UIMessage[] = [];
@@ -254,16 +255,16 @@ export const createAgentTool = ({
       // Stream the agent's work using standard AI SDK streaming
       const result = streamText({
         model,
-        system: innerSystem,
+        instructions: innerSystem,
         messages: await convertToModelMessages(messages),
         tools: filteredTools,
-        stopWhen: stepCountIs(maxSteps),
+        stopWhen: isStepCount(maxSteps),
         providerOptions,
         // toolChoice: "required",
         onError: ({ error }) => {
           subAgentError = error instanceof Error ? error : new Error(String(error));
         },
-        onFinish({ usage }) {
+        onEnd({ usage }) {
           agentTokenUsage = {
             inputTokens: usage.inputTokens || 0,
             outputTokens: usage.outputTokens || 0,
@@ -292,7 +293,7 @@ export const createAgentTool = ({
       });
 
       // Let AI SDK handle all the streaming naturally
-      writer.merge(result.toUIMessageStream());
+      writer.merge(toUIMessageStream({ stream: result.stream }));
 
       // Collect text output from the stream and get tool execution information
       let finalText = "";

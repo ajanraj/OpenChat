@@ -361,7 +361,9 @@ const extractSearchQueryFromParts = (
 };
 
 // Helper function to render different file types
-const renderFilePart = (filePart: FileUIPart, index: number, id: string) => {
+type RenderableFilePart = Pick<FileUIPart, "filename" | "mediaType" | "url">;
+
+const renderFilePart = (filePart: RenderableFilePart, index: number, id: string) => {
 	const displayUrl = filePart.url;
 	const filename = filePart.filename || `file-${index}`;
 	const mediaType = filePart.mediaType || "application/octet-stream";
@@ -840,7 +842,12 @@ const renderPartDirectly = (
 			);
 
 		case "file": {
-			const fileNode = renderFilePart(part as FileUIPart, index, id);
+			const fileNode = renderFilePart(part, index, id);
+			return <div className="flex w-full flex-wrap gap-2">{fileNode}</div>;
+		}
+
+		case "reasoning-file": {
+			const fileNode = renderFilePart(part, index, id);
 			return <div className="flex w-full flex-wrap gap-2">{fileNode}</div>;
 		}
 
@@ -906,11 +913,24 @@ const renderPartInChainOfThought = (
 		}
 
 		case "file": {
-			const chainFileNode = renderFilePart(part as FileUIPart, index, id);
+			const chainFileNode = renderFilePart(part, index, id);
 			return (
 				<ChainOfThoughtStep
 					key={partKey}
 					label="File Attachment"
+					status="complete"
+				>
+					<div className="flex w-full flex-wrap gap-2">{chainFileNode}</div>
+				</ChainOfThoughtStep>
+			);
+		}
+
+		case "reasoning-file": {
+			const chainFileNode = renderFilePart(part, index, id);
+			return (
+				<ChainOfThoughtStep
+					key={partKey}
+					label="Reasoning File"
 					status="complete"
 				>
 					<div className="flex w-full flex-wrap gap-2">{chainFileNode}</div>

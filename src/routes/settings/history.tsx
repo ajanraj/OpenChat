@@ -227,7 +227,7 @@ function useHistorySettingsPageView() {
   const toggleSelect = (id: Id<"chats">) => dispatch({ type: "TOGGLE_SELECT", id });
   const selectAll = () => {
     if (!chats) return;
-    dispatch({ type: "SELECT_ALL", ids: chats.map((c) => c._id as Id<"chats">) });
+    dispatch({ type: "SELECT_ALL", ids: chats.map((c) => c._id) });
   };
   const clearSelection = () => dispatch({ type: "CLEAR_SELECTION" });
 
@@ -484,7 +484,7 @@ function useHistorySettingsPageView() {
       <div className="flex max-h-[320px] flex-col overflow-y-auto rounded-xl border bg-card">
         {chats.map((chat, index) => {
           const { dateTime, ampm } = formatDateLines(chat.updatedAt ?? chat.createdAt);
-          const selected = isSelected(chat._id as Id<"chats">);
+          const selected = isSelected(chat._id);
 
           return (
             <div
@@ -498,7 +498,7 @@ function useHistorySettingsPageView() {
               <Checkbox
                 checked={selected}
                 className="shrink-0"
-                onCheckedChange={() => toggleSelect(chat._id as Id<"chats">)}
+                onCheckedChange={() => toggleSelect(chat._id)}
               />
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="truncate font-medium text-sm">
@@ -558,9 +558,7 @@ function useHistorySettingsPageView() {
                           <Button
                             aria-label="Unshare conversation"
                             className="size-7"
-                            onClick={() =>
-                              dispatch({ type: "SET_REVOKE_CHAT", id: chat._id as Id<"chats"> })
-                            }
+                            onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: chat._id })}
                             size="icon"
                             type="button"
                             variant="ghost"
@@ -673,6 +671,7 @@ function useHistorySettingsPageView() {
               </Button>
               <input
                 accept="application/json"
+                aria-label="Import chat history"
                 className="hidden"
                 onChange={handleImport}
                 ref={fileInputRef}

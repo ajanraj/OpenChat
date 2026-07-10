@@ -301,9 +301,7 @@ describe("composio-tool-adapter", () => {
         },
       };
 
-      const converted = convertComposioTools(
-        composioTools as unknown as Record<string, ComposioToolMock>,
-      );
+      const converted = convertComposioTools(composioTools);
 
       // Only valid tool should be in result
       expect(converted.validTool).toBeDefined();
