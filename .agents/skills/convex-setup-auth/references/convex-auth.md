@@ -20,7 +20,7 @@ a third-party provider.
    - if CLI configuration requires interactive human input, stop and ask the
      user to complete that step before continuing
 6. Install the auth packages:
-   - `npm install @convex-dev/auth @auth/core@0.37.0`
+   - `npm install @convex-dev/auth @auth/core@0.41.1`
 7. Run the initialization command:
    - `npx @convex-dev/auth`
 8. Confirm the initializer created:
@@ -57,7 +57,7 @@ a third-party provider.
 
 ## Concrete Steps
 
-1. Install `@convex-dev/auth` and `@auth/core@0.37.0`
+1. Install `@convex-dev/auth` and `@auth/core@0.41.1`
 2. Run `npx convex dev` if the project does not already have a configured
    deployment
 3. If `npx convex dev` blocks on interactive setup, ask the user explicitly to
@@ -170,7 +170,7 @@ If `npx convex dev` or deployment setup requires human input:
 - [ ] Ask whether the user wants local-only setup or production-ready setup
 - [ ] Ensure a Convex deployment is configured before running auth
       initialization
-- [ ] Install `@convex-dev/auth` and `@auth/core@0.37.0`
+- [ ] Install `@convex-dev/auth` and `@auth/core@0.41.1`
 - [ ] Run `npx convex dev` first if needed
 - [ ] Run `npx @convex-dev/auth`
 - [ ] Confirm `convex/auth.config.ts`, `convex/auth.ts`, and `convex/http.ts`

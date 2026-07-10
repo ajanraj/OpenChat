@@ -37,7 +37,7 @@
 - **Testing**: Vitest
 - **Linting**: oxlint (with type-aware linting via tsgolint)
 - **Formatting**: oxfmt
-- **Type Checking**: tsgo (TypeScript native compiler)
+- **Type Checking**: tsc (TypeScript native compiler)
 - **Analytics**: PostHog, Vercel Analytics
 - **Caching**: Upstash Redis
 - **Object Storage**: Cloudflare R2 (via @convex-dev/r2)
@@ -116,7 +116,7 @@
 | `bun run lint`         | Run oxlint with type-aware linting and auto-fix |
 | `bun run format`       | Format code with oxfmt                          |
 | `bun run format:check` | Check formatting without writing changes        |
-| `bun run typecheck`    | Run TypeScript type checking with tsgo          |
+| `bun run typecheck`    | Run TypeScript type checking with tsc           |
 | `bunx convex dev`      | Run Convex development server                   |
 
 ## Quality Assurance
