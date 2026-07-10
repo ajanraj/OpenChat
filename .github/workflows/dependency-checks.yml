@@ -1,0 +1,50 @@
+name: Dependency checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun ci
+
+      - name: Check formatting
+        run: bun run format:check
+
+      - name: Check lint
+        run: bun run lint:check
+
+      - name: Check types
+        run: bun run typecheck
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+      - name: Audit dependencies
+        run: bun audit --audit-level=high
