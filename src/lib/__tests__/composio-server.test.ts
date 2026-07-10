@@ -9,14 +9,16 @@ interface MockTool {
 interface MockSession {
   sessionId: string;
   tools: () => Promise<Record<string, MockTool>>;
+  delete: () => Promise<{ sessionId: string; deleted: boolean }>;
 }
 
-const { mockCreate, mockSessionTools } = vi.hoisted(() => {
+const { mockCreate, mockSessionDelete, mockSessionTools } = vi.hoisted(() => {
   process.env.COMPOSIO_API_KEY ||= "test-composio-key";
 
   return {
     mockCreate:
       vi.fn<(userId: string, config: ToolRouterCreateSessionConfig) => Promise<MockSession>>(),
+    mockSessionDelete: vi.fn<() => Promise<{ sessionId: string; deleted: boolean }>>(),
     mockSessionTools: vi.fn<() => Promise<Record<string, MockTool>>>(),
   };
 });
@@ -56,7 +58,9 @@ describe("composio-server", () => {
     mockCreate.mockResolvedValue({
       sessionId: "session-123",
       tools: mockSessionTools,
+      delete: mockSessionDelete,
     });
+    mockSessionDelete.mockResolvedValue({ sessionId: "session-123", deleted: true });
   });
 
   it("creates a scoped router session and returns its meta tools unchanged", async () => {
@@ -74,7 +78,11 @@ describe("composio-server", () => {
       manageConnections: false,
       sandbox: { enable: false },
     });
-    expect(result).toBe(routerTools);
+    expect(result?.tools).toBe(routerTools);
+
+    await result?.close();
+
+    expect(mockSessionDelete).toHaveBeenCalledOnce();
   });
 
   it("creates a fresh router session for each agent run", async () => {
@@ -88,10 +96,38 @@ describe("composio-server", () => {
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
+  it("deletes the session when loading tools fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockSessionTools.mockRejectedValue(new Error("Tool loading failed"));
+
+    const result = await getComposioTools("user-123", ["GMAIL"]);
+
+    expect(result).toBeNull();
+    expect(mockSessionDelete).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
+  });
+
+  it("does not reject when session deletion fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockSessionTools.mockResolvedValue({
+      COMPOSIO_MULTI_EXECUTE_TOOL: { description: "Execute tools" },
+    });
+    mockSessionDelete.mockRejectedValue(new Error("Delete failed"));
+
+    const result = await getComposioTools("user-123", ["GMAIL"]);
+
+    await expect(result?.close()).resolves.toBeUndefined();
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to delete Composio session:",
+      expect.any(Error),
+    );
+    consoleError.mockRestore();
+  });
+
   it("does not create a session without toolkits", async () => {
     const result = await getComposioTools("user-123", [" ", ""]);
 
-    expect(result).toEqual({});
+    expect(result).toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
     expect(mockSessionTools).not.toHaveBeenCalled();
   });

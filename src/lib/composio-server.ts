@@ -30,6 +30,11 @@ const createSessionConfig = (toolkitSlugs: string[]): ToolRouterCreateSessionCon
   sandbox: { enable: false },
 });
 
+export interface ComposioToolsSession {
+  tools: ToolSet;
+  close: () => Promise<void>;
+}
+
 /**
  * Initiate OAuth connection for a user (server-side only)
  */
@@ -105,20 +110,36 @@ export const disconnectAccount = async (connectionId: string): Promise<void> => 
 export const getComposioTools = async (
   userId: string,
   toolkitSlugs: string[],
-): Promise<ToolSet> => {
+): Promise<ComposioToolsSession | null> => {
   const normalizedToolkits = normalizeToolkitSlugs(toolkitSlugs);
 
   if (!normalizedToolkits.length) {
-    return {};
+    return null;
   }
 
   try {
     // Tool Router sessions retain task memory, so each agent run needs a fresh session.
     const session = await composio.create(userId, createSessionConfig(normalizedToolkits));
-    return await session.tools();
+    const close = async (): Promise<void> => {
+      try {
+        await session.delete();
+      } catch (error) {
+        console.error("Failed to delete Composio session:", error);
+      }
+    };
+
+    try {
+      return {
+        tools: await session.tools(),
+        close,
+      };
+    } catch (error) {
+      await close();
+      throw error;
+    }
   } catch (error) {
     console.error("Failed to fetch Composio session tools:", error);
-    return {};
+    return null;
   }
 };
 

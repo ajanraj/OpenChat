@@ -68,7 +68,11 @@ const connectorToolOutputSchema = z.object({
 
 const isSuccessfulConnectorResult = (result: SubAgentToolResult): boolean => {
   const parsed = connectorToolOutputSchema.safeParse(result.output);
-  return parsed.success && (parsed.data.error === null || parsed.data.error === undefined);
+  return (
+    parsed.success &&
+    parsed.data.successful &&
+    (parsed.data.error === null || parsed.data.error === undefined)
+  );
 };
 
 const getConnectorResultError = (result: SubAgentToolResult): string | null => {
@@ -248,136 +252,146 @@ export const createAgentTool = ({
         );
       }
 
-      const filteredTools = await getComposioTools(userId, requestedToolkits);
+      const composioSession = await getComposioTools(userId, requestedToolkits);
 
-      if (Object.keys(filteredTools).length === 0) {
+      if (!composioSession) {
         throw new Error("No connector tools available for the requested selection.");
       }
 
-      const innerSystem = appendComposioToolRouterInstructions(
-        systemPrompt ?? buildInnerSystemPrompt(input.task, requestedToolkits, connectorsStatus),
-      );
+      try {
+        const filteredTools = composioSession.tools;
 
-      // Build messages array based on whether context is provided
-      const messages: UIMessage[] = [];
+        if (Object.keys(filteredTools).length === 0) {
+          throw new Error("No connector tools available for the requested selection.");
+        }
 
-      // Add context message if provided
-      if (input.context) {
+        const innerSystem = appendComposioToolRouterInstructions(
+          systemPrompt ?? buildInnerSystemPrompt(input.task, requestedToolkits, connectorsStatus),
+        );
+
+        // Build messages array based on whether context is provided
+        const messages: UIMessage[] = [];
+
+        // Add context message if provided
+        if (input.context) {
+          messages.push({
+            id: "create-agent-context",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: `Context from previous operations:\n\n${input.context}`,
+              },
+            ],
+          });
+        }
+
+        // Add task message
         messages.push({
-          id: "create-agent-context",
+          id: "create-agent-task",
           role: "user",
-          parts: [
-            {
-              type: "text",
-              text: `Context from previous operations:\n\n${input.context}`,
-            },
-          ],
+          parts: [{ type: "text", text: input.task }],
         });
-      }
 
-      // Add task message
-      messages.push({
-        id: "create-agent-task",
-        role: "user",
-        parts: [{ type: "text", text: input.task }],
-      });
+        // Track sub-agent token usage and error state
+        let agentTokenUsage = {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+        };
+        let subAgentError: Error | null = null;
 
-      // Track sub-agent token usage and error state
-      let agentTokenUsage = {
-        inputTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-      };
-      let subAgentError: Error | null = null;
-
-      // Stream the agent's work using standard AI SDK streaming
-      const result = streamText({
-        model,
-        instructions: innerSystem,
-        messages: await convertToModelMessages(messages),
-        tools: filteredTools,
-        stopWhen: isStepCount(maxSteps),
-        providerOptions,
-        // toolChoice: "required",
-        onError: ({ error }) => {
-          subAgentError = error instanceof Error ? error : new Error(String(error));
-        },
-        onEnd({ usage }) {
-          agentTokenUsage = {
-            inputTokens: usage.inputTokens || 0,
-            outputTokens: usage.outputTokens || 0,
-            totalTokens: usage.totalTokens || 0,
-          };
-        },
-      });
-
-      // Generate unique boundary ID for this agent execution
-      const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      // Inject start boundary marker
-      writer.write({
-        type: "data-agent-boundary",
-        id: `${boundaryId}-start`,
-        data: {
-          type: "start",
-          agentId: "create_agent",
-          boundaryId,
-          timestamp: new Date().toISOString(),
-          task: input.task,
-          toolkits: requestedToolkits,
-          context: input.context,
-        },
-        transient: false, // Keep in message history for boundary detection
-      });
-
-      // Let AI SDK handle all the streaming naturally
-      writer.merge(toUIMessageStream({ stream: result.stream }));
-
-      // Collect text output from the stream and get tool execution information
-      let finalText = "";
-      for await (const textPart of result.textStream) {
-        finalText += textPart;
-      }
-
-      // Get tool execution information (these are Promises)
-      const [steps, finishReason] = await Promise.all([result.steps, result.finishReason]);
-
-      // Collect all tool calls from all steps (not just the last one)
-      const toolCalls = steps.flatMap((step) => step.toolCalls || []);
-      const toolResults = steps.flatMap((step) => step.toolResults || []);
-
-      // Analyze what the sub-agent actually did
-      const analysis = analyzeSubAgentExecution({
-        toolCalls,
-        toolResults,
-        finishReason,
-        finalText: finalText.trim(),
-        subAgentError,
-      });
-
-      // Inject end boundary marker with analysis
-      writer.write({
-        type: "data-agent-boundary",
-        id: `${boundaryId}-end`,
-        data: {
-          type: "end",
-          agentId: "create_agent",
-          boundaryId,
-          timestamp: new Date().toISOString(),
-          analysis,
-          toolSummary: {
-            toolsUsed: analysis.toolNames,
-            toolCallCount: analysis.toolCallCount,
-            finishReason: analysis.finishReason,
-            success: analysis.success,
+        // Stream the agent's work using standard AI SDK streaming
+        const result = streamText({
+          model,
+          instructions: innerSystem,
+          messages: await convertToModelMessages(messages),
+          tools: filteredTools,
+          stopWhen: isStepCount(maxSteps),
+          providerOptions,
+          // toolChoice: "required",
+          onError: ({ error }) => {
+            subAgentError = error instanceof Error ? error : new Error(String(error));
           },
-          tokenUsage: agentTokenUsage,
-        },
-        transient: false, // Keep in message history for boundary detection
-      });
+          onEnd({ usage }) {
+            agentTokenUsage = {
+              inputTokens: usage.inputTokens || 0,
+              outputTokens: usage.outputTokens || 0,
+              totalTokens: usage.totalTokens || 0,
+            };
+          },
+        });
 
-      // Return structured analysis as JSON for toModelOutput processing
-      return JSON.stringify(analysis);
+        // Generate unique boundary ID for this agent execution
+        const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Inject start boundary marker
+        writer.write({
+          type: "data-agent-boundary",
+          id: `${boundaryId}-start`,
+          data: {
+            type: "start",
+            agentId: "create_agent",
+            boundaryId,
+            timestamp: new Date().toISOString(),
+            task: input.task,
+            toolkits: requestedToolkits,
+            context: input.context,
+          },
+          transient: false, // Keep in message history for boundary detection
+        });
+
+        // Let AI SDK handle all the streaming naturally
+        writer.merge(toUIMessageStream({ stream: result.stream }));
+
+        // Collect text output from the stream and get tool execution information
+        let finalText = "";
+        for await (const textPart of result.textStream) {
+          finalText += textPart;
+        }
+
+        // Get tool execution information (these are Promises)
+        const [steps, finishReason] = await Promise.all([result.steps, result.finishReason]);
+
+        // Collect all tool calls from all steps (not just the last one)
+        const toolCalls = steps.flatMap((step) => step.toolCalls || []);
+        const toolResults = steps.flatMap((step) => step.toolResults || []);
+
+        // Analyze what the sub-agent actually did
+        const analysis = analyzeSubAgentExecution({
+          toolCalls,
+          toolResults,
+          finishReason,
+          finalText: finalText.trim(),
+          subAgentError,
+        });
+
+        // Inject end boundary marker with analysis
+        writer.write({
+          type: "data-agent-boundary",
+          id: `${boundaryId}-end`,
+          data: {
+            type: "end",
+            agentId: "create_agent",
+            boundaryId,
+            timestamp: new Date().toISOString(),
+            analysis,
+            toolSummary: {
+              toolsUsed: analysis.toolNames,
+              toolCallCount: analysis.toolCallCount,
+              finishReason: analysis.finishReason,
+              success: analysis.success,
+            },
+            tokenUsage: agentTokenUsage,
+          },
+          transient: false, // Keep in message history for boundary detection
+        });
+
+        // Return structured analysis as JSON for toModelOutput processing
+        return JSON.stringify(analysis);
+      } finally {
+        await composioSession.close();
+      }
     },
   });
 };

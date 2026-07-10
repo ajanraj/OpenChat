@@ -1,16 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DynamicToolResult } from "ai";
+import * as ai from "ai";
+import { z } from "zod";
+import type { ComposioToolsSession } from "../composio-server";
 import {
   analyzeSubAgentExecution,
   appendComposioToolRouterInstructions,
+  createAgentTool,
   createAgentInputSchema,
   toolListSchema,
 } from "../create-agent-tool";
 
+const { mockGetComposioTools, mockStreamText } = vi.hoisted(() => ({
+  mockGetComposioTools:
+    vi.fn<(userId: string, toolkitSlugs: string[]) => Promise<ComposioToolsSession | null>>(),
+  mockStreamText: vi.fn<typeof ai.streamText>(),
+}));
+
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof ai>()),
+  streamText: mockStreamText,
+}));
+
 // Mock the composio-server module to avoid environment variable requirements
 vi.mock("@/lib/composio-server", () => ({
-  getComposioTools:
-    vi.fn<(userId: string, toolkitSlugs: string[]) => Promise<Record<string, never>>>(),
+  getComposioTools: mockGetComposioTools,
 }));
 
 // Mock prompt-tool-config to avoid any side effects
@@ -18,7 +31,7 @@ vi.mock("@/lib/prompt-tool-config", () => ({
   getToolSpecificPrompts: vi.fn<(toolkits: string[]) => string>().mockReturnValue(""),
 }));
 
-const successfulConnectorResult: DynamicToolResult = {
+const successfulConnectorResult: ai.DynamicToolResult = {
   type: "tool-result",
   toolCallId: "connector-call",
   toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
@@ -28,6 +41,46 @@ const successfulConnectorResult: DynamicToolResult = {
 };
 
 describe("create-agent-tool", () => {
+  it("closes its Composio session when agent execution fails", async () => {
+    const close = vi.fn<() => Promise<void>>().mockResolvedValue();
+    mockGetComposioTools.mockResolvedValue({
+      tools: {
+        TEST_TOOL: ai.tool({
+          description: "Test connector tool",
+          inputSchema: z.object({}),
+          execute: () => ({ successful: true, error: null }),
+        }),
+      },
+      close,
+    });
+    mockStreamText.mockImplementation(() => {
+      throw new Error("Agent startup failed");
+    });
+    const writer: ai.UIMessageStreamWriter = {
+      write: vi.fn<ai.UIMessageStreamWriter["write"]>(),
+      merge: vi.fn<ai.UIMessageStreamWriter["merge"]>(),
+      onError: undefined,
+    };
+    const agentTool = createAgentTool({
+      userId: "user-123",
+      availableToolkits: ["GMAIL"],
+      model: "test-model",
+      writer,
+    });
+
+    if (!agentTool.execute) {
+      throw new Error("Expected create-agent tool to be executable");
+    }
+
+    await expect(
+      agentTool.execute(
+        { tool: "GMAIL", task: "Send an email" },
+        { toolCallId: "agent-call", messages: [], context: {} },
+      ),
+    ).rejects.toThrow("Agent startup failed");
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   describe("createAgentInputSchema", () => {
     describe("tool field validation", () => {
       it("accepts a single string tool name", () => {
@@ -313,6 +366,28 @@ describe("create-agent-tool", () => {
 
       expect(result.success).toBe(false);
       expect(result.issues).toContain("Connector action failed: Gmail rejected the request");
+    });
+
+    it("returns failure when the connector reports unsuccessful without an error message", () => {
+      const result = analyzeSubAgentExecution({
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [
+          {
+            type: "tool-result",
+            toolCallId: "connector-call",
+            toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+            input: {},
+            output: { data: {}, error: null, successful: false },
+            dynamic: true,
+          },
+        ],
+        finishReason: "stop",
+        finalText: "The connector action appeared to finish successfully.",
+        subAgentError: null,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.issues).toContain("Connector action failed");
     });
 
     it("collects multiple issues", () => {
