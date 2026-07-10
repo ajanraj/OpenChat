@@ -1,4 +1,4 @@
-import type { Tool, UIMessage, UIMessageStreamWriter } from "ai";
+import type { Tool, ToolSet, TypedToolResult, UIMessage, UIMessageStreamWriter } from "ai";
 import { convertToModelMessages, isStepCount, streamText, toUIMessageStream, tool } from "ai";
 import { z } from "zod";
 import { getComposioTools } from "@/lib/composio-server";
@@ -59,13 +59,32 @@ export interface SubAgentAnalysis {
   errorMessage?: string;
 }
 
+type SubAgentToolResult = TypedToolResult<ToolSet>;
+
+const connectorToolOutputSchema = z.object({
+  error: z.string().nullable().optional(),
+  successful: z.boolean(),
+});
+
+const isSuccessfulConnectorResult = (result: SubAgentToolResult): boolean => {
+  const parsed = connectorToolOutputSchema.safeParse(result.output);
+  return parsed.success && (parsed.data.error === null || parsed.data.error === undefined);
+};
+
+const getConnectorResultError = (result: SubAgentToolResult): string | null => {
+  const parsed = connectorToolOutputSchema.safeParse(result.output);
+  return parsed.success && parsed.data.error ? parsed.data.error : null;
+};
+
 export const analyzeSubAgentExecution = ({
   toolCalls,
+  toolResults,
   finishReason,
   finalText,
   subAgentError,
 }: {
   toolCalls: { toolName: string; [key: string]: unknown }[];
+  toolResults: SubAgentToolResult[];
   finishReason: string;
   finalText: string;
   subAgentError: Error | null;
@@ -75,14 +94,22 @@ export const analyzeSubAgentExecution = ({
 
   // Determine completion status
   const attemptedTools = toolCallCount > 0;
-  const executedConnectorAction = toolNames.some(
-    (toolName) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
+  const connectorActionCalls = toolCalls.filter(
+    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
   );
+  const connectorActionResults = toolResults.filter(
+    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
+  );
+  const executedConnectorAction = connectorActionCalls.length > 0;
+  const connectorActionsSucceeded =
+    executedConnectorAction &&
+    connectorActionResults.length === connectorActionCalls.length &&
+    connectorActionResults.every(isSuccessfulConnectorResult);
   const normalFinish = finishReason === "stop" || finishReason === "length";
   const hasSubstantialOutput = finalText.length > 25;
   const hasError = subAgentError !== null;
 
-  const success = executedConnectorAction && normalFinish && hasSubstantialOutput && !hasError;
+  const success = connectorActionsSucceeded && normalFinish && hasSubstantialOutput && !hasError;
 
   const issues: string[] = [];
   if (hasError) {
@@ -92,6 +119,17 @@ export const analyzeSubAgentExecution = ({
     issues.push("No tools were called");
   } else if (!executedConnectorAction) {
     issues.push("No connector action was executed");
+  } else if (connectorActionResults.length < connectorActionCalls.length) {
+    issues.push("Connector action produced no result");
+  } else if (!connectorActionsSucceeded) {
+    const resultErrors = connectorActionResults
+      .map(getConnectorResultError)
+      .filter((message): message is string => message !== null);
+    issues.push(
+      resultErrors.length > 0
+        ? `Connector action failed: ${resultErrors.join("; ")}`
+        : "Connector action failed",
+    );
   }
   if (finishReason === "error") {
     issues.push("Sub-agent encountered an error");
@@ -306,10 +344,12 @@ export const createAgentTool = ({
 
       // Collect all tool calls from all steps (not just the last one)
       const toolCalls = steps.flatMap((step) => step.toolCalls || []);
+      const toolResults = steps.flatMap((step) => step.toolResults || []);
 
       // Analyze what the sub-agent actually did
       const analysis = analyzeSubAgentExecution({
         toolCalls,
+        toolResults,
         finishReason,
         finalText: finalText.trim(),
         subAgentError,

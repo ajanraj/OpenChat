@@ -28,7 +28,6 @@ export const Route = createFileRoute("/api/composio/status")({
             const result = await waitForConnection(
               connectionRequestId,
               60, // 60 seconds timeout
-              user._id, // Pass userId for cache refresh
             );
 
             return json(result);

@@ -1,35 +1,47 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ToolRouterCreateSessionConfig } from "@composio/core";
 import { getComposioTools } from "../composio-server";
 
-const {
-  mockCreate,
-  mockGetCachedSessionId,
-  mockInvalidateUserToolsCache,
-  mockSessionTools,
-  mockSetCachedSessionId,
-  mockUse,
-} = vi.hoisted(() => {
+interface MockTool {
+  description: string;
+}
+
+interface MockSession {
+  sessionId: string;
+  tools: () => Promise<Record<string, MockTool>>;
+}
+
+const { mockCreate, mockSessionTools } = vi.hoisted(() => {
   process.env.COMPOSIO_API_KEY ||= "test-composio-key";
 
   return {
-    mockCreate: vi.fn(),
-    mockGetCachedSessionId: vi.fn(),
-    mockInvalidateUserToolsCache: vi.fn(),
-    mockSessionTools: vi.fn(),
-    mockSetCachedSessionId: vi.fn(),
-    mockUse: vi.fn(),
+    mockCreate:
+      vi.fn<(userId: string, config: ToolRouterCreateSessionConfig) => Promise<MockSession>>(),
+    mockSessionTools: vi.fn<() => Promise<Record<string, MockTool>>>(),
   };
 });
 
 vi.mock("@composio/core", () => ({
   Composio: class MockComposio {
     create = mockCreate;
-    use = mockUse;
     connectedAccounts = {
-      delete: vi.fn(),
-      initiate: vi.fn(),
-      list: vi.fn(),
-      waitForConnection: vi.fn(),
+      delete: vi.fn<(connectionId: string) => Promise<void>>(),
+      initiate:
+        vi.fn<
+          (
+            userId: string,
+            authConfigId: string,
+            options?: { callbackUrl: string },
+          ) => Promise<{ id: string; redirectUrl: string }>
+        >(),
+      list: vi.fn<(options: { userIds: string[] }) => Promise<{ items: never[] }>>(),
+      waitForConnection:
+        vi.fn<
+          (
+            connectionRequestId: string,
+            timeoutMs: number,
+          ) => Promise<{ id: string; status: string }>
+        >(),
     };
   },
 }));
@@ -38,16 +50,9 @@ vi.mock("@composio/vercel", () => ({
   VercelProvider: class MockVercelProvider {},
 }));
 
-vi.mock("../composio-cache", () => ({
-  getCachedSessionId: mockGetCachedSessionId,
-  invalidateUserToolsCache: mockInvalidateUserToolsCache,
-  setCachedSessionId: mockSetCachedSessionId,
-}));
-
 describe("composio-server", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCachedSessionId.mockResolvedValue(null);
     mockCreate.mockResolvedValue({
       sessionId: "session-123",
       tools: mockSessionTools,
@@ -69,12 +74,18 @@ describe("composio-server", () => {
       manageConnections: false,
       sandbox: { enable: false },
     });
-    expect(mockSetCachedSessionId).toHaveBeenCalledWith(
-      "user-123",
-      ["gmail", "notion"],
-      "session-123",
-    );
     expect(result).toBe(routerTools);
+  });
+
+  it("creates a fresh router session for each agent run", async () => {
+    mockSessionTools.mockResolvedValue({
+      COMPOSIO_MULTI_EXECUTE_TOOL: { description: "Execute tools" },
+    });
+
+    await getComposioTools("user-123", ["GMAIL"]);
+    await getComposioTools("user-123", ["GMAIL"]);
+
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
   it("does not create a session without toolkits", async () => {

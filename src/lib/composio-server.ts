@@ -2,7 +2,6 @@ import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import type { ToolSet } from "ai";
 import type { ToolRouterCreateSessionConfig } from "@composio/core";
-import { getCachedSessionId, invalidateUserToolsCache, setCachedSessionId } from "./composio-cache";
 import { getAuthConfigId } from "./composio-utils";
 import type { ConnectorType } from "./types";
 
@@ -30,27 +29,6 @@ const createSessionConfig = (toolkitSlugs: string[]): ToolRouterCreateSessionCon
   manageConnections: false,
   sandbox: { enable: false },
 });
-
-const createComposioSession = async (userId: string, toolkitSlugs: string[]) => {
-  const session = await composio.create(userId, createSessionConfig(toolkitSlugs));
-  await setCachedSessionId(userId, toolkitSlugs, session.sessionId);
-  return session;
-};
-
-const getComposioSession = async (userId: string, toolkitSlugs: string[]) => {
-  const cachedSessionId = await getCachedSessionId(userId, toolkitSlugs);
-
-  if (!cachedSessionId) {
-    return await createComposioSession(userId, toolkitSlugs);
-  }
-
-  try {
-    return await composio.use(cachedSessionId);
-  } catch (error) {
-    console.error("Failed to reuse cached Composio session; creating a fresh session:", error);
-    return await createComposioSession(userId, toolkitSlugs);
-  }
-};
 
 /**
  * Initiate OAuth connection for a user (server-side only)
@@ -100,7 +78,6 @@ export const initiateConnection = async (
 export const waitForConnection = async (
   connectionRequestId: string,
   timeoutSeconds = 300,
-  userId?: string,
 ): Promise<{ connectionId: string; isConnected: boolean }> => {
   const connectedAccount = await composio.connectedAccounts.waitForConnection(
     connectionRequestId,
@@ -108,11 +85,6 @@ export const waitForConnection = async (
   );
 
   const isConnected = connectedAccount.status === "ACTIVE";
-
-  // If connection is successful and we have userId, refresh caches
-  if (isConnected && userId) {
-    await refreshCache(userId);
-  }
 
   return {
     connectionId: connectedAccount.id,
@@ -123,11 +95,8 @@ export const waitForConnection = async (
 /**
  * Disconnect an account (server-side only)
  */
-export const disconnectAccount = async (connectionId: string, userId: string): Promise<void> => {
+export const disconnectAccount = async (connectionId: string): Promise<void> => {
   await composio.connectedAccounts.delete(connectionId);
-
-  // Refresh caches since connected accounts have changed
-  await refreshCache(userId);
 };
 
 /**
@@ -144,7 +113,8 @@ export const getComposioTools = async (
   }
 
   try {
-    const session = await getComposioSession(userId, normalizedToolkits);
+    // Tool Router sessions retain task memory, so each agent run needs a fresh session.
+    const session = await composio.create(userId, createSessionConfig(normalizedToolkits));
     return await session.tools();
   } catch (error) {
     console.error("Failed to fetch Composio session tools:", error);
@@ -167,34 +137,6 @@ export const validateEnvironment = (): {
   }
 
   return { isValid: true };
-};
-
-/**
- * Refresh tools cache for a user
- * Called after connect/disconnect to ensure fresh tools
- */
-export const refreshCache = async (userId: string): Promise<void> => {
-  try {
-    // Invalidate tools cache first
-    await invalidateUserToolsCache(userId);
-
-    // Get fresh connected accounts from Composio to pre-warm cache
-    const connectedAccounts = await composio.connectedAccounts.list({
-      userIds: [userId],
-    });
-
-    // Get active toolkits for cache pre-warming
-    const activeToolkits = connectedAccounts.items
-      .filter((account) => account.status === "ACTIVE")
-      .map((account) => account.toolkit.slug);
-
-    // Pre-warm tools cache if there are active tools
-    if (activeToolkits.length > 0) {
-      await getComposioTools(userId, activeToolkits);
-    }
-  } catch {
-    // Silently handle error - cache refresh is optional
-  }
 };
 
 export default composio;

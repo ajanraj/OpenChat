@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { DynamicToolResult } from "ai";
 import {
   analyzeSubAgentExecution,
   appendComposioToolRouterInstructions,
@@ -8,13 +9,23 @@ import {
 
 // Mock the composio-server module to avoid environment variable requirements
 vi.mock("@/lib/composio-server", () => ({
-  getComposioTools: vi.fn(),
+  getComposioTools:
+    vi.fn<(userId: string, toolkitSlugs: string[]) => Promise<Record<string, never>>>(),
 }));
 
 // Mock prompt-tool-config to avoid any side effects
 vi.mock("@/lib/prompt-tool-config", () => ({
-  getToolSpecificPrompts: vi.fn().mockReturnValue(""),
+  getToolSpecificPrompts: vi.fn<(toolkits: string[]) => string>().mockReturnValue(""),
 }));
+
+const successfulConnectorResult: DynamicToolResult = {
+  type: "tool-result",
+  toolCallId: "connector-call",
+  toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+  input: {},
+  output: { data: {}, error: null, successful: true },
+  dynamic: true,
+};
 
 describe("create-agent-tool", () => {
   describe("createAgentInputSchema", () => {
@@ -151,6 +162,7 @@ describe("create-agent-tool", () => {
           { toolName: "COMPOSIO_SEARCH_TOOLS" },
           { toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" },
         ],
+        toolResults: [successfulConnectorResult],
         finishReason: "stop",
         finalText: "Successfully sent the email to the recipient.",
         subAgentError: null,
@@ -166,6 +178,7 @@ describe("create-agent-tool", () => {
     it("returns failure when no tools were called", () => {
       const result = analyzeSubAgentExecution({
         toolCalls: [],
+        toolResults: [],
         finishReason: "stop",
         finalText: "I couldn't complete the task without tools.",
         subAgentError: null,
@@ -178,6 +191,7 @@ describe("create-agent-tool", () => {
     it("returns failure when the agent only searches for tools", () => {
       const result = analyzeSubAgentExecution({
         toolCalls: [{ toolName: "COMPOSIO_SEARCH_TOOLS" }],
+        toolResults: [],
         finishReason: "stop",
         finalText: "Found the Gmail send tool but did not execute it.",
         subAgentError: null,
@@ -190,6 +204,7 @@ describe("create-agent-tool", () => {
     it("returns failure when finish reason is error", () => {
       const result = analyzeSubAgentExecution({
         toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [successfulConnectorResult],
         finishReason: "error",
         finalText: "An error occurred during execution.",
         subAgentError: null,
@@ -202,6 +217,7 @@ describe("create-agent-tool", () => {
     it("returns failure when finish reason is tool-calls", () => {
       const result = analyzeSubAgentExecution({
         toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [successfulConnectorResult],
         finishReason: "tool-calls",
         finalText: "Started sending but got interrupted.",
         subAgentError: null,
@@ -214,6 +230,7 @@ describe("create-agent-tool", () => {
     it("returns failure when output is too short", () => {
       const result = analyzeSubAgentExecution({
         toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [successfulConnectorResult],
         finishReason: "stop",
         finalText: "Done", // Less than 25 characters
         subAgentError: null,
@@ -227,6 +244,7 @@ describe("create-agent-tool", () => {
       const error = new Error("API rate limit exceeded");
       const result = analyzeSubAgentExecution({
         toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [successfulConnectorResult],
         finishReason: "stop",
         finalText: "Attempted to send email but failed due to rate limit.",
         subAgentError: error,
@@ -241,6 +259,7 @@ describe("create-agent-tool", () => {
       const longText = "a".repeat(500);
       const result = analyzeSubAgentExecution({
         toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [successfulConnectorResult],
         finishReason: "stop",
         finalText: longText,
         subAgentError: null,
@@ -252,6 +271,7 @@ describe("create-agent-tool", () => {
     it("handles length finish reason as success", () => {
       const result = analyzeSubAgentExecution({
         toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [successfulConnectorResult],
         finishReason: "length",
         finalText: "Successfully completed the task with full details.",
         subAgentError: null,
@@ -260,10 +280,46 @@ describe("create-agent-tool", () => {
       expect(result.success).toBe(true);
     });
 
+    it("returns failure when a connector action has no result", () => {
+      const result = analyzeSubAgentExecution({
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [],
+        finishReason: "stop",
+        finalText: "The connector action appeared to finish successfully.",
+        subAgentError: null,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.issues).toContain("Connector action produced no result");
+    });
+
+    it("returns failure with the connector error from an unsuccessful result", () => {
+      const result = analyzeSubAgentExecution({
+        toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
+        toolResults: [
+          {
+            type: "tool-result",
+            toolCallId: "connector-call",
+            toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+            input: {},
+            output: { data: {}, error: "Gmail rejected the request", successful: false },
+            dynamic: true,
+          },
+        ],
+        finishReason: "stop",
+        finalText: "The connector action appeared to finish successfully.",
+        subAgentError: null,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.issues).toContain("Connector action failed: Gmail rejected the request");
+    });
+
     it("collects multiple issues", () => {
       const error = new Error("Connection failed");
       const result = analyzeSubAgentExecution({
         toolCalls: [],
+        toolResults: [],
         finishReason: "error",
         finalText: "Failed",
         subAgentError: error,
