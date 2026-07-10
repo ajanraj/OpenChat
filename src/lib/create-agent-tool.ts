@@ -1,11 +1,17 @@
-import type { Tool, UIMessage, UIMessageStreamWriter } from "ai";
-import { convertToModelMessages, stepCountIs, streamText, tool } from "ai";
+import type { Tool, ToolSet, TypedToolResult, UIMessage, UIMessageStreamWriter } from "ai";
+import { convertToModelMessages, isStepCount, streamText, toUIMessageStream, tool } from "ai";
 import { z } from "zod";
 import { getComposioTools } from "@/lib/composio-server";
 import type { ConnectorStatusLists } from "@/lib/connector-utils";
 import { getToolSpecificPrompts } from "@/lib/prompt-tool-config";
 
 const toolNameSchema = z.string().min(1, "Tool name is required");
+const COMPOSIO_MULTI_EXECUTE_TOOL = "COMPOSIO_MULTI_EXECUTE_TOOL";
+const COMPOSIO_TOOL_ROUTER_INSTRUCTIONS =
+  "Use COMPOSIO_SEARCH_TOOLS first with atomic, toolkit-scoped queries to discover the required tool schemas. Reuse its returned session_id for later schema lookups and COMPOSIO_MULTI_EXECUTE_TOOL calls. Then execute connector actions with COMPOSIO_MULTI_EXECUTE_TOOL. A search alone does not complete the task. Do not claim success unless COMPOSIO_MULTI_EXECUTE_TOOL returns a successful result. If an account is disconnected, stop and ask the user to reconnect it in Settings; do not attempt connection management.";
+
+export const appendComposioToolRouterInstructions = (instructions: string): string =>
+  `${instructions}\n\n${COMPOSIO_TOOL_ROUTER_INSTRUCTIONS}`;
 
 export const toolListSchema = z.union([
   toolNameSchema,
@@ -53,13 +59,36 @@ export interface SubAgentAnalysis {
   errorMessage?: string;
 }
 
+type SubAgentToolResult = TypedToolResult<ToolSet>;
+
+const connectorToolOutputSchema = z.object({
+  error: z.string().nullable().optional(),
+  successful: z.boolean(),
+});
+
+const isSuccessfulConnectorResult = (result: SubAgentToolResult): boolean => {
+  const parsed = connectorToolOutputSchema.safeParse(result.output);
+  return (
+    parsed.success &&
+    parsed.data.successful &&
+    (parsed.data.error === null || parsed.data.error === undefined)
+  );
+};
+
+const getConnectorResultError = (result: SubAgentToolResult): string | null => {
+  const parsed = connectorToolOutputSchema.safeParse(result.output);
+  return parsed.success && parsed.data.error ? parsed.data.error : null;
+};
+
 export const analyzeSubAgentExecution = ({
   toolCalls,
+  toolResults,
   finishReason,
   finalText,
   subAgentError,
 }: {
   toolCalls: { toolName: string; [key: string]: unknown }[];
+  toolResults: SubAgentToolResult[];
   finishReason: string;
   finalText: string;
   subAgentError: Error | null;
@@ -69,11 +98,22 @@ export const analyzeSubAgentExecution = ({
 
   // Determine completion status
   const attemptedTools = toolCallCount > 0;
+  const connectorActionCalls = toolCalls.filter(
+    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
+  );
+  const connectorActionResults = toolResults.filter(
+    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
+  );
+  const executedConnectorAction = connectorActionCalls.length > 0;
+  const connectorActionsSucceeded =
+    executedConnectorAction &&
+    connectorActionResults.length === connectorActionCalls.length &&
+    connectorActionResults.every(isSuccessfulConnectorResult);
   const normalFinish = finishReason === "stop" || finishReason === "length";
   const hasSubstantialOutput = finalText.length > 25;
   const hasError = subAgentError !== null;
 
-  const success = attemptedTools && normalFinish && hasSubstantialOutput && !hasError;
+  const success = connectorActionsSucceeded && normalFinish && hasSubstantialOutput && !hasError;
 
   const issues: string[] = [];
   if (hasError) {
@@ -81,6 +121,19 @@ export const analyzeSubAgentExecution = ({
   }
   if (!attemptedTools) {
     issues.push("No tools were called");
+  } else if (!executedConnectorAction) {
+    issues.push("No connector action was executed");
+  } else if (connectorActionResults.length < connectorActionCalls.length) {
+    issues.push("Connector action produced no result");
+  } else if (!connectorActionsSucceeded) {
+    const resultErrors = connectorActionResults
+      .map(getConnectorResultError)
+      .filter((message): message is string => message !== null);
+    issues.push(
+      resultErrors.length > 0
+        ? `Connector action failed: ${resultErrors.join("; ")}`
+        : "Connector action failed",
+    );
   }
   if (finishReason === "error") {
     issues.push("Sub-agent encountered an error");
@@ -143,7 +196,7 @@ export const createAgentTool = ({
   const connectorListDescription =
     availableToolkits.length > 0 ? availableToolkits.join(", ") : "(no connectors available)";
 
-  return tool<CreateAgentInput, string>({
+  return tool({
     description: `Create a temporary agent that can use specific connectors to complete a task. Provide the connectors via the \`tool\` field, the high-level goal via \`task\`, and optional context from previous operations via \`context\`. Available connectors: ${connectorListDescription}.`,
     inputSchema: createAgentInputSchema,
     toModelOutput: ({ output }) => {
@@ -199,144 +252,146 @@ export const createAgentTool = ({
         );
       }
 
-      const rawTools = await getComposioTools(userId, requestedToolkits);
-      const filteredTools: Record<string, Tool> = {};
-      for (const [toolName, candidate] of Object.entries(rawTools)) {
-        if (
-          candidate &&
-          typeof candidate === "object" &&
-          "execute" in candidate &&
-          typeof (candidate as Tool).execute === "function"
-        ) {
-          filteredTools[toolName] = candidate as Tool;
-        }
-      }
+      const composioSession = await getComposioTools(userId, requestedToolkits);
 
-      if (Object.keys(filteredTools).length === 0) {
+      if (!composioSession) {
         throw new Error("No connector tools available for the requested selection.");
       }
 
-      const innerSystem =
-        systemPrompt ?? buildInnerSystemPrompt(input.task, requestedToolkits, connectorsStatus);
+      try {
+        const filteredTools = composioSession.tools;
 
-      // Build messages array based on whether context is provided
-      const messages: UIMessage[] = [];
+        if (Object.keys(filteredTools).length === 0) {
+          throw new Error("No connector tools available for the requested selection.");
+        }
 
-      // Add context message if provided
-      if (input.context) {
+        const innerSystem = appendComposioToolRouterInstructions(
+          systemPrompt ?? buildInnerSystemPrompt(input.task, requestedToolkits, connectorsStatus),
+        );
+
+        // Build messages array based on whether context is provided
+        const messages: UIMessage[] = [];
+
+        // Add context message if provided
+        if (input.context) {
+          messages.push({
+            id: "create-agent-context",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: `Context from previous operations:\n\n${input.context}`,
+              },
+            ],
+          });
+        }
+
+        // Add task message
         messages.push({
-          id: "create-agent-context",
+          id: "create-agent-task",
           role: "user",
-          parts: [
-            {
-              type: "text",
-              text: `Context from previous operations:\n\n${input.context}`,
-            },
-          ],
+          parts: [{ type: "text", text: input.task }],
         });
-      }
 
-      // Add task message
-      messages.push({
-        id: "create-agent-task",
-        role: "user",
-        parts: [{ type: "text", text: input.task }],
-      });
+        // Track sub-agent token usage and error state
+        let agentTokenUsage = {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+        };
+        let subAgentError: Error | null = null;
 
-      // Track sub-agent token usage and error state
-      let agentTokenUsage = {
-        inputTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-      };
-      let subAgentError: Error | null = null;
-
-      // Stream the agent's work using standard AI SDK streaming
-      const result = streamText({
-        model,
-        system: innerSystem,
-        messages: await convertToModelMessages(messages),
-        tools: filteredTools,
-        stopWhen: stepCountIs(maxSteps),
-        providerOptions,
-        // toolChoice: "required",
-        onError: ({ error }) => {
-          subAgentError = error instanceof Error ? error : new Error(String(error));
-        },
-        onFinish({ usage }) {
-          agentTokenUsage = {
-            inputTokens: usage.inputTokens || 0,
-            outputTokens: usage.outputTokens || 0,
-            totalTokens: usage.totalTokens || 0,
-          };
-        },
-      });
-
-      // Generate unique boundary ID for this agent execution
-      const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      // Inject start boundary marker
-      writer.write({
-        type: "data-agent-boundary",
-        id: `${boundaryId}-start`,
-        data: {
-          type: "start",
-          agentId: "create_agent",
-          boundaryId,
-          timestamp: new Date().toISOString(),
-          task: input.task,
-          toolkits: requestedToolkits,
-          context: input.context,
-        },
-        transient: false, // Keep in message history for boundary detection
-      });
-
-      // Let AI SDK handle all the streaming naturally
-      writer.merge(result.toUIMessageStream());
-
-      // Collect text output from the stream and get tool execution information
-      let finalText = "";
-      for await (const textPart of result.textStream) {
-        finalText += textPart;
-      }
-
-      // Get tool execution information (these are Promises)
-      const [steps, finishReason] = await Promise.all([result.steps, result.finishReason]);
-
-      // Collect all tool calls from all steps (not just the last one)
-      const toolCalls = steps.flatMap((step) => step.toolCalls || []);
-
-      // Analyze what the sub-agent actually did
-      const analysis = analyzeSubAgentExecution({
-        toolCalls,
-        finishReason,
-        finalText: finalText.trim(),
-        subAgentError,
-      });
-
-      // Inject end boundary marker with analysis
-      writer.write({
-        type: "data-agent-boundary",
-        id: `${boundaryId}-end`,
-        data: {
-          type: "end",
-          agentId: "create_agent",
-          boundaryId,
-          timestamp: new Date().toISOString(),
-          analysis,
-          toolSummary: {
-            toolsUsed: analysis.toolNames,
-            toolCallCount: analysis.toolCallCount,
-            finishReason: analysis.finishReason,
-            success: analysis.success,
+        // Stream the agent's work using standard AI SDK streaming
+        const result = streamText({
+          model,
+          instructions: innerSystem,
+          messages: await convertToModelMessages(messages),
+          tools: filteredTools,
+          stopWhen: isStepCount(maxSteps),
+          providerOptions,
+          // toolChoice: "required",
+          onError: ({ error }) => {
+            subAgentError = error instanceof Error ? error : new Error(String(error));
           },
-          tokenUsage: agentTokenUsage,
-        },
-        transient: false, // Keep in message history for boundary detection
-      });
+          onEnd({ usage }) {
+            agentTokenUsage = {
+              inputTokens: usage.inputTokens || 0,
+              outputTokens: usage.outputTokens || 0,
+              totalTokens: usage.totalTokens || 0,
+            };
+          },
+        });
 
-      // Return structured analysis as JSON for toModelOutput processing
-      return JSON.stringify(analysis);
+        // Generate unique boundary ID for this agent execution
+        const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Inject start boundary marker
+        writer.write({
+          type: "data-agent-boundary",
+          id: `${boundaryId}-start`,
+          data: {
+            type: "start",
+            agentId: "create_agent",
+            boundaryId,
+            timestamp: new Date().toISOString(),
+            task: input.task,
+            toolkits: requestedToolkits,
+            context: input.context,
+          },
+          transient: false, // Keep in message history for boundary detection
+        });
+
+        // Let AI SDK handle all the streaming naturally
+        writer.merge(toUIMessageStream({ stream: result.stream }));
+
+        // Collect text output from the stream and get tool execution information
+        let finalText = "";
+        for await (const textPart of result.textStream) {
+          finalText += textPart;
+        }
+
+        // Get tool execution information (these are Promises)
+        const [steps, finishReason] = await Promise.all([result.steps, result.finishReason]);
+
+        // Collect all tool calls from all steps (not just the last one)
+        const toolCalls = steps.flatMap((step) => step.toolCalls || []);
+        const toolResults = steps.flatMap((step) => step.toolResults || []);
+
+        // Analyze what the sub-agent actually did
+        const analysis = analyzeSubAgentExecution({
+          toolCalls,
+          toolResults,
+          finishReason,
+          finalText: finalText.trim(),
+          subAgentError,
+        });
+
+        // Inject end boundary marker with analysis
+        writer.write({
+          type: "data-agent-boundary",
+          id: `${boundaryId}-end`,
+          data: {
+            type: "end",
+            agentId: "create_agent",
+            boundaryId,
+            timestamp: new Date().toISOString(),
+            analysis,
+            toolSummary: {
+              toolsUsed: analysis.toolNames,
+              toolCallCount: analysis.toolCallCount,
+              finishReason: analysis.finishReason,
+              success: analysis.success,
+            },
+            tokenUsage: agentTokenUsage,
+          },
+          transient: false, // Keep in message history for boundary detection
+        });
+
+        // Return structured analysis as JSON for toModelOutput processing
+        return JSON.stringify(analysis);
+      } finally {
+        await composioSession.close();
+      }
     },
   });
 };

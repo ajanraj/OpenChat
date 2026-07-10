@@ -35,6 +35,16 @@ describe("detectRedactedInParts", () => {
     });
   });
 
+  it("detects redacted reasoning files", () => {
+    const parts = [{ type: "reasoning-file", url: "redacted" }];
+
+    expect(detectRedactedInParts(parts)).toEqual({
+      redactedFiles: 1,
+      redactedTools: 0,
+      redactedParts: 0,
+    });
+  });
+
   it("detects redacted tool calls with REDACTED input", () => {
     const parts = [{ type: "tool-call", input: "REDACTED", output: "some output" }];
     expect(detectRedactedInParts(parts)).toEqual({

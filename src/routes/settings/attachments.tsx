@@ -65,7 +65,7 @@ export function AttachmentsSettingsPage() {
     if (!attachments) {
       return;
     }
-    setSelectedIds(new Set(attachments.map((a) => a._id as Id<"chat_attachments">)));
+    setSelectedIds(new Set(attachments.map((a) => a._id)));
   };
   const clearSelection = () => setSelectedIds(new Set());
 
@@ -152,7 +152,7 @@ export function AttachmentsSettingsPage() {
     return (
       <div className="flex flex-col gap-3">
         {attachments.map((att) => {
-          const selected = isSelected(att._id as Id<"chat_attachments">);
+          const selected = isSelected(att._id);
           return (
             <div
               className={cn(
@@ -162,10 +162,7 @@ export function AttachmentsSettingsPage() {
               )}
               key={att._id}
             >
-              <Checkbox
-                checked={selected}
-                onCheckedChange={() => toggleSelect(att._id as Id<"chat_attachments">)}
-              />
+              <Checkbox checked={selected} onCheckedChange={() => toggleSelect(att._id)} />
               {(att.fileType?.startsWith("image/") ?? false) && att.url ? (
                 <div className="size-10 shrink-0 overflow-hidden rounded-lg border">
                   <img
@@ -197,7 +194,7 @@ export function AttachmentsSettingsPage() {
               </div>
               <Button
                 className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => handleDelete(att._id as Id<"chat_attachments">)}
+                onClick={() => handleDelete(att._id)}
                 size="icon"
                 variant="ghost"
               >

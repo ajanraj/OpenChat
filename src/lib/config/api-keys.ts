@@ -69,7 +69,7 @@ export function getApiKeyProviders() {
 
   // Return only providers that have models with API key support
   return PROVIDER_CONFIGS.filter((config) => providerGroups.has(config.id)).map((config) => ({
-    id: config.id as ApiKeyProvider,
+    id: config.id,
     title: config.title,
     placeholder: config.placeholder,
     docs: config.docs,

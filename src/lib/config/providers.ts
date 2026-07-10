@@ -1,4 +1,3 @@
-import { Flux, Minimax, Moonshot, ZAI } from "@lobehub/icons";
 import {
   AnthropicDark,
   AnthropicLight,
@@ -15,6 +14,7 @@ import {
   QwenDark,
   QwenLight,
 } from "@ridemountainpig/svgl-react";
+import { FluxIcon, KimiIcon, MinimaxIcon, ZAIIcon } from "@/components/icons/provider-brand-icons";
 
 export interface Provider {
   id: string;
@@ -32,7 +32,7 @@ export const PROVIDERS = [
   {
     id: "fal",
     name: "Fal.ai",
-    icon: Flux,
+    icon: FluxIcon,
   },
   {
     id: "gemini",
@@ -82,17 +82,17 @@ export const PROVIDERS = [
   {
     id: "moonshotai",
     name: "Moonshot AI",
-    icon: Moonshot,
+    icon: KimiIcon,
   },
   {
     id: "z-ai",
     name: "Z.AI",
-    icon: ZAI,
+    icon: ZAIIcon,
   },
   {
     id: "minimax",
     name: "MiniMax",
-    icon: Minimax,
+    icon: MinimaxIcon,
   },
 ] as Provider[];
 

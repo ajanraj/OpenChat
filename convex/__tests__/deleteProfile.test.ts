@@ -13,7 +13,7 @@ import { deleteProfile } from "../profiles";
 
 // Mock getAuthUserId
 vi.mock("@convex-dev/auth/server", () => ({
-  getAuthUserId: vi.fn(),
+  getAuthUserId: vi.fn<typeof getAuthUserId>(),
 }));
 
 // Mock convex server — return handler directly via mutation stub

@@ -2,6 +2,8 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useBreakpoint } from "../use-breakpoint";
 
+type ChangeListener = (event: string, callback: () => void) => void;
+
 describe("useBreakpoint", () => {
   let mediaQueryListeners: Map<string, (() => void)[]>;
 
@@ -11,7 +13,7 @@ describe("useBreakpoint", () => {
     // Mock matchMedia
     Object.defineProperty(window, "matchMedia", {
       writable: true,
-      value: vi.fn().mockImplementation((query: string) => {
+      value: vi.fn<(query: string) => object>().mockImplementation((query) => {
         const listeners: (() => void)[] = [];
         mediaQueryListeners.set(query, listeners);
 
@@ -19,13 +21,13 @@ describe("useBreakpoint", () => {
           matches: false,
           media: query,
           onchange: null,
-          addListener: vi.fn(),
-          removeListener: vi.fn(),
-          addEventListener: vi.fn((_event: string, callback: () => void) => {
+          addListener: vi.fn<(callback: () => void) => void>(),
+          removeListener: vi.fn<(callback: () => void) => void>(),
+          addEventListener: vi.fn<ChangeListener>((_event, callback) => {
             listeners.push(callback);
           }),
-          removeEventListener: vi.fn(),
-          dispatchEvent: vi.fn(),
+          removeEventListener: vi.fn<ChangeListener>(),
+          dispatchEvent: vi.fn<(event: Event) => boolean>(),
         };
       }),
     });
@@ -140,17 +142,17 @@ describe("useBreakpoint", () => {
   });
 
   it("cleans up event listener on unmount", () => {
-    const removeEventListenerMock = vi.fn();
+    const removeEventListenerMock = vi.fn<ChangeListener>();
 
     Object.defineProperty(window, "matchMedia", {
       writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
+      value: vi.fn<(query: string) => object>().mockImplementation((query) => ({
         matches: false,
         media: query,
         onchange: null,
-        addEventListener: vi.fn(),
+        addEventListener: vi.fn<ChangeListener>(),
         removeEventListener: removeEventListenerMock,
-        dispatchEvent: vi.fn(),
+        dispatchEvent: vi.fn<(event: Event) => boolean>(),
       })),
     });
 

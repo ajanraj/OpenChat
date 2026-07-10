@@ -202,16 +202,16 @@ For production deployment:
 
 ## Development Commands
 
-| Command             | Description                            |
-| ------------------- | -------------------------------------- |
-| `bun dev`           | Start development server on port 3000  |
-| `bun build`         | Build for production                   |
-| `bun preview`       | Preview production build               |
-| `bun test`          | Run tests with Vitest                  |
-| `bun run lint`      | Run oxlint with auto-fix               |
-| `bun run format`    | Format code with oxfmt                 |
-| `bun run typecheck` | Run TypeScript type checking with tsgo |
-| `bunx convex dev`   | Run Convex development server          |
+| Command             | Description                           |
+| ------------------- | ------------------------------------- |
+| `bun dev`           | Start development server on port 3000 |
+| `bun build`         | Build for production                  |
+| `bun preview`       | Preview production build              |
+| `bun test`          | Run tests with Vitest                 |
+| `bun run lint`      | Run oxlint with auto-fix              |
+| `bun run format`    | Format code with oxfmt                |
+| `bun run typecheck` | Run TypeScript type checking with tsc |
+| `bunx convex dev`   | Run Convex development server         |
 
 ## Troubleshooting
 

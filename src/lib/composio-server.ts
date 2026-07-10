@@ -1,20 +1,9 @@
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
-import type { JSONSchema7, Tool } from "ai";
-import { jsonSchema } from "ai";
-import {
-  getCachedConvertedTools,
-  invalidateUserToolsCache,
-  setCachedConvertedTools,
-} from "./composio-cache";
-import { convertComposioTools, validateComposioTools } from "./composio-tool-adapter";
+import type { ToolSet } from "ai";
+import type { ToolRouterCreateSessionConfig } from "@composio/core";
 import { getAuthConfigId } from "./composio-utils";
 import type { ConnectorType } from "./types";
-
-// Interface for cached tool's inputSchema structure
-interface CachedInputSchema {
-  jsonSchema: JSONSchema7;
-}
 
 // Server-side Composio client initialization (following official example)
 const apiKey = process.env.COMPOSIO_API_KEY;
@@ -28,42 +17,23 @@ const composio = new Composio({
   allowTracking: false,
 });
 
-/**
- * Add execute functions back to cached tools
- */
-const addExecuteFunctionsToCache = (
-  cachedTools: Record<string, Tool>,
-  userId: string,
-): Record<string, Tool> => {
-  // Use functional approach with map for better performance
-  return Object.fromEntries(
-    Object.entries(cachedTools).map(([toolName, tool]) => {
-      // Reconstruct the inputSchema using jsonSchema helper
-      // The cached tool's inputSchema should have a jsonSchema property
-      if (!tool.inputSchema) {
-        throw new Error(`Missing inputSchema for tool: ${toolName}`);
-      }
-      const cachedInputSchema = tool.inputSchema as unknown as CachedInputSchema;
-      const reconstructedInputSchema = jsonSchema(cachedInputSchema.jsonSchema);
-
-      const reconstructedTool: Tool = {
-        ...tool,
-        inputSchema: reconstructedInputSchema,
-        execute: async (input) => {
-          // Call Composio API to execute the tool with correct signature
-          const result = await composio.tools.execute(toolName, {
-            userId,
-            arguments: input,
-          });
-
-          return result;
-        },
-      };
-
-      return [toolName, reconstructedTool];
-    }),
+const normalizeToolkitSlugs = (toolkitSlugs: string[]): string[] =>
+  Array.from(
+    new Set(
+      toolkitSlugs.map((slug) => slug.trim().toLowerCase()).filter((slug) => slug.length > 0),
+    ),
   );
-};
+
+const createSessionConfig = (toolkitSlugs: string[]): ToolRouterCreateSessionConfig => ({
+  toolkits: toolkitSlugs,
+  manageConnections: false,
+  sandbox: { enable: false },
+});
+
+export interface ComposioToolsSession {
+  tools: ToolSet;
+  close: () => Promise<void>;
+}
 
 /**
  * Initiate OAuth connection for a user (server-side only)
@@ -113,7 +83,6 @@ export const initiateConnection = async (
 export const waitForConnection = async (
   connectionRequestId: string,
   timeoutSeconds = 300,
-  userId?: string,
 ): Promise<{ connectionId: string; isConnected: boolean }> => {
   const connectedAccount = await composio.connectedAccounts.waitForConnection(
     connectionRequestId,
@@ -121,11 +90,6 @@ export const waitForConnection = async (
   );
 
   const isConnected = connectedAccount.status === "ACTIVE";
-
-  // If connection is successful and we have userId, refresh caches
-  if (isConnected && userId) {
-    await refreshCache(userId);
-  }
 
   return {
     connectionId: connectedAccount.id,
@@ -136,72 +100,47 @@ export const waitForConnection = async (
 /**
  * Disconnect an account (server-side only)
  */
-export const disconnectAccount = async (connectionId: string, userId: string): Promise<void> => {
+export const disconnectAccount = async (connectionId: string): Promise<void> => {
   await composio.connectedAccounts.delete(connectionId);
-
-  // Refresh caches since connected accounts have changed
-  await refreshCache(userId);
 };
 
 /**
  * Get Composio tools for enabled toolkits (for chat integration)
  */
-export const getComposioTools = async (userId: string, toolkitSlugs: string[]) => {
-  if (!toolkitSlugs.length) {
-    return {};
+export const getComposioTools = async (
+  userId: string,
+  toolkitSlugs: string[],
+): Promise<ComposioToolsSession | null> => {
+  const normalizedToolkits = normalizeToolkitSlugs(toolkitSlugs);
+
+  if (!normalizedToolkits.length) {
+    return null;
   }
 
-  // Check if we have cached converted tools for this exact combination
-  const cachedConverted = await getCachedConvertedTools(userId, toolkitSlugs);
-  // console.log(cachedConverted);
-  if (cachedConverted) {
-    // console.log("Cache hit")
-    // Add execute functions back to cached tools
-    const toolsWithExecute = addExecuteFunctionsToCache(cachedConverted, userId);
-    return toolsWithExecute;
-  }
+  try {
+    // Tool Router sessions retain task memory, so each agent run needs a fresh session.
+    const session = await composio.create(userId, createSessionConfig(normalizedToolkits));
+    const close = async (): Promise<void> => {
+      try {
+        await session.delete();
+      } catch (error) {
+        console.error("Failed to delete Composio session:", error);
+      }
+    };
 
-  // Fetch raw tools from Composio API (can't cache due to functions)
-  // console.log("Using non cache tool")
-  const toolPromises = toolkitSlugs.map(async (toolkit) => {
     try {
-      const tools = await composio.tools.get(userId, {
-        toolkits: [toolkit], // Single toolkit per request
-        limit: 15, // Limit to 15 tools per toolkit
-      });
-      return tools;
+      return {
+        tools: await session.tools(),
+        close,
+      };
     } catch (error) {
-      console.error(`Failed to fetch tools for toolkit ${toolkit}:`, error);
-      return {};
+      await close();
+      throw error;
     }
-  });
-
-  // Execute all requests in parallel
-  const toolsArrays = await Promise.all(toolPromises);
-
-  // Merge all tools into a single object
-  const mergedTools: Record<string, unknown> = {};
-  for (const tools of toolsArrays) {
-    for (const [key, value] of Object.entries(tools)) {
-      mergedTools[key] = value;
-    }
+  } catch (error) {
+    console.error("Failed to fetch Composio session tools:", error);
+    return null;
   }
-
-  // Validate and convert Composio tools to AI SDK v5 format
-  let finalTools: Record<string, unknown>;
-  if (validateComposioTools(mergedTools)) {
-    const convertedTools = convertComposioTools(mergedTools);
-    finalTools = convertedTools;
-  } else {
-    // console.warn('Some tools are not in expected Composio format, returning as-is');
-    finalTools = mergedTools;
-  }
-
-  // console.log('Final tools:', finalTools);
-  // Cache the converted tools for future requests
-  await setCachedConvertedTools(userId, toolkitSlugs, finalTools as Record<string, Tool>);
-
-  return finalTools;
 };
 
 /**
@@ -219,34 +158,6 @@ export const validateEnvironment = (): {
   }
 
   return { isValid: true };
-};
-
-/**
- * Refresh tools cache for a user
- * Called after connect/disconnect to ensure fresh tools
- */
-export const refreshCache = async (userId: string): Promise<void> => {
-  try {
-    // Invalidate tools cache first
-    await invalidateUserToolsCache(userId);
-
-    // Get fresh connected accounts from Composio to pre-warm cache
-    const connectedAccounts = await composio.connectedAccounts.list({
-      userIds: [userId],
-    });
-
-    // Get active toolkits for cache pre-warming
-    const activeToolkits = connectedAccounts.items
-      .filter((account) => account.status === "ACTIVE")
-      .map((account) => account.toolkit.slug.toUpperCase());
-
-    // Pre-warm tools cache if there are active tools
-    if (activeToolkits.length > 0) {
-      await getComposioTools(userId, activeToolkits);
-    }
-  } catch {
-    // Silently handle error - cache refresh is optional
-  }
 };
 
 export default composio;

@@ -4,7 +4,7 @@ import { searchWithFallback } from "../search-provider-factory";
 import { SEARCH_CONFIG } from "../types";
 
 vi.mock("../search-provider-factory", () => ({
-  searchWithFallback: vi.fn(),
+  searchWithFallback: vi.fn<typeof searchWithFallback>(),
 }));
 
 describe("search utilities", () => {
@@ -233,6 +233,7 @@ describe("createSearchTool", () => {
   const executionOptions = {
     toolCallId: "tool-call-1",
     messages: [],
+    context: {},
   };
 
   const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
@@ -248,7 +249,7 @@ describe("createSearchTool", () => {
       },
     ]);
 
-    const onSearchSuccess = vi.fn();
+    const onSearchSuccess = vi.fn<() => Promise<void>>();
     const tool = createSearchTool({ onSearchSuccess });
 
     if (!tool.execute) {
@@ -272,7 +273,7 @@ describe("createSearchTool", () => {
     const mockedSearchWithFallback = vi.mocked(searchWithFallback);
     mockedSearchWithFallback.mockRejectedValueOnce(new Error("provider down"));
 
-    const onSearchSuccess = vi.fn();
+    const onSearchSuccess = vi.fn<() => Promise<void>>();
     const tool = createSearchTool({ onSearchSuccess });
 
     if (!tool.execute) {
@@ -302,7 +303,9 @@ describe("createSearchTool", () => {
       },
     ]);
 
-    const onSearchSuccess = vi.fn().mockRejectedValueOnce(new Error("billing failed"));
+    const onSearchSuccess = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error("billing failed"));
     const tool = createSearchTool({ onSearchSuccess });
 
     if (!tool.execute) {

@@ -30,6 +30,7 @@
     "react/jsx-key": "error",
     "import/no-duplicates": "error",
     "import/first": "error",
+    "vitest/require-mock-type-parameters": "error",
     "no-var": "error",
     "prefer-const": "error",
     "no-constant-binary-expression": "error",

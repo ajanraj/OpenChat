@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import type { toast } from "@/components/ui/toast";
+import type { classifyError, shouldShowAsToast } from "@/lib/error-utils";
 import {
   createChatErrorHandler,
   humaniseUploadError,
@@ -7,18 +9,23 @@ import {
 
 // Mock toast and error-utils
 vi.mock("@/components/ui/toast", () => ({
-  toast: vi.fn(),
+  toast: vi.fn<typeof toast>(),
 }));
 
 vi.mock("@/lib/error-utils", () => ({
-  classifyError: vi.fn(() => ({
+  classifyError: vi.fn<typeof classifyError>(() => ({
+    code: "unknown_error",
+    displayType: "toast",
+    httpStatus: 500,
+    message: "An error occurred",
+    responseType: "error",
     userFriendlyMessage: "An error occurred",
   })),
-  shouldShowAsToast: vi.fn(() => true),
+  shouldShowAsToast: vi.fn<typeof shouldShowAsToast>(() => true),
 }));
 
 vi.mock("@/lib/config/upload", () => ({
-  getAllowedLabel: vi.fn(() => "images, PDFs"),
+  getAllowedLabel: vi.fn<(mimes?: readonly string[]) => string>(() => "images, PDFs"),
   UPLOAD_ALLOWED_MIME: ["image/*", "application/pdf"],
   UPLOAD_MAX_LABEL: "10MB",
 }));

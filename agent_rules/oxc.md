@@ -3,7 +3,7 @@
 ## Tooling
 - **Linter**: oxlint (type-aware, with `--fix`)
 - **Formatter**: oxfmt
-- **Type checker**: tsgo
+- **Type checker**: tsc
 - Run `bun run lint` and `bun run format` before committing. Never use ESLint or Prettier.
 
 ## Enabled Plugins

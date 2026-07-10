@@ -37,7 +37,7 @@
 - **Testing**: Vitest
 - **Linting**: oxlint (with type-aware linting via tsgolint)
 - **Formatting**: oxfmt
-- **Type Checking**: tsgo (TypeScript native compiler)
+- **Type Checking**: tsc (TypeScript native compiler)
 - **Analytics**: PostHog, Vercel Analytics
 - **Caching**: Upstash Redis
 - **Object Storage**: Cloudflare R2 (via @convex-dev/r2)
@@ -50,7 +50,6 @@
 - Follow TanStack Start and React 19 best practices.
 - Use Tailwind CSS utility classes for styling. Avoid inline styles.
 - Use Bun for all package management and scripts (`bun install`).
-- Follow Convex guidelines in `agent_rules/convex_rules.md`.
 - Use shadcn/ui components as documented. Do not modify library code directly. Prefer composition over modification. Follow guidelines in `agent_rules/shadcn.md` when creating or editing UI components.
 - Use oxlint for linting and oxfmt for formatting. Run `bun run lint` and `bun run format` before committing. Do not use other linters or formatters (like ESLint or Prettier).
 - Ensure accessibility: use semantic HTML, provide alt text for images, and follow accessibility guidelines in `agent_rules/design_guidelines.md`.
@@ -117,7 +116,7 @@
 | `bun run lint`         | Run oxlint with type-aware linting and auto-fix |
 | `bun run format`       | Format code with oxfmt                          |
 | `bun run format:check` | Check formatting without writing changes        |
-| `bun run typecheck`    | Run TypeScript type checking with tsgo          |
+| `bun run typecheck`    | Run TypeScript type checking with tsc           |
 | `bunx convex dev`      | Run Convex development server                   |
 
 ## Quality Assurance
@@ -146,7 +145,6 @@
 **You MUST read these files before working on related areas:**
 
 - `agent_rules/commit.md` - Read before making any commits
-- `agent_rules/convex_rules.md` - Read before working with Convex (database, auth, mutations, queries)
 - `agent_rules/oxc.md` - Read before writing code to avoid lint errors
 - `agent_rules/shadcn.md` - Read before creating or editing UI components
 - `agent_rules/design_guidelines.md` - Read before building any UI
@@ -157,3 +155,17 @@
 - NEVER create files unless they're absolutely necessary for achieving your goal.
 - ALWAYS prefer editing an existing file to creating a new one.
 - NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->

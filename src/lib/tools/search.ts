@@ -2,12 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { classifyError } from "@/lib/error-utils";
 import { searchWithFallback } from "./search-provider-factory";
-import {
-  type ExaSearchCategory,
-  SEARCH_CONFIG,
-  type SearchOptions,
-  type SearchResult,
-} from "./types";
+import { SEARCH_CONFIG, type SearchOptions, type SearchResult } from "./types";
 
 // Result processing utilities
 export const truncateContent = (
@@ -122,7 +117,7 @@ export const createSearchTool = ({ onSearchSuccess }: SearchToolCallbacks = {}) 
         excludeDomains,
         startPublishedDate,
         endPublishedDate,
-        category: category as ExaSearchCategory,
+        category: category,
       };
 
       try {

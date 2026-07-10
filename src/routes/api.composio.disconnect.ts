@@ -41,7 +41,7 @@ export const Route = createFileRoute("/api/composio/disconnect")({
           }
 
           // Disconnect from Composio
-          await disconnectAccount(connector.connectionId, user._id);
+          await disconnectAccount(connector.connectionId);
 
           // Remove from Convex
           await client.mutation(api.connectors.removeConnection, {

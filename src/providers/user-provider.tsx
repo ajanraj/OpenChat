@@ -170,25 +170,8 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       updateUser,
       // User capabilities and settings
       hasPremium: hasPremium ?? false,
-      products: products as { premium?: { id: string } } | undefined,
-      rateLimitStatus: rateLimitStatus as
-        | {
-            isPremium: boolean;
-            dailyCount: number;
-            dailyLimit: number;
-            dailyRemaining: number;
-            monthlyCount: number;
-            monthlyLimit: number;
-            monthlyRemaining: number;
-            premiumCount: number;
-            premiumLimit: number;
-            premiumRemaining: number;
-            effectiveRemaining: number;
-            dailyReset?: number;
-            monthlyReset?: number;
-            premiumReset?: number;
-          }
-        | undefined,
+      products: products,
+      rateLimitStatus: rateLimitStatus,
       // API Keys
       apiKeys,
       hasApiKey,

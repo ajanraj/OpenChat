@@ -45,7 +45,7 @@ export function sanitizeMessageParts(parts: any[], options: SanitizationOptions)
       }
 
       // Hide files/images if requested
-      if (options.hideFiles && p.type === "file") {
+      if (options.hideFiles && (p.type === "file" || p.type === "reasoning-file")) {
         return { ...p, url: "redacted" };
       }
 

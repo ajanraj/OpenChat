@@ -257,7 +257,7 @@ export function classifyError(error: unknown): ClassifiedError {
   if (error && error instanceof Error) {
     errorMsg = error.message;
   } else if (error && typeof error === "object" && "message" in error) {
-    errorMsg = String((error as { message: unknown }).message);
+    errorMsg = String(error.message);
   } else {
     errorMsg = String(error);
   }

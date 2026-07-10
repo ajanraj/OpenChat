@@ -4,10 +4,39 @@ import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProfileProvider, useProfile } from "../profile-provider";
 
-const useTanStackQueryMock = vi.hoisted(() => vi.fn());
-const useMutationMock = vi.hoisted(() => vi.fn());
-const convexQueryMock = vi.hoisted(() => vi.fn(() => ({})));
-const useUserMock = vi.hoisted(() => vi.fn());
+interface MockProfile {
+  _creationTime: number;
+  _id: string;
+  icon: string;
+  isDefault: boolean;
+  name: string;
+  order: number;
+  userId: string;
+}
+
+interface MockQueryResult {
+  data: MockProfile[];
+  isLoading: boolean;
+}
+
+interface MockUserResult {
+  user: {
+    _id: string;
+    activeProfileId: string;
+    isAnonymous: boolean;
+  };
+}
+
+type MutationValue = boolean | null | number | string | undefined;
+type MutationMock = (args?: Record<string, MutationValue>) => Promise<null>;
+type FunctionReference = Parameters<typeof getFunctionName>[0];
+
+const useTanStackQueryMock = vi.hoisted(() => vi.fn<(options: object) => MockQueryResult>());
+const useMutationMock = vi.hoisted(() => vi.fn<(mutationRef: FunctionReference) => MutationMock>());
+const convexQueryMock = vi.hoisted(() =>
+  vi.fn<(functionRef: FunctionReference, args?: object | "skip") => object>(() => ({})),
+);
+const useUserMock = vi.hoisted(() => vi.fn<() => MockUserResult>());
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: useTanStackQueryMock,
@@ -124,12 +153,12 @@ describe("ProfileProvider profile switching", () => {
     const firstSwitchDeferred = createDeferred<null>();
     const secondSwitchDeferred = createDeferred<null>();
 
-    const ensureDefaultMutation = vi.fn(async () => null);
+    const ensureDefaultMutation = vi.fn<MutationMock>(async () => null);
     const setActiveMutation = vi
-      .fn()
+      .fn<MutationMock>()
       .mockReturnValueOnce(firstSwitchDeferred.promise)
       .mockReturnValueOnce(secondSwitchDeferred.promise);
-    const updateProfileMutation = vi.fn(async () => null);
+    const updateProfileMutation = vi.fn<MutationMock>(async () => null);
 
     useMutationMock.mockImplementation((mutationRef: Parameters<typeof getFunctionName>[0]) => {
       const functionName = getFunctionName(mutationRef);

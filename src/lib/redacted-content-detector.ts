@@ -41,7 +41,7 @@ export function detectRedactedInParts(
     }
 
     // Check for redacted files
-    if (part.type === "file" && part.url === "redacted") {
+    if ((part.type === "file" || part.type === "reasoning-file") && part.url === "redacted") {
       redactedFiles += 1;
       continue;
     }

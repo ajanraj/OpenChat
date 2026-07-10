@@ -141,6 +141,19 @@ describe("sanitizeMessageParts", () => {
 
       expect(result[0].url).toBe("https://storage.example.com/files/public-doc.pdf");
     });
+
+    it("redacts reasoning file URLs when hideFiles is true", () => {
+      const parts = [
+        {
+          type: "reasoning-file",
+          url: "data:image/png;base64,secret",
+          mediaType: "image/png",
+        },
+      ];
+      const result = sanitizeMessageParts(parts, { hideFiles: true });
+
+      expect(result[0].url).toBe("redacted");
+    });
   });
 
   describe("mixed parts", () => {
