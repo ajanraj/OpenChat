@@ -1,6 +1,7 @@
 import type { UIMessage as MessageType } from "@ai-sdk/react";
 import type { Infer } from "convex/values";
 import React, { useCallback, useState } from "react";
+import type { ReasoningEffort } from "@/lib/config";
 import type { Message as MessageSchema } from "../../../convex/schema/message";
 import { MessageAssistant } from "./message-assistant";
 import { MessageUser } from "./message-user";
@@ -19,7 +20,7 @@ export type MessageProps = {
 			model: string;
 			enableSearch: boolean;
 			files: File[];
-			reasoningEffort: "low" | "medium" | "high";
+			reasoningEffort: ReasoningEffort;
 			removedFileUrls?: string[];
 		},
 	) => void;
@@ -29,10 +30,9 @@ export type MessageProps = {
 	parts?: MessageType["parts"];
 	status?: "streaming" | "ready" | "submitted" | "error"; // Add status prop
 	metadata?: Infer<typeof MessageSchema>["metadata"];
-	selectedModel?: string;
 	isUserAuthenticated?: boolean;
 	isReasoningModel?: boolean;
-	reasoningEffort?: "low" | "medium" | "high";
+	reasoningEffort?: ReasoningEffort;
 };
 
 function MessageComponent({
@@ -49,10 +49,9 @@ function MessageComponent({
 	parts,
 	status, // Receive status prop
 	metadata,
-	selectedModel,
 	isUserAuthenticated = false,
 	isReasoningModel = false,
-	reasoningEffort = "medium",
+	reasoningEffort = "none",
 }: MessageProps) {
 	const [copied, setCopied] = useState(false);
 
@@ -84,7 +83,7 @@ function MessageComponent({
 				parts={parts}
 				readOnly={readOnly}
 				reasoningEffort={reasoningEffort}
-				selectedModel={model || selectedModel || ""}
+				selectedModel={model ?? ""}
 				status={status}
 			/>
 		);
@@ -122,7 +121,6 @@ const equalMessage = (a: MessageProps, b: MessageProps) =>
 	a.readOnly === b.readOnly &&
 	a.status === b.status &&
 	a.metadata === b.metadata &&
-	a.selectedModel === b.selectedModel &&
 	a.isUserAuthenticated === b.isUserAuthenticated &&
 	a.isReasoningModel === b.isReasoningModel &&
 	a.reasoningEffort === b.reasoningEffort &&

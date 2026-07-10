@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -13,24 +14,29 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import type { ReasoningEffort } from "@/lib/config";
+import { getReasoningEffortOptions } from "@/lib/model-utils";
 import { PopoverContentAuth } from "./popover-content-auth";
 
-type ReasoningEffort = "low" | "medium" | "high";
-
 type SelectReasoningEffortProps = {
+	modelId: string;
 	reasoningEffort: ReasoningEffort;
 	onSelectReasoningEffortAction: (reasoningEffort: ReasoningEffort) => void;
 	isUserAuthenticated: boolean;
 };
 
 export function SelectReasoningEffort({
+	modelId,
 	reasoningEffort,
 	onSelectReasoningEffortAction,
 	isUserAuthenticated,
 }: SelectReasoningEffortProps) {
 	const isMobile = useBreakpoint(768);
-	const capitalizedReasoningEffort =
-		reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1);
+	const effortOptions = getReasoningEffortOptions(modelId);
+	const effortLabel =
+		reasoningEffort === "none"
+			? "Off"
+			: reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1);
 
 	if (!isUserAuthenticated) {
 		return (
@@ -56,7 +62,7 @@ export function SelectReasoningEffort({
 									variant="outline"
 								>
 									<BrainIcon className="size-4" />
-									{capitalizedReasoningEffort}
+									{effortLabel}
 									<CaretDownIcon className="size-4" />
 								</Button>
 							)}
@@ -92,7 +98,7 @@ export function SelectReasoningEffort({
 							>
 								<div className="flex items-center gap-2">
 									<BrainIcon className="size-4" />
-									<span>{capitalizedReasoningEffort}</span>
+									<span>{effortLabel}</span>
 								</div>
 								<CaretDownIcon className="size-4 opacity-50" />
 							</Button>
@@ -107,17 +113,18 @@ export function SelectReasoningEffort({
 				align="start"
 				onCloseAutoFocus={(e) => e.preventDefault()}
 			>
-				<DropdownMenuItem onClick={() => onSelectReasoningEffortAction("low")}>
-					Low
-				</DropdownMenuItem>
-				<DropdownMenuItem
-					onClick={() => onSelectReasoningEffortAction("medium")}
-				>
-					Medium
-				</DropdownMenuItem>
-				<DropdownMenuItem onClick={() => onSelectReasoningEffortAction("high")}>
-					High
-				</DropdownMenuItem>
+				<DropdownMenuGroup>
+					{effortOptions.map((effort) => (
+						<DropdownMenuItem
+							key={effort}
+							onClick={() => onSelectReasoningEffortAction(effort)}
+						>
+							{effort === "none"
+								? "Off"
+								: effort.charAt(0).toUpperCase() + effort.slice(1)}
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

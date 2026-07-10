@@ -785,9 +785,10 @@ export const getUser = internalQuery({
 export const assertNotOverLimitInternal = internalMutation({
   args: {
     userId: v.id("users"),
+    requiresPremium: v.boolean(),
     usesPremiumCredits: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, usesPremiumCredits }) => {
+  handler: async (ctx, { userId, requiresPremium, usesPremiumCredits }) => {
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
@@ -797,6 +798,9 @@ export const assertNotOverLimitInternal = internalMutation({
       userId: user._id,
     });
     const isPremium = subscription?.status === "active";
+    if (requiresPremium && !isPremium) {
+      throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
+    }
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, check premium credits

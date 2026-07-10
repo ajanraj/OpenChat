@@ -12,17 +12,20 @@ export const APP_BASE_URL = process.env.VITE_APP_URL ?? "http://localhost:3000";
 export const MODEL_DEFAULT = "gpt-5.4-nano";
 
 export const RECOMMENDED_MODELS = [
-  "gemini-3.1-flash-lite-preview",
-  "gemini-3.1-pro-preview",
-  "imagen-4",
-  "gpt-5.4",
-  "gpt-5.4-mini",
   "gpt-5.4-nano",
-  "x-ai/grok-4.1-fast",
-  "gpt-image-1.5",
-  "claude-4-6-sonnet",
-  "claude-4-6-sonnet-reasoning",
-  "deepseek-r1-0528",
+  "openrouter/free",
+  "gpt-5.6-luna",
+  "gpt-5.6-sol",
+  "claude-sonnet-5",
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-3.1-pro-preview",
+  "x-ai/grok-4.20",
+  "deepseek/deepseek-v4-pro",
+  "minimax/minimax-m3",
+  "gpt-image-2",
+  "nano-banana-2",
+  "flux-2-pro",
 ];
 
 export const MESSAGE_MAX_LENGTH = 4000;

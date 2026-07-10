@@ -3,16 +3,68 @@ import {
   FILE_UPLOAD_FEATURE,
   PDF_PROCESSING_FEATURE,
   REASONING_FEATURE,
+  REASONING_FEATURE_ALWAYS,
   REASONING_FEATURE_DISABLED,
   TOOL_CALLING_FEATURE,
 } from "../features";
 
 export const ANTHROPIC_MODELS = [
   {
+    id: "claude-sonnet-5",
+    name: "Claude Sonnet 5",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Anthropic's latest Sonnet for coding and agentic professional work.\nSupports adaptive reasoning, tools, vision, and one-million-token context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-sonnet-5"),
+  },
+  {
+    id: "claude-opus-4-8",
+    name: "Claude Opus 4.8",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Anthropic's high-capability Opus model for complex professional workflows.\nSupports adaptive reasoning, tools, vision, and one-million-token context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-opus-4-8"),
+  },
+  {
+    id: "claude-fable-5",
+    name: "Claude Fable 5",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Anthropic's most capable Claude 5 model for the hardest agentic work.\nUses always-on adaptive reasoning with vision, tools, and long context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-fable-5"),
+  },
+  {
     id: "claude-4-5-opus",
     name: "Claude 4.5 Opus",
     provider: "anthropic",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description: `Anthropic's most intelligent model with 80.9% on SWE-bench.\nExcels at complex coding, agentic workflows, and long-horizon tasks.`,
@@ -29,8 +81,9 @@ export const ANTHROPIC_MODELS = [
     id: "claude-4-6-opus",
     name: "Claude 4.6 Opus",
     provider: "anthropic",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Anthropic's latest Opus model for long-running agentic coding and complex professional workflows.\nImproves planning, code review/debug reliability, and supports adaptive thinking with up to 1M-token context in beta.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: true },
@@ -48,6 +101,7 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "Anthropic's most capable Sonnet with Opus-level coding and computer use.\nFeatures 1M token context window, improved planning, and agentic workflows.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
@@ -66,6 +120,7 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "Claude 4.6 Sonnet with thinking capabilities enabled.\nDeep reasoning for complex problem-solving and agentic tasks.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
@@ -126,7 +181,7 @@ export const ANTHROPIC_MODELS = [
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
-      REASONING_FEATURE_DISABLED,
+      REASONING_FEATURE,
       TOOL_CALLING_FEATURE,
     ],
     api_sdk: anthropic("claude-haiku-4-5-20251001"),
@@ -138,6 +193,7 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Claude 4.5 Haiku with thinking capabilities enabled.\nFast reasoning for complex tasks.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },

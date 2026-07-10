@@ -2,11 +2,15 @@ import { ConvexError, v } from "convex/values";
 import dayjs from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
+import { MODELS_MAP } from "../src/lib/config";
+import { SCHEDULED_AGENT_MODEL_ID } from "../src/lib/config/models/minimax";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { ensureAuthenticated } from "./lib/auth_helper";
+import { polar } from "./polar";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -18,6 +22,21 @@ const TASK_LIMITS = {
   weekly: 10,
   total: 10,
 } as const;
+
+async function assertScheduledAgentAccess(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
+  const scheduledModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
+  if (!scheduledModel) {
+    throw new ConvexError(ERROR_CODES.UNSUPPORTED_MODEL);
+  }
+  if (!scheduledModel.premium) {
+    return;
+  }
+
+  const subscription = await polar.getCurrentSubscription(ctx, { userId });
+  if (subscription?.status !== "active") {
+    throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
+  }
+}
 
 // Helper function to parse scheduled time and convert to next execution timestamp
 export function calculateNextExecution(
@@ -141,6 +160,7 @@ export const createScheduledTask = mutation({
   returns: v.id("scheduled_tasks"),
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
+    await assertScheduledAgentAccess(ctx, userId);
 
     // Validate user limits - only count 'active' tasks
     const activeTasks = await ctx.db
@@ -295,6 +315,10 @@ export const updateScheduledTask = mutation({
         message: "Scheduled task not found",
         code: ERROR_CODES.INVALID_INPUT,
       });
+    }
+
+    if (args.status === "active" && task.status !== "active") {
+      await assertScheduledAgentAccess(ctx, userId);
     }
 
     // Prepare update object
@@ -608,6 +632,8 @@ export const triggerScheduledTask = mutation({
         code: ERROR_CODES.INVALID_INPUT,
       });
     }
+
+    await assertScheduledAgentAccess(ctx, userId);
 
     // Schedule immediate execution with manual trigger flag
     await ctx.scheduler.runAfter(0, internal.scheduled_ai.executeTask, {

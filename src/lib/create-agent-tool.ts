@@ -2,6 +2,7 @@ import type { Tool, ToolSet, TypedToolResult, UIMessage, UIMessageStreamWriter }
 import { convertToModelMessages, isStepCount, streamText, toUIMessageStream, tool } from "ai";
 import { z } from "zod";
 import { getComposioTools } from "@/lib/composio-server";
+import type { ReasoningEffort } from "@/lib/config/schemas";
 import type { ConnectorStatusLists } from "@/lib/connector-utils";
 import { getToolSpecificPrompts } from "@/lib/prompt-tool-config";
 
@@ -44,6 +45,7 @@ interface CreateAgentToolOptions {
   model: string;
   systemPrompt?: string;
   maxSteps?: number;
+  reasoning?: ReasoningEffort;
   providerOptions?: ProviderOptions;
   connectorsStatus?: ConnectorStatusLists;
   writer: UIMessageStreamWriter;
@@ -189,6 +191,7 @@ export const createAgentTool = ({
   model,
   systemPrompt,
   maxSteps = 8,
+  reasoning,
   providerOptions,
   connectorsStatus,
   writer,
@@ -308,6 +311,7 @@ export const createAgentTool = ({
           messages: await convertToModelMessages(messages),
           tools: filteredTools,
           stopWhen: isStepCount(maxSteps),
+          reasoning,
           providerOptions,
           // toolChoice: "required",
           onError: ({ error }) => {

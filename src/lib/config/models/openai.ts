@@ -12,11 +12,80 @@ import {
 
 export const OPENAI_MODELS = [
   {
+    id: "gpt-5.6-luna",
+    name: "GPT-5.6 Luna",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "OpenAI's efficient GPT-5.6 model for everyday professional work.\nSupports multimodal input, reasoning, tools, and long context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.6-luna"),
+  },
+  {
+    id: "gpt-5.6-terra",
+    name: "GPT-5.6 Terra",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's balanced GPT-5.6 model for demanding professional work.\nSupports multimodal input, reasoning, tools, and long context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.6-terra"),
+  },
+  {
+    id: "gpt-5.6-sol",
+    name: "GPT-5.6 Sol",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's highest-capability GPT-5.6 model.\nBuilt for expert reasoning, coding, tool use, and long-running workflows.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.6-sol"),
+  },
+  {
+    id: "gpt-5.5",
+    name: "GPT-5.5",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's GPT-5.5 flagship for advanced professional work.\nSupports multimodal input, reasoning, tools, and long context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-5.5"),
+  },
+  {
     id: "gpt-5.4",
     name: "GPT-5.4",
     provider: "openai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "OpenAI's latest flagship model for professional work.\nStronger on reasoning, coding, tool use, and long-running workflows.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
@@ -32,8 +101,9 @@ export const OPENAI_MODELS = [
     id: "gpt-5.4-pro",
     name: "GPT-5.4 Pro",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Maximum-performance GPT-5.4 variant for the hardest reasoning and agentic tasks.\nBest reserved for expert analysis and long-horizon workflows.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: true },
@@ -49,7 +119,7 @@ export const OPENAI_MODELS = [
     id: "gpt-5.4-mini",
     name: "GPT-5.4 Mini",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     description:
       "OpenAI's strongest mini model yet for coding, computer use, and subagents.\nBest for high-volume GPT-5.4-class workflows that still need reasoning and tools.",
@@ -85,6 +155,7 @@ export const OPENAI_MODELS = [
     provider: "openai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "Newest ultra-fast GPT-5.3 instant model tuned for low-latency interactions.\nBest for quick responses, live chat, and tool-augmented workflows.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
@@ -118,7 +189,7 @@ export const OPENAI_MODELS = [
     id: "gpt-5.2-pro",
     name: "GPT-5.2 Pro",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -206,7 +277,7 @@ export const OPENAI_MODELS = [
     id: "gpt-5-mini",
     name: "GPT-5 Mini",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -224,7 +295,7 @@ export const OPENAI_MODELS = [
     id: "gpt-5-nano",
     name: "GPT-5 Nano",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -242,7 +313,7 @@ export const OPENAI_MODELS = [
     id: "gpt-oss-20b",
     name: "GPT OSS 20B",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     description: `OpenAI's new smaller 20B open-source model. \nAround o3-mini performance, with super fast inference by Groq.`,
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
@@ -254,7 +325,7 @@ export const OPENAI_MODELS = [
     name: "GPT OSS 120B",
     provider: "openai",
     displayProvider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     description: `OpenAI's new larger 120B open-source model. \nNearly as good as o4-mini, with super fast inference by Groq.`,
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
@@ -282,7 +353,7 @@ export const OPENAI_MODELS = [
     id: "gpt-4o-mini",
     name: "GPT-4o Mini",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -336,7 +407,7 @@ export const OPENAI_MODELS = [
     id: "o3-pro",
     name: "o3 Pro",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -351,13 +422,26 @@ export const OPENAI_MODELS = [
     api_sdk: openai("o3-pro"),
   },
   {
+    id: "gpt-image-2",
+    name: "GPT Image 2",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's latest image generation model.\nCreates high-fidelity images with reliable text rendering and precise prompt control.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [IMAGE_GENERATION_FEATURE],
+    api_sdk: openai.image("gpt-image-2"),
+  },
+  {
     id: "gpt-image-1.5",
     name: "GPT Image 1.5",
     provider: "openai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "OpenAI's latest image generation model with major improvements in realism and accuracy.\nFeatures high-fidelity photorealism, reliable text rendering, and precise style control.",
+      "OpenAI's previous image generation model.\nSupports photorealism, text rendering, and style control.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [IMAGE_GENERATION_FEATURE],
     api_sdk: openai.image("gpt-image-1.5"),
@@ -383,7 +467,7 @@ export const OPENAI_MODELS = [
     id: "gpt-4.1-mini",
     name: "GPT-4.1 Mini",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -400,7 +484,7 @@ export const OPENAI_MODELS = [
     id: "gpt-4.1-nano",
     name: "GPT-4.1 Nano",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description:
@@ -417,9 +501,10 @@ export const OPENAI_MODELS = [
     id: "gpt-4.5",
     name: "GPT-4.5",
     provider: "openai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
+    retired: true,
     description:
       "General-purpose model with enhanced understanding.\nOffers better nuance, creativity, and aesthetic intuition.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: true },

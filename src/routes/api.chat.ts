@@ -1,4 +1,3 @@
-import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { createFileRoute } from "@tanstack/react-router";
@@ -11,7 +10,6 @@ import {
   type FileUIPart,
   generateImage,
   isStepCount,
-  type JSONValue,
   smoothStream,
   streamText,
   toUIMessageStream,
@@ -23,7 +21,8 @@ import { ConvexError, type Infer } from "convex/values";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { Message } from "@/convex/schema/message";
-import { MODELS_MAP } from "@/lib/config";
+import { MODEL_DEFAULT, MODELS_MAP } from "@/lib/config";
+import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
 import { calculateConnectorStatus } from "@/lib/connector-utils";
 import { createAgentTool } from "@/lib/create-agent-tool";
 import { limitDepth } from "@/lib/depth-limiter";
@@ -36,6 +35,7 @@ import {
   shouldShowInConversation,
 } from "@/lib/error-utils";
 import { authMiddleware } from "@/lib/middleware/auth";
+import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
 import { buildSystemPrompt, PERSONAS_MAP } from "@/lib/prompt_config";
 import {
   detectProviderErrorFromObject,
@@ -96,7 +96,6 @@ async function saveErrorMessage(
   }
 }
 
-type ReasoningEffort = "low" | "medium" | "high";
 type SupportedProvider = "openrouter" | "openai" | "anthropic" | "mistral" | "meta" | "Qwen";
 
 /**
@@ -135,30 +134,6 @@ async function saveUserMessage(
   return null;
 }
 
-/**
- * Centralized reasoning effort configuration
- * - low: For quick responses with minimal reasoning depth
- * - medium: Balanced reasoning depth for most use cases
- * - high: Maximum reasoning depth for complex problems
- *
- * tokens: Used by Google and Anthropic providers
- * effort: Used by OpenAI and OpenRouter providers
- */
-const REASONING_EFFORT_CONFIG = {
-  low: {
-    tokens: 1024,
-    effort: "low",
-  },
-  medium: {
-    tokens: 6000,
-    effort: "medium",
-  },
-  high: {
-    tokens: 12_000,
-    effort: "high",
-  },
-} as const;
-
 interface ChatRequest {
   messages: UIMessage[];
   chatId: Id<"chats">;
@@ -168,7 +143,7 @@ interface ChatRequest {
   reloadAssistantMessageId?: Id<"messages">;
   editMessageId?: Id<"messages">;
   enableSearch?: boolean;
-  reasoningEffort?: ReasoningEffort;
+  reasoningEffort?: unknown;
   userInfo?: { timezone?: string };
 }
 
@@ -200,13 +175,11 @@ type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOpt
 const buildGoogleProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): Record<string, JSONValue> => {
-  if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+): GoogleLanguageModelOptions => {
+  if (shouldEnableThinking(modelId) && reasoningEffort !== "none") {
     const options = {
       thinkingConfig: {
         includeThoughts: true,
-        thinkingBudget: config.tokens,
       },
     } satisfies GoogleLanguageModelOptions;
     return options;
@@ -218,48 +191,12 @@ const buildGoogleProviderOptions = (
 const buildOpenAIProviderOptions = (
   modelId: string,
   reasoningEffort?: ReasoningEffort,
-): Record<string, JSONValue> => {
-  if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
+): OpenAIResponsesProviderOptions => {
+  if (shouldEnableThinking(modelId) && reasoningEffort !== "none") {
     const options = {
-      reasoningEffort: config.effort,
       reasoningSummary: "detailed",
     } satisfies OpenAIResponsesProviderOptions;
     return options;
-  }
-
-  return {};
-};
-
-const buildAnthropicProviderOptions = (
-  modelId: string,
-  reasoningEffort?: ReasoningEffort,
-): Record<string, JSONValue> => {
-  if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
-    const options = {
-      thinking: {
-        type: "enabled",
-        budgetTokens: config.tokens,
-      },
-    } satisfies AnthropicProviderOptions;
-    return options;
-  }
-
-  return {};
-};
-
-const buildOpenRouterProviderOptions = (
-  modelId: string,
-  reasoningEffort?: ReasoningEffort,
-): Record<string, JSONValue> => {
-  if (shouldEnableThinking(modelId) && reasoningEffort) {
-    const config = REASONING_EFFORT_CONFIG[reasoningEffort];
-    return {
-      reasoning: {
-        effort: config.effort,
-      },
-    };
   }
 
   return {};
@@ -416,7 +353,7 @@ export const Route = createFileRoute("/api/chat")({
             reloadAssistantMessageId,
             editMessageId,
             enableSearch,
-            reasoningEffort,
+            reasoningEffort: requestedReasoningEffort,
             userInfo,
           } = (await request.json()) as ChatRequest;
 
@@ -437,10 +374,30 @@ export const Route = createFileRoute("/api/chat")({
             return createErrorResponse(new Error("'chatId' must be a non-empty string."));
           }
 
-          const selectedModel = MODELS_MAP[model];
-          if (!selectedModel) {
-            return createErrorResponse(new Error("Invalid 'model' provided."));
+          const requestedModel = MODELS_MAP[model];
+          if (!requestedModel) {
+            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
           }
+
+          const selectedModel = requestedModel.retired ? MODELS_MAP[MODEL_DEFAULT] : requestedModel;
+          if (!selectedModel) {
+            return createErrorResponse(new Error("Default model is unavailable."));
+          }
+
+          const parsedReasoningEffort =
+            ReasoningEffortSchema.optional().safeParse(requestedReasoningEffort);
+          if (!parsedReasoningEffort.success) {
+            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
+          }
+
+          const resolvedReasoningEffort = resolveReasoningEffort(
+            selectedModel.id,
+            parsedReasoningEffort.data,
+          );
+          if (!resolvedReasoningEffort.success) {
+            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
+          }
+          const { effort: reasoningEffort } = resolvedReasoningEffort;
 
           const { token, client } = context;
 
@@ -700,16 +657,12 @@ export const Route = createFileRoute("/api/chat")({
               };
             }
             if (selectedModel.provider === "anthropic") {
-              const options = buildAnthropicProviderOptions(selectedModel.id, reasoningEffort);
               return {
-                anthropic: {
-                  ...options,
-                  ...(apiKey ? { apiKey } : {}),
-                },
+                anthropic: apiKey ? { apiKey } : {},
               };
             }
             if (selectedModel.provider === "openrouter") {
-              const options = buildOpenRouterProviderOptions(selectedModel.id, reasoningEffort);
+              const options = getOpenRouterReasoningOptions(selectedModel.id, reasoningEffort);
               return {
                 openrouter: {
                   ...options,
@@ -806,6 +759,7 @@ export const Route = createFileRoute("/api/chat")({
                     userId: user._id,
                     availableToolkits: connectorsStatus.enabled,
                     model: selectedModel.api_sdk,
+                    reasoning: reasoningEffort,
                     providerOptions,
                     connectorsStatus,
                     writer,
@@ -820,6 +774,8 @@ export const Route = createFileRoute("/api/chat")({
                     messages: await convertToModelMessages(messages),
                     tools: toolset,
                     stopWhen: isStepCount(20),
+                    // AI SDK 7 maps this standardized value into each provider's request.
+                    reasoning: reasoningEffort,
                     experimental_transform: smoothStream({
                       delayInMs: 20,
                       chunking: "word",

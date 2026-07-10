@@ -24,6 +24,7 @@ import {
 	Message as MessageContainer,
 	MessageContent,
 } from "@/components/prompt-kit/message";
+import type { ReasoningEffort } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
 const getTextFromDataUrl = (dataUrl: string) => {
@@ -186,7 +187,7 @@ export type MessageUserProps = {
 			model: string;
 			enableSearch: boolean;
 			files: File[];
-			reasoningEffort: "low" | "medium" | "high";
+			reasoningEffort: ReasoningEffort;
 			removedFileUrls?: string[];
 		},
 	) => void;
@@ -197,7 +198,7 @@ export type MessageUserProps = {
 	isUserAuthenticated: boolean;
 	editFiles?: File[];
 	isReasoningModel?: boolean;
-	reasoningEffort?: "low" | "medium" | "high";
+	reasoningEffort?: ReasoningEffort;
 	isSearchEnabled?: boolean;
 };
 
@@ -215,7 +216,7 @@ function MessageUserInner({
 	isUserAuthenticated,
 	editFiles = EMPTY_EDIT_FILES,
 	isReasoningModel = false,
-	reasoningEffort = "medium",
+	reasoningEffort = "none",
 	isSearchEnabled = false,
 }: MessageUserProps): React.ReactElement {
 	// Extract text content from parts

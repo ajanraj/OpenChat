@@ -81,6 +81,48 @@ describe("create-agent-tool", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  it("passes reasoning effort to the nested stream", async () => {
+    const close = vi.fn<() => Promise<void>>().mockResolvedValue();
+    mockGetComposioTools.mockResolvedValue({
+      tools: {
+        TEST_TOOL: ai.tool({
+          description: "Test connector tool",
+          inputSchema: z.object({}),
+          execute: () => ({ successful: true, error: null }),
+        }),
+      },
+      close,
+    });
+    mockStreamText.mockImplementation(() => {
+      throw new Error("Stop after inspecting options");
+    });
+    const writer: ai.UIMessageStreamWriter = {
+      write: vi.fn<ai.UIMessageStreamWriter["write"]>(),
+      merge: vi.fn<ai.UIMessageStreamWriter["merge"]>(),
+      onError: undefined,
+    };
+    const agentTool = createAgentTool({
+      userId: "user-123",
+      availableToolkits: ["GMAIL"],
+      model: "test-model",
+      reasoning: "high",
+      writer,
+    });
+
+    if (!agentTool.execute) {
+      throw new Error("Expected create-agent tool to be executable");
+    }
+
+    await expect(
+      agentTool.execute(
+        { tool: "GMAIL", task: "Send an email" },
+        { toolCallId: "agent-call", messages: [], context: {} },
+      ),
+    ).rejects.toThrow("Stop after inspecting options");
+    expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ reasoning: "high" }));
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   describe("createAgentInputSchema", () => {
     describe("tool field validation", () => {
       it("accepts a single string tool name", () => {

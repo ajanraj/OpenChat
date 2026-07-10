@@ -2,11 +2,38 @@ import {
   FILE_UPLOAD_FEATURE,
   REASONING_FEATURE,
   REASONING_FEATURE_DISABLED,
+  REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
 } from "../features";
 import { openrouter } from "../openrouter";
 
 export const ZAI_MODELS = [
+  {
+    id: "z-ai/glm-5.2",
+    name: "GLM 5.2",
+    provider: "openrouter",
+    displayProvider: "z-ai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Z.AI's latest long-context flagship.\nSupports configurable reasoning, tools, and agentic coding workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: openrouter("z-ai/glm-5.2"),
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+  },
+  {
+    id: "z-ai/glm-5v-turbo",
+    name: "GLM 5V Turbo",
+    provider: "openrouter",
+    displayProvider: "z-ai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Z.AI's latest multimodal model for visual and video understanding.\nSupports optional reasoning and tool-driven workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: openrouter("z-ai/glm-5v-turbo"),
+    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+  },
   {
     id: "glm-5",
     name: "GLM 5",
@@ -14,6 +41,7 @@ export const ZAI_MODELS = [
     displayProvider: "z-ai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Z.ai (Zhipu AI) GLM-5 in non-thinking mode.\nReleased on February 11, 2026 with 202,752 context for fast agentic coding and systems workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
@@ -28,6 +56,7 @@ export const ZAI_MODELS = [
     displayProvider: "z-ai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Z.ai (Zhipu AI) GLM-5 with thinking enabled.\nReleased on February 11, 2026 with 202,752 context, optimized for long-horizon planning and deep reasoning.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
@@ -51,7 +80,7 @@ export const ZAI_MODELS = [
     name: "GLM 4.5 Air",
     provider: "openrouter",
     displayProvider: "z-ai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
     description: `ZAI's streamlined efficiency model. \nFeatures 106B total parameters with 12B active, runs on just eight H20 GPUs, delivers exceptional performance in its parameter category, and offers superior cost-effectiveness for accessible deployment.`,
@@ -106,6 +135,7 @@ export const ZAI_MODELS = [
     displayProvider: "z-ai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Z.AI's vision model based on GLM 4.6.\nSupports image understanding with 200K context and advanced multimodal capabilities.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },

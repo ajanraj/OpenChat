@@ -1,16 +1,47 @@
-import { REASONING_FEATURE, TOOL_CALLING_FEATURE } from "../features";
+import {
+  FILE_UPLOAD_FEATURE,
+  REASONING_FEATURE_FIXED,
+  REASONING_FEATURE_TOGGLE,
+  TOOL_CALLING_FEATURE,
+} from "../features";
 import { openrouter } from "../openrouter";
 
 export const QWEN_MODELS = [
+  {
+    id: "qwen/qwen3.7-plus",
+    name: "Qwen 3.7 Plus",
+    provider: "openrouter",
+    displayProvider: "qwen",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Qwen's multimodal long-context model.\nSupports optional reasoning and tools for general and agentic work.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+    api_sdk: openrouter("qwen/qwen3.7-plus"),
+  },
+  {
+    id: "qwen/qwen3.7-max",
+    name: "Qwen 3.7 Max",
+    provider: "openrouter",
+    displayProvider: "qwen",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Qwen's highest-capability 3.7 model.\nSupports optional reasoning and tools across a one-million-token context.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+    api_sdk: openrouter("qwen/qwen3.7-max"),
+  },
   {
     id: "qwen/qwen3-coder",
     name: "Qwen3 Coder",
     provider: "openrouter",
     displayProvider: "qwen",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
-    description: `Qwen's Best Coder model.\nOffers agentic tools capabilities for various coding tasks.`,
+    description: "Qwen's agentic coding model.\nSupports tools across complex coding tasks.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE],
     api_sdk: openrouter("qwen/qwen3-coder:nitro"),
@@ -23,9 +54,10 @@ export const QWEN_MODELS = [
     displayProvider: "qwen",
     premium: true,
     usesPremiumCredits: false,
-    description: `Qwen's Best Thinking model.\nOffers agentic tools capabilities for various thinking tasks.`,
+    legacy: true,
+    description: "Qwen's previous reasoning-focused flagship model.\nSupports agentic tool use.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
-    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE],
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_FIXED],
     api_sdk: openrouter("qwen/qwen3-235b-a22b-thinking-2507:nitro"),
   },
   {
@@ -33,9 +65,10 @@ export const QWEN_MODELS = [
     name: "Qwen3 235B",
     provider: "openrouter",
     displayProvider: "qwen",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
-    description: `Qwen's Best 235B model.\nOffers agentic tools capabilities for various tasks.`,
+    legacy: true,
+    description: "Qwen's previous 235B flagship model.\nSupports agentic tool use.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE],
     api_sdk: openrouter("qwen/qwen3-235b-a22b-2507:nitro"),

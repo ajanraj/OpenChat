@@ -9,14 +9,16 @@ import {
 } from "@/components/prompt-kit/prompt-input";
 import { Button } from "@/components/ui/button";
 import { useEditClickOutside } from "@/hooks/use-edit-click-outside";
-import { MODEL_DEFAULT, MODELS_MAP } from "@/lib/config";
+import { MODEL_DEFAULT, MODELS_MAP, type ReasoningEffort } from "@/lib/config";
+import {
+	normalizeReasoningEffort,
+	supportsReasoningEffort,
+} from "@/lib/model-utils";
 import { ButtonFileUpload } from "./button-file-upload";
 import { ButtonSearch } from "./button-search";
 import { FileList } from "./file-list";
 import { SelectModel } from "./select-model";
 import { SelectReasoningEffort } from "./select-reasoning-effort";
-
-type ReasoningEffort = "low" | "medium" | "high";
 
 const EMPTY_FILES: File[] = [];
 const EMPTY_EXISTING_FILES: Array<{
@@ -63,20 +65,23 @@ export function EditInput({
 	isSearchEnabled = false,
 	isUserAuthenticated,
 	status,
-	isReasoningModel = false,
-	reasoningEffort = "medium",
+	reasoningEffort = "none",
 }: EditInputProps) {
 	// Local state for edit mode (isolated from global chat state)
 	const [value, setValue] = useState(() => initialValue);
-	const [editOptions, setEditOptions] = useState(() => ({
-		searchEnabled: isSearchEnabled,
-		model:
+	const [editOptions, setEditOptions] = useState(() => {
+		const model =
 			selectedModel && MODELS_MAP[selectedModel]
 				? selectedModel
-				: MODEL_DEFAULT,
-		reasoningEffort,
-	}));
+				: MODEL_DEFAULT;
+		return {
+			searchEnabled: isSearchEnabled,
+			model,
+			reasoningEffort: normalizeReasoningEffort(model, reasoningEffort),
+		};
+	});
 	const [editFiles, setEditFiles] = useState<File[]>(() => initialFiles);
+	const canConfigureReasoning = supportsReasoningEffort(editOptions.model);
 	const [keptExistingUrls, setKeptExistingUrls] = useState<Set<string>>(
 		() => new Set(existingFiles.map((f) => f.url.split("?")[0])),
 	);
@@ -164,6 +169,16 @@ export function EditInput({
 		keptExistingUrls,
 	]);
 
+	const handleModelChange = useCallback((model: string) => {
+		setEditOptions((previous) => {
+			return {
+				...previous,
+				model,
+				reasoningEffort: normalizeReasoningEffort(model, previous.reasoningEffort),
+			};
+		});
+	}, []);
+
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
 			if (e.key === "Enter" && !e.shiftKey) {
@@ -234,14 +249,13 @@ export function EditInput({
 						/>
 						<SelectModel
 							isUserAuthenticated={isUserAuthenticated}
-							onSelectModel={(model) =>
-								setEditOptions((prev) => ({ ...prev, model }))
-							}
+							onSelectModel={handleModelChange}
 							selectedModel={editOptions.model}
 						/>
-						{isReasoningModel ? (
+						{canConfigureReasoning ? (
 							<SelectReasoningEffort
 								isUserAuthenticated={isUserAuthenticated}
+								modelId={editOptions.model}
 								onSelectReasoningEffortAction={(reasoningEffort) =>
 									setEditOptions((prev) => ({ ...prev, reasoningEffort }))
 								}

@@ -984,7 +984,9 @@ type FeatureId = keyof typeof FEATURE_STYLES;
 // Pre-compute effort-control model IDs for type-safe matching
 const EFFORT_MODELS = new Set(
 	MODELS_OPTIONS.filter((m) =>
-		m.features.some((f) => f.id === "reasoning" && f.supportsEffort),
+		m.features.some(
+			(f) => f.id === "reasoning" && (f.effortOptions?.length ?? 0) > 0,
+		),
 	).map((m) => m.id),
 );
 

@@ -3,13 +3,46 @@ import {
   FILE_UPLOAD_FEATURE,
   PDF_PROCESSING_FEATURE,
   REASONING_FEATURE,
+  REASONING_FEATURE_ALWAYS,
   REASONING_FEATURE_BASIC,
   REASONING_FEATURE_DISABLED,
+  REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
 } from "../features";
 import { openrouter } from "../openrouter";
 
+const GROK_MULTIMODAL_FEATURES = [
+  FILE_UPLOAD_FEATURE,
+  PDF_PROCESSING_FEATURE,
+  TOOL_CALLING_FEATURE,
+];
+
 export const XAI_MODELS = [
+  {
+    id: "xai/grok-4.5",
+    name: "Grok 4.5",
+    provider: "xai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "xAI's latest high-capability reasoning model.\nSupports multimodal input, tools, and configurable reasoning across long context.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: gateway("xai/grok-4.5"),
+    features: [...GROK_MULTIMODAL_FEATURES, REASONING_FEATURE_ALWAYS],
+  },
+  {
+    id: "x-ai/grok-4.20",
+    name: "Grok 4.20",
+    provider: "openrouter",
+    displayProvider: "xai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "xAI's efficient Grok 4.20 model for agentic work.\nSupports optional reasoning, multimodal input, and tools.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: openrouter("x-ai/grok-4.20"),
+    features: [...GROK_MULTIMODAL_FEATURES, REASONING_FEATURE_TOGGLE],
+  },
   {
     id: "grok-4",
     name: "Grok 4",
@@ -17,7 +50,8 @@ export const XAI_MODELS = [
     premium: true,
     usesPremiumCredits: true,
     legacy: true,
-    description: `xAI's most advanced reasoning model with frontier-level intelligence.\nFeatures real-time X data access, advanced reasoning, and native tool use.\nExcels at mathematical reasoning, coding, and complex problem-solving.`,
+    description:
+      "xAI's previous flagship reasoning model.\nSupports tools and complex problem solving.",
     api_sdk: gateway("xai/grok-4"),
     features: [REASONING_FEATURE_BASIC, TOOL_CALLING_FEATURE],
   },
@@ -28,7 +62,7 @@ export const XAI_MODELS = [
     premium: true,
     usesPremiumCredits: true,
     legacy: true,
-    description: `xAI's flagship model.\nFeatures real-time X data access.`,
+    description: "xAI's earlier flagship model.\nBuilt for general-purpose conversations.",
     api_sdk: gateway("xai/grok-3-latest"),
     features: [REASONING_FEATURE_DISABLED],
   },
@@ -36,11 +70,10 @@ export const XAI_MODELS = [
     id: "grok-3-mini",
     name: "Grok 3 Mini",
     provider: "xai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     legacy: true,
-    description:
-      "Cost-efficient reasoning model from xAI.\nExcels at STEM tasks requiring less world knowledge.",
+    description: "xAI's earlier cost-efficient reasoning model.\nDesigned for STEM tasks.",
     api_sdk: gateway("xai/grok-3-mini"),
     features: [REASONING_FEATURE_BASIC, TOOL_CALLING_FEATURE],
   },
@@ -50,35 +83,29 @@ export const XAI_MODELS = [
     subName: "Thinking",
     provider: "openrouter",
     displayProvider: "xai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     skipRateLimit: true,
+    legacy: true,
+    retired: true,
     description:
-      "Grok 4.1 Fast with reasoning capabilities enabled.\nxAI's best agentic model for deep research and complex tasks.",
+      "Retired Grok 4.1 Fast reasoning route.\nExisting chats automatically switch to the default model.",
     api_sdk: openrouter("x-ai/grok-4.1-fast"),
-    features: [
-      FILE_UPLOAD_FEATURE,
-      PDF_PROCESSING_FEATURE,
-      REASONING_FEATURE,
-      TOOL_CALLING_FEATURE,
-    ],
+    features: [...GROK_MULTIMODAL_FEATURES, REASONING_FEATURE],
   },
   {
     id: "x-ai/grok-4.1-fast",
     name: "Grok 4.1 Fast",
     provider: "openrouter",
     displayProvider: "xai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
     skipRateLimit: true,
+    legacy: true,
+    retired: true,
     description:
-      "Grok 4.1 Fast (Non-Thinking). Optimized for speed.\nBest agentic tool calling model for real-world use cases.",
+      "Retired Grok 4.1 Fast route.\nExisting chats automatically switch to the default model.",
     api_sdk: openrouter("x-ai/grok-4.1-fast"),
-    features: [
-      FILE_UPLOAD_FEATURE,
-      PDF_PROCESSING_FEATURE,
-      TOOL_CALLING_FEATURE,
-      REASONING_FEATURE_DISABLED,
-    ],
+    features: [...GROK_MULTIMODAL_FEATURES, REASONING_FEATURE_DISABLED],
   },
 ];

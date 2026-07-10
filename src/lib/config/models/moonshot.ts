@@ -1,12 +1,44 @@
 import {
   FILE_UPLOAD_FEATURE,
   PDF_PROCESSING_FEATURE,
-  REASONING_FEATURE,
+  REASONING_FEATURE_FIXED,
+  REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
 } from "../features";
 import { openrouter } from "../openrouter";
 
 export const MOONSHOT_MODELS = [
+  {
+    id: "moonshotai/kimi-k2.6",
+    name: "Kimi K2.6",
+    provider: "openrouter",
+    displayProvider: "moonshotai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Moonshot AI's multimodal general-purpose model.\nSupports optional reasoning, tools, and agentic coding workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      TOOL_CALLING_FEATURE,
+      REASONING_FEATURE_TOGGLE,
+    ],
+    api_sdk: openrouter("moonshotai/kimi-k2.6"),
+  },
+  {
+    id: "moonshotai/kimi-k2.7-code",
+    name: "Kimi K2.7 Code",
+    provider: "openrouter",
+    displayProvider: "moonshotai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Moonshot AI's always-thinking coding model.\nBuilt for long-horizon software engineering and tool-driven tasks.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_FIXED],
+    api_sdk: openrouter("moonshotai/kimi-k2.7-code"),
+  },
   {
     id: "moonshotai/kimi-k2-0711",
     name: "Kimi K2",
@@ -16,7 +48,7 @@ export const MOONSHOT_MODELS = [
     premium: true,
     usesPremiumCredits: false,
     legacy: true,
-    description: `Moonshot AI's Kimi K2 model.\nOffers agentic tools capabilities for various tasks.`,
+    description: "Moonshot AI's original Kimi K2 model.\nSupports agentic tool use.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE],
     api_sdk: openrouter("moonshotai/kimi-k2:nitro"),
@@ -27,10 +59,11 @@ export const MOONSHOT_MODELS = [
     subName: "0905",
     provider: "openrouter",
     displayProvider: "moonshotai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "Kimi K2 0905 is the September update of Kimi K2 model. \nThis update improves agentic coding with higher accuracy and frontend coding with more aesthetic and functional outputs for web, 3D, and related tasks.",
+      "Moonshot AI's September 2025 Kimi K2 update.\nImproved agentic coding and frontend work.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE],
     api_sdk: openrouter("moonshotai/kimi-k2-0905:nitro"),
@@ -40,10 +73,10 @@ export const MOONSHOT_MODELS = [
     name: "Kimi K2.5",
     provider: "openrouter",
     displayProvider: "moonshotai",
-    premium: false,
+    premium: true,
     usesPremiumCredits: false,
-    description:
-      "Moonshot AI's flagship K2.5 model with 262K context and multimodal input.\nStrong coding and agentic tool use.",
+    legacy: true,
+    description: "Moonshot AI's previous multimodal flagship.\nStrong coding and agentic tool use.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [FILE_UPLOAD_FEATURE, PDF_PROCESSING_FEATURE, TOOL_CALLING_FEATURE],
     api_sdk: openrouter("moonshotai/kimi-k2.5"),
@@ -56,14 +89,15 @@ export const MOONSHOT_MODELS = [
     displayProvider: "moonshotai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "Moonshot AI's K2.5 with reasoning enabled.\nOptimized for complex multi-step workflows and deep analysis.",
+      "Moonshot AI's previous reasoning flagship.\nOptimized for complex multi-step workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
       TOOL_CALLING_FEATURE,
-      REASONING_FEATURE,
+      REASONING_FEATURE_TOGGLE,
     ],
     api_sdk: openrouter("moonshotai/kimi-k2.5"),
   },
@@ -75,10 +109,9 @@ export const MOONSHOT_MODELS = [
     premium: true,
     usesPremiumCredits: true,
     legacy: true,
-    description:
-      "Moonshot AI's advanced open reasoning model.\nOptimized for persistent step-by-step thought and complex workflows.",
+    description: "Moonshot AI's previous always-thinking model.\nDesigned for complex workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
-    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE],
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_FIXED],
     api_sdk: openrouter("moonshotai/kimi-k2-thinking"),
   },
 ];

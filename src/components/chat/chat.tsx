@@ -39,7 +39,12 @@ import { useChatValidation } from "@/hooks/use-chat-validation";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useFileHandling } from "@/hooks/use-file-handling";
 import { createChatErrorHandler } from "@/lib/chat-error-utils";
-import { MODEL_DEFAULT } from "@/lib/config";
+import {
+	MODEL_DEFAULT,
+	MODELS_MAP,
+	ReasoningEffortSchema,
+	type ReasoningEffort,
+} from "@/lib/config";
 import {
 	createOptimisticAttachments,
 	revokeOptimisticAttachments,
@@ -52,6 +57,8 @@ import {
 } from "@/lib/message-utils";
 import {
 	createModelValidator,
+	getDefaultReasoningEffort,
+	getReasoningEffortOptions,
 	supportsReasoningEffort,
 } from "@/lib/model-utils";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
@@ -142,7 +149,7 @@ const ChatBodySchema = z.object({
 	personaId: z.string().optional(),
 	profileId: z.string().optional(),
 	enableSearch: z.boolean().optional(),
-	reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
+	reasoningEffort: ReasoningEffortSchema.optional(),
 	userInfo: z
 		.object({
 			timezone: z.string().optional(),
@@ -208,14 +215,14 @@ function useChatContentView() {
 	// Local state
 	type ChatUIState = {
 		hasDialogAuth: boolean;
-		reasoningEffort: "low" | "medium" | "high";
+		reasoningEffort: ReasoningEffort;
 		tempPersonaId: string | undefined;
 		tempSelectedModel: string | undefined;
 		showDeleteChatDialog: boolean;
 	};
 	type ChatUIAction =
 		| { type: "SET_DIALOG_AUTH"; value: boolean }
-		| { type: "SET_REASONING_EFFORT"; value: "low" | "medium" | "high" }
+		| { type: "SET_REASONING_EFFORT"; value: ReasoningEffort }
 		| { type: "SET_TEMP_PERSONA"; id: string | undefined }
 		| { type: "SET_TEMP_MODEL"; model: string | undefined }
 		| { type: "SET_DELETE_CHAT_DIALOG"; value: boolean }
@@ -238,10 +245,11 @@ function useChatContentView() {
 					return { ...s, tempPersonaId: undefined, tempSelectedModel: undefined };
 			}
 		},
-		{ hasDialogAuth: false, reasoningEffort: "low", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false },
+		{ hasDialogAuth: false, reasoningEffort: "none", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false },
 	);
 	const { hasDialogAuth, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
 	const processedUrl = useRef(false);
+	const retiredFallbackChatIds = useRef(new Set<string>());
 
 	// Data queries
 	const { data: messagesFromDB } = useTanStackQuery({
@@ -263,15 +271,59 @@ function useChatContentView() {
 	// Derived state
 	const { activeProfile } = useProfile();
 	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
-	const selectedModel = currentChat?.model
-		? getValidModel(currentChat.model, disabledModels)
+	const currentChatModelId = currentChat?.model;
+	const retiredChatModel = currentChatModelId
+		? MODELS_MAP[currentChatModelId]
+		: undefined;
+	const isRetiredChatModel = retiredChatModel?.retired === true;
+	const selectedModel = isRetiredChatModel
+		? MODEL_DEFAULT
+		: currentChatModelId
+		? getValidModel(currentChatModelId, disabledModels)
 		: getValidModel(
 				tempSelectedModel ?? activeProfile?.preferredModel ?? user?.preferredModel ?? MODEL_DEFAULT,
 				disabledModels,
 			);
+	const reasoningEffortOptions = getReasoningEffortOptions(selectedModel);
+	const selectedReasoningEffort = reasoningEffortOptions.includes(reasoningEffort)
+		? reasoningEffort
+		: (getDefaultReasoningEffort(selectedModel) ?? reasoningEffort);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
+
+	useEffect(() => {
+		if (
+			!chatId ||
+			!isRetiredChatModel ||
+			retiredFallbackChatIds.current.has(chatId)
+		) {
+			return;
+		}
+
+		retiredFallbackChatIds.current.add(chatId);
+		void (async () => {
+			const updated = await handleModelUpdate(chatId, MODEL_DEFAULT, null);
+			if (!updated) {
+				retiredFallbackChatIds.current.delete(chatId);
+				return;
+			}
+
+			const retiredName = retiredChatModel?.name ?? currentChatModelId;
+			const fallbackName = MODELS_MAP[MODEL_DEFAULT]?.name ?? MODEL_DEFAULT;
+			toast({
+				title: "Model updated",
+				description: `${retiredName} was retired. This chat now uses ${fallbackName}.`,
+				status: "info",
+			});
+		})();
+	}, [
+		chatId,
+		currentChatModelId,
+		handleModelUpdate,
+		isRetiredChatModel,
+		retiredChatModel?.name,
+	]);
 
 	// Get chat instance from context and bind useChat
 	const chatInstance = useChatInstance();
@@ -305,6 +357,12 @@ function useChatContentView() {
 						mappedMessage.metadata = {
 							...mappedMessage.metadata,
 							includeSearch: nextMsg.metadata.includeSearch,
+						};
+					}
+					if (nextMsg.metadata?.reasoningEffort !== undefined) {
+						mappedMessage.metadata = {
+							...mappedMessage.metadata,
+							reasoningEffort: nextMsg.metadata.reasoningEffort,
 						};
 					}
 				}
@@ -404,7 +462,7 @@ function useChatContentView() {
 				...(typeof options?.enableSearch !== "undefined"
 					? { enableSearch: options.enableSearch }
 					: {}),
-				...(isReasoningModel ? { reasoningEffort } : {}),
+				...(isReasoningModel ? { reasoningEffort: selectedReasoningEffort } : {}),
 				...(timezone ? { userInfo: { timezone } } : {}),
 			};
 
@@ -456,7 +514,7 @@ function useChatContentView() {
 			selectedModel,
 			personaId,
 			activeProfile?._id,
-			reasoningEffort,
+			selectedReasoningEffort,
 			hasFiles,
 			createOptimisticFiles,
 			processFiles,
@@ -585,6 +643,14 @@ function useChatContentView() {
 	// Model change handler
 	const handleModelChange = useCallback(
 		async (model: string) => {
+			const nextEffortOptions = getReasoningEffortOptions(model);
+			if (!nextEffortOptions.includes(reasoningEffort)) {
+				const defaultEffort = getDefaultReasoningEffort(model);
+				if (defaultEffort) {
+					dispatchUI({ type: "SET_REASONING_EFFORT", value: defaultEffort });
+				}
+			}
+
 			// Allow anonymous and logged-in users to change the model selection in UI.
 			// For new chats (no chatId yet), store temporarily.
 			if (!chatId) {
@@ -595,7 +661,7 @@ function useChatContentView() {
 			// For existing chats, persist via mutation. Server validates access.
 			await handleModelUpdate(chatId, model, user);
 		},
-		[chatId, user, handleModelUpdate],
+		[chatId, user, handleModelUpdate, reasoningEffort],
 	);
 
 	// Message handlers
@@ -691,7 +757,7 @@ function useChatContentView() {
 					...(typeof opts?.enableSearch !== "undefined"
 						? { enableSearch: opts.enableSearch }
 						: {}),
-					...(isReasoningModel ? { reasoningEffort } : {}),
+					...(isReasoningModel ? { reasoningEffort: selectedReasoningEffort } : {}),
 					...(timezone ? { userInfo: { timezone } } : {}),
 				},
 			};
@@ -703,7 +769,7 @@ function useChatContentView() {
 			selectedModel,
 			personaId,
 			activeProfile?._id,
-			reasoningEffort,
+			selectedReasoningEffort,
 			setMessages,
 			handleDeleteMessage,
 			setIsDeleting,
@@ -720,7 +786,7 @@ function useChatContentView() {
 				model: string;
 				enableSearch: boolean;
 				files: File[];
-				reasoningEffort: "low" | "medium" | "high";
+				reasoningEffort: ReasoningEffort;
 				removedFileUrls?: string[];
 			},
 		) => {
@@ -753,7 +819,7 @@ function useChatContentView() {
 			const originalModel = originalMessage.model || selectedModel;
 			const originalSearch = originalMessage.metadata?.includeSearch ?? false;
 			const originalEffort =
-				originalMessage.metadata?.reasoningEffort || reasoningEffort;
+				originalMessage.metadata?.reasoningEffort || selectedReasoningEffort;
 
 			// Return early if nothing has changed
 			if (
@@ -906,7 +972,7 @@ function useChatContentView() {
 			uploadFile,
 			saveFileAttachment,
 			selectedModel,
-			reasoningEffort,
+			selectedReasoningEffort,
 			getServerId,
 		],
 	);
@@ -1054,7 +1120,7 @@ function useChatContentView() {
 				) : (
 					<Conversation
 						autoScroll={!targetMessageId}
-						isReasoningModel={supportsReasoningEffort(selectedModel)}
+						fallbackReasoningEffort={selectedReasoningEffort}
 						isUserAuthenticated={isAuthenticated}
 						key="conversation"
 						messages={messages as MessageWithExtras[]}
@@ -1068,7 +1134,6 @@ function useChatContentView() {
 						onDelete={handleDelete}
 						onEdit={handleEdit}
 						onReload={handleReload}
-						reasoningEffort={reasoningEffort}
 						selectedModel={selectedModel}
 					/>
 				)}
@@ -1104,7 +1169,7 @@ function useChatContentView() {
 						{ enableSearch }: { enableSearch: boolean },
 					) => submit(message, { body: { enableSearch } })}
 					onSuggestionAction={(suggestion: string) => submit(suggestion)}
-					reasoningEffort={reasoningEffort}
+					reasoningEffort={selectedReasoningEffort}
 					selectedModel={selectedModel}
 					selectedPersonaId={personaId}
 				/>
