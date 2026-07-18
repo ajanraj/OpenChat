@@ -176,7 +176,7 @@ export const getTaskExecutionStats = query({
     // Get all execution history for this task
     const allHistory = await ctx.db
       .query("task_history")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .withIndex("by_task_and_time", (q) => q.eq("taskId", args.taskId))
       .collect();
 
     const totalExecutions = allHistory.length;

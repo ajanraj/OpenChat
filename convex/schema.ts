@@ -46,7 +46,6 @@ export default defineSchema({
     .index("by_user_and_type", ["userId", "scheduleType"])
     .index("by_next_execution", ["status", "nextExecution"]),
   task_history: defineTable(TaskHistory)
-    .index("by_task", ["taskId"])
     .index("by_task_and_time", ["taskId", "startTime"])
     .index("by_status", ["status"])
     .index("by_execution_id", ["executionId"]),
