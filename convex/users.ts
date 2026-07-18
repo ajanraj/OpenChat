@@ -683,7 +683,7 @@ export const deleteAccount = mutation({
         scheduledTasks.map((task) =>
           ctx.db
             .query("task_history")
-            .withIndex("by_task", (q) => q.eq("taskId", task._id))
+            .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
             .collect(),
         ),
       )
