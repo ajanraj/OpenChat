@@ -323,7 +323,7 @@ samp {
     position: relative;
   }
 
-  .markdown-body .katex-display > .katex > .katex-html > .tag {
+  .markdown-body .katex-display > .katex > .katex-html > .katex-tag {
     position: absolute;
     right: 0;
   }
