@@ -2,6 +2,7 @@ import {
   FILE_UPLOAD_FEATURE,
   PDF_PROCESSING_FEATURE,
   REASONING_FEATURE_FIXED,
+  REASONING_FEATURE_MAX,
   REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
 } from "../features";
@@ -9,12 +10,31 @@ import { openrouter } from "../openrouter";
 
 export const MOONSHOT_MODELS = [
   {
+    id: "moonshotai/kimi-k3",
+    name: "Kimi K3",
+    provider: "openrouter",
+    displayProvider: "moonshotai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Moonshot AI's multimodal reasoning flagship.\nBuilt for complex coding, knowledge work, and long-horizon agentic workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      TOOL_CALLING_FEATURE,
+      REASONING_FEATURE_MAX,
+    ],
+    api_sdk: openrouter("moonshotai/kimi-k3"),
+  },
+  {
     id: "moonshotai/kimi-k2.6",
     name: "Kimi K2.6",
     provider: "openrouter",
     displayProvider: "moonshotai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Moonshot AI's multimodal general-purpose model.\nSupports optional reasoning, tools, and agentic coding workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },

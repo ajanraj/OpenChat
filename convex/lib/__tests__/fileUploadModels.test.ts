@@ -21,4 +21,8 @@ describe("File Upload Model Allowlist", () => {
     expect(FILE_UPLOAD_MODELS).toContain("gpt-5.4-mini");
     expect(FILE_UPLOAD_MODELS).toContain("gpt-5.4-nano");
   });
+
+  it("allows Kimi K3 file uploads", () => {
+    expect(supportsFileUploadModel("moonshotai/kimi-k3")).toBe(true);
+  });
 });

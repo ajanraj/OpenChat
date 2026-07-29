@@ -5,6 +5,7 @@ import {
   PDF_PROCESSING_FEATURE,
   REASONING_FEATURE,
   REASONING_FEATURE_ALWAYS,
+  REASONING_FEATURE_MAX,
   REASONING_FEATURE_BASIC,
   REASONING_FEATURE_DISABLED,
   REASONING_FEATURE_FIXED,
@@ -51,6 +52,7 @@ describe("Feature Constants", () => {
 
     it("defines always-on and toggle effort options", () => {
       expect(REASONING_FEATURE_ALWAYS.effortOptions).toEqual(["low", "medium", "high"]);
+      expect(REASONING_FEATURE_MAX.effortOptions).toEqual(["xhigh", "high", "low"]);
       expect(REASONING_FEATURE_TOGGLE.effortOptions).toEqual(["none", "high"]);
     });
 

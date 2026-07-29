@@ -204,6 +204,30 @@ describe("Model Provider Specific Tests", () => {
     });
   });
 
+  describe("Moonshot Models", () => {
+    it("configures Kimi K3 for multimodal agentic workflows", () => {
+      const kimiK3 = MOONSHOT_MODELS.find((model) => model.id === "moonshotai/kimi-k3");
+
+      expect(kimiK3).toMatchObject({
+        provider: "openrouter",
+        premium: true,
+        usesPremiumCredits: true,
+      });
+      expect(kimiK3?.features).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "file-upload", enabled: true }),
+          expect.objectContaining({ id: "pdf-processing", enabled: true }),
+          expect.objectContaining({ id: "tool-calling", enabled: true }),
+          expect.objectContaining({
+            id: "reasoning",
+            enabled: true,
+            effortOptions: ["xhigh", "high", "low"],
+          }),
+        ]),
+      );
+    });
+  });
+
   describe("Z.ai Models", () => {
     it("includes GLM 5 standard and thinking variants", () => {
       expect(ZAI_MODELS.some((m) => m.id === "glm-5")).toBe(true);
@@ -294,7 +318,7 @@ describe("Legacy Model Curation", () => {
 
   it("keeps only the curated Moonshot set as non-legacy", () => {
     expect(getNonLegacyModelIds(MOONSHOT_MODELS)).toEqual(
-      ["moonshotai/kimi-k2.6", "moonshotai/kimi-k2.7-code"].sort(),
+      ["moonshotai/kimi-k2.7-code", "moonshotai/kimi-k3"].sort(),
     );
   });
 

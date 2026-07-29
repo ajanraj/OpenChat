@@ -41,6 +41,7 @@ describe("ModelFeatureSchema", () => {
     const result = ModelFeatureSchema.parse(feature);
 
     expect(result.effortOptions).toEqual(["none", "high"]);
+    expect(ReasoningEffortSchema.safeParse("xhigh").success).toBe(true);
     expect(ReasoningEffortSchema.safeParse("minimal").success).toBe(false);
   });
 

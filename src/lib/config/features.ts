@@ -13,6 +13,7 @@ export const PDF_PROCESSING_FEATURE = {
 };
 const OPTIONAL_REASONING_EFFORTS: ReasoningEffort[] = ["none", "low", "medium", "high"];
 const ALWAYS_REASONING_EFFORTS: ReasoningEffort[] = ["low", "medium", "high"];
+const MAX_REASONING_EFFORTS: ReasoningEffort[] = ["xhigh", "high", "low"];
 const TOGGLE_REASONING_EFFORTS: ReasoningEffort[] = ["none", "high"];
 
 export const REASONING_FEATURE = {
@@ -25,6 +26,12 @@ export const REASONING_FEATURE_ALWAYS = {
   id: "reasoning",
   enabled: true,
   effortOptions: ALWAYS_REASONING_EFFORTS,
+  label: "Supports reasoning capabilities",
+} satisfies ModelFeature;
+export const REASONING_FEATURE_MAX = {
+  id: "reasoning",
+  enabled: true,
+  effortOptions: MAX_REASONING_EFFORTS,
   label: "Supports reasoning capabilities",
 } satisfies ModelFeature;
 export const REASONING_FEATURE_TOGGLE = {

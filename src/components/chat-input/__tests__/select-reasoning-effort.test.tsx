@@ -52,4 +52,27 @@ describe("SelectReasoningEffort", () => {
 		expect(screen.getByRole("menuitem", { name: "High" })).toBeDefined();
 		expect(screen.queryByRole("menuitem", { name: "Off" })).toBeNull();
 	});
+
+	it("labels Kimi K3 maximum reasoning as Max", async () => {
+		render(
+			<TooltipProvider>
+				<SelectReasoningEffort
+					isUserAuthenticated={true}
+					modelId="moonshotai/kimi-k3"
+					onSelectReasoningEffortAction={vi.fn()}
+					reasoningEffort="xhigh"
+				/>
+			</TooltipProvider>,
+		);
+
+		fireEvent.pointerDown(screen.getByRole("button", { name: /max/i }), {
+			button: 0,
+			ctrlKey: false,
+		});
+
+		expect(await screen.findByRole("menuitem", { name: "Max" })).toBeDefined();
+		expect(screen.getByRole("menuitem", { name: "High" })).toBeDefined();
+		expect(screen.getByRole("menuitem", { name: "Low" })).toBeDefined();
+		expect(screen.queryByRole("menuitem", { name: "Off" })).toBeNull();
+	});
 });

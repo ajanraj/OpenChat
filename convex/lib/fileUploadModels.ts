@@ -74,6 +74,7 @@ export const FILE_UPLOAD_MODELS = [
   "pixtral-large-latest",
 
   // Moonshot models
+  "moonshotai/kimi-k3",
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2.5",
   "moonshotai/kimi-k2.5:reasoning",

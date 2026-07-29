@@ -92,6 +92,8 @@ describe("model-utils", () => {
 
     it("matches provider-specific reasoning capabilities", () => {
       expect(getReasoningEffortOptions("xai/grok-4.5")).toEqual(["low", "medium", "high"]);
+      expect(getReasoningEffortOptions("moonshotai/kimi-k3")).toEqual(["xhigh", "high", "low"]);
+      expect(getDefaultReasoningEffort("moonshotai/kimi-k3")).toBe("xhigh");
       expect(getReasoningEffortOptions("mistral-medium-latest")).toEqual([]);
       expect(getReasoningEffortOptions("z-ai/glm-5.2")).toEqual(["none", "high"]);
 

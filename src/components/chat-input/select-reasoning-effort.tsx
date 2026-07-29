@@ -36,6 +36,8 @@ export function SelectReasoningEffort({
 	const effortLabel =
 		reasoningEffort === "none"
 			? "Off"
+			: reasoningEffort === "xhigh"
+				? "Max"
 			: reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1);
 
 	if (!isUserAuthenticated) {
@@ -121,6 +123,8 @@ export function SelectReasoningEffort({
 						>
 							{effort === "none"
 								? "Off"
+								: effort === "xhigh"
+									? "Max"
 								: effort.charAt(0).toUpperCase() + effort.slice(1)}
 						</DropdownMenuItem>
 					))}
