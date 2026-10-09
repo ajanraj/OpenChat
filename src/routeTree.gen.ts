@@ -9,51 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as TasksRouteImport } from './routes/tasks'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as SecurityRouteImport } from './routes/security'
-import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ChatRouteRouteImport } from './routes/_chat/route'
-import { Route as SettingsIndexRouteImport } from './routes/settings/index'
-import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as SecurityRouteImport } from './routes/security'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ChatIndexRouteImport } from './routes/_chat/index'
-import { Route as ShareChatIdRouteImport } from './routes/share.$chatId'
-import { Route as SettingsModelsRouteImport } from './routes/settings/models'
-import { Route as SettingsHistoryRouteImport } from './routes/settings/history'
-import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
-import { Route as SettingsContactRouteImport } from './routes/settings/contact'
-import { Route as SettingsConnectorsRouteImport } from './routes/settings/connectors'
-import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
-import { Route as SettingsApiKeysRouteImport } from './routes/settings/api-keys'
-import { Route as AuthErrorRouteImport } from './routes/auth/error'
-import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
-import { Route as ApiRateLimitsRouteImport } from './routes/api.rate-limits'
-import { Route as ApiCreateChatRouteImport } from './routes/api.create-chat'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
-import { Route as ApiComposioStatusRouteImport } from './routes/api.composio.status'
-import { Route as ApiComposioDisconnectRouteImport } from './routes/api.composio.disconnect'
-import { Route as ApiComposioConnectRouteImport } from './routes/api.composio.connect'
+import { Route as ApiCreateChatRouteImport } from './routes/api.create-chat'
+import { Route as ApiRateLimitsRouteImport } from './routes/api.rate-limits'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as AuthErrorRouteImport } from './routes/auth/error'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsApiKeysRouteImport } from './routes/settings/api-keys'
+import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
+import { Route as SettingsConnectorsRouteImport } from './routes/settings/connectors'
+import { Route as SettingsContactRouteImport } from './routes/settings/contact'
+import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
+import { Route as SettingsHistoryRouteImport } from './routes/settings/history'
+import { Route as SettingsModelsRouteImport } from './routes/settings/models'
+import { Route as ShareChatIdRouteImport } from './routes/share.$chatId'
 import { Route as ChatCChatIdRouteImport } from './routes/_chat/c.$chatId'
+import { Route as ApiComposioConnectRouteImport } from './routes/api.composio.connect'
+import { Route as ApiComposioDisconnectRouteImport } from './routes/api.composio.disconnect'
+import { Route as ApiComposioStatusRouteImport } from './routes/api.composio.status'
 
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TasksRoute = TasksRouteImport.update({
-  id: '/tasks',
-  path: '/tasks',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SecurityRoute = SecurityRouteImport.update({
-  id: '/security',
-  path: '/security',
+const ChatRouteRoute = ChatRouteRouteImport.update({
+  id: '/_chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -61,18 +45,24 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChatRouteRoute = ChatRouteRouteImport.update({
-  id: '/_chat',
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsIndexRoute = SettingsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => SettingsRoute,
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthIndexRoute = AuthIndexRouteImport.update({
-  id: '/auth/',
-  path: '/auth/',
+const TasksRoute = TasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
@@ -80,59 +70,9 @@ const ChatIndexRoute = ChatIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ChatRouteRoute,
 } as any)
-const ShareChatIdRoute = ShareChatIdRouteImport.update({
-  id: '/share/$chatId',
-  path: '/share/$chatId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsModelsRoute = SettingsModelsRouteImport.update({
-  id: '/models',
-  path: '/models',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsHistoryRoute = SettingsHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsCustomizationRoute = SettingsCustomizationRouteImport.update({
-  id: '/customization',
-  path: '/customization',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsContactRoute = SettingsContactRouteImport.update({
-  id: '/contact',
-  path: '/contact',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsConnectorsRoute = SettingsConnectorsRouteImport.update({
-  id: '/connectors',
-  path: '/connectors',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
-  id: '/attachments',
-  path: '/attachments',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsApiKeysRoute = SettingsApiKeysRouteImport.update({
-  id: '/api-keys',
-  path: '/api-keys',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const AuthErrorRoute = AuthErrorRouteImport.update({
-  id: '/auth/error',
-  path: '/auth/error',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/auth/callback',
-  path: '/auth/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRateLimitsRoute = ApiRateLimitsRouteImport.update({
-  id: '/api/rate-limits',
-  path: '/api/rate-limits',
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCreateChatRoute = ApiCreateChatRouteImport.update({
@@ -140,14 +80,79 @@ const ApiCreateChatRoute = ApiCreateChatRouteImport.update({
   path: '/api/create-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
+const ApiRateLimitsRoute = ApiRateLimitsRouteImport.update({
+  id: '/api/rate-limits',
+  path: '/api/rate-limits',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiComposioStatusRoute = ApiComposioStatusRouteImport.update({
-  id: '/api/composio/status',
-  path: '/api/composio/status',
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/auth/',
+  path: '/auth/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthErrorRoute = AuthErrorRouteImport.update({
+  id: '/auth/error',
+  path: '/auth/error',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsApiKeysRoute = SettingsApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
+  id: '/attachments',
+  path: '/attachments',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsConnectorsRoute = SettingsConnectorsRouteImport.update({
+  id: '/connectors',
+  path: '/connectors',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsContactRoute = SettingsContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsCustomizationRoute = SettingsCustomizationRouteImport.update({
+  id: '/customization',
+  path: '/customization',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsHistoryRoute = SettingsHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsModelsRoute = SettingsModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const ShareChatIdRoute = ShareChatIdRouteImport.update({
+  id: '/share/$chatId',
+  path: '/share/$chatId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatCChatIdRoute = ChatCChatIdRouteImport.update({
+  id: '/c/$chatId',
+  path: '/c/$chatId',
+  getParentRoute: () => ChatRouteRoute,
+} as any)
+const ApiComposioConnectRoute = ApiComposioConnectRouteImport.update({
+  id: '/api/composio/connect',
+  path: '/api/composio/connect',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiComposioDisconnectRoute = ApiComposioDisconnectRouteImport.update({
@@ -155,15 +160,10 @@ const ApiComposioDisconnectRoute = ApiComposioDisconnectRouteImport.update({
   path: '/api/composio/disconnect',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiComposioConnectRoute = ApiComposioConnectRouteImport.update({
-  id: '/api/composio/connect',
-  path: '/api/composio/connect',
+const ApiComposioStatusRoute = ApiComposioStatusRouteImport.update({
+  id: '/api/composio/status',
+  path: '/api/composio/status',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ChatCChatIdRoute = ChatCChatIdRouteImport.update({
-  id: '/c/$chatId',
-  path: '/c/$chatId',
-  getParentRoute: () => ChatRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -353,32 +353,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tasks': {
-      id: '/tasks'
-      path: '/tasks'
-      fullPath: '/tasks'
-      preLoaderRoute: typeof TasksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/security': {
-      id: '/security'
-      path: '/security'
-      fullPath: '/security'
-      preLoaderRoute: typeof SecurityRouteImport
+    '/_chat': {
+      id: '/_chat'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ChatRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -388,25 +367,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_chat': {
-      id: '/_chat'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof ChatRouteRouteImport
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/': {
-      id: '/settings/'
-      path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof SettingsIndexRouteImport
-      parentRoute: typeof SettingsRoute
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/auth/': {
-      id: '/auth/'
-      path: '/auth'
-      fullPath: '/auth/'
-      preLoaderRoute: typeof AuthIndexRouteImport
+    '/tasks': {
+      id: '/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_chat/': {
@@ -416,81 +402,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof ChatRouteRoute
     }
-    '/share/$chatId': {
-      id: '/share/$chatId'
-      path: '/share/$chatId'
-      fullPath: '/share/$chatId'
-      preLoaderRoute: typeof ShareChatIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/models': {
-      id: '/settings/models'
-      path: '/models'
-      fullPath: '/settings/models'
-      preLoaderRoute: typeof SettingsModelsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/history': {
-      id: '/settings/history'
-      path: '/history'
-      fullPath: '/settings/history'
-      preLoaderRoute: typeof SettingsHistoryRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/customization': {
-      id: '/settings/customization'
-      path: '/customization'
-      fullPath: '/settings/customization'
-      preLoaderRoute: typeof SettingsCustomizationRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/contact': {
-      id: '/settings/contact'
-      path: '/contact'
-      fullPath: '/settings/contact'
-      preLoaderRoute: typeof SettingsContactRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/connectors': {
-      id: '/settings/connectors'
-      path: '/connectors'
-      fullPath: '/settings/connectors'
-      preLoaderRoute: typeof SettingsConnectorsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/attachments': {
-      id: '/settings/attachments'
-      path: '/attachments'
-      fullPath: '/settings/attachments'
-      preLoaderRoute: typeof SettingsAttachmentsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/api-keys': {
-      id: '/settings/api-keys'
-      path: '/api-keys'
-      fullPath: '/settings/api-keys'
-      preLoaderRoute: typeof SettingsApiKeysRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/auth/error': {
-      id: '/auth/error'
-      path: '/auth/error'
-      fullPath: '/auth/error'
-      preLoaderRoute: typeof AuthErrorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/auth/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/rate-limits': {
-      id: '/api/rate-limits'
-      path: '/api/rate-limits'
-      fullPath: '/api/rate-limits'
-      preLoaderRoute: typeof ApiRateLimitsRouteImport
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/create-chat': {
@@ -500,18 +416,109 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCreateChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
+    '/api/rate-limits': {
+      id: '/api/rate-limits'
+      path: '/api/rate-limits'
+      fullPath: '/api/rate-limits'
+      preLoaderRoute: typeof ApiRateLimitsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/composio/status': {
-      id: '/api/composio/status'
-      path: '/api/composio/status'
-      fullPath: '/api/composio/status'
-      preLoaderRoute: typeof ApiComposioStatusRouteImport
+    '/auth/': {
+      id: '/auth/'
+      path: '/auth'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/error': {
+      id: '/auth/error'
+      path: '/auth/error'
+      fullPath: '/auth/error'
+      preLoaderRoute: typeof AuthErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/api-keys': {
+      id: '/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof SettingsApiKeysRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/attachments': {
+      id: '/settings/attachments'
+      path: '/attachments'
+      fullPath: '/settings/attachments'
+      preLoaderRoute: typeof SettingsAttachmentsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/connectors': {
+      id: '/settings/connectors'
+      path: '/connectors'
+      fullPath: '/settings/connectors'
+      preLoaderRoute: typeof SettingsConnectorsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/contact': {
+      id: '/settings/contact'
+      path: '/contact'
+      fullPath: '/settings/contact'
+      preLoaderRoute: typeof SettingsContactRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/customization': {
+      id: '/settings/customization'
+      path: '/customization'
+      fullPath: '/settings/customization'
+      preLoaderRoute: typeof SettingsCustomizationRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/history': {
+      id: '/settings/history'
+      path: '/history'
+      fullPath: '/settings/history'
+      preLoaderRoute: typeof SettingsHistoryRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/models': {
+      id: '/settings/models'
+      path: '/models'
+      fullPath: '/settings/models'
+      preLoaderRoute: typeof SettingsModelsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/share/$chatId': {
+      id: '/share/$chatId'
+      path: '/share/$chatId'
+      fullPath: '/share/$chatId'
+      preLoaderRoute: typeof ShareChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_chat/c/$chatId': {
+      id: '/_chat/c/$chatId'
+      path: '/c/$chatId'
+      fullPath: '/c/$chatId'
+      preLoaderRoute: typeof ChatCChatIdRouteImport
+      parentRoute: typeof ChatRouteRoute
+    }
+    '/api/composio/connect': {
+      id: '/api/composio/connect'
+      path: '/api/composio/connect'
+      fullPath: '/api/composio/connect'
+      preLoaderRoute: typeof ApiComposioConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/composio/disconnect': {
@@ -521,19 +528,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiComposioDisconnectRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/composio/connect': {
-      id: '/api/composio/connect'
-      path: '/api/composio/connect'
-      fullPath: '/api/composio/connect'
-      preLoaderRoute: typeof ApiComposioConnectRouteImport
+    '/api/composio/status': {
+      id: '/api/composio/status'
+      path: '/api/composio/status'
+      fullPath: '/api/composio/status'
+      preLoaderRoute: typeof ApiComposioStatusRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_chat/c/$chatId': {
-      id: '/_chat/c/$chatId'
-      path: '/c/$chatId'
-      fullPath: '/c/$chatId'
-      preLoaderRoute: typeof ChatCChatIdRouteImport
-      parentRoute: typeof ChatRouteRoute
     }
   }
 }
