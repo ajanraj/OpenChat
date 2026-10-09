@@ -2,7 +2,14 @@ import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vitest";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx, QueryCtx } from "../_generated/server";
-import { createCheckout, getOrCreateCustomerId, hasActivePremium } from "../stripe";
+import type Stripe from "stripe";
+import {
+  createCheckout,
+  getCreditResetUserId,
+  getOrCreateCustomerId,
+  hasActivePremium,
+  syncSubscriptionFromStripe,
+} from "../stripe";
 import { onInvoicePaid } from "../subscription";
 
 const createCustomer = vi.hoisted(() =>
@@ -16,6 +23,14 @@ const rateLimiter = vi.hoisted(() => ({
 }));
 
 vi.mock("../rateLimiter", () => ({ rateLimiter }));
+
+const retrieveSubscription = vi.hoisted(() => vi.fn<(id: string) => Promise<unknown>>());
+
+vi.mock("stripe", () => ({
+  default: class {
+    subscriptions = { retrieve: retrieveSubscription };
+  },
+}));
 
 vi.mock("@convex-dev/stripe", () => ({
   StripeSubscriptions: class {
@@ -120,15 +135,74 @@ describe("createCheckout", () => {
   type Handler = (ctx: unknown, args: Record<string, never>) => Promise<{ url: string }>;
   const handler = createCheckout as unknown as Handler;
 
-  it("rejects users who already have an active subscription", async () => {
-    vi.stubEnv("STRIPE_PREMIUM_PRICE_ID", "price_test");
-    createCustomer.mockClear();
-    const runQuery = vi
-      .fn<() => Promise<unknown>>()
-      .mockResolvedValueOnce({ _id: USER_ID, email: "a@example.com", isAnonymous: false })
-      .mockResolvedValueOnce([{ status: "active" }]);
-    await expect(handler({ runQuery }, {})).rejects.toThrow(ConvexError);
-    expect(createCustomer).not.toHaveBeenCalled();
+  it.each(["active", "trialing", "past_due", "unpaid", "paused"])(
+    "rejects users with a %s subscription",
+    async (status) => {
+      vi.stubEnv("STRIPE_PREMIUM_PRICE_ID", "price_test");
+      createCustomer.mockClear();
+      const runQuery = vi
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValueOnce({ _id: USER_ID, email: "a@example.com", isAnonymous: false })
+        .mockResolvedValueOnce([{ status }]);
+      await expect(handler({ runQuery }, {})).rejects.toThrow(ConvexError);
+      expect(createCustomer).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
+    },
+  );
+});
+
+describe("syncSubscriptionFromStripe", () => {
+  const stripeSubscription = (status: string) => ({
+    id: "sub_1",
+    customer: "cus_1",
+    status,
+    cancel_at_period_end: false,
+    cancel_at: null,
+    metadata: { userId: USER_ID },
+    items: { data: [{ current_period_end: 1_800_000_000, quantity: 1, price: { id: "price_1" } }] },
+  });
+
+  // Stripe can deliver an older "active" snapshot after the cancellation, or the deletion
+  // before the creation; either way the stored state must be Stripe's current state.
+  it.each([
+    ["stale active update after cancellation", "canceled"],
+    ["subscription created after its deletion", "canceled"],
+    ["normal renewal", "active"],
+  ])("stores Stripe's current status (%s)", async (_case, currentStatus) => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test");
+    retrieveSubscription.mockResolvedValueOnce(stripeSubscription(currentStatus));
+    const runMutation = vi.fn<(ref: unknown, args: Record<string, unknown>) => Promise<null>>(
+      async () => null,
+    );
+    await syncSubscriptionFromStripe({ runMutation } as unknown as ActionCtx, "sub_1");
+    expect(retrieveSubscription).toHaveBeenLastCalledWith("sub_1");
+    expect(runMutation.mock.calls[0]?.[1]).toMatchObject({
+      stripeSubscriptionId: "sub_1",
+      stripeCustomerId: "cus_1",
+      status: currentStatus,
+      metadata: { userId: USER_ID },
+    });
     vi.unstubAllEnvs();
+  });
+});
+
+describe("getCreditResetUserId", () => {
+  const invoice = (billing_reason: string, userId?: string) =>
+    ({
+      billing_reason,
+      parent: { subscription_details: { metadata: userId ? { userId } : {} } },
+    }) as unknown as Stripe.Invoice;
+
+  it.each([
+    ["subscription_create", USER_ID],
+    ["subscription_cycle", USER_ID],
+    ["subscription_update", null],
+    ["manual", null],
+  ])("billing reason %s -> %s", (reason, expected) => {
+    expect(getCreditResetUserId(invoice(reason, USER_ID))).toBe(expected);
+  });
+
+  it("ignores invoices without a linked user", () => {
+    expect(getCreditResetUserId(invoice("subscription_cycle"))).toBeNull();
   });
 });

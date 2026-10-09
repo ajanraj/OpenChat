@@ -1,6 +1,7 @@
 import { Check, CircleNotch, Headset, Rocket, Sparkle, Trash } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useCallback, useState } from "react";
 import { MessageUsageCard } from "@/components/layout/settings/message-usage-card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/convex/_generated/api";
+import { ERROR_CODES, getErrorMessage } from "@/lib/error-codes";
 import { useUser } from "@/providers/user-provider";
 
 export const Route = createFileRoute("/settings/")({
@@ -32,11 +34,15 @@ export function AccountSettingsPage() {
   const handleUpgrade = useCallback(async () => {
     const checkoutUrl = await createCheckout({})
       .then(({ url }) => url)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error("Failed to start upgrade process:", error);
+        const alreadySubscribed =
+          error instanceof ConvexError && error.data === ERROR_CODES.ALREADY_SUBSCRIBED;
         toast({
           title: "Unable to start upgrade process",
-          description: "Please try again or contact support if the problem persists.",
+          description: alreadySubscribed
+            ? getErrorMessage(ERROR_CODES.ALREADY_SUBSCRIBED)
+            : "Please try again or contact support if the problem persists.",
           status: "error",
         });
         return null;
