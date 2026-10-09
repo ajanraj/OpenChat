@@ -1,12 +1,21 @@
+import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vitest";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx, QueryCtx } from "../_generated/server";
-import { getOrCreateCustomerId, hasActivePremium } from "../stripe";
+import { createCheckout, getOrCreateCustomerId, hasActivePremium } from "../stripe";
 import { onInvoicePaid } from "../subscription";
 
 const createCustomer = vi.hoisted(() =>
   vi.fn<() => Promise<{ customerId: string }>>(async () => ({ customerId: "cus_new" })),
 );
+
+type LimitFn = (ctx: unknown, name: string, options: { key: string }) => Promise<void>;
+const rateLimiter = vi.hoisted(() => ({
+  reset: vi.fn<LimitFn>(async () => undefined),
+  limit: vi.fn<LimitFn>(async () => undefined),
+}));
+
+vi.mock("../rateLimiter", () => ({ rateLimiter }));
 
 vi.mock("@convex-dev/stripe", () => ({
   StripeSubscriptions: class {
@@ -84,5 +93,42 @@ describe("onInvoicePaid", () => {
       db: { normalizeId: () => USER_ID, get: vi.fn<() => Promise<null>>(async () => null) },
     };
     await expect(handler(ctx, { userId: USER_ID })).resolves.toBeNull();
+    expect(rateLimiter.reset).not.toHaveBeenCalled();
+  });
+
+  it("resets the user's daily and monthly credits", async () => {
+    rateLimiter.reset.mockClear();
+    const ctx = {
+      db: {
+        normalizeId: () => USER_ID,
+        get: vi.fn<() => Promise<{ _id: Id<"users">; isAnonymous: boolean }>>(async () => ({
+          _id: USER_ID,
+          isAnonymous: false,
+        })),
+      },
+    };
+    await handler(ctx, { userId: USER_ID });
+    const resetNames = rateLimiter.reset.mock.calls.map(([, name]) => name);
+    expect(resetNames).toEqual(["authenticatedDaily", "standardMonthly", "premiumMonthly"]);
+    for (const [, , options] of rateLimiter.reset.mock.calls) {
+      expect(options).toEqual({ key: USER_ID });
+    }
+  });
+});
+
+describe("createCheckout", () => {
+  type Handler = (ctx: unknown, args: Record<string, never>) => Promise<{ url: string }>;
+  const handler = createCheckout as unknown as Handler;
+
+  it("rejects users who already have an active subscription", async () => {
+    vi.stubEnv("STRIPE_PREMIUM_PRICE_ID", "price_test");
+    createCustomer.mockClear();
+    const runQuery = vi
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValueOnce({ _id: USER_ID, email: "a@example.com", isAnonymous: false })
+      .mockResolvedValueOnce([{ status: "active" }]);
+    await expect(handler({ runQuery }, {})).rejects.toThrow(ConvexError);
+    expect(createCustomer).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
   });
 });

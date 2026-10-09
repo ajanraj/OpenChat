@@ -26,7 +26,7 @@ export function AccountSettingsPage() {
   const deleteAccount = useMutation(api.users.deleteAccount);
   const createCheckout = useAction(api.stripe.createCheckout);
   const createPortalSession = useAction(api.stripe.createPortalSession);
-  const { signOut, hasPremium } = useUser();
+  const { signOut, hasPremium, isLoading } = useUser();
   const router = useRouter();
 
   const handleUpgrade = useCallback(async () => {
@@ -99,6 +99,10 @@ export function AccountSettingsPage() {
       variant="outline"
     >
       Manage Subscription
+    </Button>
+  ) : isLoading ? (
+    <Button className="w-full md:w-auto" disabled variant="secondary">
+      Loading...
     </Button>
   ) : (
     <Button className="w-full cursor-pointer md:w-auto" onClick={handleUpgrade}>

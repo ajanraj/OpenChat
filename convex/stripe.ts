@@ -15,10 +15,10 @@ const siteUrl = () => process.env.SITE_URL || "https://oschat.ai";
 
 /**
  * Whether the user has a premium subscription, based on the Stripe component's
- * webhook-synced subscriptions table. Usable from queries and mutations.
+ * webhook-synced subscriptions table. Usable from queries, mutations and actions.
  */
 export async function hasActivePremium(
-  ctx: Pick<QueryCtx, "runQuery">,
+  ctx: Pick<QueryCtx, "runQuery"> | Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
 ): Promise<boolean> {
   const subscriptions = await ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
@@ -63,6 +63,10 @@ export const createCheckout = action({
     const user = await ctx.runQuery(api.users.getCurrentUser);
     if (!user?.email || user.isAnonymous) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
+    }
+    // Server-side guard so a stale UI or direct call can't start a second subscription
+    if (await hasActivePremium(ctx, user._id)) {
+      throw new ConvexError(ERROR_CODES.ALREADY_SUBSCRIBED);
     }
 
     const customerId = await getOrCreateCustomerId(ctx, {

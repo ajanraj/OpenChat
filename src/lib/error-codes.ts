@@ -37,6 +37,7 @@ export const BUSINESS_ERRORS = {
   PROFILE_LIMIT_REACHED: "PROFILE_LIMIT_REACHED",
   PROFILE_NOT_FOUND: "PROFILE_NOT_FOUND",
   CANNOT_DELETE_DEFAULT_PROFILE: "CANNOT_DELETE_DEFAULT_PROFILE",
+  ALREADY_SUBSCRIBED: "ALREADY_SUBSCRIBED",
 } as const;
 
 // File operation errors
@@ -130,6 +131,8 @@ export function getErrorMessage(code: ErrorCode): string {
       return "Profile not found.";
     case ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE:
       return "The default profile cannot be deleted.";
+    case ERROR_CODES.ALREADY_SUBSCRIBED:
+      return "You already have an active Premium subscription. Manage it from your account settings.";
 
     // File errors
     case ERROR_CODES.UNSUPPORTED_FILE_TYPE:

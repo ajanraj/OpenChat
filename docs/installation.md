@@ -205,6 +205,7 @@ For production deployment:
 3. **Update Environment Variables**:
    - Add your production API keys to Vercel
    - Update `SITE_URL` in Convex production dashboard to your production URL
+   - Set the live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PREMIUM_PRICE_ID` on the Convex production deployment (`bunx convex env set ... --prod`), with a live-mode webhook pointing at `https://<your-prod-deployment>.convex.site/stripe/webhook`
 
 ## Development Commands
 
