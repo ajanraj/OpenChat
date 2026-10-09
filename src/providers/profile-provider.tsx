@@ -91,18 +91,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [optimisticActiveProfileId, setOptimisticActiveProfileId] = useState<
     Id<"profiles"> | undefined
   >(undefined);
+
+  // Drop the optimistic profile once the server confirms it or the user signs out
+  // (adjusting state during render instead of in an effect).
+  if (
+    optimisticActiveProfileId &&
+    (!user || user.isAnonymous || user.activeProfileId === optimisticActiveProfileId)
+  ) {
+    setOptimisticActiveProfileId(undefined);
+  }
   const activeProfileId = optimisticActiveProfileId ?? user?.activeProfileId;
-
-  useEffect(() => {
-    if (!user || user.isAnonymous) {
-      setOptimisticActiveProfileId(undefined);
-      return;
-    }
-
-    if (optimisticActiveProfileId && user.activeProfileId === optimisticActiveProfileId) {
-      setOptimisticActiveProfileId(undefined);
-    }
-  }, [user, optimisticActiveProfileId]);
 
   const activeProfile = useMemo(() => {
     if (!activeProfileId || profiles.length === 0) {

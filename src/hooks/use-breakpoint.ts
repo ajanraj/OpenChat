@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export function useBreakpoint(breakpoint: number) {
-  const [isBelowBreakpoint, setIsBelowBreakpoint] = useState<boolean | undefined>(undefined);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    },
+    [breakpoint],
+  );
 
-  useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const onChange = () => {
-      setIsBelowBreakpoint(window.innerWidth < breakpoint);
-    };
-    mql.addEventListener("change", onChange);
-    setIsBelowBreakpoint(window.innerWidth < breakpoint);
-    return () => mql.removeEventListener("change", onChange);
-  }, [breakpoint]);
-
-  return Boolean(isBelowBreakpoint);
+  return useSyncExternalStore(
+    subscribe,
+    () => window.innerWidth < breakpoint,
+    () => false,
+  );
 }
