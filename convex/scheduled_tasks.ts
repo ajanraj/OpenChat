@@ -10,7 +10,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { ensureAuthenticated } from "./lib/auth_helper";
-import { polar } from "./polar";
+import { hasActivePremium } from "./stripe";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -32,8 +32,7 @@ async function assertScheduledAgentAccess(ctx: MutationCtx, userId: Id<"users">)
     return;
   }
 
-  const subscription = await polar.getCurrentSubscription(ctx, { userId });
-  if (subscription?.status !== "active") {
+  if (!(await hasActivePremium(ctx, userId))) {
     throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
   }
 }

@@ -27,7 +27,6 @@ interface UserContextType {
   updateUser: (updates: Partial<UserProfile>) => Promise<void>;
   // User capabilities and settings
   hasPremium: boolean;
-  products: { premium?: { id: string } } | undefined;
   rateLimitStatus:
     | {
         isPremium: boolean;
@@ -83,13 +82,6 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     enabled: Boolean(user) && !user?.isAnonymous,
     // Premium status changes infrequently, cache longer
     gcTime: 15 * 60 * 1000, // 15 minutes
-  });
-
-  const { data: products, isLoading: isProductsLoading } = useTanStackQuery({
-    ...convexQuery(api.polar.getConfiguredProducts, {}),
-    enabled: Boolean(user) && !user?.isAnonymous,
-    // Product configurations are very stable, cache aggressively
-    gcTime: 60 * 60 * 1000, // 60 minutes
   });
 
   const { data: rateLimitStatus, isLoading: isRateLimitLoading } = useTanStackQuery({
@@ -154,11 +146,7 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     isUserLoading ||
     (user &&
       !user.isAnonymous &&
-      (isPremiumLoading ||
-        isProductsLoading ||
-        isRateLimitLoading ||
-        isApiKeysLoading ||
-        isConnectorsLoading)),
+      (isPremiumLoading || isRateLimitLoading || isApiKeysLoading || isConnectorsLoading)),
   );
 
   const contextValue = useMemo(
@@ -170,7 +158,6 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       updateUser,
       // User capabilities and settings
       hasPremium: hasPremium ?? false,
-      products: products,
       rateLimitStatus: rateLimitStatus,
       // API Keys
       apiKeys,
@@ -190,7 +177,6 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       signOut,
       updateUser,
       hasPremium,
-      products,
       rateLimitStatus,
       apiKeys,
       hasApiKey,

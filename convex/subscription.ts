@@ -4,23 +4,19 @@ import { internalMutation, type MutationCtx } from "./_generated/server";
 import { rateLimiter } from "./rateLimiter";
 
 /**
- * Handle subscription updated webhook event from Polar
+ * Handle Stripe invoice.paid webhook event: reset the user's credits for the new billing period
  */
-export const onSubscriptionUpdated = internalMutation({
+export const onInvoicePaid = internalMutation({
   args: {
-    directUserId: v.union(v.string(), v.null()),
+    userId: v.string(),
   },
   returns: v.null(),
-  handler: async (ctx, { directUserId }) => {
-    // Use direct user ID if available
-    if (directUserId) {
-      const user = await ctx.db.get(directUserId as Id<"users">);
-      if (user) {
-        await resetUserRateLimits(ctx, user._id, user.isAnonymous ?? false);
-        return null;
-      }
+  handler: async (ctx, { userId }) => {
+    const normalizedUserId = ctx.db.normalizeId("users", userId);
+    const user = normalizedUserId ? await ctx.db.get(normalizedUserId) : null;
+    if (user) {
+      await resetUserRateLimits(ctx, user._id, user.isAnonymous ?? false);
     }
-
     return null;
   },
 });

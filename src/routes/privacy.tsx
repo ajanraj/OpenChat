@@ -110,7 +110,8 @@ function PrivacyPage() {
               <strong>Authentication:</strong> Convex Auth for secure login
             </li>
             <li>
-              <strong>Payments:</strong> Polar for subscription billing
+              <strong>Payments:</strong> Stripe Managed Payments (Sold through Link, LLC, merchant
+              of record) for subscription billing and tax
             </li>
             <li>
               <strong>Infrastructure:</strong> Convex for backend services

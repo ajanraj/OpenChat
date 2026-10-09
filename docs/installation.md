@@ -139,13 +139,19 @@ VITE_CALENDAR_AUTH_CONFIG_ID=your_calendar_auth_config_id
 # ... add more as needed
 ```
 
-### D. Polar Payments (Optional)
+### D. Stripe Payments (Optional)
 
 ```bash
-bunx convex env set POLAR_ORGANIZATION_TOKEN your-polar-organization-token
-bunx convex env set POLAR_PREMIUM_PRODUCT_ID your-product-id
-bunx convex env set POLAR_WEBHOOK_SECRET your-polar-webhook-secret
+bunx convex env set STRIPE_SECRET_KEY sk_test_...
+bunx convex env set STRIPE_WEBHOOK_SECRET whsec_...
+bunx convex env set STRIPE_PREMIUM_PRICE_ID price_...
 ```
+
+In the Stripe Dashboard:
+
+- Create a webhook endpoint at `https://<your-deployment>.convex.site/stripe/webhook` with these events: `checkout.session.completed`, `customer.created`, `customer.updated`, `customer.deleted`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.created`, `invoice.finalized`, `invoice.updated`, `invoice.paid`, `invoice.payment_failed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+- Enable [Managed Payments](https://docs.stripe.com/payments/managed-payments) (checkout uses Stripe as merchant of record, which handles tax) and accept its terms; give the product an eligible tax code (e.g. `txcd_10105001`) and an exclusive price
+- Enable the Customer Portal
 
 **Reference Documentation:**
 
@@ -153,7 +159,7 @@ bunx convex env set POLAR_WEBHOOK_SECRET your-polar-webhook-secret
 - [Google OAuth Configuration](https://labs.convex.dev/auth/config/oauth/google)
 - [Cloudflare R2 Component](https://www.convex.dev/components/cloudflare-r2)
 - [Composio Documentation](https://docs.composio.dev)
-- [Polar Component Documentation](https://www.convex.dev/components/polar)
+- [Stripe Component Documentation](https://www.convex.dev/components/stripe)
 
 ## 5. Deploy Convex Functions
 
@@ -253,6 +259,6 @@ For production deployment:
 - See [Google OAuth Configuration](https://labs.convex.dev/auth/config/oauth/google) for authentication
 - Configure [Cloudflare R2](https://www.convex.dev/components/cloudflare-r2) for file storage
 - Get an [Exa API key](https://exa.ai/) for web search functionality
-- Set up [Polar payments](https://www.convex.dev/components/polar) for premium features
+- Set up [Stripe payments](https://www.convex.dev/components/stripe) for premium features
 - Read [Composio docs](https://docs.composio.dev) for service integrations
 - Open an issue in this repository

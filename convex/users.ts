@@ -8,7 +8,7 @@ import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { RATE_LIMITS } from "./lib/rateLimitConstants";
-import { polar } from "./polar";
+import { hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
 import { User } from "./schema/user";
 
@@ -41,8 +41,7 @@ export const userHasPremium = query({
     }
 
     try {
-      const subscription = await polar.getCurrentSubscription(ctx, { userId });
-      return subscription?.status === "active";
+      return await hasActivePremium(ctx, userId);
     } catch {
       return false;
     }
@@ -286,10 +285,7 @@ export const incrementMessageCount = mutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const subscription = await polar.getCurrentSubscription(ctx, {
-      userId: user._id,
-    });
-    const isPremium = subscription?.status === "active";
+    const isPremium = await hasActivePremium(ctx, user._id);
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, deduct from premium credits
@@ -343,10 +339,7 @@ export const incrementStandardCredits = mutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const subscription = await polar.getCurrentSubscription(ctx, {
-      userId: user._id,
-    });
-    const isPremium = subscription?.status === "active";
+    const isPremium = await hasActivePremium(ctx, user._id);
     const isAnonymous = user.isAnonymous ?? false;
 
     if (!isPremium) {
@@ -383,10 +376,7 @@ export const assertNotOverLimit = mutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const subscription = await polar.getCurrentSubscription(ctx, {
-      userId: user._id,
-    });
-    const isPremium = subscription?.status === "active";
+    const isPremium = await hasActivePremium(ctx, user._id);
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, check premium credits
@@ -481,10 +471,7 @@ export const getRateLimitStatus = query({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const subscription = await polar.getCurrentSubscription(ctx, {
-      userId: user._id,
-    });
-    const isPremium = subscription?.status === "active";
+    const isPremium = await hasActivePremium(ctx, user._id);
     const isAnonymous = user.isAnonymous ?? false;
     const now = Date.now();
 
@@ -794,10 +781,7 @@ export const assertNotOverLimitInternal = internalMutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const subscription = await polar.getCurrentSubscription(ctx, {
-      userId: user._id,
-    });
-    const isPremium = subscription?.status === "active";
+    const isPremium = await hasActivePremium(ctx, user._id);
     if (requiresPremium && !isPremium) {
       throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
     }
@@ -863,10 +847,7 @@ export const incrementMessageCountInternal = internalMutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const subscription = await polar.getCurrentSubscription(ctx, {
-      userId: user._id,
-    });
-    const isPremium = subscription?.status === "active";
+    const isPremium = await hasActivePremium(ctx, user._id);
     const isAnonymous = user.isAnonymous ?? false;
 
     // For premium users using premium models, deduct from premium credits
@@ -916,10 +897,7 @@ export const incrementStandardCreditsInternal = internalMutation({
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const subscription = await polar.getCurrentSubscription(ctx, {
-      userId: user._id,
-    });
-    const isPremium = subscription?.status === "active";
+    const isPremium = await hasActivePremium(ctx, user._id);
     const isAnonymous = user.isAnonymous ?? false;
 
     if (!isPremium) {
