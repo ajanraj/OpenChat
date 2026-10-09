@@ -84,7 +84,7 @@ export const createCheckout = action({
       subscriptionMetadata: { userId: user._id },
       // Stripe Managed Payments: Stripe is merchant of record and handles tax, fraud and disputes.
       // Tax is added on top of the price (the price's tax behavior is exclusive).
-      params: { managed_payments: { enabled: true } },
+      params: { managed_payments: { enabled: true }, allow_promotion_codes: true },
     });
     if (!url) {
       throw new ConvexError(ERROR_CODES.UNSUPPORTED_OPERATION);
