@@ -107,16 +107,14 @@ async function resetUserRateLimits(ctx: MutationCtx, userId: Id<"users">, isAnon
   // Reset daily limits (for non-premium tracking)
   const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
 
-  // Run all rate limiter operations concurrently
-  const operations = [
+  // Run all rate limiter operations concurrently. Any failure must throw so the whole mutation
+  // (including the invoice's reset marker) rolls back and Stripe redelivers the webhook.
+  await Promise.all([
     rateLimiter.reset(ctx, dailyLimitName, { key: userId }),
     rateLimiter.limit(ctx, dailyLimitName, { key: userId, count: 0 }),
     rateLimiter.reset(ctx, "standardMonthly", { key: userId }),
     rateLimiter.limit(ctx, "standardMonthly", { key: userId, count: 0 }),
     rateLimiter.reset(ctx, "premiumMonthly", { key: userId }),
     rateLimiter.limit(ctx, "premiumMonthly", { key: userId, count: 0 }),
-  ];
-
-  // Use Promise.allSettled to ensure all operations complete independently
-  await Promise.allSettled(operations);
+  ]);
 }

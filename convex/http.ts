@@ -4,6 +4,8 @@ import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
 import { handleStripeEvent, stripeApi } from "./stripe";
 
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 const http = httpRouter();
 
 auth.addHttpRoutes(http);
@@ -33,7 +35,8 @@ http.route({
         webhookSecret,
       );
     } catch (error) {
-      console.error("Stripe webhook signature verification failed:", error);
+      // Log only the message: the error object can carry the raw (customer) payload
+      console.error("Stripe webhook signature verification failed:", errorMessage(error));
       return new Response("Invalid Stripe signature", { status: 400 });
     }
 

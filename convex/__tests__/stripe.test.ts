@@ -165,6 +165,14 @@ describe("onInvoicePaid", () => {
     }
   });
 
+  it("fails (so Stripe redelivers) when a credit reset fails", async () => {
+    mocks.rateLimiterReset.mockClear();
+    mocks.rateLimiterReset.mockRejectedValueOnce(new Error("rate limiter unavailable"));
+    await expect(
+      handler({ db: fakeDb(existingUser) }, { userId: USER_ID, stripeInvoiceId: "in_1" }),
+    ).rejects.toThrow("rate limiter unavailable");
+  });
+
   it("resets only once when the same invoice is delivered again", async () => {
     mocks.rateLimiterReset.mockClear();
     const ctx = { db: fakeDb(existingUser) };
