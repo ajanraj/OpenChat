@@ -1,5 +1,6 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
+import { StripeCreditReset, StripeSubscriptionSync } from "./schema/billing";
 import { Chat } from "./schema/chat";
 import { ChatAttachment } from "./schema/chat_attachment";
 import { Connector } from "./schema/connectors";
@@ -49,4 +50,11 @@ export default defineSchema({
     .index("by_task_and_time", ["taskId", "startTime"])
     .index("by_status", ["status"])
     .index("by_execution_id", ["executionId"]),
+  stripe_subscription_syncs: defineTable(StripeSubscriptionSync).index(
+    "by_stripe_subscription_id",
+    ["stripeSubscriptionId"],
+  ),
+  stripe_credit_resets: defineTable(StripeCreditReset).index("by_stripe_invoice_id", [
+    "stripeInvoiceId",
+  ]),
 });

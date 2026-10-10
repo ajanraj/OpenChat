@@ -1,10 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { StripeSubscriptions } from "@convex-dev/stripe";
+import { processEvent, StripeSubscriptions } from "@convex-dev/stripe";
 import { ConvexError, v } from "convex/values";
 import Stripe from "stripe";
 import { ERROR_CODES } from "../src/lib/error-codes";
-import { api, components } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import { api, components, internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import { action, type ActionCtx, type QueryCtx } from "./_generated/server";
 
 const stripeClient = new StripeSubscriptions(components.stripe);
@@ -16,6 +16,15 @@ const PREMIUM_STATUSES = new Set(["active", "trialing"]);
 const CHECKOUT_BLOCKING_STATUSES = new Set([...PREMIUM_STATUSES, "past_due", "unpaid", "paused"]);
 
 const siteUrl = () => process.env.SITE_URL || "https://oschat.ai";
+
+/** Stripe API client from STRIPE_SECRET_KEY; throws (so webhooks get retried) when unset. */
+export function stripeApi(): Stripe {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error("STRIPE_SECRET_KEY is not set");
+  }
+  return new Stripe(secretKey);
+}
 
 type RunQueryCtx = Pick<QueryCtx, "runQuery"> | Pick<ActionCtx, "runQuery">;
 
@@ -40,30 +49,33 @@ export function hasActivePremium(ctx: RunQueryCtx, userId: Id<"users">): Promise
 
 /**
  * Re-reads a subscription from Stripe and stores its current state. Stripe doesn't guarantee
- * webhook order and the component applies each event's snapshot as-is, so this runs after every
- * subscription event to stop an older snapshot (e.g. "active" delivered after "canceled") winning.
+ * webhook order, so event snapshots are never stored directly; reads are applied in the order
+ * they were made, so a slower, older read can't overwrite a newer one.
  */
 export async function syncSubscriptionFromStripe(
   ctx: Pick<ActionCtx, "runMutation">,
+  stripe: Stripe,
   stripeSubscriptionId: string,
 ): Promise<void> {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error("STRIPE_SECRET_KEY is not set; cannot sync subscription from Stripe");
-  }
-  const subscription = await new Stripe(secretKey).subscriptions.retrieve(stripeSubscriptionId);
+  const fetchedAt = Date.now();
+  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
   const item = subscription.items.data[0];
-  await ctx.runMutation(components.stripe.private.handleSubscriptionUpdated, {
-    stripeSubscriptionId: subscription.id,
-    stripeCustomerId:
-      typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
-    status: subscription.status,
-    currentPeriodEnd: item?.current_period_end ?? 0,
-    cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    cancelAt: subscription.cancel_at ?? undefined,
-    quantity: item?.quantity ?? 1,
-    priceId: item?.price.id,
-    metadata: subscription.metadata,
+  await ctx.runMutation(internal.subscription.applySubscriptionSnapshot, {
+    fetchedAt,
+    snapshot: {
+      stripeSubscriptionId: subscription.id,
+      stripeCustomerId:
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer.id,
+      status: subscription.status,
+      currentPeriodEnd: item?.current_period_end ?? 0,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancelAt: subscription.cancel_at ?? undefined,
+      quantity: item?.quantity ?? 1,
+      priceId: item?.price.id,
+      metadata: subscription.metadata,
+    },
   });
 }
 
@@ -82,6 +94,39 @@ export function getCreditResetUserId(invoice: Stripe.Invoice): string | null {
     return null;
   }
   return invoice.parent?.subscription_details?.metadata?.userId ?? null;
+}
+
+/**
+ * Handles a verified Stripe webhook event. Subscription events re-read the subscription from
+ * Stripe; everything else uses the component's default syncing, plus credit resets on paid
+ * new-period invoices (once per invoice).
+ */
+export async function handleStripeEvent(
+  ctx: ActionCtx,
+  stripe: Stripe,
+  event: Stripe.Event,
+): Promise<void> {
+  switch (event.type) {
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted":
+      await syncSubscriptionFromStripe(ctx, stripe, event.data.object.id);
+      return;
+    case "invoice.paid": {
+      await processEvent(ctx, components.stripe, event, stripe);
+      const invoice = event.data.object;
+      const userId = getCreditResetUserId(invoice);
+      if (userId && invoice.id) {
+        await ctx.runMutation(internal.subscription.onInvoicePaid, {
+          userId,
+          stripeInvoiceId: invoice.id,
+        });
+      }
+      return;
+    }
+    default:
+      await processEvent(ctx, components.stripe, event, stripe);
+  }
 }
 
 /**
@@ -108,22 +153,37 @@ export async function getOrCreateCustomerId(
   return customerId;
 }
 
-/** Creates a hosted Stripe Checkout session for the premium plan and returns its URL. */
+async function createPortalUrl(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
+  const customer = await ctx.runQuery(components.stripe.public.getCustomerByUserId, { userId });
+  if (!customer) {
+    throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
+  }
+  const { url } = await stripeClient.createCustomerPortalSession(ctx, {
+    customerId: customer.stripeCustomerId,
+    returnUrl: `${siteUrl()}/settings`,
+  });
+  return url;
+}
+
+/**
+ * Returns where to send the user to upgrade: a hosted Stripe Checkout for the premium plan, an
+ * already-open checkout of theirs, or the billing portal if they already have a subscription
+ * (so a stale UI can't start a second one and past-due users can recover).
+ */
 export const createCheckout = action({
   args: {},
   returns: v.object({ url: v.string() }),
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ url: string }> => {
     const priceId = process.env.STRIPE_PREMIUM_PRICE_ID;
     if (!priceId) {
       throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
     }
-    const user = await ctx.runQuery(api.users.getCurrentUser);
+    const user: Doc<"users"> | null = await ctx.runQuery(api.users.getCurrentUser);
     if (!user?.email || user.isAnonymous) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-    // Server-side guard so a stale UI or direct call can't start a second subscription
     if (await hasSubscriptionWithStatus(ctx, user._id, CHECKOUT_BLOCKING_STATUSES)) {
-      throw new ConvexError(ERROR_CODES.ALREADY_SUBSCRIBED);
+      return { url: await createPortalUrl(ctx, user._id) };
     }
 
     const customerId = await getOrCreateCustomerId(ctx, {
@@ -131,6 +191,17 @@ export const createCheckout = action({
       email: user.email,
       name: user.preferredName || user.name || "User",
     });
+    // Reuse a checkout the user already has open instead of starting a parallel one
+    const open = await stripeApi().checkout.sessions.list({
+      customer: customerId,
+      status: "open",
+      limit: 1,
+    });
+    const openUrl = open.data[0]?.url;
+    if (openUrl) {
+      return { url: openUrl };
+    }
+
     const { url } = await stripeClient.createCheckoutSession(ctx, {
       priceId,
       customerId,
@@ -154,18 +225,11 @@ export const createCheckout = action({
 export const createPortalSession = action({
   args: {},
   returns: v.object({ url: v.string() }),
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ url: string }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-    const customer = await ctx.runQuery(components.stripe.public.getCustomerByUserId, { userId });
-    if (!customer) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-    return await stripeClient.createCustomerPortalSession(ctx, {
-      customerId: customer.stripeCustomerId,
-      returnUrl: `${siteUrl()}/settings`,
-    });
+    return { url: await createPortalUrl(ctx, userId) };
   },
 });

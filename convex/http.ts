@@ -1,32 +1,50 @@
-import { registerRoutes } from "@convex-dev/stripe";
 import { httpRouter } from "convex/server";
-import { components, internal } from "./_generated/api";
+import type Stripe from "stripe";
+import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
-import { getCreditResetUserId, syncSubscriptionFromStripe } from "./stripe";
+import { handleStripeEvent, stripeApi } from "./stripe";
 
 const http = httpRouter();
 
 auth.addHttpRoutes(http);
 
-// Stripe webhook at /stripe/webhook; the component syncs customers, subscriptions and invoices.
-// Custom handlers run after the component's default processing.
-registerRoutes(http, components.stripe, {
-  events: {
-    // Overwrite the event snapshot with Stripe's current state (events can arrive out of order)
-    "customer.subscription.created": (ctx, event) =>
-      syncSubscriptionFromStripe(ctx, event.data.object.id),
-    "customer.subscription.updated": (ctx, event) =>
-      syncSubscriptionFromStripe(ctx, event.data.object.id),
-    "customer.subscription.deleted": (ctx, event) =>
-      syncSubscriptionFromStripe(ctx, event.data.object.id),
-    // A paid invoice for a new billing period resets the user's credits
-    "invoice.paid": async (ctx, event) => {
-      const userId = getCreditResetUserId(event.data.object);
-      if (userId) {
-        await ctx.runMutation(internal.subscription.onInvoicePaid, { userId });
-      }
-    },
-  },
+// Stripe webhook: verify the signature, then sync via handleStripeEvent. Non-2xx responses make
+// Stripe redeliver, so every handler is safe to run more than once.
+http.route({
+  path: "/stripe/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error("STRIPE_WEBHOOK_SECRET is not set; Stripe webhook can't be verified");
+      return new Response("Webhook secret not configured", { status: 500 });
+    }
+    const signature = request.headers.get("stripe-signature");
+    if (!signature) {
+      return new Response("Missing Stripe signature", { status: 400 });
+    }
+
+    const stripe = stripeApi();
+    let event: Stripe.Event;
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        await request.text(),
+        signature,
+        webhookSecret,
+      );
+    } catch (error) {
+      console.error("Stripe webhook signature verification failed:", error);
+      return new Response("Invalid Stripe signature", { status: 400 });
+    }
+
+    try {
+      await handleStripeEvent(ctx, stripe, event);
+    } catch (error) {
+      console.error(`Failed to process Stripe event ${event.id} (${event.type}):`, error);
+      return new Response("Error processing webhook", { status: 500 });
+    }
+    return Response.json({ received: true });
+  }),
 });
 
 export default http;

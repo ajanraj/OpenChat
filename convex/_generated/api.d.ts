@@ -27,6 +27,7 @@ import type * as profiles from "../profiles.js";
 import type * as rateLimiter from "../rateLimiter.js";
 import type * as scheduled_ai from "../scheduled_ai.js";
 import type * as scheduled_tasks from "../scheduled_tasks.js";
+import type * as schema_billing from "../schema/billing.js";
 import type * as schema_chat from "../schema/chat.js";
 import type * as schema_chat_attachment from "../schema/chat_attachment.js";
 import type * as schema_connectors from "../schema/connectors.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   rateLimiter: typeof rateLimiter;
   scheduled_ai: typeof scheduled_ai;
   scheduled_tasks: typeof scheduled_tasks;
+  "schema/billing": typeof schema_billing;
   "schema/chat": typeof schema_chat;
   "schema/chat_attachment": typeof schema_chat_attachment;
   "schema/connectors": typeof schema_connectors;
