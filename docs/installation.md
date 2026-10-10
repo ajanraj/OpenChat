@@ -149,7 +149,7 @@ bunx convex env set STRIPE_PREMIUM_PRICE_ID price_...
 
 In the Stripe Dashboard:
 
-- Create a webhook endpoint at `https://<your-deployment>.convex.site/stripe/webhook` with these events: `checkout.session.completed`, `customer.created`, `customer.updated`, `customer.deleted`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.created`, `invoice.finalized`, `invoice.updated`, `invoice.paid`, `invoice.payment_failed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+- Create a webhook endpoint (API version `2025-03-31.basil` or later; older payloads lack `invoice.parent`, so credit resets would be skipped) at `https://<your-deployment>.convex.site/stripe/webhook` with these events: `checkout.session.completed`, `customer.created`, `customer.updated`, `customer.deleted`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.created`, `invoice.finalized`, `invoice.updated`, `invoice.paid`, `invoice.payment_failed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
 - Enable [Managed Payments](https://docs.stripe.com/payments/managed-payments) (checkout uses Stripe as merchant of record, which handles tax) and accept its terms; give the product an eligible tax code (e.g. `txcd_10105001`) and an exclusive price
 - Enable the Customer Portal
 

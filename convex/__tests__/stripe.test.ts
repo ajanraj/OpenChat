@@ -10,7 +10,7 @@ import {
   hasActivePremium,
   syncSubscriptionFromStripe,
 } from "../stripe";
-import { applySubscriptionSnapshot, onInvoicePaid } from "../subscription";
+import { applySubscriptionSnapshot, onInvoicePaid, reserveSubscriptionSync } from "../subscription";
 
 const mocks = vi.hoisted(() => ({
   createCustomer: vi.fn<() => Promise<{ customerId: string }>>(async () => ({
@@ -176,34 +176,58 @@ describe("onInvoicePaid", () => {
   });
 });
 
-describe("applySubscriptionSnapshot", () => {
-  type Handler = (
+describe("subscription sync revisions", () => {
+  type Reserve = (ctx: unknown, args: { stripeSubscriptionId: string }) => Promise<number>;
+  type Apply = (
     ctx: unknown,
-    args: { fetchedAt: number; snapshot: Record<string, unknown> },
+    args: { revision: number; snapshot: Record<string, unknown> },
   ) => Promise<boolean>;
-  const handler = applySubscriptionSnapshot as unknown as Handler;
+  const reserve = reserveSubscriptionSync as unknown as Reserve;
+  const apply = applySubscriptionSnapshot as unknown as Apply;
   const snapshot = (status: string) => ({ stripeSubscriptionId: "sub_1", status });
 
-  // Concurrent deliveries: read A (active) starts first, read B (canceled) starts later but is
-  // applied first. A's older read must not restore Premium.
-  it("discards a read older than the last applied one", async () => {
+  const setup = () => {
     const runMutation = vi.fn<(ref: unknown, args: { status: string }) => Promise<null>>(
       async () => null,
     );
     const ctx = { db: fakeDb(), runMutation };
-    expect(await handler(ctx, { fetchedAt: 2, snapshot: snapshot("canceled") })).toBe(true);
-    expect(await handler(ctx, { fetchedAt: 1, snapshot: snapshot("active") })).toBe(false);
-    expect(runMutation.mock.calls.map(([, args]) => args.status)).toEqual(["canceled"]);
+    const stored = () => runMutation.mock.calls.map(([, args]) => args.status);
+    return { ctx, stored };
+  };
+
+  it("reserves increasing revisions per subscription", async () => {
+    const { ctx } = setup();
+    expect(await reserve(ctx, { stripeSubscriptionId: "sub_1" })).toBe(1);
+    expect(await reserve(ctx, { stripeSubscriptionId: "sub_1" })).toBe(2);
+    expect(await reserve(ctx, { stripeSubscriptionId: "sub_2" })).toBe(1);
   });
 
-  it("applies newer reads", async () => {
-    const runMutation = vi.fn<(ref: unknown, args: { status: string }) => Promise<null>>(
-      async () => null,
-    );
-    const ctx = { db: fakeDb(), runMutation };
-    await handler(ctx, { fetchedAt: 1, snapshot: snapshot("active") });
-    await handler(ctx, { fetchedAt: 2, snapshot: snapshot("canceled") });
-    expect(runMutation.mock.calls.map(([, args]) => args.status)).toEqual(["active", "canceled"]);
+  // Concurrent deliveries: read A (active) reserves first, read B (canceled) reserves later but
+  // is applied first. A's older read must not restore Premium, regardless of wall clocks.
+  it("discards a read whose revision is older than the last applied one", async () => {
+    const { ctx, stored } = setup();
+    const a = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
+    const b = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
+    expect(await apply(ctx, { revision: b, snapshot: snapshot("canceled") })).toBe(true);
+    expect(await apply(ctx, { revision: a, snapshot: snapshot("active") })).toBe(false);
+    expect(stored()).toEqual(["canceled"]);
+  });
+
+  it("applies reads in revision order", async () => {
+    const { ctx, stored } = setup();
+    const a = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
+    const b = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
+    await apply(ctx, { revision: a, snapshot: snapshot("active") });
+    await apply(ctx, { revision: b, snapshot: snapshot("canceled") });
+    expect(stored()).toEqual(["active", "canceled"]);
+  });
+
+  it("lets a retried read win after the original read failed", async () => {
+    const { ctx, stored } = setup();
+    await reserve(ctx, { stripeSubscriptionId: "sub_1" }); // read failed, never applied
+    const retry = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
+    expect(await apply(ctx, { revision: retry, snapshot: snapshot("canceled") })).toBe(true);
+    expect(stored()).toEqual(["canceled"]);
   });
 });
 
@@ -218,9 +242,10 @@ describe("syncSubscriptionFromStripe", () => {
       metadata: { userId: USER_ID },
       items: { data: [{ current_period_end: 1_800_000_000, quantity: 1, price: { id: "p_1" } }] },
     });
-    const runMutation = vi.fn<(ref: unknown, args: Record<string, unknown>) => Promise<null>>(
-      async () => null,
-    );
+    const runMutation = vi
+      .fn<(ref: unknown, args: Record<string, unknown>) => Promise<number | null>>()
+      .mockResolvedValueOnce(1)
+      .mockResolvedValue(null);
     const { default: StripeClass } = await import("stripe");
     await syncSubscriptionFromStripe(
       { runMutation } as unknown as ActionCtx,
@@ -228,8 +253,9 @@ describe("syncSubscriptionFromStripe", () => {
       "sub_1",
     );
     expect(mocks.retrieveSubscription).toHaveBeenLastCalledWith("sub_1");
-    expect(runMutation.mock.calls[0]?.[1]).toMatchObject({
-      fetchedAt: expect.any(Number),
+    expect(runMutation.mock.calls[0]?.[1]).toEqual({ stripeSubscriptionId: "sub_1" });
+    expect(runMutation.mock.calls[1]?.[1]).toMatchObject({
+      revision: 1,
       snapshot: {
         stripeSubscriptionId: "sub_1",
         stripeCustomerId: "cus_1",
@@ -243,12 +269,13 @@ describe("syncSubscriptionFromStripe", () => {
 
   it("propagates Stripe API errors so the webhook is retried", async () => {
     mocks.retrieveSubscription.mockRejectedValueOnce(new Error("Stripe down"));
-    const runMutation = vi.fn<() => Promise<null>>(async () => null);
+    const runMutation = vi.fn<() => Promise<number>>(async () => 1);
     const { default: StripeClass } = await import("stripe");
     await expect(
       syncSubscriptionFromStripe({ runMutation }, new StripeClass("sk_test"), "sub_1"),
     ).rejects.toThrow("Stripe down");
-    expect(runMutation).not.toHaveBeenCalled();
+    // Only the revision was reserved; nothing was stored
+    expect(runMutation).toHaveBeenCalledTimes(1);
   });
 });
 

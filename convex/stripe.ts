@@ -49,19 +49,21 @@ export function hasActivePremium(ctx: RunQueryCtx, userId: Id<"users">): Promise
 
 /**
  * Re-reads a subscription from Stripe and stores its current state. Stripe doesn't guarantee
- * webhook order, so event snapshots are never stored directly; reads are applied in the order
- * they were made, so a slower, older read can't overwrite a newer one.
+ * webhook order, so event snapshots are never stored directly; each read reserves a revision
+ * first, so an older read can't overwrite a newer one.
  */
 export async function syncSubscriptionFromStripe(
   ctx: Pick<ActionCtx, "runMutation">,
   stripe: Stripe,
   stripeSubscriptionId: string,
 ): Promise<void> {
-  const fetchedAt = Date.now();
+  const revision: number = await ctx.runMutation(internal.subscription.reserveSubscriptionSync, {
+    stripeSubscriptionId,
+  });
   const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
   const item = subscription.items.data[0];
   await ctx.runMutation(internal.subscription.applySubscriptionSnapshot, {
-    fetchedAt,
+    revision,
     snapshot: {
       stripeSubscriptionId: subscription.id,
       stripeCustomerId:
