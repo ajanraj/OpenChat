@@ -61,6 +61,7 @@
 }
 
 :root {
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
@@ -97,6 +98,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.141 0.005 285.823);
@@ -201,7 +203,6 @@
 }
 
 * {
-  color-scheme: light dark;
   border-color: var(--color-border);
 }
 
@@ -219,6 +220,9 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* Thin, theme-tinted scrollbars. Utilities like `no-scrollbar` still win. */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-foreground) 20%, transparent) transparent;
   }
 
   button:not(:disabled),
@@ -267,15 +271,6 @@ samp {
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
-  }
-}
-
-@utility scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
-
-  &::-webkit-scrollbar {
-    width: 8px;
   }
 }
 
