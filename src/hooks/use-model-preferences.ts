@@ -72,10 +72,11 @@ export function useModelPreferences() {
   );
 
   const favoriteModelsSet = useMemo(() => new Set(favoriteModels), [favoriteModels]);
+  const activeProfileId = activeProfile?._id;
 
   const toggleFavoriteModel = useCallback(
     async (modelId: string) => {
-      if (!activeProfile?._id) {
+      if (!activeProfileId) {
         throw new Error("No active profile");
       }
 
@@ -86,19 +87,19 @@ export function useModelPreferences() {
       }
 
       try {
-        await toggleFavoriteModelMutation({ profileId: activeProfile._id, modelId });
+        await toggleFavoriteModelMutation({ profileId: activeProfileId, modelId });
       } catch (error) {
         throw new Error(
           `Failed to ${isFavorite ? "unpin" : "pin"} model: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
       }
     },
-    [activeProfile?._id, favoriteModels, toggleFavoriteModelMutation],
+    [activeProfileId, favoriteModels, toggleFavoriteModelMutation],
   );
 
   const bulkSetFavoriteModels = useCallback(
     async (modelIds: string[]) => {
-      if (!activeProfile?._id) {
+      if (!activeProfileId) {
         throw new Error("No active profile");
       }
 
@@ -107,14 +108,14 @@ export function useModelPreferences() {
       }
 
       try {
-        await bulkSetFavoriteModelsMutation({ profileId: activeProfile._id, modelIds });
+        await bulkSetFavoriteModelsMutation({ profileId: activeProfileId, modelIds });
       } catch (error) {
         throw new Error(
           `Failed to set favorite models: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
       }
     },
-    [activeProfile?._id, bulkSetFavoriteModelsMutation],
+    [activeProfileId, bulkSetFavoriteModelsMutation],
   );
 
   return {

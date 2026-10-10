@@ -84,12 +84,12 @@ function useModelSelectorV2View({
 	className,
 	openSignalEvent,
 }: ModelSelectorV2Props) {
-	const { user, hasPremium, products } = useUser();
+	const { user, hasPremium } = useUser();
 	const { toggleFavoriteModel, favoriteModelsSet } = useModelPreferences();
 	const { categorizedModels } = useEnrichedModels();
 	const { disabledModelsSet } = useModelSettings();
 	const isMobile = useBreakpoint(768);
-	const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
+	const createCheckout = useAction(api.stripe.createCheckout);
 	const router = useRouter();
 
 	type SelectorState = {
@@ -362,15 +362,8 @@ function useModelSelectorV2View({
 			router.navigate({ to: "/auth" });
 			return;
 		}
-		const premiumProductId = products?.premium?.id;
-		if (!premiumProductId) return;
 		dispatch({ type: "SET_UPGRADE_LOADING", value: true });
-		const checkoutLinkPromise = generateCheckoutLink({
-			productIds: [premiumProductId],
-			origin: window.location.origin,
-			successUrl: `${window.location.origin}/settings?upgraded=true`,
-		});
-		const checkoutUrl = await checkoutLinkPromise
+		const checkoutUrl = await createCheckout({})
 			.then(({ url }) => url)
 			.catch((error) => {
 				console.error("Checkout failed:", error);
@@ -389,8 +382,7 @@ function useModelSelectorV2View({
 		window.location.href = checkoutUrl;
 		}, [
 		user?.isAnonymous,
-		products?.premium?.id,
-		generateCheckoutLink,
+		createCheckout,
 		isUpgradeLoading,
 		router,
 	]);
@@ -612,7 +604,7 @@ function useModelSelectorV2View({
 					<div className="relative flex min-h-0 flex-1 flex-col">
 						{/* Upgrade banner */}
 						{!hasPremium &&
-							(user?.isAnonymous || products?.premium?.id) && (
+							user && (
 								<div className="relative overflow-hidden bg-gradient-to-r from-pink-400/[0.05] via-pink-400/[0.08] to-pink-400/[0.04]">
 									<div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-pink-300/15 to-transparent" />
 									<div className="flex items-center gap-3 px-4 py-2.5">

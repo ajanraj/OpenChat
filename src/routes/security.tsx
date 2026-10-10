@@ -106,7 +106,8 @@ function SecurityPage() {
               <strong>Vercel:</strong> Hosting and analytics
             </li>
             <li>
-              <strong>Polar:</strong> Payment processing (PCI compliant)
+              <strong>Stripe:</strong> Payment processing via Stripe Managed Payments (PCI
+              compliant)
             </li>
             <li>We don't store payment card information</li>
           </ul>

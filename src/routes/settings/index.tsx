@@ -24,24 +24,13 @@ export function AccountSettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
   const deleteAccount = useMutation(api.users.deleteAccount);
-  const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
-  const generateCustomerPortalUrl = useAction(api.polar.generateCustomerPortalUrl);
-  const { signOut, hasPremium, products } = useUser();
+  const createCheckout = useAction(api.stripe.createCheckout);
+  const createPortalSession = useAction(api.stripe.createPortalSession);
+  const { signOut, hasPremium, isLoading } = useUser();
   const router = useRouter();
 
   const handleUpgrade = useCallback(async () => {
-    const premiumProductId = products?.premium?.id;
-    if (!premiumProductId) {
-      return;
-    }
-
-    const checkoutLinkPromise = generateCheckoutLink({
-      productIds: [premiumProductId],
-      origin: window.location.origin,
-      successUrl: `${window.location.origin}/settings?upgraded=true`,
-    });
-
-    const checkoutUrl = await checkoutLinkPromise
+    const checkoutUrl = await createCheckout({})
       .then(({ url }) => url)
       .catch((error) => {
         console.error("Failed to start upgrade process:", error);
@@ -57,11 +46,10 @@ export function AccountSettingsPage() {
     }
 
     window.location.href = checkoutUrl;
-  }, [products?.premium?.id, generateCheckoutLink]);
+  }, [createCheckout]);
 
   const handleManageSubscription = useCallback(async () => {
-    const customerPortalPromise = generateCustomerPortalUrl({});
-    const customerPortalUrl = await customerPortalPromise
+    const customerPortalUrl = await createPortalSession({})
       .then(({ url }) => url)
       .catch((error) => {
         console.error("Failed to access customer portal:", error);
@@ -77,7 +65,7 @@ export function AccountSettingsPage() {
     }
 
     window.location.href = customerPortalUrl;
-  }, [generateCustomerPortalUrl]);
+  }, [createPortalSession]);
 
   const handleDeleteAccount = useCallback(() => {
     setShowDeleteAccountDialog(true);
@@ -112,14 +100,14 @@ export function AccountSettingsPage() {
     >
       Manage Subscription
     </Button>
-  ) : products?.premium?.id ? (
+  ) : isLoading ? (
+    <Button className="w-full md:w-auto" disabled variant="secondary">
+      Loading...
+    </Button>
+  ) : (
     <Button className="w-full cursor-pointer md:w-auto" onClick={handleUpgrade}>
       <Sparkle className="mr-2 size-4" weight="fill" />
       Upgrade Now
-    </Button>
-  ) : (
-    <Button className="w-full md:w-auto" disabled variant="secondary">
-      Loading...
     </Button>
   );
 

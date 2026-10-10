@@ -23,11 +23,11 @@ import type * as lib_fileUploadModels from "../lib/fileUploadModels.js";
 import type * as lib_rateLimitConstants from "../lib/rateLimitConstants.js";
 import type * as lib_sanitization_helper from "../lib/sanitization_helper.js";
 import type * as messages from "../messages.js";
-import type * as polar from "../polar.js";
 import type * as profiles from "../profiles.js";
 import type * as rateLimiter from "../rateLimiter.js";
 import type * as scheduled_ai from "../scheduled_ai.js";
 import type * as scheduled_tasks from "../scheduled_tasks.js";
+import type * as schema_billing from "../schema/billing.js";
 import type * as schema_chat from "../schema/chat.js";
 import type * as schema_chat_attachment from "../schema/chat_attachment.js";
 import type * as schema_connectors from "../schema/connectors.js";
@@ -39,6 +39,7 @@ import type * as schema_task_history from "../schema/task_history.js";
 import type * as schema_usage_history from "../schema/usage_history.js";
 import type * as schema_user from "../schema/user.js";
 import type * as schema_user_api_key from "../schema/user_api_key.js";
+import type * as stripe from "../stripe.js";
 import type * as subscription from "../subscription.js";
 import type * as task_history from "../task_history.js";
 import type * as users from "../users.js";
@@ -65,11 +66,11 @@ declare const fullApi: ApiFromModules<{
   "lib/rateLimitConstants": typeof lib_rateLimitConstants;
   "lib/sanitization_helper": typeof lib_sanitization_helper;
   messages: typeof messages;
-  polar: typeof polar;
   profiles: typeof profiles;
   rateLimiter: typeof rateLimiter;
   scheduled_ai: typeof scheduled_ai;
   scheduled_tasks: typeof scheduled_tasks;
+  "schema/billing": typeof schema_billing;
   "schema/chat": typeof schema_chat;
   "schema/chat_attachment": typeof schema_chat_attachment;
   "schema/connectors": typeof schema_connectors;
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   "schema/usage_history": typeof schema_usage_history;
   "schema/user": typeof schema_user;
   "schema/user_api_key": typeof schema_user_api_key;
+  stripe: typeof stripe;
   subscription: typeof subscription;
   task_history: typeof task_history;
   users: typeof users;
@@ -114,7 +116,7 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
-  polar: import("@convex-dev/polar/_generated/component.js").ComponentApi<"polar">;
+  stripe: import("@convex-dev/stripe/_generated/component.js").ComponentApi<"stripe">;
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
   r2: import("@convex-dev/r2/_generated/component.js").ComponentApi<"r2">;
 };

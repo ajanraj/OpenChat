@@ -27,8 +27,8 @@ export function UpgradeDrawer({
 	isOpen,
 	onOpenChange,
 }: UpgradeDrawerProps) {
-	const { user, products } = useUser();
-	const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
+	const { user } = useUser();
+	const createCheckout = useAction(api.stripe.createCheckout);
 	const router = useRouter();
 	const isCheckoutInFlight = useRef(false);
 
@@ -50,19 +50,11 @@ export function UpgradeDrawer({
 				return;
 			}
 
-			if (!products?.premium?.id) {
-				return;
-			}
-
 			// Set in-flight flag immediately before API call
 			isCheckoutInFlight.current = true;
 
 			try {
-				const { url } = await generateCheckoutLink({
-					productIds: [products.premium.id],
-					origin: window.location.origin,
-					successUrl: `${window.location.origin}/settings?upgraded=true`,
-				});
+				const { url } = await createCheckout({});
 
 				// Keep flag true during redirect since we're leaving the page
 				window.location.href = url;
@@ -72,7 +64,7 @@ export function UpgradeDrawer({
 				isCheckoutInFlight.current = false;
 			}
 		},
-		[user, products, generateCheckoutLink, router],
+		[user, createCheckout, router],
 	);
 
 	return (

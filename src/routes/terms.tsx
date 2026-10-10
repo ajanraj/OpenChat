@@ -112,9 +112,11 @@ function TermsPage() {
           <ul>
             <li>We offer premium subscriptions with enhanced features and higher limits</li>
             <li>
-              Subscription fees are processed through Polar and are non-refundable except as
-              required by law
+              Subscriptions are sold through Stripe Managed Payments. The merchant of record is Sold
+              through Link, LLC, a Stripe affiliate, which processes your payment and collects any
+              applicable sales tax or VAT on top of the listed price
             </li>
+            <li>Subscription fees are non-refundable except as required by law</li>
             <li>You can cancel your subscription at any time</li>
             <li>Cancellation takes effect at the end of your current billing period</li>
           </ul>
