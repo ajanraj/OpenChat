@@ -155,6 +155,14 @@ describe("onInvoicePaid", () => {
     expect(mocks.rateLimiterReset).not.toHaveBeenCalled();
   });
 
+  it("ignores valid user IDs whose user was deleted", async () => {
+    mocks.rateLimiterReset.mockClear();
+    const db = { ...fakeDb(null), normalizeId: (_table: string, id: string) => id };
+    await handler({ db }, { userId: USER_ID, stripeInvoiceId: "in_1" });
+    expect(mocks.rateLimiterReset).not.toHaveBeenCalled();
+    expect(db.rows).toEqual([]);
+  });
+
   it("resets the user's daily and monthly credits", async () => {
     mocks.rateLimiterReset.mockClear();
     await handler({ db: fakeDb(existingUser) }, { userId: USER_ID, stripeInvoiceId: "in_1" });
