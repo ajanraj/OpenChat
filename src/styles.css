@@ -222,7 +222,7 @@ body {
     @apply border-border outline-ring/50;
     /* Thin, theme-tinted scrollbars. Utilities like `no-scrollbar` still win. */
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklab, var(--color-foreground) 20%, transparent) transparent;
+    scrollbar-color: color-mix(in oklab, var(--color-foreground) 40%, transparent) transparent;
   }
 
   button:not(:disabled),

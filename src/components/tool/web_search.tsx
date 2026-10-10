@@ -215,7 +215,7 @@ export const UnifiedSearch = memo<UnifiedSearchProps>(
 						>
 							<div className="bg-linear-to-b from-transparent via-transparent to-transparent">
 								<div
-									className="no-scrollbar h-full max-h-[238px] overflow-y-auto overflow-x-hidden"
+									className="h-full max-h-[238px] overflow-y-auto overflow-x-hidden"
 									style={{
 										contentVisibility: "auto",
 										containIntrinsicSize: "238px 100%",

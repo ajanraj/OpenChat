@@ -133,7 +133,7 @@ export const SourcesList = memo<SourcesListProps>(
 								transition={TRANSITION}
 							>
 								<div className="border-border border-t">
-									<div className="no-scrollbar overflow-x-auto">
+									<div className="overflow-x-auto">
 										<div className="flex min-w-max gap-3 p-4">
 											{sourcesWithFavicons.map((source) => (
 												<m.div
