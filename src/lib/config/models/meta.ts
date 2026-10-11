@@ -1,7 +1,8 @@
 import { gateway } from "@ai-sdk/gateway";
 import {
   FILE_UPLOAD_FEATURE,
-  REASONING_FEATURE,
+  PDF_PROCESSING_FEATURE,
+  REASONING_FEATURE_ALWAYS,
   REASONING_FEATURE_FIXED,
   TOOL_CALLING_FEATURE,
 } from "../features";
@@ -16,7 +17,12 @@ export const META_MODELS = [
     description:
       "Meta's latest multimodal reasoning model for agentic work.\nSupports long-context understanding, tool use, and rich media inputs.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
-    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_FIXED],
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      TOOL_CALLING_FEATURE,
+      REASONING_FEATURE_FIXED,
+    ],
     api_sdk: gateway("meta/muse-spark-1.3"),
   },
   {
@@ -26,9 +32,9 @@ export const META_MODELS = [
     premium: true,
     usesPremiumCredits: false,
     description:
-      "Meta's compact multimodal Muse model.\nSupports optional reasoning, image understanding, and tool use.",
+      "Meta's compact multimodal Muse model.\nSupports always-on reasoning, image understanding, and tool use.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
-    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE],
+    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_ALWAYS],
     api_sdk: gateway("meta/muse-glimmer-30b"),
   },
   {
