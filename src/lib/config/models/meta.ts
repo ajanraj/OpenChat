@@ -21,7 +21,7 @@ export const META_MODELS = [
       FILE_UPLOAD_FEATURE,
       PDF_PROCESSING_FEATURE,
       TOOL_CALLING_FEATURE,
-      REASONING_FEATURE_FIXED,
+      REASONING_FEATURE_ALWAYS,
     ],
     api_sdk: gateway("meta/muse-spark-1.3"),
   },

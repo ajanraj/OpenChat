@@ -217,7 +217,9 @@ describe("Model Provider Specific Tests", () => {
       for (const id of ["gpt-6.1-sol", "gpt-6-astra"]) {
         expect(getEffortOptions(OPENAI_MODELS, id)).not.toContain("none");
       }
-      expect(getEffortOptions(META_MODELS, "meta/muse-glimmer-30b")).not.toContain("none");
+      for (const id of ["meta/muse-spark-1.3", "meta/muse-glimmer-30b"]) {
+        expect(getEffortOptions(META_MODELS, id)).not.toContain("none");
+      }
     });
 
     it("allows turning reasoning off for Claude Haiku 5.5 and GPT-6 Luna", () => {
