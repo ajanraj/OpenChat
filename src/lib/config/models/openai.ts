@@ -5,6 +5,7 @@ import {
   IMAGE_GENERATION_FEATURE,
   PDF_PROCESSING_FEATURE,
   REASONING_FEATURE,
+  REASONING_FEATURE_ALWAYS,
   REASONING_FEATURE_DISABLED,
   TOOL_CALLING_FEATURE,
 } from "../features";
@@ -12,11 +13,63 @@ import {
 
 export const OPENAI_MODELS = [
   {
+    id: "gpt-6-luna",
+    name: "GPT-6 Luna",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "OpenAI's efficient GPT-6 model for everyday professional work.\nSupports optional reasoning, multimodal input, tools, and one-million-token context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-6-luna"),
+  },
+  {
+    id: "gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's latest high-capability GPT-6 model.\nBuilt for expert reasoning, coding, tool use, and long-running workflows.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-6.1-sol"),
+  },
+  {
+    id: "gpt-6-astra",
+    name: "GPT-6 Astra",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's most capable GPT-6 model for the hardest agentic work.\nUses always-on reasoning with multimodal input, tools, and long context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: openai.responses("gpt-6-astra"),
+  },
+  {
     id: "gpt-5.6-luna",
     name: "GPT-5.6 Luna",
     provider: "openai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "OpenAI's efficient GPT-5.6 model for everyday professional work.\nSupports multimodal input, reasoning, tools, and long context.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
@@ -51,6 +104,7 @@ export const OPENAI_MODELS = [
     provider: "openai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
       "OpenAI's highest-capability GPT-5.6 model.\nBuilt for expert reasoning, coding, tool use, and long-running workflows.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
@@ -422,13 +476,38 @@ export const OPENAI_MODELS = [
     api_sdk: openai("o3-pro"),
   },
   {
+    id: "gpt-image-2.5-flare",
+    name: "GPT Image 2.5 Flare",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's default GPT Image 2.5 model.\nCreates higher-quality images than GPT Image 2 with lower latency.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [IMAGE_GENERATION_FEATURE],
+    api_sdk: openai.image("gpt-image-2.5-flare"),
+  },
+  {
+    id: "gpt-image-2.5-sunburst",
+    name: "GPT Image 2.5 Sunburst",
+    provider: "openai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "OpenAI's precision GPT Image 2.5 model.\nBuilt for detailed creative work with tighter style and composition control.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [IMAGE_GENERATION_FEATURE],
+    api_sdk: openai.image("gpt-image-2.5-sunburst"),
+  },
+  {
     id: "gpt-image-2",
     name: "GPT Image 2",
     provider: "openai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "OpenAI's latest image generation model.\nCreates high-fidelity images with reliable text rendering and precise prompt control.",
+      "OpenAI's previous image generation model.\nCreates high-fidelity images with reliable text rendering and precise prompt control.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [IMAGE_GENERATION_FEATURE],
     api_sdk: openai.image("gpt-image-2"),

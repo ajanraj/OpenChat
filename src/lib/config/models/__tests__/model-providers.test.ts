@@ -204,6 +204,34 @@ describe("Model Provider Specific Tests", () => {
     });
   });
 
+  describe("Latest direct-provider reasoning constraints", () => {
+    const getEffortOptions = (
+      models: Array<{ id: string; features: Array<{ id: string; effortOptions?: string[] }> }>,
+      id: string,
+    ) => models.find((m) => m.id === id)?.features.find((f) => f.id === "reasoning")?.effortOptions;
+
+    it("keeps reasoning always on where the provider rejects disabling it", () => {
+      for (const id of ["claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"]) {
+        expect(getEffortOptions(ANTHROPIC_MODELS, id)).not.toContain("none");
+      }
+      for (const id of ["gpt-6.1-sol", "gpt-6-astra"]) {
+        expect(getEffortOptions(OPENAI_MODELS, id)).not.toContain("none");
+      }
+    });
+
+    it("allows turning reasoning off for Claude Haiku 5.5 and GPT-6 Luna", () => {
+      expect(getEffortOptions(ANTHROPIC_MODELS, "claude-haiku-5-5")).toContain("none");
+      expect(getEffortOptions(OPENAI_MODELS, "gpt-6-luna")).toContain("none");
+    });
+  });
+
+  describe("Mistral Models", () => {
+    it("pins the legacy Large 3 entry to its snapshot instead of the moving alias", () => {
+      const large3 = MISTRAL_MODELS.find((m) => m.id === "mistral-large-latest");
+      expect(large3?.api_sdk).toMatchObject({ modelId: "mistral-large-2512" });
+    });
+  });
+
   describe("Moonshot Models", () => {
     it("configures Kimi K3 for multimodal agentic workflows", () => {
       const kimiK3 = MOONSHOT_MODELS.find((model) => model.id === "moonshotai/kimi-k3");
@@ -234,9 +262,13 @@ describe("Model Provider Specific Tests", () => {
       expect(ZAI_MODELS.some((m) => m.id === "glm-5-thinking")).toBe(true);
     });
 
-    it("keeps only GLM 5.2 and GLM 5V Turbo active", () => {
-      const nonLegacyIds = new Set(ZAI_MODELS.filter((m) => !m.legacy).map((m) => m.id));
-      expect(nonLegacyIds).toEqual(new Set(["z-ai/glm-5.2", "z-ai/glm-5v-turbo"]));
+    it("configures GLM 5.3 models with mandatory max-capable reasoning", () => {
+      for (const id of ["z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5.3-prime"]) {
+        const reasoning = ZAI_MODELS.find((m) => m.id === id)?.features.find(
+          (f) => f.id === "reasoning",
+        );
+        expect(reasoning).toMatchObject({ enabled: true, effortOptions: ["xhigh", "high", "low"] });
+      }
     });
   });
 
@@ -259,10 +291,12 @@ describe("Legacy Model Curation", () => {
         "gpt-5.4-mini",
         "gpt-5.4-nano",
         "gpt-5.5",
-        "gpt-5.6-luna",
-        "gpt-5.6-sol",
         "gpt-5.6-terra",
-        "gpt-image-2",
+        "gpt-6-astra",
+        "gpt-6-luna",
+        "gpt-6.1-sol",
+        "gpt-image-2.5-flare",
+        "gpt-image-2.5-sunburst",
         "gpt-oss-120b",
         "gpt-oss-20b",
       ].sort(),
@@ -271,18 +305,18 @@ describe("Legacy Model Curation", () => {
 
   it("keeps only the curated Anthropic set as non-legacy", () => {
     expect(getNonLegacyModelIds(ANTHROPIC_MODELS)).toEqual(
-      ["claude-4-5-haiku", "claude-fable-5", "claude-opus-4-8", "claude-sonnet-5"].sort(),
+      ["claude-fable-5-1", "claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5"].sort(),
     );
   });
 
   it("keeps only the curated Gemini set as non-legacy", () => {
     expect(getNonLegacyModelIds(GOOGLE_MODELS)).toEqual(
       [
-        "gemini-3.1-flash-lite",
         "gemini-3.1-flash-lite-image",
         "gemini-3.1-pro-preview",
-        "gemini-3.5-flash",
-        "nano-banana-2",
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+        "nano-banana-2.1",
         "nano-banana-pro",
       ].sort(),
     );
@@ -290,29 +324,39 @@ describe("Legacy Model Curation", () => {
 
   it("keeps only the curated Meta set as non-legacy", () => {
     expect(getNonLegacyModelIds(META_MODELS)).toEqual(
-      ["meta/muse-spark-1.1", "meta-llama/llama-4-maverick", "meta-llama/llama-4-scout"].sort(),
+      [
+        "meta/muse-glimmer-30b",
+        "meta/muse-spark-1.3",
+        "meta-llama/llama-4-maverick",
+        "meta-llama/llama-4-scout",
+      ].sort(),
     );
   });
 
-  it("keeps Mistral Large, Medium, and Small active", () => {
+  it("keeps Mistral Large 4, Medium, and Small active", () => {
     expect(getNonLegacyModelIds(MISTRAL_MODELS)).toEqual(
-      ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"].sort(),
+      ["mistral-large-4", "mistral-medium-latest", "mistral-small-latest"].sort(),
     );
   });
 
   it("keeps only the curated DeepSeek set as non-legacy", () => {
     expect(getNonLegacyModelIds(DEEPSEEK_MODELS)).toEqual(
-      ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-pro"].sort(),
+      ["deepseek/deepseek-v4.1-flash", "deepseek/deepseek-v4-pro"].sort(),
     );
   });
 
   it("keeps only the curated xAI set as non-legacy", () => {
-    expect(getNonLegacyModelIds(XAI_MODELS)).toEqual(["x-ai/grok-4.20", "xai/grok-4.5"].sort());
+    expect(getNonLegacyModelIds(XAI_MODELS)).toEqual(["x-ai/grok-4.20", "xai/grok-4.7"].sort());
   });
 
   it("keeps only the curated Qwen set as non-legacy", () => {
     expect(getNonLegacyModelIds(QWEN_MODELS)).toEqual(
-      ["qwen/qwen3.7-max", "qwen/qwen3.7-plus"].sort(),
+      [
+        "qwen/qwen3.7-plus",
+        "qwen/qwen3.8-flash",
+        "qwen/qwen3.8-max",
+        "qwen/qwen3.8-max-prime",
+      ].sort(),
     );
   });
 
@@ -323,15 +367,17 @@ describe("Legacy Model Curation", () => {
   });
 
   it("keeps only the curated Z.AI set as non-legacy", () => {
-    expect(getNonLegacyModelIds(ZAI_MODELS)).toEqual(["z-ai/glm-5.2", "z-ai/glm-5v-turbo"].sort());
+    expect(getNonLegacyModelIds(ZAI_MODELS)).toEqual(
+      ["z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5.3-prime", "z-ai/glm-5v-turbo"].sort(),
+    );
   });
 
   it("keeps only MiniMax M3 as non-legacy", () => {
     expect(getNonLegacyModelIds(MINIMAX_MODELS)).toEqual(["minimax/minimax-m3"]);
   });
 
-  it("keeps Flux 2 and Flux 2 Pro as non-legacy", () => {
-    expect(getNonLegacyModelIds(FAL_MODELS)).toEqual(["flux-2", "flux-2-pro"]);
+  it("keeps Flux 3 and Flux 2 as non-legacy", () => {
+    expect(getNonLegacyModelIds(FAL_MODELS)).toEqual(["flux-2", "flux-3"]);
   });
 
   it("keeps OpenRouter Free active and Aurora retired", () => {

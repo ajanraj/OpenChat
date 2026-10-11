@@ -3,6 +3,18 @@ import { IMAGE_GENERATION_FEATURE } from "../features";
 
 export const FAL_MODELS = [
   {
+    id: "flux-3",
+    name: "Flux 3",
+    provider: "fal",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Black Forest Labs' newest image model.\nCreates detailed, well-composed images with clean text rendering and up to 4K output.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [IMAGE_GENERATION_FEATURE],
+    api_sdk: fal.image("blackforestlabs/flux-3/text-to-image"),
+  },
+  {
     id: "flux-2",
     name: "Flux 2",
     provider: "fal",
@@ -20,8 +32,9 @@ export const FAL_MODELS = [
     provider: "fal",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "Black Forest Labs' highest-quality Flux 2 model.\nBuilt for precise generation, editing, and production image workflows.",
+      "Black Forest Labs' previous highest-quality Flux model.\nBuilt for precise generation, editing, and production image workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [IMAGE_GENERATION_FEATURE],
     api_sdk: fal.image("fal-ai/flux-2-pro"),

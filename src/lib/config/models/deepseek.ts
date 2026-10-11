@@ -1,5 +1,6 @@
 import { gateway } from "@ai-sdk/gateway";
 import {
+  FILE_UPLOAD_FEATURE,
   REASONING_FEATURE,
   REASONING_FEATURE_BASIC,
   REASONING_FEATURE_DISABLED,
@@ -10,13 +11,26 @@ import { openrouter } from "../openrouter";
 
 export const DEEPSEEK_MODELS = [
   {
+    id: "deepseek/deepseek-v4.1-flash",
+    name: "DeepSeek V4.1 Flash",
+    provider: "deepseek",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "DeepSeek's fastest model with vision and one-million-token context.\nSupports optional reasoning, images, and tool-driven agentic work.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: gateway("deepseek/deepseek-v4.1-flash"),
+    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+  },
+  {
     id: "deepseek/deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
     provider: "deepseek",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "DeepSeek's fastest V4 model with one-million-token context.\nSupports optional reasoning and tool-driven agentic work.",
+      "DeepSeek's previous fast V4 model with one-million-token context.\nSupports optional reasoning and tool-driven agentic work.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: gateway("deepseek/deepseek-v4-flash"),
     features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],

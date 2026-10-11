@@ -14,16 +14,30 @@ const MISTRAL_MULTIMODAL_FEATURES = [
 
 export const MISTRAL_MODELS = [
   {
+    id: "mistral-large-4",
+    name: "Mistral Large 4",
+    provider: "mistral",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Mistral's open-weight multimodal flagship with one-million-token context.\nSupports optional reasoning, documents, images, and tool use.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [...MISTRAL_MULTIMODAL_FEATURES, REASONING_FEATURE_TOGGLE],
+    api_sdk: mistral("mistral-large-4"),
+  },
+  {
+    // Keeps the historical id for existing chats, pinned to the Large 3 snapshot.
     id: "mistral-large-latest",
     name: "Mistral Large 3",
     provider: "mistral",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "Mistral's flagship multimodal model.\nHandles documents, images, tool use, and long-context professional work.",
+      "Mistral's previous flagship multimodal model.\nHandles documents, images, tool use, and long-context professional work.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: MISTRAL_MULTIMODAL_FEATURES,
-    api_sdk: mistral("mistral-large-latest"),
+    api_sdk: mistral("mistral-large-2512"),
   },
   {
     id: "mistral-medium-latest",
@@ -57,7 +71,7 @@ export const MISTRAL_MODELS = [
     usesPremiumCredits: false,
     legacy: true,
     description:
-      "124B multimodal model for document analysis and visual comprehension.\nUse Mistral Large 3 for new chats.",
+      "124B multimodal model for document analysis and visual comprehension.\nUse Mistral Large 4 for new chats.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: MISTRAL_MULTIMODAL_FEATURES,
     api_sdk: mistral("pixtral-large-latest"),

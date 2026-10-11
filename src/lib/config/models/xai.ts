@@ -19,13 +19,26 @@ const GROK_MULTIMODAL_FEATURES = [
 
 export const XAI_MODELS = [
   {
+    id: "xai/grok-4.7",
+    name: "Grok 4.7",
+    provider: "xai",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "xAI's latest high-capability reasoning model for coding and professional work.\nSupports multimodal input, tools, and configurable reasoning across long context.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: gateway("xai/grok-4.7"),
+    features: [...GROK_MULTIMODAL_FEATURES, REASONING_FEATURE_ALWAYS],
+  },
+  {
     id: "xai/grok-4.5",
     name: "Grok 4.5",
     provider: "xai",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "xAI's latest high-capability reasoning model.\nSupports multimodal input, tools, and configurable reasoning across long context.",
+      "xAI's previous high-capability reasoning model.\nSupports multimodal input, tools, and configurable reasoning across long context.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: gateway("xai/grok-4.5"),
     features: [...GROK_MULTIMODAL_FEATURES, REASONING_FEATURE_ALWAYS],
