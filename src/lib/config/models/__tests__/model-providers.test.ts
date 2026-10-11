@@ -351,12 +351,7 @@ describe("Legacy Model Curation", () => {
 
   it("keeps only the curated Qwen set as non-legacy", () => {
     expect(getNonLegacyModelIds(QWEN_MODELS)).toEqual(
-      [
-        "qwen/qwen3.7-plus",
-        "qwen/qwen3.8-flash",
-        "qwen/qwen3.8-max",
-        "qwen/qwen3.8-max-prime",
-      ].sort(),
+      ["qwen/qwen3.7-plus", "qwen/qwen3.8-flash", "qwen/qwen3.8-max"].sort(),
     );
   });
 

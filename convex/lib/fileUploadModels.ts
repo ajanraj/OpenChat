@@ -107,7 +107,6 @@ export const FILE_UPLOAD_MODELS = [
 
   // Qwen models
   "qwen/qwen3.8-max",
-  "qwen/qwen3.8-max-prime",
   "qwen/qwen3.8-flash",
   "qwen/qwen3.7-plus",
 

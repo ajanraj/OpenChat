@@ -200,7 +200,6 @@ describe("Models Configuration", () => {
         "mistral-small-latest",
         "qwen/qwen3.7-plus",
         "qwen/qwen3.8-max",
-        "qwen/qwen3.8-max-prime",
         "qwen/qwen3.8-flash",
         "moonshotai/kimi-k3",
         "moonshotai/kimi-k2.6",
@@ -227,7 +226,6 @@ describe("Models Configuration", () => {
         "claude-fable-5-1",
         "xai/grok-4.7",
         "qwen/qwen3.8-max",
-        "qwen/qwen3.8-max-prime",
         "moonshotai/kimi-k3",
       ]);
       const newChatModels = MODELS.filter(

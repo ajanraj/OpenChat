@@ -22,19 +22,6 @@ export const QWEN_MODELS = [
     api_sdk: openrouter("qwen/qwen3.8-max-0902"),
   },
   {
-    id: "qwen/qwen3.8-max-prime",
-    name: "Qwen 3.8 Max Prime",
-    provider: "openrouter",
-    displayProvider: "qwen",
-    premium: true,
-    usesPremiumCredits: true,
-    description:
-      "Qwen's highest-capability 3.8 model.\nBuilt for complex reasoning, coding, and long-horizon agentic work with multimodal input.",
-    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
-    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_ALWAYS],
-    api_sdk: openrouter("qwen/qwen3.8-max-prime"),
-  },
-  {
     id: "qwen/qwen3.8-flash",
     name: "Qwen 3.8 Flash",
     provider: "openrouter",
