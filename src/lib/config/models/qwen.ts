@@ -19,6 +19,7 @@ export const QWEN_MODELS = [
       "Qwen's flagship multimodal reasoning model.\nSupports images, video, tools, and always-on reasoning across a one-million-token context.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_ALWAYS],
+    // OpenRouter only lists the dated snapshot; the stable id lets later snapshots swap in.
     api_sdk: openrouter("qwen/qwen3.8-max-0902"),
   },
   {
