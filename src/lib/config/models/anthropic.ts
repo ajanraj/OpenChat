@@ -248,7 +248,7 @@ export const ANTHROPIC_MODELS = [
     usesPremiumCredits: false,
     legacy: true,
     description:
-      "Anthropic's fastest model with near-frontier intelligence.\nIdeal for quick tasks and high-throughput applications.",
+      "Anthropic's previous fastest model with near-frontier intelligence.\nIdeal for quick tasks and high-throughput applications.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
