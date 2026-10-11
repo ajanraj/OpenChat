@@ -263,7 +263,7 @@ describe("Model Provider Specific Tests", () => {
     });
 
     it("configures GLM 5.3 models with mandatory max-capable reasoning", () => {
-      for (const id of ["z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5.3-prime"]) {
+      for (const id of ["z-ai/glm-5.3", "z-ai/glm-5.3-flash"]) {
         const reasoning = ZAI_MODELS.find((m) => m.id === id)?.features.find(
           (f) => f.id === "reasoning",
         );
@@ -368,7 +368,7 @@ describe("Legacy Model Curation", () => {
 
   it("keeps only the curated Z.AI set as non-legacy", () => {
     expect(getNonLegacyModelIds(ZAI_MODELS)).toEqual(
-      ["z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5.3-prime", "z-ai/glm-5v-turbo"].sort(),
+      ["z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5v-turbo"].sort(),
     );
   });
 

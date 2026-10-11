@@ -207,7 +207,6 @@ describe("Models Configuration", () => {
         "moonshotai/kimi-k2.7-code",
         "z-ai/glm-5.3",
         "z-ai/glm-5.3-flash",
-        "z-ai/glm-5.3-prime",
         "z-ai/glm-5v-turbo",
         "minimax/minimax-m3",
       ];
@@ -229,7 +228,6 @@ describe("Models Configuration", () => {
         "xai/grok-4.7",
         "qwen/qwen3.8-max",
         "qwen/qwen3.8-max-prime",
-        "z-ai/glm-5.3-prime",
         "moonshotai/kimi-k3",
       ]);
       const newChatModels = MODELS.filter(

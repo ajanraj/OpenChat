@@ -23,19 +23,6 @@ export const ZAI_MODELS = [
     features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_MAX],
   },
   {
-    id: "z-ai/glm-5.3-prime",
-    name: "GLM 5.3 Prime",
-    provider: "openrouter",
-    displayProvider: "z-ai",
-    premium: true,
-    usesPremiumCredits: true,
-    description:
-      "Z.AI's highest-capability GLM 5.3 model.\nUses always-on reasoning for complex coding and long-horizon agentic work.",
-    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
-    api_sdk: openrouter("z-ai/glm-5.3-prime"),
-    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_MAX],
-  },
-  {
     id: "z-ai/glm-5.3-flash",
     name: "GLM 5.3 Flash",
     provider: "openrouter",
