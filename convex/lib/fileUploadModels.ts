@@ -2,6 +2,10 @@
 // Keep in sync with frontend model feature flags.
 export const FILE_UPLOAD_MODELS = [
   // Anthropic models
+  "claude-sonnet-5-5",
+  "claude-opus-5-5",
+  "claude-fable-5-1",
+  "claude-haiku-5-5",
   "claude-sonnet-5",
   "claude-opus-4-8",
   "claude-fable-5",
@@ -15,6 +19,9 @@ export const FILE_UPLOAD_MODELS = [
   "claude-4-5-haiku-reasoning",
 
   // OpenAI models
+  "gpt-6-luna",
+  "gpt-6.1-sol",
+  "gpt-6-astra",
   "gpt-5.5",
   "gpt-5.6-luna",
   "gpt-5.6-terra",
@@ -45,6 +52,8 @@ export const FILE_UPLOAD_MODELS = [
   "glm-4.5v",
 
   // Google models
+  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite",
   "gemini-3.5-flash",
   "gemini-3.1-flash-lite",
   "gemini-2.0-flash",
@@ -61,6 +70,8 @@ export const FILE_UPLOAD_MODELS = [
   "gemini-3.1-pro-preview",
 
   // Meta models
+  "meta/muse-spark-1.3",
+  "meta/muse-glimmer-30b",
   "meta/muse-spark-1.1",
   "meta-llama/llama-4-maverick",
   "meta-llama/llama-4-scout",
@@ -68,6 +79,7 @@ export const FILE_UPLOAD_MODELS = [
   "meta-llama/llama-4-scout:free",
 
   // Mistral models
+  "mistral-large-4",
   "mistral-large-latest",
   "mistral-medium-latest",
   "mistral-small-latest",
@@ -80,6 +92,7 @@ export const FILE_UPLOAD_MODELS = [
   "moonshotai/kimi-k2.5:reasoning",
 
   // Grok models
+  "xai/grok-4.7",
   "xai/grok-4.5",
   "x-ai/grok-4.20",
   "grok-3",
@@ -88,11 +101,17 @@ export const FILE_UPLOAD_MODELS = [
   "x-ai/grok-4.1-fast",
 
   // Z.AI models
+  "z-ai/glm-5.3-flash",
   "z-ai/glm-5v-turbo",
   "glm-4.6v",
 
   // Qwen models
+  "qwen/qwen3.8-max",
+  "qwen/qwen3.8-flash",
   "qwen/qwen3.7-plus",
+
+  // DeepSeek models
+  "deepseek/deepseek-v4.1-flash",
 
   // MiniMax models
   "minimax/minimax-m3",

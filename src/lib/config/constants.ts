@@ -14,18 +14,18 @@ export const MODEL_DEFAULT = "gpt-5.4-nano";
 export const RECOMMENDED_MODELS = [
   "gpt-5.4-nano",
   "openrouter/free",
-  "gpt-5.6-luna",
-  "gpt-5.6-sol",
-  "claude-sonnet-5",
-  "gemini-3.1-flash-lite",
-  "gemini-3.5-flash",
+  "gpt-6-luna",
+  "gpt-6.1-sol",
+  "claude-sonnet-5-5",
+  "gemini-3.5-flash-lite",
+  "gemini-3.8-flash",
   "gemini-3.1-pro-preview",
   "x-ai/grok-4.20",
   "deepseek/deepseek-v4-pro",
   "minimax/minimax-m3",
-  "gpt-image-2",
-  "nano-banana-2",
-  "flux-2-pro",
+  "gpt-image-2.5-flare",
+  "nano-banana-2.1",
+  "flux-3",
 ];
 
 export const MESSAGE_MAX_LENGTH = 4000;

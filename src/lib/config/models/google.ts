@@ -177,13 +177,26 @@ export const GOOGLE_MODELS = [
     api_sdk: fal.image("fal-ai/gemini-25-flash-image"),
   },
   {
+    id: "nano-banana-2.1",
+    name: "Nano Banana 2.1",
+    provider: "gemini",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Google's latest high-efficiency Nano Banana image model.\nDelivers fast generation and editing with improved quality for high-volume workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [IMAGE_GENERATION_FEATURE],
+    api_sdk: google.image("gemini-nano-banana-2.1"),
+  },
+  {
     id: "nano-banana-2",
     name: "Nano Banana 2",
     provider: "gemini",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "Google's latest high-efficiency image model based on Gemini 3.1 Flash Image.\nDelivers faster generation and editing with strong quality for high-volume workflows.",
+      "Google's previous high-efficiency image model based on Gemini 3.1 Flash Image.\nDelivers faster generation and editing with strong quality for high-volume workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [IMAGE_GENERATION_FEATURE],
     api_sdk: google.image("gemini-3.1-flash-image"),
@@ -213,13 +226,48 @@ export const GOOGLE_MODELS = [
     api_sdk: google.image("gemini-3.1-flash-lite-image"),
   },
   {
+    id: "gemini-3.8-flash",
+    name: "Gemini 3.8 Flash",
+    provider: "gemini",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Google's latest fast multimodal model for agentic work.\nSupports tools, adaptive reasoning, files, video, and one-million-token context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: google("gemini-3.8-flash"),
+  },
+  {
+    id: "gemini-3.5-flash-lite",
+    name: "Gemini 3.5 Flash Lite",
+    provider: "gemini",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Google's efficient Gemini 3.5 model for high-volume work.\nSupports multimodal files, tools, reasoning, and low-latency workloads.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: google("gemini-3.5-flash-lite"),
+  },
+  {
     id: "gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
     provider: "gemini",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "Google's latest fast multimodal model for agentic work.\nSupports tools, adaptive reasoning, files, and long context.",
+      "Google's previous fast multimodal model for agentic work.\nSupports tools, adaptive reasoning, files, and long context.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -235,6 +283,7 @@ export const GOOGLE_MODELS = [
     provider: "gemini",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
       "Google's efficient stable Gemini 3.1 model.\nSupports multimodal files, tools, reasoning, and high-volume workloads.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },

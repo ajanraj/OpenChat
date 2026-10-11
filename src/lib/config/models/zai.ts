@@ -2,6 +2,7 @@ import {
   FILE_UPLOAD_FEATURE,
   REASONING_FEATURE,
   REASONING_FEATURE_DISABLED,
+  REASONING_FEATURE_MAX,
   REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
 } from "../features";
@@ -9,14 +10,41 @@ import { openrouter } from "../openrouter";
 
 export const ZAI_MODELS = [
   {
+    id: "z-ai/glm-5.3",
+    name: "GLM 5.3",
+    provider: "openrouter",
+    displayProvider: "z-ai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Z.AI's latest long-context flagship with one-million-token context.\nUses always-on reasoning for tools and agentic coding workflows.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: openrouter("z-ai/glm-5.3"),
+    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_MAX],
+  },
+  {
+    id: "z-ai/glm-5.3-flash",
+    name: "GLM 5.3 Flash",
+    provider: "openrouter",
+    displayProvider: "z-ai",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Z.AI's fast multimodal GLM 5.3 model.\nSupports images, video, tools, and always-on reasoning at low cost.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    api_sdk: openrouter("z-ai/glm-5.3-flash"),
+    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_MAX],
+  },
+  {
     id: "z-ai/glm-5.2",
     name: "GLM 5.2",
     provider: "openrouter",
     displayProvider: "z-ai",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "Z.AI's latest long-context flagship.\nSupports configurable reasoning, tools, and agentic coding workflows.",
+      "Z.AI's previous long-context flagship.\nSupports configurable reasoning, tools, and agentic coding workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: openrouter("z-ai/glm-5.2"),
     features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],

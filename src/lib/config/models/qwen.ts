@@ -1,5 +1,6 @@
 import {
   FILE_UPLOAD_FEATURE,
+  REASONING_FEATURE_ALWAYS,
   REASONING_FEATURE_FIXED,
   REASONING_FEATURE_TOGGLE,
   TOOL_CALLING_FEATURE,
@@ -7,6 +8,33 @@ import {
 import { openrouter } from "../openrouter";
 
 export const QWEN_MODELS = [
+  {
+    id: "qwen/qwen3.8-max",
+    name: "Qwen 3.8 Max",
+    provider: "openrouter",
+    displayProvider: "qwen",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Qwen's flagship multimodal reasoning model.\nSupports images, video, tools, and always-on reasoning across a one-million-token context.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_ALWAYS],
+    // OpenRouter only lists the dated snapshot; the stable id lets later snapshots swap in.
+    api_sdk: openrouter("qwen/qwen3.8-max-0902"),
+  },
+  {
+    id: "qwen/qwen3.8-flash",
+    name: "Qwen 3.8 Flash",
+    provider: "openrouter",
+    displayProvider: "qwen",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Qwen's fast, low-cost multimodal model.\nSupports optional reasoning, images, video, and tools across a one-million-token context.",
+    apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
+    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+    api_sdk: openrouter("qwen/qwen3.8-flash"),
+  },
   {
     id: "qwen/qwen3.7-plus",
     name: "Qwen 3.7 Plus",
@@ -27,8 +55,9 @@ export const QWEN_MODELS = [
     displayProvider: "qwen",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "Qwen's highest-capability 3.7 model.\nSupports optional reasoning and tools across a one-million-token context.",
+      "Qwen's previous highest-capability model.\nSupports optional reasoning and tools across a one-million-token context.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
     api_sdk: openrouter("qwen/qwen3.7-max"),

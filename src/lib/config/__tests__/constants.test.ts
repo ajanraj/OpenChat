@@ -92,9 +92,9 @@ describe("App Constants", () => {
 
     it("prefers latest model versions in the curated recommendations", () => {
       expect(RECOMMENDED_MODELS).toContain("gpt-5.4-nano");
-      expect(RECOMMENDED_MODELS).toContain("gpt-5.6-sol");
-      expect(RECOMMENDED_MODELS).toContain("claude-sonnet-5");
-      expect(RECOMMENDED_MODELS).toContain("gemini-3.5-flash");
+      expect(RECOMMENDED_MODELS).toContain("gpt-6.1-sol");
+      expect(RECOMMENDED_MODELS).toContain("claude-sonnet-5-5");
+      expect(RECOMMENDED_MODELS).toContain("gemini-3.8-flash");
       expect(RECOMMENDED_MODELS).toContain("gemini-3.1-pro-preview");
       expect(RECOMMENDED_MODELS).not.toContain("gpt-5-mini");
       expect(RECOMMENDED_MODELS).not.toContain("gpt-5-nano");

@@ -247,11 +247,11 @@ async function handleImageGeneration({
             aspectRatio: "1:1",
           });
 
-    // Upload image to R2 using standard upload helper (includes syncMetadata)
-    const imageBuffer = image.uint8Array;
-    const imageBlob = new Blob([new Uint8Array(imageBuffer)], {
-      type: "image/png",
-    });
+    // Upload image to R2 using standard upload helper (includes syncMetadata).
+    // Providers return different formats (e.g. Flux 3 defaults to JPEG), so keep the reported type.
+    const { mediaType } = image;
+    const extension = mediaType.split("/")[1] ?? "png";
+    const imageBlob = new Blob([new Uint8Array(image.uint8Array)], { type: mediaType });
 
     if (!client) {
       throw new Error("Authentication token required for image upload");
@@ -259,7 +259,7 @@ async function handleImageGeneration({
 
     const savedGenerated = await uploadBlobToR2(imageBlob, {
       chatId,
-      fileName: `generated-${Date.now()}.png`,
+      fileName: `generated-${Date.now()}.${extension}`,
       token,
       isGenerated: true,
     });
@@ -271,8 +271,8 @@ async function handleImageGeneration({
     // Create file part for the generated image
     const filePart: FileUIPart = {
       type: "file",
-      filename: savedGenerated?.fileName ?? "generated-image.png",
-      mediaType: "image/png",
+      filename: savedGenerated?.fileName ?? `generated-image.${extension}`,
+      mediaType,
       url: savedGenerated.url,
     };
 

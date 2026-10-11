@@ -10,13 +10,82 @@ import {
 
 export const ANTHROPIC_MODELS = [
   {
+    id: "claude-sonnet-5-5",
+    name: "Claude Sonnet 5.5",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Anthropic's latest Sonnet for coding and agentic professional work.\nUses always-on adaptive reasoning with tools, vision, and one-million-token context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-sonnet-5-5"),
+  },
+  {
+    id: "claude-opus-5-5",
+    name: "Claude Opus 5.5",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Anthropic's latest Opus model for complex professional workflows.\nUses always-on adaptive reasoning with tools, vision, and one-million-token context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-opus-5-5"),
+  },
+  {
+    id: "claude-fable-5-1",
+    name: "Claude Fable 5.1",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: true,
+    description:
+      "Anthropic's most capable Claude model for the hardest agentic work.\nUses always-on adaptive reasoning with vision, tools, and long context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE_ALWAYS,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-fable-5-1"),
+  },
+  {
+    id: "claude-haiku-5-5",
+    name: "Claude Haiku 5.5",
+    provider: "anthropic",
+    premium: true,
+    usesPremiumCredits: false,
+    description:
+      "Anthropic's fastest Claude 5.5 model.\nSupports optional reasoning, tools, vision, and one-million-token context.",
+    apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      REASONING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
+    api_sdk: anthropic("claude-haiku-5-5"),
+  },
+  {
     id: "claude-sonnet-5",
     name: "Claude Sonnet 5",
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "Anthropic's latest Sonnet for coding and agentic professional work.\nSupports adaptive reasoning, tools, vision, and one-million-token context.",
+      "Anthropic's previous Sonnet for coding and agentic professional work.\nSupports adaptive reasoning, tools, vision, and one-million-token context.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -32,8 +101,9 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "Anthropic's high-capability Opus model for complex professional workflows.\nSupports adaptive reasoning, tools, vision, and one-million-token context.",
+      "Anthropic's previous Opus model for complex professional workflows.\nSupports adaptive reasoning, tools, vision, and one-million-token context.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -49,8 +119,9 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: true,
+    legacy: true,
     description:
-      "Anthropic's most capable Claude 5 model for the hardest agentic work.\nUses always-on adaptive reasoning with vision, tools, and long context.",
+      "Anthropic's previous Fable model for the hardest agentic work.\nUses always-on adaptive reasoning with vision, tools, and long context.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
@@ -175,8 +246,9 @@ export const ANTHROPIC_MODELS = [
     provider: "anthropic",
     premium: true,
     usesPremiumCredits: false,
+    legacy: true,
     description:
-      "Anthropic's fastest model with near-frontier intelligence.\nIdeal for quick tasks and high-throughput applications.",
+      "Anthropic's previous fastest model with near-frontier intelligence.\nIdeal for quick tasks and high-throughput applications.",
     apiKeyUsage: { allowUserKey: true, userKeyOnly: false },
     features: [
       FILE_UPLOAD_FEATURE,
