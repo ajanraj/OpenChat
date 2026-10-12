@@ -25,7 +25,6 @@ import { MODEL_DEFAULT, MODELS_MAP } from "@/lib/config";
 import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
 import { calculateConnectorStatus } from "@/lib/connector-utils";
 import { createAgentTool } from "@/lib/create-agent-tool";
-import { limitDepth } from "@/lib/depth-limiter";
 import { ERROR_CODES } from "@/lib/error-codes";
 import {
   classifyError,
@@ -34,6 +33,7 @@ import {
   createStreamingError,
   shouldShowInConversation,
 } from "@/lib/error-utils";
+import { compactMessagePartsForStorage } from "@/lib/message-parts-storage";
 import { authMiddleware } from "@/lib/middleware/auth";
 import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
 import { buildSystemPrompt, PERSONAS_MAP } from "@/lib/prompt_config";
@@ -1052,14 +1052,12 @@ export const Route = createFileRoute("/api/chat")({
                 .map((part) => part.text)
                 .join("");
 
-              const depthLimitedParts = limitDepth(sanitizedParts, 14);
-
               await client.mutation(api.messages.saveAssistantMessage, {
                 chatId,
                 role: "assistant",
                 content: capturedText,
                 parentMessageId: userMsgId || undefined,
-                parts: depthLimitedParts,
+                parts: compactMessagePartsForStorage(sanitizedParts, capturedText),
                 metadata: finalMetadata,
               });
 
