@@ -19,8 +19,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ERROR_CODES } from "@/lib/error-codes";
-import { classifyError } from "@/lib/error-utils";
 import {
 	Tooltip,
 	TooltipContent,
@@ -31,6 +29,7 @@ import { useProfile } from "@/providers/profile-provider";
 import { PhosphorIcon } from "@/components/profile/phosphor-icon";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { getTaskErrorMessage } from "./task-errors";
 import { TimePicker } from "./time-picker";
 import type { CreateTaskForm } from "./types";
 
@@ -189,12 +188,7 @@ function useTaskFormContentView({
 				onSuccessAction();
 			})
 			.catch((error: unknown) => {
-				const classifiedError = classifyError(error);
-				toast.error(
-					classifiedError.code === ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED
-						? classifiedError.userFriendlyMessage
-						: errorMessage,
-				);
+				toast.error(getTaskErrorMessage(error, errorMessage));
 			})
 			.finally(() => {
 				setIsSubmitting(false);
