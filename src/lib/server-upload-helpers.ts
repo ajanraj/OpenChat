@@ -1,15 +1,17 @@
 /**
  * Server-side Upload Helpers
- * Replicates the useUploadFile hook pattern for server-side usage (API routes)
+ * Mirrors the browser upload flow (useFileHandling) for server routes, authenticated with the
+ * user's Convex token.
  */
 
 import { fetchAction, fetchMutation } from "convex/nextjs";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { uploadToR2 } from "./r2-upload";
 
 /**
- * Server-side equivalent of useUploadFile hook
- * Handles: generateUploadUrl -> upload to R2 -> syncMetadata -> saveMetadata
+ * Uploads a blob for the user and attaches it to their chat:
+ * generateUploadUrl -> PUT to R2 -> saveGeneratedImage / saveFileAttachment.
  */
 export async function uploadBlobToR2(
   blob: Blob,
@@ -24,31 +26,12 @@ export async function uploadBlobToR2(
   url?: string;
   fileName: string;
 }> {
-  // Step 1: Generate upload URL (same as useUploadFile does)
-  const { url: uploadUrl, key } = await fetchMutation(
-    api.files.generateUploadUrl,
-    {},
-    { token: options.token },
+  const auth = { token: options.token };
+  const key = await uploadToR2(blob, (args) =>
+    fetchMutation(api.files.generateUploadUrl, args, auth),
   );
 
-  // Step 2: Upload to R2 (same as useUploadFile does)
-  const uploadResponse = await fetch(uploadUrl, {
-    method: "PUT",
-    body: blob,
-    headers: {
-      // This header will be stored by R2 as ContentType; server-side will still validate on save
-      "Content-Type": blob.type || "application/octet-stream",
-    },
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error(`Failed to upload to R2: ${uploadResponse.statusText}`);
-  }
-
-  // Step 3: Sync metadata with Convex R2 system (this was missing!)
-  await fetchMutation(api.files.syncMetadata, { key }, { token: options.token });
-
-  // Step 4: Save custom metadata to chat_attachments table
+  // Syncs R2 metadata, re-validates the stored object, and attaches it to the chat
   const saveAction = options.isGenerated
     ? api.files.saveGeneratedImage
     : api.files.saveFileAttachment;
@@ -60,7 +43,7 @@ export async function uploadBlobToR2(
       chatId: options.chatId,
       fileName: options.fileName ?? "file",
     },
-    { token: options.token },
+    auth,
   );
 
   return {

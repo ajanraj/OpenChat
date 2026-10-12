@@ -3,19 +3,24 @@
  * Manages file uploads and attachment processing for chat
  */
 
-import { useUploadFile } from "@convex-dev/r2/react";
 import type { FileUIPart } from "ai";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useCallback, useState } from "react";
 import { createOptimisticAttachments, uploadFilesInParallel } from "@/lib/file-upload-utils";
+import { uploadToR2 } from "@/lib/r2-upload";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export function useFileHandling() {
   const [files, setFiles] = useState<File[]>([]);
-  // R2: useUploadFile requires an API object that includes generateUploadUrl and syncMetadata
-  const uploadFile = useUploadFile(api.files);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveFileAttachment = useAction(api.files.saveFileAttachment);
+
+  // Uploads one file to R2 and returns its key; saveFileAttachment then attaches it to a chat
+  const uploadFile = useCallback(
+    (file: File) => uploadToR2(file, generateUploadUrl),
+    [generateUploadUrl],
+  );
 
   const addFiles = useCallback((newFiles: File[]) => {
     setFiles((prev) => [...prev, ...newFiles]);
