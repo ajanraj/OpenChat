@@ -1,8 +1,11 @@
-import { convexQuery } from "@convex-dev/react-query";
-import { ArrowSquareOut, FileText, Trash } from "@phosphor-icons/react";
-import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import {
+  ArrowSquareOutIcon,
+  CircleNotchIcon,
+  FileTextIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
+import { useMutation, usePaginatedQuery } from "convex/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,30 +22,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { ATTACHMENT_DELETE_BATCH_SIZE, formatBytes } from "@/lib/config/upload";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/settings/attachments")({
   component: AttachmentsSettingsPage,
 });
 
-function formatBytes(bytes: number) {
-  if (bytes === 0) {
-    return "0 B";
-  }
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / k ** i).toFixed(2)} ${sizes[i]}`;
-}
+const ATTACHMENTS_PAGE_SIZE = 50;
 
 export function AttachmentsSettingsPage() {
-  const { data: rawAttachments } = useTanStackQuery({
-    ...convexQuery(api.files.getAttachmentsForUser, {}),
-  });
-
-  const attachments = rawAttachments?.sort(
-    (a, b) => new Date(b._creationTime).getTime() - new Date(a._creationTime).getTime(),
+  // Newest first; the header counts and totals cover loaded pages only ("50+ files")
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.files.getAttachmentsForUser,
+    {},
+    { initialNumItems: ATTACHMENTS_PAGE_SIZE },
   );
+  const attachments = status === "LoadingFirstPage" ? undefined : results;
+  const hasMore = status === "CanLoadMore" || status === "LoadingMore";
+  const moreSuffix = hasMore ? "+" : "";
   const deleteAttachments = useMutation(api.files.deleteAttachments);
   const [selectedIds, setSelectedIds] = useState<Set<Id<"chat_attachments">>>(new Set());
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
@@ -77,17 +75,21 @@ export function AttachmentsSettingsPage() {
   };
 
   const confirmDeleteSelected = async () => {
-    await deleteAttachments({ attachmentIds: Array.from(selectedIds) })
-      .then(() => {
-        toast({ title: "Selected attachments deleted", status: "success" });
-        setSelectedIds(new Set());
-      })
-      .catch(() => {
-        toast({ title: "Failed to delete some attachments", status: "error" });
-      })
-      .finally(() => {
-        setShowDeleteSelectedDialog(false);
-      });
+    const ids = Array.from(selectedIds);
+    try {
+      // The mutation accepts a bounded batch; large selections span several calls
+      for (let start = 0; start < ids.length; start += ATTACHMENT_DELETE_BATCH_SIZE) {
+        await deleteAttachments({
+          attachmentIds: ids.slice(start, start + ATTACHMENT_DELETE_BATCH_SIZE),
+        });
+      }
+      toast({ title: "Selected attachments deleted", status: "success" });
+      setSelectedIds(new Set());
+    } catch {
+      toast({ title: "Failed to delete some attachments", status: "error" });
+    } finally {
+      setShowDeleteSelectedDialog(false);
+    }
   };
 
   const handleDelete = (attachmentId: Id<"chat_attachments">) => {
@@ -133,11 +135,11 @@ export function AttachmentsSettingsPage() {
       );
     }
 
-    if (attachments.length === 0) {
+    if (attachments.length === 0 && !hasMore) {
       return (
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed bg-muted/20 py-16 text-center">
           <div className="flex size-12 items-center justify-center rounded-full border-2 border-muted-foreground/30 border-dashed">
-            <FileText className="size-5 text-muted-foreground/60" />
+            <FileTextIcon className="size-5 text-muted-foreground/60" />
           </div>
           <div className="space-y-1">
             <h3 className="font-medium text-muted-foreground">No attachments</h3>
@@ -175,7 +177,7 @@ export function AttachmentsSettingsPage() {
                 </div>
               ) : (
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-background">
-                  <FileText className="size-5 text-muted-foreground" />
+                  <FileTextIcon className="size-5 text-muted-foreground" />
                 </div>
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -186,23 +188,38 @@ export function AttachmentsSettingsPage() {
                   target="_blank"
                 >
                   <span className="truncate font-medium">{att.fileName ?? att.key}</span>
-                  <ArrowSquareOut className="size-3.5 shrink-0 text-muted-foreground" />
+                  <ArrowSquareOutIcon className="size-3.5 shrink-0 text-muted-foreground" />
                 </a>
                 <span className="text-muted-foreground text-xs">
                   {att.fileType ?? "file"} · {formatBytes(att.fileSize ?? 0)}
                 </span>
               </div>
               <Button
+                aria-label={`Delete ${att.fileName ?? "attachment"}`}
                 className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() => handleDelete(att._id)}
                 size="icon"
                 variant="ghost"
               >
-                <Trash className="size-4" />
+                <TrashIcon className="size-4" />
               </Button>
             </div>
           );
         })}
+        {hasMore && (
+          <Button
+            className="self-center"
+            disabled={status === "LoadingMore"}
+            onClick={() => loadMore(ATTACHMENTS_PAGE_SIZE)}
+            size="sm"
+            variant="outline"
+          >
+            {status === "LoadingMore" && (
+              <CircleNotchIcon aria-hidden className="size-4 animate-spin" />
+            )}
+            Load more
+          </Button>
+        )}
       </div>
     );
   };
@@ -216,12 +233,14 @@ export function AttachmentsSettingsPage() {
           <h1 className="font-semibold text-2xl tracking-tight">Attachments</h1>
           {Boolean(attachments && attachments.length > 0) && (
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
-                {attachments?.length} file{attachments?.length === 1 ? "" : "s"}
+              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs tabular-nums">
+                {attachments?.length}
+                {moreSuffix} file{attachments?.length === 1 && !hasMore ? "" : "s"}
               </span>
               <span className="text-muted-foreground/40">·</span>
-              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
+              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs tabular-nums">
                 {formatBytes(totalSize ?? 0)}
+                {moreSuffix}
               </span>
             </div>
           )}
@@ -269,7 +288,7 @@ export function AttachmentsSettingsPage() {
             size="sm"
             variant="destructive"
           >
-            <Trash className="size-4" />
+            <TrashIcon className="size-4" />
             <span className="hidden sm:inline">Delete</span>
             {` (${selectedIds.size})`}
           </Button>

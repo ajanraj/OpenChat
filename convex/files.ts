@@ -1,19 +1,27 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2, type R2Callbacks } from "@convex-dev/r2";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BYTES } from "../src/lib/config/upload";
+import {
+  ATTACHMENT_DELETE_BATCH_SIZE,
+  UPLOAD_ALLOWED_MIME,
+  UPLOAD_MAX_BYTES,
+} from "../src/lib/config/upload";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { sanitizeAndValidateFileName } from "../src/lib/filename";
 import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { supportsFileUploadModel } from "./lib/fileUploadModels";
+import schema from "./schema";
 
 // R2 client and client API exports (used by React upload hook and server routes)
 const r2 = new R2(components.r2);
 const callbacks: R2Callbacks = internal.files;
 
 const TRAILING_SLASH_RE = /\/$/;
+
+const attachmentDoc = schema.doc("chat_attachments");
 
 export const { generateUploadUrl, syncMetadata, onSyncMetadata } = r2.clientApi({
   // Provide callbacks reference so the component can invoke onSyncMetadata
@@ -391,61 +399,56 @@ export const getStorageUrl = query({
 });
 
 /**
- * Fetches all attachments for a given chat, including their download URLs.
+ * Lists the caller's attachments, newest first, for the settings page. Pending uploads that were
+ * never attached to a chat are left out.
  */
 export const getAttachmentsForUser = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(attachmentDoc),
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
+      // Signed-out clients (e.g. mid sign-out) get an empty list instead of a thrown error.
+      return { page: [], isDone: true, continueCursor: "" };
     }
 
-    const attachments = await ctx.db
+    const result = await ctx.db
       .query("chat_attachments")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .order("desc")
-      .collect();
-
-    return Promise.all(
-      attachments.map(async (attachment) => ({
-        ...attachment,
-        url: attachment.url,
-      })),
-    );
+      .paginate(args.paginationOpts);
+    return {
+      ...result,
+      page: result.page.filter((attachment) => attachment.chatId !== undefined),
+    };
   },
 });
 
+/**
+ * Deletes up to ATTACHMENT_DELETE_BATCH_SIZE of the caller's attachments and their R2 objects.
+ * Ids that are missing or owned by someone else are skipped.
+ */
 export const deleteAttachments = mutation({
   args: { attachmentIds: v.array(v.id("chat_attachments")) },
+  returns: v.null(),
   handler: async (ctx, { attachmentIds }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
+    if (attachmentIds.length > ATTACHMENT_DELETE_BATCH_SIZE) {
+      throw new ConvexError(ERROR_CODES.INVALID_INPUT);
+    }
 
-    // Create a Set for O(1) lookup of attachment IDs to delete
-    const attachmentIdsToDelete = new Set(attachmentIds);
-
-    // Fetch all user attachments in a single query using the by_userId index
-    const userAttachments = await ctx.db
-      .query("chat_attachments")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-
-    // Filter to only include attachments that are in the deletion list
-    const validAttachments = userAttachments.filter((attachment) =>
-      attachmentIdsToDelete.has(attachment._id),
-    );
-
-    // Delete files from storage and database records in parallel
-    const keysToDelete = validAttachments.map((a) => a.key);
-    const docIdsToDelete = validAttachments.map((a) => a._id);
-
-    await Promise.all([
-      ...keysToDelete.map((key) => r2.deleteObject(ctx, key)),
-      ...docIdsToDelete.map((id) => ctx.db.delete(id)),
-    ]);
+    for (const attachmentId of new Set(attachmentIds)) {
+      const attachment = await ctx.db.get("chat_attachments", attachmentId);
+      if (!attachment || attachment.userId !== userId) {
+        continue;
+      }
+      await r2.deleteObject(ctx, attachment.key);
+      await ctx.db.delete("chat_attachments", attachment._id);
+    }
+    return null;
   },
 });
 

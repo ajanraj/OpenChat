@@ -3,6 +3,9 @@
 
 export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024; // 10 MiB
 
+// Max attachment ids accepted by one files.deleteAttachments call; the client batches larger selections
+export const ATTACHMENT_DELETE_BATCH_SIZE = 100;
+
 // Extend this list (e.g., add 'image/heic') to allow new types everywhere
 export const UPLOAD_ALLOWED_MIME = [
   "image/jpeg",
