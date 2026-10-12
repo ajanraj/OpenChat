@@ -2,7 +2,6 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { calculateRateLimit } from "@convex-dev/rate-limiter";
 import { ConvexError, v } from "convex/values";
-import { MODEL_DEFAULT } from "../src/lib/config";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -80,190 +79,6 @@ export const updateUserProfile = mutation({
 
     // Apply the updates
     await ctx.db.patch(userId, { ...updates });
-
-    return null;
-  },
-});
-
-export const toggleFavoriteModel = mutation({
-  args: { modelId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, { modelId }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const currentFavorites = user.favoriteModels ?? [];
-    const currentDisabled = user.disabledModels ?? [];
-    const isFavorite = currentFavorites.includes(modelId);
-
-    let newFavorites: string[];
-    let newDisabled: string[];
-
-    if (isFavorite) {
-      // Removing from favorites - ensure at least one remains
-      if (currentFavorites.length <= 1) {
-        return null; // Cannot remove last favorite
-      }
-      newFavorites = currentFavorites.filter((id) => id !== modelId);
-      newDisabled = currentDisabled; // Don't auto-disable when unfavoriting
-    } else {
-      // Adding to favorites - remove from disabled if present (auto-enable)
-      newFavorites = [...new Set([...currentFavorites, modelId])];
-      newDisabled = currentDisabled.filter((id) => id !== modelId);
-    }
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
-
-    return null;
-  },
-});
-
-export const setModelEnabled = mutation({
-  args: { modelId: v.string(), enabled: v.boolean() },
-  returns: v.null(),
-  handler: async (ctx, { modelId, enabled }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    // Cannot disable MODEL_DEFAULT
-    if (!enabled && modelId === MODEL_DEFAULT) {
-      return null;
-    }
-
-    const currentFavorites = user.favoriteModels ?? [];
-    const currentDisabled = user.disabledModels ?? [];
-    const isCurrentlyDisabled = currentDisabled.includes(modelId);
-
-    let newFavorites = currentFavorites;
-    let newDisabled: string[];
-
-    if (enabled) {
-      // Enabling model - remove from disabled list
-      newDisabled = currentDisabled.filter((id) => id !== modelId);
-    } else {
-      // Disabling model - add to disabled list and remove from favorites
-      newDisabled = isCurrentlyDisabled
-        ? currentDisabled
-        : [...new Set([...currentDisabled, modelId])];
-      newFavorites = currentFavorites.filter((id) => id !== modelId);
-
-      // Ensure at least one favorite remains
-      if (newFavorites.length === 0 && currentFavorites.length > 0) {
-        // Keep the first favorite and remove it from disabled list
-        const firstFavorite = currentFavorites[0];
-        newFavorites = [firstFavorite];
-        newDisabled = newDisabled.filter((id) => id !== firstFavorite);
-      }
-    }
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
-
-    return null;
-  },
-});
-
-export const bulkSetModelsDisabled = mutation({
-  args: { modelIds: v.array(v.string()) },
-  returns: v.null(),
-  handler: async (ctx, { modelIds }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const currentFavorites = user.favoriteModels ?? [];
-    const currentDisabled = user.disabledModels ?? [];
-
-    // Filter out MODEL_DEFAULT from the models to disable
-    const modelsToDisable = modelIds.filter((id) => id !== MODEL_DEFAULT);
-
-    let newFavorites: string[];
-    let newDisabled: string[];
-
-    if (modelsToDisable.length === 0) {
-      // Unselect all: enable all models
-      newDisabled = [];
-      newFavorites = currentFavorites;
-    } else {
-      // Remove disabled models from favorites
-      newFavorites = currentFavorites.filter((id) => !modelsToDisable.includes(id));
-      // Merge with existing disabled models (fix critical bug)
-      newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
-
-      // Ensure at least one favorite remains
-      if (newFavorites.length === 0 && currentFavorites.length > 0) {
-        // Keep the first favorite and remove it from disabled list
-        const firstFavorite = currentFavorites[0];
-        newFavorites = [firstFavorite];
-        newDisabled = newDisabled.filter((id) => id !== firstFavorite);
-      }
-    }
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
-
-    return null;
-  },
-});
-
-export const bulkSetFavoriteModels = mutation({
-  args: { modelIds: v.array(v.string()) },
-  returns: v.null(),
-  handler: async (ctx, { modelIds }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    // Ensure at least one favorite model is provided
-    if (modelIds.length === 0) {
-      throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
-    }
-
-    const currentDisabled = user.disabledModels ?? [];
-
-    // Set new favorites to the provided model IDs
-    const newFavorites = [...new Set(modelIds)]; // Remove duplicates
-
-    // Remove favorite models from disabled list (auto-enable favorites)
-    const newDisabled = currentDisabled.filter((id) => !newFavorites.includes(id));
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
 
     return null;
   },
@@ -743,17 +558,6 @@ export const deleteAccount = mutation({
   },
 });
 
-// React hook API functions for rate limiting
-export const { getRateLimit: getRateLimitHook, getServerTime } = rateLimiter.hookAPI(
-  "authenticatedDaily", // Default rate limit
-  {
-    key: async (ctx) => {
-      const userId = await getAuthUserId(ctx);
-      return userId || "anonymous";
-    },
-  },
-);
-
 // Internal query to get user by ID
 export const getUser = internalQuery({
   args: { userId: v.id("users") },
@@ -916,37 +720,5 @@ export const incrementStandardCreditsInternal = internalMutation({
     });
 
     return null;
-  },
-});
-
-// Update all users' preferred model to a new value
-export const updateAllUsersPreferredModel = internalMutation({
-  args: {
-    newPreferredModel: v.string(),
-  },
-  returns: v.object({
-    updatedCount: v.number(),
-    totalCount: v.number(),
-  }),
-  handler: async (ctx, { newPreferredModel }) => {
-    // Get all users from the database
-    const allUsers = await ctx.db.query("users").collect();
-    const totalCount = allUsers.length;
-
-    // Update each user's preferredModel in parallel
-    const updatePromises = allUsers.map(async (user) => {
-      await ctx.db.patch(user._id, {
-        preferredModel: newPreferredModel,
-      });
-    });
-
-    // Wait for all updates to complete and count successes
-    const results = await Promise.allSettled(updatePromises);
-    const updatedCount = results.filter((result) => result.status === "fulfilled").length;
-
-    return {
-      updatedCount,
-      totalCount,
-    };
   },
 });

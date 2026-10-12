@@ -115,8 +115,8 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
 
   const updateUser = useCallback(
     async (updates: Partial<UserProfile>) => {
-      // Note: Model preference updates (favoriteModels, disabledModels) should now
-      // use the specialized mutations: toggleFavoriteModel, setModelEnabled, etc.
+      // Note: Model preference updates (favoriteModels, disabledModels) should use
+      // the profile mutations in convex/profiles.ts (via useModelPreferences/useModelSettings).
       // This function is for general profile updates only.
       await updateUserProfile({ updates });
     },
