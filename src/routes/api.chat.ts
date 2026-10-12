@@ -33,6 +33,7 @@ import {
   createStreamingError,
   shouldShowInConversation,
 } from "@/lib/error-utils";
+import { createMessageCreditTracker, type MessageCreditTracker } from "@/lib/message-credits";
 import { compactMessagePartsForStorage } from "@/lib/message-parts-storage";
 import { authMiddleware, getServerRouteSecret } from "@/lib/middleware/auth";
 import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
@@ -203,7 +204,8 @@ const buildOpenAIProviderOptions = (
 };
 
 /**
- * Handle image generation for image generation models
+ * Handle image generation for image generation models. The credit was charged when the
+ * request started; failures before the assistant message is saved refund it.
  */
 async function handleImageGeneration({
   messages,
@@ -212,6 +214,7 @@ async function handleImageGeneration({
   userMsgId,
   client,
   token,
+  credits,
 }: {
   messages: UIMessage[];
   chatId: Id<"chats">;
@@ -219,8 +222,11 @@ async function handleImageGeneration({
   userMsgId: Id<"messages"> | null;
   client?: ConvexHttpClient;
   token: string;
+  credits: MessageCreditTracker;
 }) {
   let currentUserMsgId: Id<"messages"> | null = userMsgId;
+  // A failed save (e.g. the chat was deleted meanwhile) keeps the charge
+  let savingAssistantMessage = false;
 
   try {
     // Save user message first
@@ -278,6 +284,7 @@ async function handleImageGeneration({
 
     // Save assistant message with image
     if (currentUserMsgId && client) {
+      savingAssistantMessage = true;
       await client.mutation(api.messages.saveAssistantMessage, {
         chatId,
         role: "assistant",
@@ -293,19 +300,15 @@ async function handleImageGeneration({
       });
     }
 
-    // Increment premium credits usage since image generation uses premium credits
-    if (client) {
-      await client.mutation(api.users.incrementMessageCount, {
-        usesPremiumCredits: true,
-      });
-    }
-
     // Return success response
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
+    if (!savingAssistantMessage) {
+      await credits.refund();
+    }
     if (currentUserMsgId && client) {
       await saveErrorMessage(
         chatId,
@@ -342,6 +345,10 @@ export const Route = createFileRoute("/api/chat")({
         request.signal.addEventListener("abort", () => {
           closeAllWebSocketFetches();
         });
+
+        // Platform credit for this request: charged before generating, refunded at most
+        // once if the generation itself fails (never for aborts or failed saves)
+        const credits = createMessageCreditTracker(context.client, request.signal);
 
         try {
           const {
@@ -511,17 +518,14 @@ export const Route = createFileRoute("/api/chat")({
             return createErrorResponse(premiumError);
           }
 
-          // --- Rate Limiting (only if not using user key and model doesn't skip rate limits) ---
+          // --- Credits (only if not using user key and model doesn't skip rate limits) ---
+          // Charged up front in one transaction so concurrent requests cannot overspend
+          const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
           let rateLimitError: Error | null = null;
 
           if (!(useUserKey || selectedModel.skipRateLimit)) {
             try {
-              // Check if the selected model uses premium credits
-              const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
-
-              await client.mutation(api.users.assertNotOverLimit, {
-                usesPremiumCredits,
-              });
+              await credits.charge(usesPremiumCredits);
             } catch (error) {
               if (error instanceof ConvexError) {
                 const errorCode = error.data;
@@ -597,6 +601,7 @@ export const Route = createFileRoute("/api/chat")({
               userMsgId: null,
               client,
               token,
+              credits,
             });
           }
 
@@ -704,6 +709,9 @@ export const Route = createFileRoute("/api/chat")({
           let result: ReturnType<typeof streamText> | null = null;
           let wasUserKeyUsed = false;
           let errorMessageSaved = false;
+          // Set when the provider stream reports an error. Errors detected in the streamed
+          // text are not counted: model output can be steered to match those patterns.
+          let generationFailed = false;
 
           const stream = createUIMessageStream({
             originalMessages: messages,
@@ -795,6 +803,7 @@ export const Route = createFileRoute("/api/chat")({
                     onError: async ({ error }) => {
                       // Handle errors gracefully - save to conversation but don't throw
                       // The throwing behavior will be handled while processing the stream
+                      generationFailed = true;
 
                       // First, try to detect provider-specific error patterns
                       const detectedError = detectProviderErrorFromObject(
@@ -958,6 +967,13 @@ export const Route = createFileRoute("/api/chat")({
 
                     const fallbackIsUserKey = !primaryIsUserKey;
                     try {
+                      if (fallbackIsUserKey) {
+                        // The platform-key attempt failed; the user's own key takes over
+                        await credits.refund();
+                      } else if (!selectedModel.skipRateLimit) {
+                        // Falling back from the user's key to the platform key costs a credit
+                        await credits.charge(usesPremiumCredits);
+                      }
                       wasUserKeyUsed = fallbackIsUserKey;
                       result = await runStream(fallbackIsUserKey);
                       return;
@@ -1002,6 +1018,10 @@ export const Route = createFileRoute("/api/chat")({
               await tryRun();
             },
             async onEnd({ responseMessage }) {
+              // No result means every attempt threw before streaming
+              if (generationFailed || !result) {
+                await credits.refund();
+              }
               if (!result || errorMessageSaved) {
                 return; // Don't save if no result or error message was already saved
               }
@@ -1063,6 +1083,7 @@ export const Route = createFileRoute("/api/chat")({
                 .map((part) => part.text)
                 .join("");
 
+              // Platform credits were charged when the request started
               await client.mutation(api.messages.saveAssistantMessage, {
                 chatId,
                 role: "assistant",
@@ -1075,12 +1096,6 @@ export const Route = createFileRoute("/api/chat")({
               if (wasUserKeyUsed) {
                 await client.mutation(api.api_keys.incrementUserApiKeyUsage, {
                   provider: selectedModel.provider,
-                });
-              } else if (!selectedModel.skipRateLimit) {
-                const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
-
-                await client.mutation(api.users.incrementMessageCount, {
-                  usesPremiumCredits,
                 });
               }
             },
@@ -1105,6 +1120,9 @@ export const Route = createFileRoute("/api/chat")({
           });
         } catch (err) {
           closeAllWebSocketFetches();
+          // Failed before generating (e.g. reload/edit setup): return the credit
+          await credits.refund();
+          console.error("Chat request failed:", err);
           return createErrorResponse(err);
         }
       },

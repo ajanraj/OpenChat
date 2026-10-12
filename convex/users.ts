@@ -6,6 +6,8 @@ import { ERROR_CODES } from "../src/lib/error-codes";
 import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { assertServerSecret, ensureAuthenticated } from "./lib/auth_helper";
+import * as credits from "./lib/credits";
 import { RATE_LIMITS } from "./lib/rateLimitConstants";
 import { hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
@@ -84,54 +86,6 @@ export const updateUserProfile = mutation({
   },
 });
 
-export const incrementMessageCount = mutation({
-  args: {
-    usesPremiumCredits: v.optional(v.boolean()),
-  },
-  returns: v.null(),
-  handler: async (ctx, { usesPremiumCredits }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, deduct from premium credits
-    if (isPremium && usesPremiumCredits) {
-      await rateLimiter.limit(ctx, "premiumMonthly", {
-        key: userId,
-        throws: true,
-      });
-    } else {
-      // For non-premium models or non-premium users, use standard credits
-
-      // CONSUME daily limits for non-premium users
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        await rateLimiter.limit(ctx, dailyLimitName, {
-          key: userId,
-          throws: true,
-        });
-      }
-
-      // CONSUME monthly limits for all users
-      await rateLimiter.limit(ctx, "standardMonthly", {
-        key: userId,
-        throws: true,
-      });
-    }
-
-    return null;
-  },
-});
-
 export const incrementStandardCredits = mutation({
   args: {
     count: v.optional(v.number()),
@@ -176,70 +130,46 @@ export const incrementStandardCredits = mutation({
   },
 });
 
+// Pre-flight check used before creating a chat; charges nothing.
 export const assertNotOverLimit = mutation({
   args: {
     usesPremiumCredits: v.optional(v.boolean()),
   },
+  returns: v.null(),
   handler: async (ctx, { usesPremiumCredits }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
+    const userId = await ensureAuthenticated(ctx);
+    await credits.assertMessageCreditAvailable(ctx, userId, { usesPremiumCredits });
+    return null;
+  },
+});
 
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
+// Charges one message credit when /api/chat starts a platform-key generation.
+// Throws DAILY/MONTHLY/PREMIUM_LIMIT_REACHED when the user is out of credits.
+export const consumeMessageCredit = mutation({
+  args: {
+    usesPremiumCredits: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { usesPremiumCredits }) => {
+    const userId = await ensureAuthenticated(ctx);
+    await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
+    return null;
+  },
+});
 
-    const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, check premium credits
-    if (isPremium && usesPremiumCredits) {
-      const premiumStatus = await rateLimiter.check(ctx, "premiumMonthly", {
-        key: userId,
-      });
-      if (!premiumStatus.ok) {
-        throw new ConvexError(ERROR_CODES.PREMIUM_LIMIT_REACHED);
-      }
-    } else {
-      // For non-premium models or non-premium users, check standard credits
-
-      const checkPromises: Promise<unknown>[] = [];
-
-      // CHECK daily limits for non-premium users (don't consume yet)
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        checkPromises.push(
-          rateLimiter.check(ctx, dailyLimitName, {
-            key: userId,
-          }),
-        );
-      }
-
-      // CHECK monthly limits for all users (don't consume yet)
-      checkPromises.push(
-        rateLimiter.check(ctx, "standardMonthly", {
-          key: userId,
-        }),
-      );
-
-      const results = await Promise.all(checkPromises);
-
-      // Check daily limit result (if applicable)
-      if (!isPremium && results.length > 1) {
-        const dailyStatus = results[0] as { ok: boolean };
-        if (!dailyStatus.ok) {
-          throw new ConvexError(ERROR_CODES.DAILY_LIMIT_REACHED);
-        }
-      }
-
-      // Check monthly limit result (always the last promise)
-      const monthlyStatus = results[results.length - 1] as { ok: boolean };
-      if (!monthlyStatus.ok) {
-        throw new ConvexError(ERROR_CODES.MONTHLY_LIMIT_REACHED);
-      }
-    }
+// Refunds a consumeMessageCredit charge when the generation itself failed.
+// Server routes only: without SERVER_ROUTE_SECRET a user could mint credits for themselves.
+export const refundMessageCredit = mutation({
+  args: {
+    serverSecret: v.string(),
+    usesPremiumCredits: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { serverSecret, usesPremiumCredits }) => {
+    assertServerSecret(serverSecret);
+    const userId = await ensureAuthenticated(ctx);
+    await credits.refundMessageCredit(ctx, userId, { usesPremiumCredits });
+    return null;
   },
 });
 
@@ -572,73 +502,50 @@ export const getUser = internalQuery({
   handler: async (ctx, args) => await ctx.db.get(args.userId),
 });
 
-// Internal mutation to check rate limits for scheduled tasks
+// Charges one message credit for a scheduled run before it generates (internal variant of
+// consumeMessageCredit). Also enforces subscription access with requiresPremium.
+export const consumeMessageCreditInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    usesPremiumCredits: v.optional(v.boolean()),
+    requiresPremium: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { userId, ...options }) => {
+    await credits.consumeMessageCredit(ctx, userId, options);
+    return null;
+  },
+});
+
+// Refunds a consumeMessageCreditInternal charge when the scheduled generation failed.
+export const refundMessageCreditInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    usesPremiumCredits: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { userId, usesPremiumCredits }) => {
+    await credits.refundMessageCredit(ctx, userId, { usesPremiumCredits });
+    return null;
+  },
+});
+
+// Legacy check-then-charge pair still used by scheduled_ai.ts. The check does not reserve
+// the credit; move scheduled runs to consumeMessageCreditInternal (plus
+// refundMessageCreditInternal on failure) and delete both.
 export const assertNotOverLimitInternal = internalMutation({
   args: {
     userId: v.id("users"),
     requiresPremium: v.boolean(),
     usesPremiumCredits: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, requiresPremium, usesPremiumCredits }) => {
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const isPremium = await hasActivePremium(ctx, user._id);
-    if (requiresPremium && !isPremium) {
-      throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
-    }
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, check premium credits
-    if (isPremium && usesPremiumCredits) {
-      const premiumStatus = await rateLimiter.check(ctx, "premiumMonthly", {
-        key: userId,
-      });
-      if (!premiumStatus.ok) {
-        throw new ConvexError(ERROR_CODES.PREMIUM_LIMIT_REACHED);
-      }
-    } else {
-      // For non-premium models or non-premium users, check standard credits
-      const checkPromises: Promise<unknown>[] = [];
-
-      // CHECK daily limits for non-premium users (don't consume yet)
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        checkPromises.push(
-          rateLimiter.check(ctx, dailyLimitName, {
-            key: userId,
-          }),
-        );
-      }
-
-      // CHECK monthly limits for all users (don't consume yet)
-      checkPromises.push(
-        rateLimiter.check(ctx, "standardMonthly", {
-          key: userId,
-        }),
-      );
-
-      const results = await Promise.all(checkPromises);
-
-      // Check results and throw appropriate errors
-      for (const [index, result] of results.entries()) {
-        const limitResult = result as { ok: boolean };
-        if (!limitResult.ok) {
-          if (index === 0 && !isPremium) {
-            // Daily limit exceeded
-            throw new ConvexError(ERROR_CODES.DAILY_LIMIT_REACHED);
-          }
-          // Monthly limit exceeded (or only monthly was checked)
-          throw new ConvexError(ERROR_CODES.MONTHLY_LIMIT_REACHED);
-        }
-      }
-    }
+  returns: v.null(),
+  handler: async (ctx, { userId, ...options }) => {
+    await credits.assertMessageCreditAvailable(ctx, userId, options);
+    return null;
   },
 });
 
-// Internal mutation to increment message count for scheduled tasks
 export const incrementMessageCountInternal = internalMutation({
   args: {
     userId: v.id("users"),
@@ -646,39 +553,7 @@ export const incrementMessageCountInternal = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, { userId, usesPremiumCredits }) => {
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, deduct from premium credits
-    if (isPremium && usesPremiumCredits) {
-      await rateLimiter.limit(ctx, "premiumMonthly", {
-        key: userId,
-        throws: true,
-      });
-    } else {
-      // For non-premium models or non-premium users, use standard credits
-
-      // CONSUME daily limits for non-premium users
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        await rateLimiter.limit(ctx, dailyLimitName, {
-          key: userId,
-          throws: true,
-        });
-      }
-
-      // CONSUME monthly limits for all users
-      await rateLimiter.limit(ctx, "standardMonthly", {
-        key: userId,
-        throws: true,
-      });
-    }
-
+    await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
     return null;
   },
 });

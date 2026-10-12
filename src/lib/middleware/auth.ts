@@ -39,7 +39,7 @@ function getConvexUrl(): string {
 /**
  * Shared secret that proves a Convex call comes from these server routes rather than a
  * browser holding the same session token. Pass it to server-only Convex functions
- * (e.g. api_keys.getDecryptedKey), which check it with
+ * (api_keys.getDecryptedKey, users.refundMessageCredit), which check it with
  * assertServerSecret in convex/lib/auth_helper.ts. Must match the Convex env value.
  */
 export function getServerRouteSecret(): string {
