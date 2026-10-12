@@ -1,8 +1,15 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { ensureAuthenticated } from "./lib/auth_helper";
+import type { Id } from "./_generated/dataModel";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  mutation,
+  query,
+} from "./_generated/server";
+import { getCurrentUserOrThrow } from "./lib/auth_helper";
 
 // Type for connector types
 const CONNECTOR_TYPES = v.union(
@@ -50,7 +57,21 @@ export const listUserConnectors = query({
 });
 
 /**
- * Save a new connection for the authenticated user
+ * Resolve the caller for connector mutations. Anonymous (guest) users cannot link
+ * external accounts, so they are rejected here as well as in the UI.
+ */
+async function ensureConnectorUser(ctx: MutationCtx): Promise<Id<"users">> {
+  const user = await getCurrentUserOrThrow(ctx);
+  if (user.isAnonymous) {
+    throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
+  }
+  return user._id;
+}
+
+/**
+ * Save a new connection for the authenticated user.
+ * `connectionId` is display metadata only: Composio operations resolve the user's
+ * accounts by Composio user id, never by this client-supplied value.
  */
 export const saveConnection = mutation({
   args: {
@@ -60,7 +81,7 @@ export const saveConnection = mutation({
   },
   returns: v.id("connectors"),
   handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
+    const userId = await ensureConnectorUser(ctx);
 
     // Check if connector already exists
     const existingConnector = await ctx.db
@@ -103,7 +124,7 @@ export const removeConnection = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
+    const userId = await ensureConnectorUser(ctx);
     const connector = await ctx.db
       .query("connectors")
       .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
@@ -128,7 +149,7 @@ export const setConnectorEnabled = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
+    const userId = await ensureConnectorUser(ctx);
 
     const connector = await ctx.db
       .query("connectors")

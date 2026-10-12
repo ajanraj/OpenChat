@@ -17,6 +17,9 @@ export const Route = createFileRoute("/api/composio/connect")({
           if (!user) {
             return notFound("User not found");
           }
+          if (user.isAnonymous) {
+            return json({ error: "Sign in with Google to use connectors" }, { status: 403 });
+          }
 
           let connectorType: string;
           try {

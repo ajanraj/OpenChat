@@ -17,6 +17,9 @@ export const Route = createFileRoute("/api/composio/disconnect")({
           if (!user) {
             return notFound("User not found");
           }
+          if (user.isAnonymous) {
+            return json({ error: "Sign in with Google to use connectors" }, { status: 403 });
+          }
 
           let connectorType: ConnectorType;
           try {
@@ -30,18 +33,14 @@ export const Route = createFileRoute("/api/composio/disconnect")({
             return badRequest("Invalid connector type");
           }
 
-          // Find the connector to get connection ID
           const connectors = await client.query(api.connectors.listUserConnectors, {});
-
-          const connector = connectors.find(
-            (c: { type: string; connectionId: string }) => c.type === connectorType,
-          );
-          if (!connector) {
+          if (!connectors.some((c) => c.type === connectorType)) {
             return notFound("Connector not found");
           }
 
-          // Disconnect from Composio
-          await disconnectAccount(connector.connectionId);
+          // Disconnect from Composio. Accounts are resolved by the caller's Composio user id,
+          // never by the stored connectionId, which the client supplied.
+          await disconnectAccount(user._id, connectorType);
 
           // Remove from Convex
           await client.mutation(api.connectors.removeConnection, {
