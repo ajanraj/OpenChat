@@ -214,7 +214,7 @@ export const saveApiKey = mutation({
     // Default to "fallback" mode if not specified
     const finalMode = mode || "fallback";
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("user_api_keys", existing._id, {
         encryptedKey: encrypted,
         mode: finalMode,
         updatedAt: now,
@@ -257,7 +257,7 @@ export const deleteApiKey = mutation({
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
       .unique();
     if (existing) {
-      await ctx.db.delete(existing._id);
+      await ctx.db.delete("user_api_keys", existing._id);
     }
     return null;
   },
@@ -287,7 +287,7 @@ export const updateApiKeyMode = mutation({
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
       .unique();
     if (existing) {
-      await ctx.db.patch(existing._id, { mode, updatedAt: Date.now() });
+      await ctx.db.patch("user_api_keys", existing._id, { mode, updatedAt: Date.now() });
     }
     return null;
   },
@@ -344,7 +344,7 @@ export const incrementUserApiKeyUsage = mutation({
       .unique();
     if (existing) {
       const currentCount = existing.messageCount || 0;
-      await ctx.db.patch(existing._id, { messageCount: currentCount + 1 });
+      await ctx.db.patch("user_api_keys", existing._id, { messageCount: currentCount + 1 });
     }
     return null;
   },

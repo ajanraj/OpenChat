@@ -104,6 +104,16 @@ export function createFakeDb() {
     return { ...doc };
   };
 
+  // Resolves `(table, id)` or legacy `(id)` call arguments to a row
+  const findRow = (tableOrId: string, maybeId?: string) => {
+    if (maybeId === undefined) return rows.get(tableOrId);
+    const found = rows.get(maybeId);
+    if (found && found.table !== tableOrId) {
+      throw new Error(`document ${maybeId} is in table ${found.table}, not ${tableOrId}`);
+    }
+    return found;
+  };
+
   class FakeQuery {
     private bounds: Bound[] = [];
     private fields: string[] = [];
@@ -253,8 +263,10 @@ export function createFakeDb() {
     all(table: TableNames): Row[] {
       return [...rows.values()].filter((r) => r.table === table).map(({ doc }) => ({ ...doc }));
     },
-    async get(id: string) {
-      const found = rows.get(id);
+    // get/patch/delete accept the table-first form (`db.get("chats", id)`) and the legacy id-only
+    // form; a table name that doesn't match the document fails like a wrong-table Id would.
+    async get(tableOrId: string, maybeId?: string) {
+      const found = findRow(tableOrId, maybeId);
       return found ? read(found.doc) : null;
     },
     query(table: TableNames) {
@@ -265,8 +277,14 @@ export function createFakeDb() {
       stats.writes += 1;
       return this.seed(table, doc);
     },
-    async patch(id: string, fields: Record<string, unknown>) {
-      const found = rows.get(id);
+    async patch(
+      tableOrId: string,
+      idOrFields: string | Record<string, unknown>,
+      maybeFields?: Record<string, unknown>,
+    ) {
+      const [id, fields] =
+        typeof idOrFields === "string" ? [idOrFields, maybeFields ?? {}] : [tableOrId, idOrFields];
+      const found = findRow(tableOrId, typeof idOrFields === "string" ? idOrFields : undefined);
       if (!found) throw new Error(`patch of missing document ${id}`);
       stats.writes += 1;
       for (const [key, value] of Object.entries(fields)) {
@@ -277,8 +295,11 @@ export function createFakeDb() {
         }
       }
     },
-    async delete(id: string) {
-      if (!rows.delete(id)) throw new Error(`delete of missing document ${id}`);
+    async delete(tableOrId: string, maybeId?: string) {
+      const id = maybeId ?? tableOrId;
+      if (!findRow(tableOrId, maybeId) || !rows.delete(id)) {
+        throw new Error(`delete of missing document ${id}`);
+      }
       stats.writes += 1;
     },
   };

@@ -91,7 +91,7 @@ function fakeDb(user: { _id: Id<"users">; isAnonymous: boolean } | null = null) 
       rows.push({ ...doc, _id, _table: table });
       return _id;
     },
-    patch: async (id: string, fields: Record<string, unknown>) => {
+    patch: async (_table: string, id: string, fields: Record<string, unknown>) => {
       Object.assign(rows.find((r) => r._id === id) ?? {}, fields);
     },
   };

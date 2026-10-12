@@ -91,7 +91,7 @@ export const saveConnection = mutation({
 
     if (existingConnector) {
       // Update existing connector
-      await ctx.db.patch(existingConnector._id, {
+      await ctx.db.patch("connectors", existingConnector._id, {
         connectionId: args.connectionId,
         isConnected: true,
         // Ensure connector is enabled when (re)connecting
@@ -134,7 +134,7 @@ export const removeConnection = mutation({
       throw new ConvexError(ERROR_CODES.CONNECTOR_NOT_FOUND);
     }
 
-    await ctx.db.delete(connector._id);
+    await ctx.db.delete("connectors", connector._id);
     return null;
   },
 });
@@ -160,7 +160,7 @@ export const setConnectorEnabled = mutation({
       throw new ConvexError(ERROR_CODES.CONNECTOR_NOT_FOUND);
     }
 
-    await ctx.db.patch(connector._id, { enabled: args.enabled });
+    await ctx.db.patch("connectors", connector._id, { enabled: args.enabled });
     return null;
   },
 });
@@ -210,7 +210,7 @@ export const syncConnectionStatus = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.connectorId, {
+    await ctx.db.patch("connectors", args.connectorId, {
       isConnected: args.isConnected,
     });
 

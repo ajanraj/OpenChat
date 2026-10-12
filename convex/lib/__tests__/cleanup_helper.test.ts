@@ -87,7 +87,7 @@ describe("deleteMultipleChats", () => {
     expect(db.all("chats")[0].originalChatId).toBeUndefined();
     expect(db.all("messages")).toEqual([]);
     // The deleted branch is removed outright, never patched first
-    expect(patch.mock.calls.map(([id]) => id)).toEqual([survivingBranch]);
+    expect(patch.mock.calls.map(([, id]) => id)).toEqual([survivingBranch]);
   });
 });
 

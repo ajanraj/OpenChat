@@ -32,7 +32,7 @@ export async function ensureChatAccess(
   chatId: Id<"chats">,
 ): Promise<{ chat: Doc<"chats">; userId: Id<"users"> }> {
   const userId = await ensureAuthenticated(ctx);
-  const chat = await ctx.db.get(chatId);
+  const chat = await ctx.db.get("chats", chatId);
 
   if (!chat || chat.userId !== userId) {
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
@@ -79,13 +79,13 @@ export async function ensureMessageAccess(
   userId: Id<"users">;
 }> {
   const userId = await ensureAuthenticated(ctx);
-  const message = await ctx.db.get(messageId);
+  const message = await ctx.db.get("messages", messageId);
 
   if (!message) {
     throw new ConvexError(ERROR_CODES.MESSAGE_NOT_FOUND);
   }
 
-  const chat = await ctx.db.get(message.chatId);
+  const chat = await ctx.db.get("chats", message.chatId);
   if (!chat || chat.userId !== userId) {
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
   }
@@ -109,7 +109,7 @@ export async function getCurrentUserOrNull(
   if (!userId) {
     return null;
   }
-  return await ctx.db.get(userId);
+  return await ctx.db.get("users", userId);
 }
 
 /**
@@ -121,7 +121,7 @@ export async function getCurrentUserOrNull(
  */
 export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const userId = await ensureAuthenticated(ctx);
-  const user = await ctx.db.get(userId);
+  const user = await ctx.db.get("users", userId);
 
   if (!user) {
     throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
@@ -179,7 +179,7 @@ export async function validateChatOwnership(
   const userId = await ensureAuthenticated(ctx);
 
   // Get all chats in parallel
-  const chatResults = await Promise.all(chatIds.map((chatId) => ctx.db.get(chatId)));
+  const chatResults = await Promise.all(chatIds.map((chatId) => ctx.db.get("chats", chatId)));
 
   // Filter to only valid chats owned by the user
   return chatResults.filter(

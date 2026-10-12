@@ -87,7 +87,7 @@ export const sendTaskSummaryEmail = internalMutation({
   handler: async (ctx, args) => {
     try {
       // Get user details to check for email address
-      const user = await ctx.db.get(args.userId);
+      const user = await ctx.db.get("users", args.userId);
 
       if (!user) {
         return { success: false, error: "User not found" };

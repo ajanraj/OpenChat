@@ -83,7 +83,7 @@ export const bulkImportChat = mutation({
     }
 
     // Update chat timestamp to reflect last message
-    await ctx.db.patch(chatId, { updatedAt: now });
+    await ctx.db.patch("chats", chatId, { updatedAt: now });
 
     return { chatId, messageCount: args.messages.length };
   },

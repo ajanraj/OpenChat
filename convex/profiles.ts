@@ -44,7 +44,7 @@ export const getProfile = query({
     if (!userId) {
       return null;
     }
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       return null;
     }
@@ -63,7 +63,7 @@ export const getProfileInternal = internalQuery({
     }),
   ),
   handler: async (ctx, { profileId }) => {
-    return await ctx.db.get(profileId);
+    return await ctx.db.get("profiles", profileId);
   },
 });
 
@@ -89,7 +89,7 @@ export const ensureDefaultProfile = mutation({
     }
 
     // Copy current user settings into default profile
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
@@ -111,7 +111,7 @@ export const ensureDefaultProfile = mutation({
     });
 
     // Set as active profile
-    await ctx.db.patch(userId, { activeProfileId: profileId });
+    await ctx.db.patch("users", userId, { activeProfileId: profileId });
 
     return profileId;
   },
@@ -157,7 +157,7 @@ export const createProfile = mutation({
     }> = {};
 
     if (args.copyFromProfileId) {
-      const source = await ctx.db.get(args.copyFromProfileId);
+      const source = await ctx.db.get("profiles", args.copyFromProfileId);
       if (source && source.userId === userId) {
         copyData = {
           preferredName: source.preferredName,
@@ -220,12 +220,12 @@ export const updateProfile = mutation({
       throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
     }
 
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
 
-    await ctx.db.patch(profileId, updates);
+    await ctx.db.patch("profiles", profileId, updates);
     return null;
   },
 });
@@ -239,7 +239,7 @@ export const deleteProfile = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
@@ -261,7 +261,7 @@ export const deleteProfile = mutation({
       .collect();
 
     for (const chat of orphanedChats) {
-      await ctx.db.patch(chat._id, {
+      await ctx.db.patch("chats", chat._id, {
         profileId: defaultProfile?._id,
       });
     }
@@ -273,18 +273,18 @@ export const deleteProfile = mutation({
       .collect();
 
     for (const task of orphanedTasks) {
-      await ctx.db.patch(task._id, {
+      await ctx.db.patch("scheduled_tasks", task._id, {
         profileId: defaultProfile?._id,
       });
     }
 
     // Delete the profile
-    await ctx.db.delete(profileId);
+    await ctx.db.delete("profiles", profileId);
 
     // If user's active profile was the deleted one, switch to default
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (user?.activeProfileId === profileId && defaultProfile) {
-      await ctx.db.patch(userId, {
+      await ctx.db.patch("users", userId, {
         activeProfileId: defaultProfile._id,
       });
     }
@@ -302,12 +302,12 @@ export const setActiveProfile = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
 
-    await ctx.db.patch(userId, { activeProfileId: profileId });
+    await ctx.db.patch("users", userId, { activeProfileId: profileId });
     return null;
   },
 });
@@ -321,7 +321,7 @@ export const setProfileModelEnabled = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
@@ -352,7 +352,7 @@ export const setProfileModelEnabled = mutation({
       }
     }
 
-    await ctx.db.patch(profileId, {
+    await ctx.db.patch("profiles", profileId, {
       favoriteModels: newFavorites,
       disabledModels: newDisabled,
     });
@@ -370,7 +370,7 @@ export const bulkSetProfileModelsDisabled = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
@@ -396,7 +396,7 @@ export const bulkSetProfileModelsDisabled = mutation({
       }
     }
 
-    await ctx.db.patch(profileId, {
+    await ctx.db.patch("profiles", profileId, {
       favoriteModels: newFavorites,
       disabledModels: newDisabled,
     });
@@ -414,7 +414,7 @@ export const toggleProfileFavoriteModel = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
@@ -437,7 +437,7 @@ export const toggleProfileFavoriteModel = mutation({
       newDisabled = currentDisabled.filter((id) => id !== modelId);
     }
 
-    await ctx.db.patch(profileId, {
+    await ctx.db.patch("profiles", profileId, {
       favoriteModels: newFavorites,
       disabledModels: newDisabled,
     });
@@ -455,7 +455,7 @@ export const bulkSetProfileFavoriteModels = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const profile = await ctx.db.get(profileId);
+    const profile = await ctx.db.get("profiles", profileId);
     if (!profile || profile.userId !== userId) {
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
@@ -468,7 +468,7 @@ export const bulkSetProfileFavoriteModels = mutation({
     const newFavorites = [...new Set(modelIds)];
     const newDisabled = currentDisabled.filter((id) => !newFavorites.includes(id));
 
-    await ctx.db.patch(profileId, {
+    await ctx.db.patch("profiles", profileId, {
       favoriteModels: newFavorites,
       disabledModels: newDisabled,
     });

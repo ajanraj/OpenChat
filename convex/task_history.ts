@@ -48,7 +48,7 @@ export const getTaskExecutionHistory = query({
     const userId = await ensureAuthenticated(ctx);
 
     // First verify the user owns this task
-    const task = await ctx.db.get(args.taskId);
+    const task = await ctx.db.get("scheduled_tasks", args.taskId);
     if (!task || task.userId !== userId) {
       throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }
@@ -93,7 +93,7 @@ export const getTaskExecutionStats = query({
     const userId = await ensureAuthenticated(ctx);
 
     // First verify the user owns this task
-    const task = await ctx.db.get(args.taskId);
+    const task = await ctx.db.get("scheduled_tasks", args.taskId);
     if (!task || task.userId !== userId) {
       throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }

@@ -42,7 +42,7 @@ async function getMessageCreditBuckets(
   userId: Id<"users">,
   { usesPremiumCredits, requiresPremium }: MessageCreditOptions,
 ): Promise<CreditBucket[]> {
-  const user = await ctx.db.get(userId);
+  const user = await ctx.db.get("users", userId);
   if (!user) {
     throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
   }

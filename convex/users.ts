@@ -33,7 +33,7 @@ export const getCurrentUser = query({
     if (!userId) {
       return null;
     }
-    return await ctx.db.get(userId);
+    return await ctx.db.get("users", userId);
   },
 });
 
@@ -79,13 +79,13 @@ export const updateUserProfile = mutation({
     if (!userId) {
       return null;
     }
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) {
       return null;
     }
 
     // Apply the updates
-    await ctx.db.patch(userId, { ...updates });
+    await ctx.db.patch("users", userId, { ...updates });
 
     return null;
   },
@@ -108,7 +108,7 @@ export const incrementStandardCredits = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
@@ -256,12 +256,12 @@ export const deleteAccount = mutation({
     if (!userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-    if (!(await ctx.db.get(userId))) {
+    if (!(await ctx.db.get("users", userId))) {
       return null;
     }
 
     await deleteAuthData(ctx, userId);
-    await ctx.db.delete(userId);
+    await ctx.db.delete("users", userId);
     await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
     await ctx.scheduler.runAfter(0, internal.users.cancelDeletedUserSubscriptions, { userId });
     return null;
@@ -329,7 +329,7 @@ export const getUser = internalQuery({
       ...User.fields,
     }),
   ),
-  handler: async (ctx, args) => await ctx.db.get(args.userId),
+  handler: async (ctx, args) => await ctx.db.get("users", args.userId),
 });
 
 // Charges one message credit for a scheduled run before it generates (internal variant of
@@ -388,7 +388,7 @@ export const incrementStandardCreditsInternal = internalMutation({
       throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }
 
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }

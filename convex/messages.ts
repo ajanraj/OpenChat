@@ -37,7 +37,7 @@ export const getPublicChatMessages = query({
     }),
   ),
   handler: async (ctx, { chatId }) => {
-    const chat = await ctx.db.get(chatId);
+    const chat = await ctx.db.get("chats", chatId);
     if (!(chat && (chat.public ?? false))) {
       return [];
     }
@@ -120,7 +120,7 @@ async function cleanupSingleAttachment(
       .first();
     if (attByKey && attByKey.userId === userId && attByKey.chatId === chatId) {
       await r2.deleteObject(ctx, attByKey.key);
-      await ctx.db.delete(attByKey._id);
+      await ctx.db.delete("chat_attachments", attByKey._id);
     }
   } catch (error) {
     console.error("Failed to clean up attachment:", error);
@@ -165,7 +165,7 @@ async function insertMessageToChat(
     createdAt: Date.now(),
   });
 
-  await ctx.db.patch(args.chatId, { updatedAt: Date.now() });
+  await ctx.db.patch("chats", args.chatId, { updatedAt: Date.now() });
   return { messageId };
 }
 
@@ -308,11 +308,11 @@ export const deleteMessageAndDescendants = mutation({
     if (!userId) {
       return { chatDeleted: false };
     }
-    const message = await ctx.db.get(messageId);
+    const message = await ctx.db.get("messages", messageId);
     if (!message) {
       return { chatDeleted: false };
     }
-    const chat = await ctx.db.get(message.chatId);
+    const chat = await ctx.db.get("chats", message.chatId);
     if (!chat || chat.userId !== userId) {
       return { chatDeleted: false };
     }
@@ -337,11 +337,11 @@ export const deleteMessageAndDescendants = mutation({
     await cleanupMessageAttachments(ctx, messagesToDelete, userId);
 
     // Delete messages in batch
-    const deletePromises = ids.map((id) => ctx.db.delete(id));
+    const deletePromises = ids.map((id) => ctx.db.delete("messages", id));
     await Promise.all(deletePromises);
 
     // Update chat timestamp
-    await ctx.db.patch(chat._id, { updatedAt: Date.now() });
+    await ctx.db.patch("chats", chat._id, { updatedAt: Date.now() });
 
     const remaining = await ctx.db
       .query("messages")
@@ -406,9 +406,9 @@ export const patchMessageContent = mutation({
     if (typeof newParts !== "undefined") {
       patch.parts = newParts;
     }
-    await ctx.db.patch(messageId, patch);
+    await ctx.db.patch("messages", messageId, patch);
     // Update chat timestamp
-    await ctx.db.patch(message.chatId, { updatedAt: Date.now() });
+    await ctx.db.patch("chats", message.chatId, { updatedAt: Date.now() });
   },
 });
 
@@ -437,7 +437,7 @@ export const searchMessages = query({
       .take(safeLimit);
 
     const chatIds = [...new Set(results.map((msg) => msg.chatId))];
-    const chats = await Promise.all(chatIds.map((chatId) => ctx.db.get(chatId)));
+    const chats = await Promise.all(chatIds.map((chatId) => ctx.db.get("chats", chatId)));
     const chatTitles = new Map(chatIds.map((chatId, i) => [chatId, chats[i]?.title]));
 
     return results.map((msg) => ({
@@ -474,7 +474,7 @@ export const sendUserMessageToChatInternal = internalMutation({
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Get the chat to find the userId (no auth in scheduled functions)
-    const chat = await ctx.db.get(args.chatId);
+    const chat = await ctx.db.get("chats", args.chatId);
     if (!chat) {
       throw new Error("Chat not found");
     }
@@ -509,7 +509,7 @@ export const saveAssistantMessageInternal = internalMutation({
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Get the chat to find the userId (no auth in scheduled functions)
-    const chat = await ctx.db.get(args.chatId);
+    const chat = await ctx.db.get("chats", args.chatId);
     if (!chat) {
       throw new Error("Chat not found");
     }

@@ -37,7 +37,7 @@ export const publishChat = mutation({
       return null;
     }
 
-    await ctx.db.patch(chatId, {
+    await ctx.db.patch("chats", chatId, {
       public: true,
       shareAttachments: hideImages === false,
       updatedAt: Date.now(),
@@ -55,7 +55,7 @@ export const unpublishChat = mutation({
     if (!result) {
       return null;
     }
-    await ctx.db.patch(chatId, {
+    await ctx.db.patch("chats", chatId, {
       public: false,
       shareAttachments: false,
       updatedAt: Date.now(),
@@ -80,7 +80,7 @@ export const getPublicChat = query({
     }),
   ),
   handler: async (ctx, { chatId }) => {
-    const chat = await ctx.db.get(chatId);
+    const chat = await ctx.db.get("chats", chatId);
     if (!(chat && (chat.public ?? false))) {
       return null;
     }
@@ -106,16 +106,16 @@ export const forkFromShared = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const source = await ctx.db.get(sourceChatId);
+    const source = await ctx.db.get("chats", sourceChatId);
     if (!(source && (source.public ?? false))) {
       throw new ConvexError(ERROR_CODES.CHAT_NOT_FOUND);
     }
 
     const now = Date.now();
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     let profileId = user?.activeProfileId;
     if (profileId) {
-      const profile = await ctx.db.get(profileId);
+      const profile = await ctx.db.get("profiles", profileId);
       if (!profile || profile.userId !== userId) {
         profileId = undefined;
       }
@@ -196,13 +196,13 @@ export const createChat = mutation({
     // Use provided profileId, or fall back to user's activeProfileId
     let resolvedProfileId = args.profileId;
     if (!resolvedProfileId) {
-      const user = await ctx.db.get(userId);
+      const user = await ctx.db.get("users", userId);
       resolvedProfileId = user?.activeProfileId ?? undefined;
     }
 
     // Validate profile belongs to this user
     if (resolvedProfileId) {
-      const profile = await ctx.db.get(resolvedProfileId);
+      const profile = await ctx.db.get("profiles", resolvedProfileId);
       if (!profile || profile.userId !== userId) {
         resolvedProfileId = undefined;
       }
@@ -296,7 +296,7 @@ export const updateChatModel = mutation({
     if (!result) {
       return null;
     }
-    await ctx.db.patch(chatId, { model, updatedAt: Date.now() });
+    await ctx.db.patch("chats", chatId, { model, updatedAt: Date.now() });
     return null;
   },
 });
@@ -309,7 +309,7 @@ export const updateChatTitle = mutation({
     if (!result) {
       return null;
     }
-    await ctx.db.patch(chatId, { title, updatedAt: Date.now() });
+    await ctx.db.patch("chats", chatId, { title, updatedAt: Date.now() });
     return null;
   },
 });
@@ -379,7 +379,7 @@ export const branchChat = mutation({
     const { chat: originalChat, userId } = await ensureChatAccess(ctx, args.originalChatId);
 
     // Verify the branch message exists and belongs to the chat
-    const branchMessage = await ctx.db.get(args.branchFromMessageId);
+    const branchMessage = await ctx.db.get("messages", args.branchFromMessageId);
     if (!branchMessage || branchMessage.chatId !== args.originalChatId) {
       throw new ConvexError(ERROR_CODES.MESSAGE_NOT_FOUND);
     }
@@ -452,7 +452,7 @@ export const pinChatToggle = mutation({
     // Toggle the isPinned status
     const newPinnedStatus = !chat.isPinned;
 
-    await ctx.db.patch(chatId, {
+    await ctx.db.patch("chats", chatId, {
       isPinned: newPinnedStatus,
     });
 

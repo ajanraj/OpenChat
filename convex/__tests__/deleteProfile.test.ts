@@ -66,7 +66,7 @@ function createMockCtx({
 
   const ctx = {
     db: {
-      get: (id: string) => {
+      get: (_table: string, id: string) => {
         if (id === MOCK_PROFILE_ID) return Promise.resolve(profile);
         if (id === MOCK_USER_ID) return Promise.resolve(user);
         return Promise.resolve(null);
@@ -75,11 +75,11 @@ function createMockCtx({
         currentQueryTable = table;
         return queryBuilder;
       },
-      patch: (id: string, data: Record<string, unknown>) => {
+      patch: (_table: string, id: string, data: Record<string, unknown>) => {
         patchCalls.push([id, data]);
         return Promise.resolve();
       },
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         deleteCalls.push(id);
         return Promise.resolve();
       },

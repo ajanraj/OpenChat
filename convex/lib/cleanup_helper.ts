@@ -23,7 +23,7 @@ export async function deleteMessagesForChat(
   const messageIds = messages.map((m) => m._id);
 
   // Delete all messages in parallel
-  await Promise.all(messageIds.map((id) => ctx.db.delete(id)));
+  await Promise.all(messageIds.map((id) => ctx.db.delete("messages", id)));
 
   return messageIds;
 }
@@ -42,7 +42,7 @@ async function deleteAttachment(
   } catch (error) {
     console.error(`Failed to delete R2 object "${attachment.key}"; it is now orphaned:`, error);
   }
-  await ctx.db.delete(attachment._id);
+  await ctx.db.delete("chat_attachments", attachment._id);
 }
 
 /**
@@ -89,7 +89,7 @@ export async function removeBranchReferences(
     branchedChats
       .filter((branchedChat) => !skipChatIds?.has(branchedChat._id))
       .map((branchedChat) =>
-        ctx.db.patch(branchedChat._id, {
+        ctx.db.patch("chats", branchedChat._id, {
           originalChatId: undefined,
           updatedAt: Date.now(),
         }),
@@ -116,7 +116,7 @@ export async function deleteChatCompletely(
   await Promise.all([deleteMessagesForChat(ctx, chatId), deleteAttachmentsForChat(ctx, chatId)]);
 
   // Finally delete the chat itself
-  await ctx.db.delete(chatId);
+  await ctx.db.delete("chats", chatId);
 }
 
 /**
@@ -146,7 +146,7 @@ export async function deleteMultipleChats(
       ]);
 
       // Delete the chat
-      await ctx.db.delete(chat._id);
+      await ctx.db.delete("chats", chat._id);
     }),
   );
 }
@@ -165,9 +165,9 @@ export async function deleteAuthData(ctx: MutationCtx, userId: Id<"users">): Pro
     for await (const code of ctx.db
       .query("authVerificationCodes")
       .withIndex("accountId", (q) => q.eq("accountId", account._id))) {
-      await ctx.db.delete(code._id);
+      await ctx.db.delete("authVerificationCodes", code._id);
     }
-    await ctx.db.delete(account._id);
+    await ctx.db.delete("authAccounts", account._id);
   }
 
   for await (const session of ctx.db
@@ -176,9 +176,9 @@ export async function deleteAuthData(ctx: MutationCtx, userId: Id<"users">): Pro
     for await (const token of ctx.db
       .query("authRefreshTokens")
       .withIndex("sessionId", (q) => q.eq("sessionId", session._id))) {
-      await ctx.db.delete(token._id);
+      await ctx.db.delete("authRefreshTokens", token._id);
     }
-    await ctx.db.delete(session._id);
+    await ctx.db.delete("authSessions", session._id);
   }
 }
 
@@ -234,6 +234,8 @@ async function purgeEach<Row>(
 export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">): Promise<boolean> {
   const r2 = new R2(components.r2);
   let attachmentsDeleted = 0;
+  // Shared across tables, so it keeps the id-only delete form (the table-first form needs a
+  // literal table name per call site)
   const deleteRow = async (row: { _id: Id<TableNames> }) => {
     await ctx.db.delete(row._id);
     return true;

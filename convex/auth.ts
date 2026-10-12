@@ -181,7 +181,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       if (existingUserId) {
         if (type === "oauth") {
           const oauthProfileUpdates = getOAuthProfileUpdates(profile);
-          await ctx.db.patch(existingUserId, {
+          await ctx.db.patch("users", existingUserId, {
             ...oauthProfileUpdates,
             emailVerificationTime: Date.now(),
           });
