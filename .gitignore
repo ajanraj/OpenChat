@@ -12,6 +12,7 @@ count.txt
 .vinxi
 dev-dist
 todos.json
-.claude
+.claude/*
+!.claude/skills
 .openchat_old
 .opencode
