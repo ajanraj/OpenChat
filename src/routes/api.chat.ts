@@ -488,6 +488,16 @@ export const Route = createFileRoute("/api/chat")({
             return createErrorResponse(new Error("user_key_required"));
           }
 
+          // Check if this is an image generation model
+          const isImageGenerationModel = selectedModel.features?.some(
+            (feature) => feature.id === "image-generation" && feature.enabled,
+          );
+
+          // Guests cannot generate images (the UI hides these models from them)
+          if (isImageGenerationModel && (!user || user.isAnonymous)) {
+            return createErrorResponse(new ConvexError(ERROR_CODES.UNAUTHORIZED));
+          }
+
           // --- Premium Model Access Check ---
           // Only applies if user is NOT using their own API key
           if (selectedModel.premium && !useUserKey && !isUserPremiumForPremiumModels) {
@@ -584,11 +594,6 @@ export const Route = createFileRoute("/api/chat")({
             undefined,
             connectorsStatus,
             chatProfile,
-          );
-
-          // Check if this is an image generation model
-          const isImageGenerationModel = selectedModel.features?.some(
-            (feature) => feature.id === "image-generation" && feature.enabled,
           );
 
           // Handle image generation models differently
