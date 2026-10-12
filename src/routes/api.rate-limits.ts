@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/convex/_generated/api";
 import { createErrorResponse } from "@/lib/error-utils";
-import { authMiddleware, json } from "@/lib/middleware/auth";
+import { authMiddleware, json, unauthorized } from "@/lib/middleware/auth";
+import { resolveRateLimitStatus } from "@/lib/rate-limit-status";
 
 export const Route = createFileRoute("/api/rate-limits")({
   server: {
@@ -10,9 +11,12 @@ export const Route = createFileRoute("/api/rate-limits")({
       GET: async ({ context }) => {
         try {
           const { client } = context;
-          const rateLimitStatus = await client.query(api.users.getRateLimitStatus, {});
+          const rateLimitState = await client.query(api.users.getRateLimitStatus, {});
+          if (!rateLimitState) {
+            return unauthorized();
+          }
 
-          return json(rateLimitStatus);
+          return json(resolveRateLimitStatus(rateLimitState, Date.now()));
         } catch (err: unknown) {
           return createErrorResponse(err);
         }

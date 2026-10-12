@@ -138,6 +138,22 @@ describe("auth middleware", () => {
     });
   });
 
+  describe("getServerRouteSecret", () => {
+    it("returns the configured secret", async () => {
+      process.env.SERVER_ROUTE_SECRET = "route-secret";
+      const { getServerRouteSecret } = await import("../auth");
+
+      expect(getServerRouteSecret()).toBe("route-secret");
+    });
+
+    it("throws a configuration error when the secret is missing", async () => {
+      delete process.env.SERVER_ROUTE_SECRET;
+      const { getServerRouteSecret } = await import("../auth");
+
+      expect(() => getServerRouteSecret()).toThrow(/SERVER_ROUTE_SECRET is missing/);
+    });
+  });
+
   describe("AuthContext types", () => {
     it("exports AuthContext type", async () => {
       const module = await import("../auth");

@@ -131,6 +131,37 @@ export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx): Promis
 }
 
 /**
+ * Compares two strings in time that depends only on the expected length,
+ * so response timing does not reveal how many leading characters matched.
+ */
+function constantTimeEqual(provided: string, expected: string): boolean {
+  const encoder = new TextEncoder();
+  const providedBytes = encoder.encode(provided);
+  const expectedBytes = encoder.encode(expected);
+  let diff = providedBytes.length ^ expectedBytes.length;
+  for (const [index, byte] of expectedBytes.entries()) {
+    diff |= (providedBytes[index] ?? 0) ^ byte;
+  }
+  return diff === 0;
+}
+
+/**
+ * Ensures a call comes from the app's own server routes rather than a browser.
+ * Server routes forward the user's session token, so user auth alone cannot tell
+ * them apart; they also pass SERVER_ROUTE_SECRET, which only the web server and
+ * this deployment know. Refuses every call while the secret is not configured.
+ *
+ * @example
+ * assertServerSecret(args.serverSecret);
+ */
+export function assertServerSecret(provided: string): void {
+  const expected = process.env.SERVER_ROUTE_SECRET;
+  if (!(expected && constantTimeEqual(provided, expected))) {
+    throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
+  }
+}
+
+/**
  * Validates that multiple chats belong to the authenticated user.
  * Returns only the valid chats that the user owns.
  *

@@ -25,7 +25,6 @@ import { MODEL_DEFAULT, MODELS_MAP } from "@/lib/config";
 import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
 import { calculateConnectorStatus } from "@/lib/connector-utils";
 import { createAgentTool } from "@/lib/create-agent-tool";
-import { limitDepth } from "@/lib/depth-limiter";
 import { ERROR_CODES } from "@/lib/error-codes";
 import {
   classifyError,
@@ -34,7 +33,9 @@ import {
   createStreamingError,
   shouldShowInConversation,
 } from "@/lib/error-utils";
-import { authMiddleware } from "@/lib/middleware/auth";
+import { createMessageCreditTracker, type MessageCreditTracker } from "@/lib/message-credits";
+import { compactMessagePartsForStorage } from "@/lib/message-parts-storage";
+import { authMiddleware, getServerRouteSecret } from "@/lib/middleware/auth";
 import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
 import { buildSystemPrompt, PERSONAS_MAP } from "@/lib/prompt_config";
 import {
@@ -203,7 +204,8 @@ const buildOpenAIProviderOptions = (
 };
 
 /**
- * Handle image generation for image generation models
+ * Handle image generation for image generation models. The credit was charged when the
+ * request started; failures before the assistant message is saved refund it.
  */
 async function handleImageGeneration({
   messages,
@@ -212,6 +214,7 @@ async function handleImageGeneration({
   userMsgId,
   client,
   token,
+  credits,
 }: {
   messages: UIMessage[];
   chatId: Id<"chats">;
@@ -219,8 +222,11 @@ async function handleImageGeneration({
   userMsgId: Id<"messages"> | null;
   client?: ConvexHttpClient;
   token: string;
+  credits: MessageCreditTracker;
 }) {
   let currentUserMsgId: Id<"messages"> | null = userMsgId;
+  // A failed save (e.g. the chat was deleted meanwhile) keeps the charge
+  let savingAssistantMessage = false;
 
   try {
     // Save user message first
@@ -278,6 +284,7 @@ async function handleImageGeneration({
 
     // Save assistant message with image
     if (currentUserMsgId && client) {
+      savingAssistantMessage = true;
       await client.mutation(api.messages.saveAssistantMessage, {
         chatId,
         role: "assistant",
@@ -293,19 +300,15 @@ async function handleImageGeneration({
       });
     }
 
-    // Increment premium credits usage since image generation uses premium credits
-    if (client) {
-      await client.mutation(api.users.incrementMessageCount, {
-        usesPremiumCredits: true,
-      });
-    }
-
     // Return success response
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
+    if (!savingAssistantMessage) {
+      await credits.refund();
+    }
     if (currentUserMsgId && client) {
       await saveErrorMessage(
         chatId,
@@ -342,6 +345,10 @@ export const Route = createFileRoute("/api/chat")({
         request.signal.addEventListener("abort", () => {
           closeAllWebSocketFetches();
         });
+
+        // Platform credit for this request: charged before generating, refunded at most
+        // once if the generation itself fails (never for aborts or failed saves)
+        const credits = createMessageCreditTracker(context.client, request.signal);
 
         try {
           const {
@@ -442,19 +449,30 @@ export const Route = createFileRoute("/api/chat")({
           let keyEntry: { provider: string; mode?: string } | undefined;
 
           if (apiKeyUsage?.allowUserKey && Array.isArray(userKeys)) {
-            try {
-              keyEntry = userKeys.find(
-                (k: { provider: string }) => k.provider === selectedModel.provider,
-              );
-              if (keyEntry) {
+            keyEntry = userKeys.find(
+              (k: { provider: string }) => k.provider === selectedModel.provider,
+            );
+            if (keyEntry) {
+              // Outside the try: a missing secret is a server misconfiguration (500)
+              const serverSecret = getServerRouteSecret();
+              try {
                 userApiKey = await client.query(api.api_keys.getDecryptedKey, {
                   provider: selectedModel.provider as SupportedProvider,
+                  serverSecret,
                 });
-              }
-            } catch (e) {
-              // If this is a critical error (auth failure), we should return early
-              if (e instanceof ConvexError && e.data === ERROR_CODES.NOT_AUTHENTICATED) {
-                return createErrorResponse(e);
+              } catch (e) {
+                // If this is a critical error (auth failure), we should return early
+                if (e instanceof ConvexError && e.data === ERROR_CODES.NOT_AUTHENTICATED) {
+                  return createErrorResponse(e);
+                }
+                // Convex rejected the server secret: fail loudly rather than silently
+                // billing the platform key for a user who brought their own
+                if (e instanceof ConvexError && e.data === ERROR_CODES.UNAUTHORIZED) {
+                  throw new Error(
+                    "Convex rejected SERVER_ROUTE_SECRET; set the same value in the web server and Convex env.",
+                  );
+                }
+                // Other failures (e.g. an undecryptable key) fall back to the platform key
               }
             }
           }
@@ -468,6 +486,16 @@ export const Route = createFileRoute("/api/chat")({
           // Reject early if model requires user key only but no user API key provided
           if (apiKeyUsage?.userKeyOnly && !userApiKey) {
             return createErrorResponse(new Error("user_key_required"));
+          }
+
+          // Check if this is an image generation model
+          const isImageGenerationModel = selectedModel.features?.some(
+            (feature) => feature.id === "image-generation" && feature.enabled,
+          );
+
+          // Guests cannot generate images (the UI hides these models from them)
+          if (isImageGenerationModel && (!user || user.isAnonymous)) {
+            return createErrorResponse(new ConvexError(ERROR_CODES.UNAUTHORIZED));
           }
 
           // --- Premium Model Access Check ---
@@ -500,17 +528,14 @@ export const Route = createFileRoute("/api/chat")({
             return createErrorResponse(premiumError);
           }
 
-          // --- Rate Limiting (only if not using user key and model doesn't skip rate limits) ---
+          // --- Credits (only if not using user key and model doesn't skip rate limits) ---
+          // Charged up front in one transaction so concurrent requests cannot overspend
+          const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
           let rateLimitError: Error | null = null;
 
           if (!(useUserKey || selectedModel.skipRateLimit)) {
             try {
-              // Check if the selected model uses premium credits
-              const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
-
-              await client.mutation(api.users.assertNotOverLimit, {
-                usesPremiumCredits,
-              });
+              await credits.charge(usesPremiumCredits);
             } catch (error) {
               if (error instanceof ConvexError) {
                 const errorCode = error.data;
@@ -571,11 +596,6 @@ export const Route = createFileRoute("/api/chat")({
             chatProfile,
           );
 
-          // Check if this is an image generation model
-          const isImageGenerationModel = selectedModel.features?.some(
-            (feature) => feature.id === "image-generation" && feature.enabled,
-          );
-
           // Handle image generation models differently
           if (isImageGenerationModel) {
             // Image generation always uses built-in API key, no user key support
@@ -586,6 +606,7 @@ export const Route = createFileRoute("/api/chat")({
               userMsgId: null,
               client,
               token,
+              credits,
             });
           }
 
@@ -693,6 +714,9 @@ export const Route = createFileRoute("/api/chat")({
           let result: ReturnType<typeof streamText> | null = null;
           let wasUserKeyUsed = false;
           let errorMessageSaved = false;
+          // Set when the provider stream reports an error. Errors detected in the streamed
+          // text are not counted: model output can be steered to match those patterns.
+          let generationFailed = false;
 
           const stream = createUIMessageStream({
             originalMessages: messages,
@@ -784,6 +808,7 @@ export const Route = createFileRoute("/api/chat")({
                     onError: async ({ error }) => {
                       // Handle errors gracefully - save to conversation but don't throw
                       // The throwing behavior will be handled while processing the stream
+                      generationFailed = true;
 
                       // First, try to detect provider-specific error patterns
                       const detectedError = detectProviderErrorFromObject(
@@ -947,6 +972,13 @@ export const Route = createFileRoute("/api/chat")({
 
                     const fallbackIsUserKey = !primaryIsUserKey;
                     try {
+                      if (fallbackIsUserKey) {
+                        // The platform-key attempt failed; the user's own key takes over
+                        await credits.refund();
+                      } else if (!selectedModel.skipRateLimit) {
+                        // Falling back from the user's key to the platform key costs a credit
+                        await credits.charge(usesPremiumCredits);
+                      }
                       wasUserKeyUsed = fallbackIsUserKey;
                       result = await runStream(fallbackIsUserKey);
                       return;
@@ -991,6 +1023,10 @@ export const Route = createFileRoute("/api/chat")({
               await tryRun();
             },
             async onEnd({ responseMessage }) {
+              // No result means every attempt threw before streaming
+              if (generationFailed || !result) {
+                await credits.refund();
+              }
               if (!result || errorMessageSaved) {
                 return; // Don't save if no result or error message was already saved
               }
@@ -1052,26 +1088,19 @@ export const Route = createFileRoute("/api/chat")({
                 .map((part) => part.text)
                 .join("");
 
-              const depthLimitedParts = limitDepth(sanitizedParts, 14);
-
+              // Platform credits were charged when the request started
               await client.mutation(api.messages.saveAssistantMessage, {
                 chatId,
                 role: "assistant",
                 content: capturedText,
                 parentMessageId: userMsgId || undefined,
-                parts: depthLimitedParts,
+                parts: compactMessagePartsForStorage(sanitizedParts, capturedText),
                 metadata: finalMetadata,
               });
 
               if (wasUserKeyUsed) {
                 await client.mutation(api.api_keys.incrementUserApiKeyUsage, {
                   provider: selectedModel.provider,
-                });
-              } else if (!selectedModel.skipRateLimit) {
-                const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
-
-                await client.mutation(api.users.incrementMessageCount, {
-                  usesPremiumCredits,
                 });
               }
             },
@@ -1096,6 +1125,9 @@ export const Route = createFileRoute("/api/chat")({
           });
         } catch (err) {
           closeAllWebSocketFetches();
+          // Failed before generating (e.g. reload/edit setup): return the credit
+          await credits.refund();
+          console.error("Chat request failed:", err);
           return createErrorResponse(err);
         }
       },

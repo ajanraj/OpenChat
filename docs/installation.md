@@ -53,6 +53,7 @@ Add the additional variables to your `.env` file:
 - Search provider keys (Exa, Brave, Tavily)
 - Composio API key and auth config IDs
 - Upstash Redis credentials (for Composio caching)
+- `SERVER_ROUTE_SECRET`, a shared secret for server-only Convex calls (generate with `openssl rand -hex 32`; Convex needs the same value, see below)
 
 > **Note:** Environment variables are validated at runtime using [t3-env](https://env.t3.gg) with Zod schemas. Client-side variables must be prefixed with `VITE_`.
 
@@ -84,6 +85,9 @@ OS Chat uses Convex Auth for authentication with Google OAuth.
    ```bash
    # Generate and set API key encryption secret in Convex (REQUIRED)
    bunx convex env set API_KEY_SECRET $(openssl rand -hex 64)
+
+   # Shared server-route secret (REQUIRED): the same value as SERVER_ROUTE_SECRET in .env
+   bunx convex env set SERVER_ROUTE_SECRET your-server-route-secret
 
    # Set site URL for development
    bunx convex env set SITE_URL http://localhost:3000
@@ -204,6 +208,7 @@ For production deployment:
 
 3. **Update Environment Variables**:
    - Add your production API keys to Vercel
+   - Set `SERVER_ROUTE_SECRET` in Vercel and the same value on the Convex production deployment (`bunx convex env set SERVER_ROUTE_SECRET ... --prod`)
    - Update `SITE_URL` in Convex production dashboard to your production URL
    - Set the live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PREMIUM_PRICE_ID` on the Convex production deployment (`bunx convex env set ... --prod`), with a live-mode webhook pointing at `https://<your-prod-deployment>.convex.site/stripe/webhook` using the same API version and events as in [Stripe Payments](#d-stripe-payments-optional)
 
