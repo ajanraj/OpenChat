@@ -59,6 +59,9 @@ export const executeTask = internalAction({
 
     const startTime = Date.now();
     let chatId: Id<"chats"> | undefined;
+    // A charged credit is refunded only if the run fails before the model finishes generating
+    let chargedCredit: { usesPremiumCredits: boolean } | null = null;
+    let generated = false;
     // Every path after a successful claim must end here (or the claim expires as "timeout")
     const finish = async (
       outcome: "success" | "failure" | "paused",
@@ -99,14 +102,20 @@ export const executeTask = internalAction({
         throw new Error(`Scheduled agent model ${SCHEDULED_AGENT_MODEL_ID} is not configured`);
       }
 
-      // Enforce subscription access and rate limits before creating the chat; a usage limit
-      // pauses the task instead of failing the run.
+      // Enforce subscription access and charge the credit up front, before creating the chat,
+      // so concurrent runs cannot overspend. A usage limit pauses the task instead of failing it.
+      const creditArgs = {
+        userId: task.userId,
+        requiresPremium: selectedModel.premium === true,
+        usesPremiumCredits: selectedModel.usesPremiumCredits === true,
+      };
       try {
-        await ctx.runMutation(internal.users.assertNotOverLimitInternal, {
-          userId: task.userId,
-          requiresPremium: selectedModel.premium === true,
-          usesPremiumCredits: selectedModel.usesPremiumCredits === true,
-        });
+        if (selectedModel.skipRateLimit) {
+          await ctx.runMutation(internal.users.assertNotOverLimitInternal, creditArgs);
+        } else {
+          await ctx.runMutation(internal.users.consumeMessageCreditInternal, creditArgs);
+          chargedCredit = { usesPremiumCredits: creditArgs.usesPremiumCredits };
+        }
       } catch (error) {
         if (
           error instanceof ConvexError &&
@@ -298,6 +307,7 @@ export const executeTask = internalAction({
         messages: [...history, { role: "user" as const, content: task.prompt }],
       });
 
+      generated = true;
       const textContent = result.text;
 
       // Save history after generation (best-effort only)
@@ -361,18 +371,6 @@ export const executeTask = internalAction({
         metadata: finalMetadata,
       });
 
-      // --- Usage Tracking (same as chat route) ---
-      // Only increment credits if model doesn't skip rate limiting
-      if (!selectedModel.skipRateLimit) {
-        // Check if the selected model uses premium credits
-        const usesPremiumCredits = selectedModel.usesPremiumCredits === true;
-
-        await ctx.runMutation(internal.users.incrementMessageCountInternal, {
-          userId: task.userId,
-          usesPremiumCredits,
-        });
-      }
-
       await finish("success", {
         metadata: {
           modelId: selectedModel.id,
@@ -389,6 +387,18 @@ export const executeTask = internalAction({
       });
       return null;
     } catch (error) {
+      // Refund only failed generations; a failure after generating (e.g. the chat was deleted
+      // mid-run) keeps the charge, matching the chat route.
+      if (chargedCredit && !generated) {
+        await ctx
+          .runMutation(internal.users.refundMessageCreditInternal, {
+            userId: task.userId,
+            ...chargedCredit,
+          })
+          .catch((refundError: unknown) => {
+            console.error("Failed to refund scheduled task credit:", refundError);
+          });
+      }
       // One-time tasks are archived; recurring tasks keep the next run booked at claim time
       await finish("failure", {
         errorMessage: error instanceof Error ? error.message : "Unknown error",

@@ -432,9 +432,8 @@ export const refundMessageCreditInternal = internalMutation({
   },
 });
 
-// Legacy check-then-charge pair still used by scheduled_ai.ts. The check does not reserve
-// the credit; move scheduled runs to consumeMessageCreditInternal (plus
-// refundMessageCreditInternal on failure) and delete both.
+// Check-only access/limit gate for scheduled runs of models that skip rate limiting (charges
+// nothing). Runs that use credits call consumeMessageCreditInternal instead.
 export const assertNotOverLimitInternal = internalMutation({
   args: {
     userId: v.id("users"),
@@ -444,18 +443,6 @@ export const assertNotOverLimitInternal = internalMutation({
   returns: v.null(),
   handler: async (ctx, { userId, ...options }) => {
     await credits.assertMessageCreditAvailable(ctx, userId, options);
-    return null;
-  },
-});
-
-export const incrementMessageCountInternal = internalMutation({
-  args: {
-    userId: v.id("users"),
-    usesPremiumCredits: v.optional(v.boolean()),
-  },
-  returns: v.null(),
-  handler: async (ctx, { userId, usesPremiumCredits }) => {
-    await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
     return null;
   },
 });
