@@ -7,9 +7,15 @@ import { DrawerHistory } from "../drawer-history";
 
 const useQueryMock = vi.hoisted(() => vi.fn());
 const useMutationMock = vi.hoisted(() => vi.fn());
+const usePaginatedQueryMock = vi.hoisted(() => vi.fn());
 const useParamsMock = vi.hoisted(() => vi.fn());
 const useRouterMock = vi.hoisted(() => vi.fn());
-const convexQueryMock = vi.hoisted(() => vi.fn(() => ({})));
+// Keys each query by function name so useQueryMock can answer per query
+const convexQueryMock = vi.hoisted(() =>
+	vi.fn((query: Parameters<typeof getFunctionName>[0], args: unknown) => ({
+		queryKey: [getFunctionName(query), args],
+	})),
+);
 const useUserMock = vi.hoisted(() => vi.fn());
 const useProfileMock = vi.hoisted(() => vi.fn());
 const useChatSessionMock = vi.hoisted(() => vi.fn());
@@ -46,11 +52,13 @@ type LinkProps = ChildrenProps & {
 };
 
 vi.mock("@tanstack/react-query", () => ({
+	keepPreviousData: vi.fn(),
 	useQuery: useQueryMock,
 }));
 
 vi.mock("convex/react", () => ({
 	useMutation: useMutationMock,
+	usePaginatedQuery: usePaginatedQueryMock,
 }));
 
 vi.mock("@convex-dev/react-query", () => ({
@@ -162,12 +170,19 @@ function buildChatWithOverrides(overrides: {
 }
 
 function primeQueryMocks(chats = [buildChat()]) {
-	useQueryMock.mockImplementation((options: { enabled?: boolean }) => {
-		if (options.enabled !== undefined) {
-			return { data: [] };
+	usePaginatedQueryMock.mockReturnValue({
+		results: chats,
+		status: "Exhausted",
+		isLoading: false,
+		loadMore: vi.fn(),
+	});
+	useQueryMock.mockImplementation((options: { queryKey: [string, unknown] }) => {
+		if (options.queryKey[0] === "chats:listPinnedChatsForUser") {
+			return { data: chats.filter((chat) => chat.isPinned) };
 		}
 
-		return { data: chats };
+		// Title and message searches
+		return { data: [] };
 	});
 }
 
@@ -206,7 +221,6 @@ function getDeleteShortcutInput(container: HTMLElement, errorMessage: string) {
 describe("history delete keyboard flow", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		convexQueryMock.mockReturnValue({});
 		useParamsMock.mockReturnValue({ chatId: "chat-current" });
 		useUserMock.mockReturnValue({
 			user: { isAnonymous: false },

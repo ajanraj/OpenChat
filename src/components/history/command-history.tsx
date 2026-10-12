@@ -17,6 +17,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useChatList, useLoadMoreRef } from "@/hooks/use-chat-list";
 import {
 	getOrderedGroupKeys,
 	groupChatsByTime,
@@ -55,9 +56,6 @@ export function CommandHistory() {
 function useCommandHistoryView() {
 	const router = useRouter();
 	const params = useParams({ strict: false }) as { chatId?: string };
-	const { data: chatHistory } = useTanStackQuery({
-		...convexQuery(api.chats.listChatsForUser, {}),
-	});
 	const deleteChat = useMutation(api.chats.deleteChat);
 	const updateChatTitle = useMutation(api.chats.updateChatTitle);
 	const pinChatToggle = useMutation(api.chats.pinChatToggle);
@@ -105,6 +103,9 @@ function useCommandHistoryView() {
 		{ isOpen: false, searchQuery: "", editingId: null, editTitle: "", deletingId: null },
 	);
 	const { isOpen, searchQuery, editingId, editTitle, deletingId } = state;
+	const { pinnedChats, otherChats, canLoadMore, loadMore } =
+		useChatList(searchQuery);
+	const loadMoreRef = useLoadMoreRef(canLoadMore, loadMore);
 
 	const { data: messageResults = [] } = useTanStackQuery({
 		...convexQuery(
@@ -173,59 +174,26 @@ function useCommandHistoryView() {
 		}
 	};
 
-	// Memoize all filtering and grouping to avoid O(N) work on every render
-	const { filteredChat, pinnedChats, groupedChats } = useMemo(() => {
-		if (!chatHistory) {
-			return {
-				filteredChat: [],
-				pinnedChats: [],
-				unpinnedChats: [],
-				groupedChats: {} as ReturnType<typeof groupChatsByTime>,
-			};
-		}
+	// Memoize grouping to avoid O(N) work on every render
+	const groupedChats = useMemo(() => groupChatsByTime(otherChats), [otherChats]);
+	const hasChats = pinnedChats.length > 0 || otherChats.length > 0;
 
-		const lowerQuery = searchQuery.toLowerCase();
-		const filtered = chatHistory.filter((chat) =>
-			(chat.title || "").toLowerCase().includes(lowerQuery),
-		);
-
-		const pinned: Doc<"chats">[] = [];
-		const unpinned: Doc<"chats">[] = [];
-
-		for (const chat of filtered) {
-			if (chat.isPinned) {
-				pinned.push(chat);
-			} else {
-				unpinned.push(chat);
-			}
-		}
-
-		return {
-			filteredChat: filtered,
-			pinnedChats: pinned,
-			unpinnedChats: unpinned,
-			groupedChats: groupChatsByTime(unpinned),
-		};
-	}, [chatHistory, searchQuery]);
-
-	// Build a map for O(1) chat title lookups instead of O(N) .find() calls
+	// Titles of loaded chats, for "branched from" labels
 	const chatTitleById = useMemo(() => {
 		const map = new Map<string, string>();
-		if (chatHistory) {
-			for (const c of chatHistory) {
-				map.set(c._id, c.title || "Untitled Chat");
-			}
+		for (const c of [...pinnedChats, ...otherChats]) {
+			map.set(c._id, c.title || "Untitled Chat");
 		}
 		return map;
-	}, [chatHistory]);
+	}, [pinnedChats, otherChats]);
 
 	// Defer route preloading to idle time and limit to top 10 items
 	useEffect(() => {
-		if (!(isOpen && chatHistory)) {
+		if (!isOpen) {
 			return;
 		}
 
-		const subset = chatHistory.slice(0, 10);
+		const subset = [...pinnedChats, ...otherChats].slice(0, 10);
 		const preload = () => {
 			for (const chat of subset) {
 				router.preloadRoute({ to: "/c/$chatId", params: { chatId: chat._id } });
@@ -238,7 +206,7 @@ function useCommandHistoryView() {
 		}
 		const id = setTimeout(preload, 100);
 		return () => clearTimeout(id);
-	}, [isOpen, chatHistory, router]);
+	}, [isOpen, pinnedChats, otherChats, router]);
 
 	return (
 		<>
@@ -273,7 +241,7 @@ function useCommandHistoryView() {
 							className="pointer-events-none h-0 w-0 overflow-hidden opacity-0"
 							value="__placeholder"
 						/>
-						{filteredChat.length === 0 && messageResults.length === 0 && (
+						{!hasChats && messageResults.length === 0 && (
 							<CommandEmpty>No chat history found.</CommandEmpty>
 						)}
 
@@ -304,7 +272,7 @@ function useCommandHistoryView() {
 												{getSnippet(msg.content, searchQuery)}
 											</span>
 											<span className="text-muted-foreground text-xs">
-												{chatTitleById.get(msg.chatId) ?? "Untitled Chat"}
+												{msg.chatTitle || "Untitled Chat"}
 											</span>
 										</div>
 									</CommandItem>
@@ -312,7 +280,7 @@ function useCommandHistoryView() {
 							</div>
 						) : null}
 
-						{filteredChat.length > 0 && (
+						{hasChats && (
 							<div className="px-2 pt-1">
 								<div className="flex h-8 shrink-0 items-center rounded-md px-1.5 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
 									Chats
@@ -379,6 +347,8 @@ function useCommandHistoryView() {
 									</div>
 								),
 								)}
+						{/* Loads the next page of chats when scrolled into view */}
+						<div aria-hidden="true" className="h-px" ref={loadMoreRef} />
 					</CommandList>
 				</Command>
 			</CommandDialog>

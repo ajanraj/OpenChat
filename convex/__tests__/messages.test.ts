@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "../_generated/dataModel";
-import { deleteMessageAndDescendants } from "../messages";
+import { deleteMessageAndDescendants, searchMessages } from "../messages";
 import { createFakeCtx, createFakeDb } from "./fake_db.testutil";
 
 const mocks = vi.hoisted(() => ({
@@ -66,5 +66,16 @@ describe("deleteMessageAndDescendants", () => {
     const chats = db.all("chats");
     expect(chats.map((c) => c._id)).toEqual([branch]);
     expect(chats[0].originalChatId).toBeUndefined();
+  });
+});
+
+describe("searchMessages", () => {
+  it("returns each match with its chat's title", async () => {
+    const { db, userId, chatId, ctx } = setup();
+    db.seed("messages", { chatId, userId, role: "user", content: "flights to Lisbon" });
+
+    expect(await asHandler(searchMessages)(ctx, { query: "lisbon" })).toEqual([
+      expect.objectContaining({ chatId, content: "flights to Lisbon", chatTitle: "Trip planning" }),
+    ]);
   });
 });

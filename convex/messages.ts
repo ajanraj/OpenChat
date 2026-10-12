@@ -420,6 +420,8 @@ export const searchMessages = query({
       chatId: v.id("chats"),
       content: v.string(),
       createdAt: v.optional(v.number()),
+      // Title of the message's chat, which may not be among the client's loaded chat pages
+      chatTitle: v.optional(v.string()),
     }),
   ),
   handler: async (ctx, { query: search, limit = 20 }) => {
@@ -434,11 +436,16 @@ export const searchMessages = query({
       .withSearchIndex("by_user_content", (q) => q.search("content", search).eq("userId", userId))
       .take(safeLimit);
 
+    const chatIds = [...new Set(results.map((msg) => msg.chatId))];
+    const chats = await Promise.all(chatIds.map((chatId) => ctx.db.get(chatId)));
+    const chatTitles = new Map(chatIds.map((chatId, i) => [chatId, chats[i]?.title]));
+
     return results.map((msg) => ({
       _id: msg._id,
       chatId: msg.chatId,
       content: msg.content,
       createdAt: msg.createdAt,
+      chatTitle: chatTitles.get(msg.chatId),
     }));
   },
 });

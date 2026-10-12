@@ -1,4 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { detectRedactedContent } from "../src/lib/redacted-content-detector";
@@ -14,6 +15,17 @@ import {
 import { deleteChatCompletely, deleteMultipleChats } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
 import { Chat } from "./schema/chat";
+
+const chatDoc = v.object({
+  _id: v.id("chats"),
+  _creationTime: v.number(),
+  ...Chat.fields,
+});
+
+// Caps for the separately listed pinned chats (shown even when their page isn't
+// loaded) and for title-search results
+const PINNED_CHATS_LIMIT = 100;
+const CHAT_SEARCH_LIMIT = 50;
 
 // New: Publish a chat and set share policy
 export const publishChat = mutation({
@@ -213,15 +225,30 @@ export const createChat = mutation({
   },
 });
 
+/**
+ * Pages through the user's chats, most recently active first. Includes pinned chats; clients
+ * also load listPinnedChatsForUser so pinned chats show before their page is loaded.
+ */
 export const listChatsForUser = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(chatDoc),
+  handler: async (ctx, { paginationOpts }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
+    return await ctx.db
+      .query("chats")
+      .withIndex("by_user_and_updated", (q) => q.eq("userId", userId))
+      .order("desc")
+      .paginate(paginationOpts);
+  },
+});
+
+/** The user's pinned chats, newest first. */
+export const listPinnedChatsForUser = query({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("chats"),
-      _creationTime: v.number(),
-      ...Chat.fields,
-    }),
-  ),
+  returns: v.array(chatDoc),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -229,22 +256,32 @@ export const listChatsForUser = query({
     }
     return await ctx.db
       .query("chats")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_and_pinned", (q) => q.eq("userId", userId).eq("isPinned", true))
       .order("desc")
-      .collect();
+      .take(PINNED_CHATS_LIMIT);
+  },
+});
+
+/** Full-text search over the user's chat titles, best matches first. */
+export const searchChats = query({
+  args: { query: v.string() },
+  returns: v.array(chatDoc),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const search = args.query.trim();
+    if (!(userId && search)) {
+      return [];
+    }
+    return await ctx.db
+      .query("chats")
+      .withSearchIndex("search_title", (q) => q.search("title", search).eq("userId", userId))
+      .take(CHAT_SEARCH_LIMIT);
   },
 });
 
 export const getChat = query({
   args: { chatId: v.id("chats") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      _id: v.id("chats"),
-      _creationTime: v.number(),
-      ...Chat.fields,
-    }),
-  ),
+  returns: v.union(v.null(), chatDoc),
   handler: async (ctx, { chatId }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
     return result?.chat ?? null;
