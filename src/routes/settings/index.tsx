@@ -256,7 +256,8 @@ export function AccountSettingsPage() {
             <DialogTitle>Delete account?</DialogTitle>
             <DialogDescription>
               This action cannot be undone. This will permanently delete your account and all
-              associated data including chat history, API keys, and all other settings.
+              associated data including chat history, API keys, and all other settings. Any active
+              subscription is canceled immediately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

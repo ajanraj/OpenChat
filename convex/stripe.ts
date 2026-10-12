@@ -81,6 +81,35 @@ export async function syncSubscriptionFromStripe(
   });
 }
 
+// Statuses after which a subscription can never bill again
+const ENDED_STATUSES = new Set(["canceled", "incomplete_expired"]);
+
+/**
+ * Immediately cancels every subscription of the user that can still bill, and stores the new
+ * state. Used on account deletion; the Stripe and billing records themselves are kept. The
+ * idempotency key lets a retry repeat a cancel that already went through without Stripe
+ * rejecting it as already canceled.
+ */
+export async function cancelBillableSubscriptions(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  userId: Id<"users">,
+): Promise<void> {
+  const subscriptions = await ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
+    userId,
+  });
+  const billable = subscriptions.filter((subscription) => !ENDED_STATUSES.has(subscription.status));
+  if (billable.length === 0) {
+    return;
+  }
+  const stripe = stripeApi();
+  for (const { stripeSubscriptionId } of billable) {
+    await stripe.subscriptions.cancel(stripeSubscriptionId, undefined, {
+      idempotencyKey: `account-deletion-cancel-${stripeSubscriptionId}`,
+    });
+    await syncSubscriptionFromStripe(ctx, stripe, stripeSubscriptionId);
+  }
+}
+
 // Invoice reasons that start a new billing period (not proration or manual invoices)
 const NEW_PERIOD_BILLING_REASONS = new Set<Stripe.Invoice.BillingReason>([
   "subscription_create",
