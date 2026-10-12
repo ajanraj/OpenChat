@@ -371,42 +371,31 @@ export const branchChat = mutation({
       shareAttachments: false,
     });
 
-    // Get all messages up to and including the branch point
-    const messagesToCopy = await ctx.db
+    // Copy messages up to and including the branch message, in order, remapping parent links to
+    // the copies. Iterating lazily stops reading at the branch point.
+    const idMap = new Map<Id<"messages">, Id<"messages">>();
+    for await (const message of ctx.db
       .query("messages")
       .withIndex("by_chat_and_created", (q) => q.eq("chatId", args.originalChatId))
-      .order("asc")
-      .collect();
-
-    // Copy messages up to and including the branch message in parallel
-    const messageInsertPromises: Promise<Id<"messages">>[] = [];
-    for (const message of messagesToCopy) {
-      const messageTimestamp = message.createdAt ?? message._creationTime;
-
-      // Include messages up to and including the branch message
-      if (messageTimestamp <= branchTimestamp) {
-        messageInsertPromises.push(
-          ctx.db.insert("messages", {
-            chatId: newChatId,
-            userId: message.userId,
-            role: message.role,
-            content: message.content,
-            createdAt: message.createdAt,
-            parentMessageId: message.parentMessageId,
-            parts: message.parts,
-            metadata: message.metadata,
-          }),
-        );
+      .order("asc")) {
+      if ((message.createdAt ?? message._creationTime) <= branchTimestamp) {
+        const newMessageId = await ctx.db.insert("messages", {
+          chatId: newChatId,
+          userId: message.userId,
+          role: message.role,
+          content: message.content,
+          createdAt: message.createdAt,
+          parentMessageId: message.parentMessageId ? idMap.get(message.parentMessageId) : undefined,
+          parts: message.parts,
+          metadata: message.metadata,
+        });
+        idMap.set(message._id, newMessageId);
       }
 
-      // Stop after we've processed the branch message
       if (message._id === args.branchFromMessageId) {
         break;
       }
     }
-
-    // Execute all message insertions in parallel
-    await Promise.all(messageInsertPromises);
 
     return { chatId: newChatId };
   },
