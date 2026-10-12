@@ -34,10 +34,9 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ERROR_CODES } from "@/lib/error-codes";
-import { classifyError } from "@/lib/error-utils";
 import { api } from "../../../convex/_generated/api";
 import { ExecutionHistoryTrigger } from "./execution-history-trigger";
+import { getTaskErrorMessage } from "./task-errors";
 import { TaskTrigger } from "./task-trigger";
 import type { ScheduledTask, ScheduleType } from "./types";
 
@@ -555,8 +554,8 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 		try {
 			await deleteTask({ taskId: task._id });
 			toast.success("Background Agent deleted successfully");
-		} catch (_error) {
-			toast.error("Failed to delete task");
+		} catch (error) {
+			toast.error(getTaskErrorMessage(error, "Failed to delete task"));
 		}
 		setShowDeleteDialog(false);
 	};
@@ -570,12 +569,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 			await updateTask({ taskId: task._id, status: newStatus });
 			toast.success(successMessage);
 		} catch (error) {
-			const classifiedError = classifyError(error);
-			toast.error(
-				classifiedError.code === ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED
-					? classifiedError.userFriendlyMessage
-					: errorMessage,
-			);
+			toast.error(getTaskErrorMessage(error, errorMessage));
 		}
 	};
 
@@ -584,12 +578,7 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 			await triggerTask({ taskId: task._id });
 			toast.success("Background Agent triggered successfully");
 		} catch (error) {
-			const classifiedError = classifyError(error);
-			toast.error(
-				classifiedError.code === ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED
-					? classifiedError.userFriendlyMessage
-					: "Failed to trigger task",
-			);
+			toast.error(getTaskErrorMessage(error, "Failed to trigger task"));
 		}
 	};
 
@@ -597,8 +586,8 @@ function TaskCardComponent({ task, isMobile = false }: TaskCardProps) {
 		try {
 			await updateTask({ taskId: task._id, status: "archived" });
 			toast.success("Background Agent archived successfully");
-		} catch (_error) {
-			toast.error("Failed to archive task");
+		} catch (error) {
+			toast.error(getTaskErrorMessage(error, "Failed to archive task"));
 		}
 	}, [updateTask, task._id]);
 

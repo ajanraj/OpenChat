@@ -44,11 +44,10 @@ export default defineSchema({
     .index("by_user_and_connected", ["userId", "isConnected"]),
   scheduled_tasks: defineTable(ScheduledTask)
     .index("by_user", ["userId"])
-    .index("by_user_and_type", ["userId", "scheduleType"])
-    .index("by_next_execution", ["status", "nextExecution"]),
+    .index("by_user_and_status", ["userId", "status"])
+    .index("by_user_and_profile", ["userId", "profileId"]),
   task_history: defineTable(TaskHistory)
     .index("by_task_and_time", ["taskId", "startTime"])
-    .index("by_status", ["status"])
     .index("by_execution_id", ["executionId"]),
   stripe_subscription_syncs: defineTable(StripeSubscriptionSync).index(
     "by_stripe_subscription_id",
