@@ -50,40 +50,6 @@ export const listUserConnectors = query({
 });
 
 /**
- * Get a specific connector by type for the authenticated user
- */
-export const getConnectorByType = query({
-  args: {
-    type: CONNECTOR_TYPES,
-  },
-  returns: v.union(
-    v.object({
-      _id: v.id("connectors"),
-      _creationTime: v.number(),
-      userId: v.id("users"),
-      type: CONNECTOR_TYPES,
-      connectionId: v.string(),
-      isConnected: v.boolean(),
-      enabled: v.optional(v.boolean()),
-      displayName: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return null;
-    }
-    const connector = await ctx.db
-      .query("connectors")
-      .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
-      .unique();
-
-    return connector ?? null;
-  },
-});
-
-/**
  * Save a new connection for the authenticated user
  */
 export const saveConnection = mutation({
@@ -148,33 +114,6 @@ export const removeConnection = mutation({
     }
 
     await ctx.db.delete(connector._id);
-    return null;
-  },
-});
-
-/**
- * Update connection status for the authenticated user
- */
-export const updateConnectionStatus = mutation({
-  args: {
-    type: CONNECTOR_TYPES,
-    isConnected: v.boolean(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
-    const connector = await ctx.db
-      .query("connectors")
-      .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
-      .unique();
-
-    if (!connector) {
-      throw new ConvexError(ERROR_CODES.CONNECTOR_NOT_FOUND);
-    }
-
-    await ctx.db.patch(connector._id, {
-      isConnected: args.isConnected,
-    });
     return null;
   },
 });
