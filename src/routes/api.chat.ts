@@ -34,7 +34,7 @@ import {
   shouldShowInConversation,
 } from "@/lib/error-utils";
 import { compactMessagePartsForStorage } from "@/lib/message-parts-storage";
-import { authMiddleware } from "@/lib/middleware/auth";
+import { authMiddleware, getServerRouteSecret } from "@/lib/middleware/auth";
 import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
 import { buildSystemPrompt, PERSONAS_MAP } from "@/lib/prompt_config";
 import {
@@ -442,19 +442,30 @@ export const Route = createFileRoute("/api/chat")({
           let keyEntry: { provider: string; mode?: string } | undefined;
 
           if (apiKeyUsage?.allowUserKey && Array.isArray(userKeys)) {
-            try {
-              keyEntry = userKeys.find(
-                (k: { provider: string }) => k.provider === selectedModel.provider,
-              );
-              if (keyEntry) {
+            keyEntry = userKeys.find(
+              (k: { provider: string }) => k.provider === selectedModel.provider,
+            );
+            if (keyEntry) {
+              // Outside the try: a missing secret is a server misconfiguration (500)
+              const serverSecret = getServerRouteSecret();
+              try {
                 userApiKey = await client.query(api.api_keys.getDecryptedKey, {
                   provider: selectedModel.provider as SupportedProvider,
+                  serverSecret,
                 });
-              }
-            } catch (e) {
-              // If this is a critical error (auth failure), we should return early
-              if (e instanceof ConvexError && e.data === ERROR_CODES.NOT_AUTHENTICATED) {
-                return createErrorResponse(e);
+              } catch (e) {
+                // If this is a critical error (auth failure), we should return early
+                if (e instanceof ConvexError && e.data === ERROR_CODES.NOT_AUTHENTICATED) {
+                  return createErrorResponse(e);
+                }
+                // Convex rejected the server secret: fail loudly rather than silently
+                // billing the platform key for a user who brought their own
+                if (e instanceof ConvexError && e.data === ERROR_CODES.UNAUTHORIZED) {
+                  throw new Error(
+                    "Convex rejected SERVER_ROUTE_SECRET; set the same value in the web server and Convex env.",
+                  );
+                }
+                // Other failures (e.g. an undecryptable key) fall back to the platform key
               }
             }
           }

@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { mutation, query } from "./_generated/server";
+import { assertServerSecret } from "./lib/auth_helper";
 
 const API_KEY_SECRET = process.env.API_KEY_SECRET;
 if (!API_KEY_SECRET) {
@@ -292,6 +293,8 @@ export const updateApiKeyMode = mutation({
   },
 });
 
+// Returns the caller's plaintext provider key for /api/chat. Requires SERVER_ROUTE_SECRET as
+// well as the user's session, so a stolen browser session cannot read stored keys back out.
 export const getDecryptedKey = query({
   args: {
     provider: v.union(
@@ -303,8 +306,11 @@ export const getDecryptedKey = query({
       v.literal("meta"),
       v.literal("Qwen"),
     ),
+    serverSecret: v.string(),
   },
-  handler: async (ctx, { provider }) => {
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, { provider, serverSecret }) => {
+    assertServerSecret(serverSecret);
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
