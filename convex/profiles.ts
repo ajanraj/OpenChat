@@ -269,8 +269,7 @@ export const deleteProfile = mutation({
     // Reassign orphaned scheduled tasks to default profile
     const orphanedTasks = await ctx.db
       .query("scheduled_tasks")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .filter((q) => q.eq(q.field("profileId"), profileId))
+      .withIndex("by_user_and_profile", (q) => q.eq("userId", userId).eq("profileId", profileId))
       .collect();
 
     for (const task of orphanedTasks) {
