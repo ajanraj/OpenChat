@@ -19,7 +19,13 @@ export default defineSchema({
   users: defineTable(User).index("email", ["email"]),
   chats: defineTable(Chat)
     .index("by_user", ["userId"])
-    .index("by_user_and_profile", ["userId", "profileId"]),
+    .index("by_user_and_profile", ["userId", "profileId"])
+    // Chat list pages, most recently active first
+    .index("by_user_and_updated", ["userId", "updatedAt"])
+    .index("by_user_and_pinned", ["userId", "isPinned"])
+    // Branches of a chat, to clear their link when the chat is deleted
+    .index("by_user_and_original_chat", ["userId", "originalChatId"])
+    .searchIndex("search_title", { searchField: "title", filterFields: ["userId"] }),
   profiles: defineTable(Profile)
     .index("by_user", ["userId"])
     .index("by_user_and_default", ["userId", "isDefault"]),

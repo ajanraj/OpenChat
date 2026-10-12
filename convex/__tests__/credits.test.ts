@@ -38,6 +38,7 @@ vi.mock("../_generated/server", () => ({
   query: (def: { handler: unknown }) => def.handler,
   internalMutation: (def: { handler: unknown }) => def.handler,
   internalQuery: (def: { handler: unknown }) => def.handler,
+  internalAction: (def: { handler: unknown }) => def.handler,
 }));
 
 const USER_ID = "users:user1" as Id<"users">;

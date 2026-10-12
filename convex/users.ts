@@ -1,10 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { R2 } from "@convex-dev/r2";
 import { ConvexError, v, type Infer } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
-import { components } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
+  internalAction,
   internalMutation,
   internalQuery,
   mutation,
@@ -12,8 +12,9 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { assertServerSecret, ensureAuthenticated, getCurrentUserOrNull } from "./lib/auth_helper";
+import { deleteAuthData, purgeUserDataBatch } from "./lib/cleanup_helper";
 import * as credits from "./lib/credits";
-import { hasActivePremium } from "./stripe";
+import { cancelBillableSubscriptions, hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
 import { User } from "./schema/user";
 
@@ -241,151 +242,78 @@ export const getRateLimitStatus = query({
 // The application no longer automatically merges anonymous accounts with Google accounts
 // for security and simplicity. Users who sign in with Google will start with fresh accounts.
 
-// Delete account and all associated data
+/**
+ * Deletes the signed-in account. Sign-in data and the user record go right away; everything
+ * else is purged in the background (purgeDeletedUserData) and any subscription that can still
+ * bill is canceled immediately (cancelDeletedUserSubscriptions). Stripe billing records are
+ * kept. Calling it again after the user is gone is a no-op.
+ */
 export const deleteAccount = mutation({
   args: {},
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<null> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-
-    // --- Step 1: Fetch all documents that need to be deleted in parallel ---
-    const [
-      attachments,
-      messages,
-      chats,
-      feedback,
-      usage,
-      authAccounts,
-      authSessions,
-      profiles,
-      scheduledTasks,
-      connectors,
-      apiKeys,
-    ] = await Promise.all([
-      ctx.db
-        .query("chat_attachments")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("messages")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("chats")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("feedback")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("usage_history")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("authAccounts")
-        .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("authSessions")
-        .withIndex("userId", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("profiles")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("scheduled_tasks")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("connectors")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("user_api_keys")
-        .withIndex("by_user_provider", (q) => q.eq("userId", userId))
-        .collect(),
-    ]);
-
-    // Fetch task history for each scheduled task (no userId index on task_history)
-    const taskHistoryEntries = (
-      await Promise.all(
-        scheduledTasks.map((task) =>
-          ctx.db
-            .query("task_history")
-            .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
-            .collect(),
-        ),
-      )
-    ).flat();
-
-    // --- Step 2: Collect all deletion promises and execute them concurrently ---
-    const deletionPromises: Promise<unknown>[] = [];
-
-    // Delete attachments and their files
-    const r2 = new R2(components.r2);
-    for (const att of attachments) {
-      deletionPromises.push(
-        r2.deleteObject(ctx, att.key).catch(() => {
-          // Silently handle storage deletion errors
-        }),
-      );
-      deletionPromises.push(
-        ctx.db.delete(att._id).catch(() => {
-          // Silently handle database deletion errors
-        }),
-      );
+    if (!(await ctx.db.get(userId))) {
+      return null;
     }
 
-    // Delete messages
-    deletionPromises.push(...messages.map((msg) => ctx.db.delete(msg._id)));
-
-    // Delete chats
-    deletionPromises.push(...chats.map((chat) => ctx.db.delete(chat._id)));
-
-    // Delete feedback
-    deletionPromises.push(...feedback.map((f) => ctx.db.delete(f._id)));
-
-    // Delete usage history
-    deletionPromises.push(...usage.map((u) => ctx.db.delete(u._id)));
-
-    // Delete auth accounts
-    deletionPromises.push(...authAccounts.map((acc) => ctx.db.delete(acc._id)));
-
-    // Delete auth sessions
-    deletionPromises.push(...authSessions.map((sess) => ctx.db.delete(sess._id)));
-
-    // Delete profiles
-    deletionPromises.push(...profiles.map((p) => ctx.db.delete(p._id)));
-
-    // Cancel active scheduled functions, then delete tasks + history
-    for (const task of scheduledTasks) {
-      if (task.scheduledFunctionId) {
-        deletionPromises.push(
-          ctx.scheduler
-            .cancel(task.scheduledFunctionId as Id<"_scheduled_functions">)
-            .catch(() => {}),
-        );
-      }
-    }
-    deletionPromises.push(...scheduledTasks.map((t) => ctx.db.delete(t._id)));
-    deletionPromises.push(...taskHistoryEntries.map((h) => ctx.db.delete(h._id)));
-
-    // Delete connectors
-    deletionPromises.push(...connectors.map((c) => ctx.db.delete(c._id)));
-
-    // Delete API keys
-    deletionPromises.push(...apiKeys.map((k) => ctx.db.delete(k._id)));
-
-    // Execute all deletions concurrently
-    await Promise.allSettled(deletionPromises);
-
-    // Finally delete user record
+    await deleteAuthData(ctx, userId);
     await ctx.db.delete(userId);
+    await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
+    await ctx.scheduler.runAfter(0, internal.users.cancelDeletedUserSubscriptions, { userId });
+    return null;
+  },
+});
+
+/**
+ * Purges a deleted user's data one budget-bounded batch per run, rescheduling itself until
+ * nothing is left. If a run throws, re-run it with the same userId; it resumes where it stopped.
+ */
+export const purgeDeletedUserData = internalMutation({
+  args: { userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, { userId }): Promise<null> => {
+    if (!(await purgeUserDataBatch(ctx, userId))) {
+      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
+    }
+    return null;
+  },
+});
+
+const SUBSCRIPTION_CANCEL_MAX_ATTEMPTS = 5;
+const SUBSCRIPTION_CANCEL_RETRY_BASE_MS = 30_000;
+
+/**
+ * Cancels a deleted user's billable Stripe subscriptions. A failure would keep billing the
+ * user, so it retries with exponential backoff before giving up with an error log.
+ */
+export const cancelDeletedUserSubscriptions = internalAction({
+  args: { userId: v.id("users"), attempt: v.optional(v.number()) },
+  returns: v.null(),
+  handler: async (ctx, { userId, attempt = 1 }): Promise<null> => {
+    try {
+      await cancelBillableSubscriptions(ctx, userId);
+    } catch (error) {
+      if (attempt >= SUBSCRIPTION_CANCEL_MAX_ATTEMPTS) {
+        console.error(
+          `Giving up canceling Stripe subscriptions of deleted user ${userId} after ${attempt} attempts; cancel them in the Stripe dashboard:`,
+          error,
+        );
+        throw error;
+      }
+      console.warn(
+        `Canceling Stripe subscriptions of deleted user ${userId} failed (attempt ${attempt}); retrying:`,
+        error,
+      );
+      await ctx.scheduler.runAfter(
+        SUBSCRIPTION_CANCEL_RETRY_BASE_MS * 2 ** (attempt - 1),
+        internal.users.cancelDeletedUserSubscriptions,
+        { userId, attempt: attempt + 1 },
+      );
+    }
     return null;
   },
 });
