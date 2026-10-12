@@ -1,7 +1,10 @@
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import type { ToolSet } from "ai";
-import type { ToolRouterCreateSessionConfig } from "@composio/core";
+import type {
+  ConnectedAccountListResponseItem,
+  ToolRouterCreateSessionConfig,
+} from "@composio/core";
 import { getAuthConfigId } from "./composio-utils";
 import type { ConnectorType } from "./types";
 
@@ -36,6 +39,29 @@ export interface ComposioToolsSession {
 }
 
 /**
+ * List every Composio connected account owned by a user, optionally limited to one toolkit.
+ * The Composio user id is always the Convex `user._id`, so this is the source of truth for
+ * ownership: never act on a client-supplied or stored connected account id without it.
+ */
+const listUserConnectedAccounts = async (
+  userId: string,
+  connectorType?: ConnectorType,
+): Promise<ConnectedAccountListResponseItem[]> => {
+  const accounts: ConnectedAccountListResponseItem[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await composio.connectedAccounts.list({ userIds: [userId], cursor });
+    accounts.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+
+  // Toolkit slugs are matched case-insensitively (Composio has used both cases).
+  return connectorType
+    ? accounts.filter((account) => account.toolkit.slug.toLowerCase() === connectorType)
+    : accounts;
+};
+
+/**
  * Initiate OAuth connection for a user (server-side only)
  */
 export const initiateConnection = async (
@@ -45,22 +71,14 @@ export const initiateConnection = async (
 ): Promise<{ redirectUrl: string; connectionRequestId: string }> => {
   const authConfigId = getAuthConfigId(connectorType);
 
-  // First, check if user has existing connections for this toolkit and clean them up
+  // Clean up the user's abandoned (non-active) attempts for this toolkit; keep working ones.
   try {
-    const existingAccounts = await composio.connectedAccounts.list({
-      userIds: [userId],
-    });
-
-    // Find any existing connection for this toolkit
-    const toolkitSlug = connectorType.toUpperCase();
-    const existingConnection = existingAccounts.items.find(
-      (account) => account.toolkit.slug.toUpperCase() === toolkitSlug,
+    const existingAccounts = await listUserConnectedAccounts(userId, connectorType);
+    await Promise.all(
+      existingAccounts
+        .filter((account) => account.status !== "ACTIVE")
+        .map((account) => composio.connectedAccounts.delete(account.id)),
     );
-
-    if (existingConnection && existingConnection.status !== "ACTIVE") {
-      // Only delete if connection is not active to avoid breaking working connections
-      await composio.connectedAccounts.delete(existingConnection.id);
-    }
   } catch (error) {
     console.error("Failed to cleanup existing Composio connection:", error);
   }
@@ -78,12 +96,20 @@ export const initiateConnection = async (
 };
 
 /**
- * Wait for connection to complete (for polling)
+ * Wait for one of the user's connection requests to complete (for polling).
+ * Returns null when the request id does not belong to the user, so callers can
+ * never observe another user's connection.
  */
 export const waitForConnection = async (
+  userId: string,
   connectionRequestId: string,
   timeoutSeconds = 300,
-): Promise<{ connectionId: string; isConnected: boolean }> => {
+): Promise<{ connectionId: string; isConnected: boolean } | null> => {
+  const userAccounts = await listUserConnectedAccounts(userId);
+  if (!userAccounts.some((account) => account.id === connectionRequestId)) {
+    return null;
+  }
+
   const connectedAccount = await composio.connectedAccounts.waitForConnection(
     connectionRequestId,
     timeoutSeconds * 1000, // Convert seconds to milliseconds
@@ -98,10 +124,15 @@ export const waitForConnection = async (
 };
 
 /**
- * Disconnect an account (server-side only)
+ * Disconnect a toolkit for a user (server-side only) by deleting every connected
+ * account Composio holds for that user and toolkit.
  */
-export const disconnectAccount = async (connectionId: string): Promise<void> => {
-  await composio.connectedAccounts.delete(connectionId);
+export const disconnectAccount = async (
+  userId: string,
+  connectorType: ConnectorType,
+): Promise<void> => {
+  const accounts = await listUserConnectedAccounts(userId, connectorType);
+  await Promise.all(accounts.map((account) => composio.connectedAccounts.delete(account.id)));
 };
 
 /**
