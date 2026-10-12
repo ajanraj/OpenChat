@@ -1,14 +1,18 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
-import { calculateRateLimit } from "@convex-dev/rate-limiter";
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { assertServerSecret, ensureAuthenticated } from "./lib/auth_helper";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type QueryCtx,
+} from "./_generated/server";
+import { assertServerSecret, ensureAuthenticated, getCurrentUserOrNull } from "./lib/auth_helper";
 import * as credits from "./lib/credits";
-import { RATE_LIMITS } from "./lib/rateLimitConstants";
 import { hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
 import { User } from "./schema/user";
@@ -173,165 +177,63 @@ export const refundMessageCredit = mutation({
   },
 });
 
+/**
+ * Stored state of one fixed-window credit bucket. `ts` is the start of the window the
+ * value was last written in (0 when the user never used the bucket). Clients project it
+ * to the current time with calculateRateLimit (see src/lib/rate-limit-status.ts).
+ */
+const rateLimitBucket = v.object({
+  value: v.number(),
+  ts: v.number(),
+  rate: v.number(),
+  period: v.number(),
+  capacity: v.number(),
+});
+
+async function getRateLimitBucket(
+  ctx: QueryCtx,
+  name: credits.CreditBucketName,
+  userId: Id<"users">,
+): Promise<Infer<typeof rateLimitBucket>> {
+  const { value, ts, config } = await rateLimiter.getValue(ctx, name, { key: userId });
+  return {
+    value,
+    ts,
+    rate: config.rate,
+    period: config.period,
+    capacity: config.capacity ?? config.rate,
+  };
+}
+
+// Raw credit buckets for the current user. Deliberately time-independent: remaining
+// credits and reset times depend on "now", so clients derive them (a query reading
+// the clock would serve stale values after a window rolls over).
 export const getRateLimitStatus = query({
   args: {},
-  returns: v.object({
-    isPremium: v.boolean(),
-    dailyCount: v.number(),
-    dailyLimit: v.number(),
-    dailyRemaining: v.number(),
-    monthlyCount: v.number(),
-    monthlyLimit: v.number(),
-    monthlyRemaining: v.number(),
-    premiumCount: v.number(),
-    premiumLimit: v.number(),
-    premiumRemaining: v.number(),
-    effectiveRemaining: v.number(),
-    dailyReset: v.optional(v.number()),
-    monthlyReset: v.optional(v.number()),
-    premiumReset: v.optional(v.number()),
-  }),
+  returns: v.union(
+    v.null(),
+    v.object({
+      isPremium: v.boolean(),
+      daily: v.union(v.null(), rateLimitBucket),
+      monthly: rateLimitBucket,
+      premium: v.union(v.null(), rateLimitBucket),
+    }),
+  ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    // console.log('getRateLimitStatus called for userId:', userId);
-    if (!userId) {
-      // Return safe defaults for unauthenticated users
-      return {
-        isPremium: false,
-        dailyCount: 0,
-        dailyLimit: 0,
-        dailyRemaining: 0,
-        monthlyCount: 0,
-        monthlyLimit: 0,
-        monthlyRemaining: 0,
-        premiumCount: 0,
-        premiumLimit: 0,
-        premiumRemaining: 0,
-        effectiveRemaining: 0,
-      };
-    }
-
-    const user = await ctx.db.get(userId);
+    const user = await getCurrentUserOrNull(ctx);
     if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
+      return null;
     }
 
     const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-    const now = Date.now();
+    const dailyName = user.isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+    const [daily, monthly, premium] = await Promise.all([
+      isPremium ? null : getRateLimitBucket(ctx, dailyName, user._id),
+      getRateLimitBucket(ctx, "standardMonthly", user._id),
+      isPremium ? getRateLimitBucket(ctx, "premiumMonthly", user._id) : null,
+    ]);
 
-    // Determine daily limit name for non-premium users
-    const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-
-    // Parallel fetching of all rate limit data
-    const [dailyStatus, dailyConfig, monthlyStatus, monthlyConfig, premiumStatus, premiumConfig] =
-      await Promise.all([
-        isPremium ? Promise.resolve(null) : rateLimiter.check(ctx, dailyLimitName, { key: userId }),
-        isPremium
-          ? Promise.resolve(null)
-          : rateLimiter.getValue(ctx, dailyLimitName, { key: userId }),
-        rateLimiter.check(ctx, "standardMonthly", { key: userId }),
-        rateLimiter.getValue(ctx, "standardMonthly", { key: userId }),
-        isPremium
-          ? rateLimiter.check(ctx, "premiumMonthly", { key: userId })
-          : Promise.resolve(null),
-        isPremium
-          ? rateLimiter.getValue(ctx, "premiumMonthly", { key: userId })
-          : Promise.resolve(null),
-      ]);
-
-    // Process daily limits
-    let dailyLimit = 0;
-    let dailyCount = 0;
-    let dailyRemaining = 0;
-    let dailyReset: number | undefined;
-
-    if (!isPremium && dailyStatus && dailyConfig) {
-      dailyLimit = isAnonymous ? RATE_LIMITS.ANONYMOUS_DAILY : RATE_LIMITS.AUTHENTICATED_DAILY;
-      dailyCount = dailyLimit - (dailyStatus.ok ? dailyConfig.value : 0);
-      dailyRemaining = dailyStatus.ok ? dailyConfig.value : 0;
-
-      // Use the rate limiter component's own logic for accurate reset time
-      const dailyRateLimit = calculateRateLimit(
-        { value: dailyConfig.value, ts: dailyConfig.ts },
-        dailyConfig.config,
-        now,
-        0, // Don't consume tokens, just calculate
-      );
-
-      // For fixed windows, the next reset is the end of the current window
-      if (dailyRateLimit.windowStart !== undefined) {
-        const config = dailyConfig.config;
-        dailyReset = dailyRateLimit.windowStart + config.period;
-      }
-    }
-
-    // Process monthly limits (standard for all users)
-    const monthlyLimit = RATE_LIMITS.STANDARD_MONTHLY;
-    const monthlyCount = monthlyLimit - (monthlyStatus.ok ? monthlyConfig.value : 0);
-    const monthlyRemaining = monthlyStatus.ok ? monthlyConfig.value : 0;
-
-    // Use the rate limiter component's own logic for accurate reset time
-    const monthlyRateLimit = calculateRateLimit(
-      { value: monthlyConfig.value, ts: monthlyConfig.ts },
-      monthlyConfig.config,
-      now,
-      0, // Don't consume tokens, just calculate
-    );
-
-    // For fixed windows, the next reset is the end of the current window
-    let monthlyReset: number | undefined;
-    if (monthlyRateLimit.windowStart !== undefined) {
-      const config = monthlyConfig.config;
-      monthlyReset = monthlyRateLimit.windowStart + config.period;
-    }
-
-    // Process premium credits (for premium users)
-    let premiumLimit = 0;
-    let premiumCount = 0;
-    let premiumRemaining = 0;
-    let premiumReset: number | undefined;
-
-    if (isPremium && premiumStatus && premiumConfig) {
-      premiumLimit = RATE_LIMITS.PREMIUM_MONTHLY;
-      premiumCount = premiumLimit - (premiumStatus.ok ? premiumConfig.value : 0);
-      premiumRemaining = premiumStatus.ok ? premiumConfig.value : 0;
-
-      // Use the rate limiter component's own logic for accurate reset time
-      const premiumRateLimit = calculateRateLimit(
-        { value: premiumConfig.value, ts: premiumConfig.ts },
-        premiumConfig.config,
-        now,
-        0, // Don't consume tokens, just calculate
-      );
-
-      // For fixed windows, the next reset is the end of the current window
-      if (premiumRateLimit.windowStart !== undefined) {
-        const config = premiumConfig.config;
-        premiumReset = premiumRateLimit.windowStart + config.period;
-      }
-    }
-
-    const effectiveRemaining = isPremium
-      ? monthlyRemaining
-      : Math.min(dailyRemaining, monthlyRemaining);
-
-    return {
-      isPremium,
-      dailyCount,
-      dailyLimit,
-      dailyRemaining,
-      monthlyCount,
-      monthlyLimit,
-      monthlyRemaining,
-      premiumCount,
-      premiumLimit,
-      premiumRemaining,
-      effectiveRemaining,
-      dailyReset,
-      monthlyReset,
-      premiumReset,
-    };
+    return { isPremium, daily, monthly, premium };
   },
 });
 

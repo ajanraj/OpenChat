@@ -2,7 +2,12 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  getNextRateLimitReset,
+  type RateLimitStatus,
+  resolveRateLimitStatus,
+} from "@/lib/rate-limit-status";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 
@@ -27,24 +32,7 @@ interface UserContextType {
   updateUser: (updates: Partial<UserProfile>) => Promise<void>;
   // User capabilities and settings
   hasPremium: boolean;
-  rateLimitStatus:
-    | {
-        isPremium: boolean;
-        dailyCount: number;
-        dailyLimit: number;
-        dailyRemaining: number;
-        monthlyCount: number;
-        monthlyLimit: number;
-        monthlyRemaining: number;
-        premiumCount: number;
-        premiumLimit: number;
-        premiumRemaining: number;
-        effectiveRemaining: number;
-        dailyReset?: number;
-        monthlyReset?: number;
-        premiumReset?: number;
-      }
-    | undefined;
+  rateLimitStatus: RateLimitStatus | undefined;
   // API Keys
   apiKeys: ApiKey[];
   hasApiKey: Map<string, boolean>;
@@ -58,6 +46,9 @@ interface UserContextType {
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
+
+// setTimeout fires immediately for delays above 2^31 - 1 ms (~24.8 days)
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
   // isLoading will always be false here
@@ -84,12 +75,31 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     gcTime: 15 * 60 * 1000, // 15 minutes
   });
 
-  const { data: rateLimitStatus, isLoading: isRateLimitLoading } = useTanStackQuery({
+  const { data: rateLimitState, isLoading: isRateLimitLoading } = useTanStackQuery({
     ...convexQuery(api.users.getRateLimitStatus, {}),
     enabled: Boolean(user),
     // Rate limits update more frequently, shorter cache
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // The query returns raw credit buckets; remaining credits depend on the current time,
+  // so resolve them here and again whenever the next window resets.
+  const [now, setNow] = useState(() => Date.now());
+  const rateLimitStatus = useMemo(
+    () => (rateLimitState ? resolveRateLimitStatus(rateLimitState, now) : undefined),
+    [rateLimitState, now],
+  );
+  const nextRateLimitReset = rateLimitStatus ? getNextRateLimitReset(rateLimitStatus) : undefined;
+
+  useEffect(() => {
+    if (nextRateLimitReset === undefined) {
+      return;
+    }
+    // Re-arms after every tick (`now` dependency), which also covers clamped delays
+    const delay = Math.min(Math.max(nextRateLimitReset - Date.now(), 0), MAX_TIMEOUT_MS);
+    const timeout = setTimeout(() => setNow(Date.now()), delay);
+    return () => clearTimeout(timeout);
+  }, [nextRateLimitReset, now]);
 
   const { data: apiKeysQuery, isLoading: isApiKeysLoading } = useTanStackQuery({
     ...convexQuery(api.api_keys.getApiKeys, {}),
