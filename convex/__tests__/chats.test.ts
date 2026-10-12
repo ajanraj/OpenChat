@@ -98,7 +98,9 @@ describe("searchChats", () => {
     const found = (await asHandler(searchChats)(ctx, { query: " paris " })) as Array<{
       _id: string;
     }>;
-    expect(found.map((c) => c._id).toSorted()).toEqual([trip, budget].toSorted());
+    // Order is by relevance; convex/tsconfig targets ES2022, so no toSorted here
+    expect(found.map((c) => c._id)).toHaveLength(2);
+    expect(found.map((c) => c._id)).toEqual(expect.arrayContaining([trip, budget]));
     expect(await asHandler(searchChats)(ctx, { query: "   " })).toEqual([]);
   });
 });
