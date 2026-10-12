@@ -6,6 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
 // Import helper functions
 import { ensureChatAccess, ensureMessageAccess } from "./lib/auth_helper";
+import { deleteChatCompletely } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
 
 // Keep reusable regex at top-level per lint rule
@@ -124,50 +125,6 @@ async function cleanupSingleAttachment(
   } catch (error) {
     console.error("Failed to clean up attachment:", error);
   }
-}
-
-/**
- * Helper function to clean up branched chats
- */
-async function cleanupBranchedChats(ctx: MutationCtx, chatId: Id<"chats">, userId: Id<"users">) {
-  // This uses .filter() correctly - first narrows by index (by_user), then filters by originalChatId
-  // See: https://docs.convex.dev/database/indexes/ - "For all other filtering you can use the .filter method"
-  const branchedChats = await ctx.db
-    .query("chats")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .filter((q) => q.eq(q.field("originalChatId"), chatId))
-    .collect();
-
-  const updatePromises = branchedChats.map((branchedChat: Doc<"chats">) =>
-    ctx.db.patch(branchedChat._id, {
-      originalChatId: undefined,
-      updatedAt: Date.now(),
-    }),
-  );
-
-  await Promise.all(updatePromises);
-}
-
-/**
- * Helper function to clean up orphaned attachments
- */
-async function cleanupOrphanedAttachments(ctx: MutationCtx, chatId: Id<"chats">) {
-  const r2 = new R2(components.r2);
-  const orphanedAttachments = await ctx.db
-    .query("chat_attachments")
-    .withIndex("by_chatId", (q) => q.eq("chatId", chatId))
-    .collect();
-
-  const cleanupPromises = orphanedAttachments.map(async (attachment: Doc<"chat_attachments">) => {
-    try {
-      await r2.deleteObject(ctx, attachment.key);
-      await ctx.db.delete(attachment._id);
-    } catch (error) {
-      console.error("Failed to clean up orphaned attachment:", error);
-    }
-  });
-
-  await Promise.allSettled(cleanupPromises);
 }
 
 /**
@@ -392,13 +349,8 @@ export const deleteMessageAndDescendants = mutation({
       .first();
 
     if (!remaining) {
-      // Clean up branched chats
-      await cleanupBranchedChats(ctx, chat._id, userId);
-
-      // Clean up any remaining orphaned attachments for this chat
-      await cleanupOrphanedAttachments(ctx, chat._id);
-
-      await ctx.db.delete(chat._id);
+      // The chat is empty: delete it with its remaining attachments and branch links
+      await deleteChatCompletely(ctx, chat._id, userId);
       return { chatDeleted: true };
     }
     return { chatDeleted: false };

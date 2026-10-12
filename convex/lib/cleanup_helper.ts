@@ -61,8 +61,8 @@ export async function deleteAttachmentsForChat(
 }
 
 /**
- * Removes branch references from all chats that branch from the specified chat.
- * Updates their originalChatId to undefined and timestamps.
+ * Clears `originalChatId` on chats branched from the specified chat, skipping chats in
+ * `skipChatIds` (ones deleted in the same operation, which need no patch).
  *
  * @example
  * await removeBranchReferences(ctx, originalChatId, userId);
@@ -71,24 +71,24 @@ export async function removeBranchReferences(
   ctx: MutationCtx,
   originalChatId: Id<"chats">,
   userId: Id<"users">,
+  skipChatIds?: ReadonlySet<Id<"chats">>,
 ): Promise<void> {
-  // Find all chats that are branched from this chat
-  // This uses .filter() correctly - first narrows by index (by_user), then filters by originalChatId
-  // See: https://docs.convex.dev/database/indexes/ - "For all other filtering you can use the .filter method"
   const branchedChats = await ctx.db
     .query("chats")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .filter((q) => q.eq(q.field("originalChatId"), originalChatId))
+    .withIndex("by_user_and_original_chat", (q) =>
+      q.eq("userId", userId).eq("originalChatId", originalChatId),
+    )
     .collect();
 
-  // Remove the branch reference from all branched chats in parallel
   await Promise.all(
-    branchedChats.map((branchedChat) =>
-      ctx.db.patch(branchedChat._id, {
-        originalChatId: undefined,
-        updatedAt: Date.now(),
-      }),
-    ),
+    branchedChats
+      .filter((branchedChat) => !skipChatIds?.has(branchedChat._id))
+      .map((branchedChat) =>
+        ctx.db.patch(branchedChat._id, {
+          originalChatId: undefined,
+          updatedAt: Date.now(),
+        }),
+      ),
   );
 }
 
@@ -116,7 +116,7 @@ export async function deleteChatCompletely(
 
 /**
  * Deletes multiple chats and all their associated data in parallel.
- * Efficiently handles bulk deletion operations.
+ * Branch links are only cleared on chats that survive the deletion.
  *
  * @example
  * await deleteMultipleChats(ctx, validChats, userId);
@@ -126,8 +126,10 @@ export async function deleteMultipleChats(
   chats: Doc<"chats">[],
   userId: Id<"users">,
 ): Promise<void> {
-  // Handle branch cleanup for all chats in parallel
-  await Promise.all(chats.map((chat) => removeBranchReferences(ctx, chat._id, userId)));
+  const deletingChatIds = new Set(chats.map((chat) => chat._id));
+  await Promise.all(
+    chats.map((chat) => removeBranchReferences(ctx, chat._id, userId, deletingChatIds)),
+  );
 
   // Process all chat deletions in parallel
   await Promise.all(
