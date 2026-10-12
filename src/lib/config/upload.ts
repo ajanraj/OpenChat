@@ -1,5 +1,8 @@
 // Centralized upload configuration and helpers
-// Single source of truth for allowed MIME types, max size, accept string, and labels
+// Single source of truth for allowed MIME types, max size, accept string, and labels.
+// Shared by the client (pre-validation) and Convex (files.ts enforces it), so keep imports relative.
+
+import { ERROR_CODES } from "../error-codes";
 
 export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024; // 10 MiB
 
@@ -16,6 +19,36 @@ export const UPLOAD_ALLOWED_MIME = [
 ] as const;
 
 export type UploadAllowedMime = (typeof UPLOAD_ALLOWED_MIME)[number];
+
+export function isAllowedUploadMime(type: string): type is UploadAllowedMime {
+  return (UPLOAD_ALLOWED_MIME as readonly string[]).includes(type);
+}
+
+export type UploadPolicyError =
+  | typeof ERROR_CODES.UNSUPPORTED_FILE_TYPE
+  | typeof ERROR_CODES.FILE_TOO_LARGE
+  | typeof ERROR_CODES.INVALID_INPUT;
+
+/**
+ * Checks a file's type and byte size against the upload policy.
+ * Used for the client-declared values when issuing an upload URL and again for the real
+ * R2 metadata before an upload is attached. Returns the ERROR_CODES value to reject with, or null.
+ */
+export function getUploadPolicyError(file: {
+  type: string | undefined;
+  size: number | undefined;
+}): UploadPolicyError | null {
+  if (!(file.type && isAllowedUploadMime(file.type))) {
+    return ERROR_CODES.UNSUPPORTED_FILE_TYPE;
+  }
+  if (file.size === undefined || !Number.isSafeInteger(file.size) || file.size < 0) {
+    return ERROR_CODES.INVALID_INPUT;
+  }
+  if (file.size > UPLOAD_MAX_BYTES) {
+    return ERROR_CODES.FILE_TOO_LARGE;
+  }
+  return null;
+}
 
 // Accept string for <input type="file" accept="...">
 export const UPLOAD_ACCEPT: string = Array.from(UPLOAD_ALLOWED_MIME).join(",");
