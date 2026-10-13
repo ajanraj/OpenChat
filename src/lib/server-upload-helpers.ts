@@ -20,6 +20,8 @@ export async function uploadBlobToR2(
     fileName?: string;
     token: string;
     isGenerated?: boolean;
+    /** SERVER_ROUTE_SECRET; lets credit-paid server uploads skip the user's upload rate limit */
+    serverSecret?: string;
   },
 ): Promise<{
   key: string;
@@ -28,7 +30,11 @@ export async function uploadBlobToR2(
 }> {
   const auth = { token: options.token };
   const key = await uploadToR2(blob, (args) =>
-    fetchMutation(api.files.generateUploadUrl, args, auth),
+    fetchMutation(
+      api.files.generateUploadUrl,
+      { ...args, serverSecret: options.serverSecret },
+      auth,
+    ),
   );
 
   // Syncs R2 metadata, re-validates the stored object, and attaches it to the chat

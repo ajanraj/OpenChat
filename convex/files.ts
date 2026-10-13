@@ -10,6 +10,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   type ActionCtx,
   action,
+  internalAction,
   internalMutation,
   internalQuery,
   type MutationCtx,
@@ -17,6 +18,7 @@ import {
   type QueryCtx,
   query,
 } from "./_generated/server";
+import { assertServerSecret } from "./lib/auth_helper";
 import { supportsFileUploadModel } from "./lib/fileUploadModels";
 import { rateLimiter } from "./rateLimiter";
 import schema from "./schema";
@@ -28,6 +30,8 @@ import schema from "./schema";
  * 2. The client (or a server route) PUTs the bytes to R2.
  * 3. saveFileAttachment / saveGeneratedImage: syncs the object's real metadata from R2, re-checks
  *    it against the upload policy, and attaches the row to a chat. Violating objects are deleted.
+ * 4. recheckAttachment: if the upload URL was still live at step 3, re-checks the object once
+ *    after the URL expires, since the client could have replaced it.
  * Pending rows that never reach step 3 are removed with their objects by cleanupPendingUploads.
  */
 
@@ -35,8 +39,12 @@ const r2 = new R2(components.r2);
 
 const TRAILING_SLASH_RE = /\/$/;
 
-// Pending uploads older than this are deleted by the cron in crons.ts. Presigned upload URLs from
-// r2.generateUploadUrl expire after 15 minutes, so nothing can still be uploading at that point.
+// Presigned PUT URLs from r2.generateUploadUrl use the AWS presigner default of 900 seconds, and
+// they don't sign the content type or length: until expiry the client can overwrite the object.
+const UPLOAD_URL_LIFETIME_MS = 15 * 60 * 1000;
+// Attachments saved while their URL is still valid are re-checked this long after it expires.
+const RECHECK_MARGIN_MS = 60 * 1000;
+// Pending uploads older than this are deleted by the cron in crons.ts; their URLs have expired.
 const PENDING_UPLOAD_TTL_MS = 60 * 60 * 1000;
 const PENDING_CLEANUP_BATCH_SIZE = 50;
 
@@ -76,6 +84,21 @@ type SaveResult = Infer<typeof saveResult>;
 function getPublicUrl(key: string): string | undefined {
   const base = process.env.R2_PUBLIC_URL_BASE;
   return base ? `${base.replace(TRAILING_SLASH_RE, "")}/${key}` : undefined;
+}
+
+/**
+ * Upload policy for a stored object's synced R2 metadata; generated images must be images.
+ * Missing metadata fields fail the check.
+ */
+function getStoredObjectPolicyError(
+  meta: { contentType?: string; size?: number },
+  isGenerated: boolean,
+) {
+  const file = { type: meta.contentType ?? "", size: meta.size ?? -1 };
+  return (
+    getUploadPolicyError(file) ??
+    (isGenerated && !file.type.startsWith("image/") ? ERROR_CODES.UNSUPPORTED_FILE_TYPE : null)
+  );
 }
 
 /** Fallback name for generated images saved without one, e.g. "gen-1700000000000.png". */
@@ -134,9 +157,11 @@ async function requireAttachableUpload(
 /**
  * Issues a presigned R2 PUT URL for one file and records a pending upload owned by the caller.
  * The declared type/size are checked here; the real object is re-checked when it is attached.
+ * Server routes pass SERVER_ROUTE_SECRET for generated images, which are already paid for with a
+ * message credit, so they skip the per-user upload rate limit.
  */
 export const generateUploadUrl = mutation({
-  args: { contentType: v.string(), size: v.number() },
+  args: { contentType: v.string(), size: v.number(), serverSecret: v.optional(v.string()) },
   returns: v.object({ key: v.string(), url: v.string() }),
   handler: async (ctx, args) => {
     const userId = await requireRegisteredUser(ctx);
@@ -144,7 +169,11 @@ export const generateUploadUrl = mutation({
     if (policyError) {
       throw new ConvexError(policyError);
     }
-    await rateLimiter.limit(ctx, "fileUpload", { key: userId, throws: true });
+    if (args.serverSecret === undefined) {
+      await rateLimiter.limit(ctx, "fileUpload", { key: userId, throws: true });
+    } else {
+      assertServerSecret(args.serverSecret);
+    }
 
     const upload = await r2.generateUploadUrl();
     await ctx.db.insert("chat_attachments", { userId, key: upload.key });
@@ -177,28 +206,33 @@ export const internalSave = internalMutation({
       throw new ConvexError(ERROR_CODES.UPLOAD_FAILED);
     }
 
-    // Missing metadata fields fail the policy check below.
-    const file = { type: meta.contentType ?? "", size: meta.size ?? -1 };
-    const policyError =
-      getUploadPolicyError(file) ??
-      (args.isGenerated && !file.type.startsWith("image/")
-        ? ERROR_CODES.UNSUPPORTED_FILE_TYPE
-        : null);
+    const policyError = getStoredObjectPolicyError(meta, args.isGenerated);
     if (policyError) {
       await r2.deleteObject(ctx, args.key);
       await ctx.db.delete("chat_attachments", row._id);
       return { status: "rejected", error: policyError };
     }
 
+    const fileType = meta.contentType ?? "";
     const saved = {
       chatId: args.chatId,
-      fileName: sanitizeAndValidateFileName(args.fileName ?? defaultGeneratedFileName(file.type)),
-      fileType: file.type,
-      fileSize: file.size,
+      fileName: sanitizeAndValidateFileName(args.fileName ?? defaultGeneratedFileName(fileType)),
+      fileType,
+      fileSize: meta.size ?? 0,
       url: getPublicUrl(args.key),
       isGenerated: args.isGenerated || undefined,
     };
     await ctx.db.patch("chat_attachments", row._id, saved);
+
+    // The upload URL (issued with the row) may still be live, so the object could be replaced
+    // after this check. Check it once more after the URL expires.
+    const recheckAt = row._creationTime + UPLOAD_URL_LIFETIME_MS + RECHECK_MARGIN_MS;
+    if (recheckAt > Date.now()) {
+      await ctx.scheduler.runAt(recheckAt, internal.files.recheckAttachment, {
+        attachmentId: row._id,
+        key: args.key,
+      });
+    }
     return { status: "saved", attachment: { ...row, ...saved } };
   },
 });
@@ -326,6 +360,45 @@ export const cleanupPendingUploads = internalMutation({
     }
     if (expired.length === PENDING_CLEANUP_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.files.cleanupPendingUploads, {});
+    }
+    return null;
+  },
+});
+
+/**
+ * Re-syncs an attachment's R2 metadata after its upload URL expired (scheduled by internalSave),
+ * catching objects replaced with a policy-breaking file after they were attached.
+ */
+export const recheckAttachment = internalAction({
+  args: { attachmentId: v.id("chat_attachments"), key: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      await r2.syncMetadata(ctx, args.key);
+    } catch (error) {
+      // Leave the attachment as saved; the object may already be deleted with its chat.
+      console.error("R2 metadata re-check failed", { key: args.key, error });
+      return null;
+    }
+    await ctx.runMutation(internal.files.enforceAttachmentPolicy, args);
+    return null;
+  },
+});
+
+/** Deletes an attachment and its object when its re-synced R2 metadata breaks the upload policy. */
+export const enforceAttachmentPolicy = internalMutation({
+  args: { attachmentId: v.id("chat_attachments"), key: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get("chat_attachments", args.attachmentId);
+    const meta = row?.key === args.key ? await r2.getMetadata(ctx, args.key) : null;
+    if (!(row && meta)) {
+      return null;
+    }
+    if (getStoredObjectPolicyError(meta, row.isGenerated === true)) {
+      console.warn("Deleting attachment replaced after upload", { key: args.key });
+      await r2.deleteObject(ctx, args.key);
+      await ctx.db.delete("chat_attachments", row._id);
     }
     return null;
   },

@@ -4,6 +4,7 @@ import { UPLOAD_MAX_BYTES } from "../../src/lib/config/upload";
 import {
   cleanupPendingUploads,
   deleteAttachments,
+  enforceAttachmentPolicy,
   generateUploadUrl,
   getAttachmentsForUser,
   internalSave,
@@ -49,6 +50,8 @@ vi.mock("../_generated/api", () => ({
       checkAttachable: "files:checkAttachable",
       internalSave: "files:internalSave",
       cleanupPendingUploads: "files:cleanupPendingUploads",
+      recheckAttachment: "files:recheckAttachment",
+      enforceAttachmentPolicy: "files:enforceAttachmentPolicy",
     },
   },
 }));
@@ -57,6 +60,7 @@ vi.mock("../_generated/server", () => {
   const handlerOf = (def: { handler: unknown }) => def.handler;
   return {
     action: handlerOf,
+    internalAction: handlerOf,
     internalMutation: handlerOf,
     internalQuery: handlerOf,
     mutation: handlerOf,
@@ -130,7 +134,10 @@ function fakeCtx(seed: Row[]) {
   const runAfter = vi.fn<(delay: number, ref: string, args: object) => Promise<void>>(
     async () => undefined,
   );
-  return { db, scheduler: { runAfter } };
+  const runAt = vi.fn<(timestamp: number, ref: string, args: object) => Promise<void>>(
+    async () => undefined,
+  );
+  return { db, scheduler: { runAfter, runAt } };
 }
 
 const pending = (key: string, extra: Partial<Row> = {}): Row => ({
@@ -149,6 +156,7 @@ async function expectConvexError(promise: Promise<unknown>, code: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   vi.spyOn(Date, "now").mockReturnValue(NOW);
   mocks.getAuthUserId.mockResolvedValue(USER);
   process.env.R2_PUBLIC_URL_BASE = "https://files.example/";
@@ -164,6 +172,29 @@ describe("generateUploadUrl", () => {
     const inserted = [...ctx.db.rows.values()].find((r) => r.key === "new-key");
     expect(inserted).toMatchObject({ userId: USER });
     expect(inserted?.chatId).toBeUndefined();
+  });
+
+  it("skips the upload rate limit for server routes holding the secret", async () => {
+    vi.stubEnv("SERVER_ROUTE_SECRET", "route-secret");
+    const ctx = fakeCtx([]);
+    const result = await run(generateUploadUrl)(ctx, {
+      contentType: "image/png",
+      size: 1024,
+      serverSecret: "route-secret",
+    });
+
+    expect(result).toEqual({ key: "new-key", url: "https://r2.example/new-key?signed" });
+    expect(mocks.rateLimit).not.toHaveBeenCalled();
+  });
+
+  it("rejects a wrong server secret without issuing a URL", async () => {
+    vi.stubEnv("SERVER_ROUTE_SECRET", "route-secret");
+    const ctx = fakeCtx([]);
+    await expectConvexError(
+      run(generateUploadUrl)(ctx, { contentType: "image/png", size: 1024, serverSecret: "guess" }),
+      "UNAUTHORIZED",
+    );
+    expect(mocks.generateUploadUrl).not.toHaveBeenCalled();
   });
 
   it("rejects anonymous users before issuing anything", async () => {
@@ -188,6 +219,28 @@ describe("generateUploadUrl", () => {
 
 describe("internalSave", () => {
   const args = { chatId: CHAT, key: "k1", fileName: "photo.png", isGenerated: false };
+
+  it("re-checks the object once its upload URL has expired", async () => {
+    const ctx = fakeCtx([pending("k1")]);
+    mocks.getMetadata.mockResolvedValue({ contentType: "image/png", size: 2048 });
+
+    await run(internalSave)(ctx, args);
+
+    expect(ctx.scheduler.runAt).toHaveBeenCalledWith(
+      NOW + 16 * 60 * 1000,
+      "files:recheckAttachment",
+      { attachmentId: "chat_attachments:k1", key: "k1" },
+    );
+  });
+
+  it("skips the re-check when the upload URL had already expired", async () => {
+    const ctx = fakeCtx([pending("k1", { _creationTime: NOW - 20 * 60 * 1000 })]);
+    mocks.getMetadata.mockResolvedValue({ contentType: "image/png", size: 2048 });
+
+    await run(internalSave)(ctx, args);
+
+    expect(ctx.scheduler.runAt).not.toHaveBeenCalled();
+  });
 
   it("attaches the upload using the real R2 metadata and a URL built from the key", async () => {
     const ctx = fakeCtx([pending("k1")]);
@@ -344,5 +397,49 @@ describe("cleanupPendingUploads", () => {
     await run(cleanupPendingUploads)(ctx, {});
 
     expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(0, "files:cleanupPendingUploads", {});
+  });
+});
+
+describe("enforceAttachmentPolicy", () => {
+  const saved = (extra: Partial<Row> = {}) =>
+    pending("k1", { chatId: CHAT, fileType: "image/png", fileSize: 2048, ...extra });
+  const args = { attachmentId: "chat_attachments:k1", key: "k1" };
+
+  it("deletes an attachment whose object was replaced with a disallowed file", async () => {
+    const ctx = fakeCtx([saved()]);
+    mocks.getMetadata.mockResolvedValue({ contentType: "text/html", size: 100 });
+
+    await run(enforceAttachmentPolicy)(ctx, args);
+
+    expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "k1");
+    expect(ctx.db.rows.has("chat_attachments:k1")).toBe(false);
+  });
+
+  it("keeps an attachment whose object still passes the policy", async () => {
+    const ctx = fakeCtx([saved()]);
+    mocks.getMetadata.mockResolvedValue({ contentType: "image/png", size: 2048 });
+
+    await run(enforceAttachmentPolicy)(ctx, args);
+
+    expect(mocks.deleteObject).not.toHaveBeenCalled();
+    expect(ctx.db.rows.has("chat_attachments:k1")).toBe(true);
+  });
+
+  it("holds generated images to image types", async () => {
+    const ctx = fakeCtx([saved({ isGenerated: true })]);
+    mocks.getMetadata.mockResolvedValue({ contentType: "application/pdf", size: 2048 });
+
+    await run(enforceAttachmentPolicy)(ctx, args);
+
+    expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "k1");
+  });
+
+  it("does nothing when the attachment is already gone", async () => {
+    const ctx = fakeCtx([]);
+    mocks.getMetadata.mockResolvedValue({ contentType: "text/html", size: 100 });
+
+    await run(enforceAttachmentPolicy)(ctx, args);
+
+    expect(mocks.deleteObject).not.toHaveBeenCalled();
   });
 });
