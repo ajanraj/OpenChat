@@ -4,13 +4,15 @@ import { ConvexError } from "convex/values";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ERROR_CODES } from "../../src/lib/error-codes";
 import type { Id } from "../_generated/dataModel";
-import { cancelDeletedUserSubscriptions, deleteAccount, purgeDeletedUserData } from "../users";
+import { revokeDeletedUserAccess } from "../account_deletion";
+import { deleteAccount, purgeDeletedUserData } from "../users";
 import { createFakeCtx, createFakeDb, type FakeCtx, type FakeDb } from "./fake_db.testutil";
 
 const mocks = vi.hoisted(() => ({
   cancelBillableSubscriptions: vi.fn<(ctx: unknown, userId: string) => Promise<void>>(
     async () => undefined,
   ),
+  disconnectAccount: vi.fn<(userId: string) => Promise<void>>(async () => undefined),
 }));
 
 // Keep the real authTables, which the schema (and so the fake db) needs
@@ -31,6 +33,10 @@ vi.mock("../_generated/server", () => ({
 vi.mock("../stripe", () => ({
   cancelBillableSubscriptions: mocks.cancelBillableSubscriptions,
   hasActivePremium: vi.fn<() => Promise<boolean>>(async () => false),
+}));
+
+vi.mock("../../src/lib/composio-server", () => ({
+  disconnectAccount: mocks.disconnectAccount,
 }));
 
 vi.mock("../rateLimiter", () => ({
@@ -94,7 +100,7 @@ describe("deleteAccount", () => {
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
   });
 
-  it("deletes sign-in data and the user now, then schedules the purge and cancellation", async () => {
+  it("deletes sign-in data and the user now, then schedules the purge and revocation", async () => {
     const db = createFakeDb();
     const userId = seedSignedInUser(db);
     const otherUserId = seedSignedInUser(db);
@@ -112,13 +118,13 @@ describe("deleteAccount", () => {
     expect(db.all("chats").map((c) => c._id)).toEqual([chatId]);
     expect(scheduled(ctx)).toEqual([
       [0, "users:purgeDeletedUserData", { userId }],
-      [0, "users:cancelDeletedUserSubscriptions", { userId }],
+      [0, "account_deletion:revokeDeletedUserAccess", { userId }],
     ]);
   });
 });
 
 describe("purgeDeletedUserData", () => {
-  it("reschedules itself until everything is deleted", async () => {
+  it("reschedules itself until everything is deleted, then once more after tokens expire", async () => {
     const db = createFakeDb();
     const userId = "users:deleted" as Id<"users">;
     const chatId = db.seed("chats", { userId, title: "Big chat" });
@@ -128,28 +134,62 @@ describe("purgeDeletedUserData", () => {
 
     const firstRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(firstRun, { userId });
-    expect(scheduled(firstRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+    expect(scheduled(firstRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId, final: undefined }],
+    ]);
 
     const secondRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(secondRun, { userId });
-    expect(secondRun.scheduler.runAfter).not.toHaveBeenCalled();
     expect(db.all("messages")).toEqual([]);
     expect(db.all("chats")).toEqual([]);
+    expect(scheduled(secondRun)).toEqual([
+      [65 * 60 * 1000, "users:purgeDeletedUserData", { userId, final: true }],
+    ]);
+
+    // A chat written afterwards with a still-valid token goes in the final run
+    db.seed("chats", { userId, title: "Late chat" });
+    const finalRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(finalRun, { userId, final: true });
+    expect(db.all("chats")).toEqual([]);
+    expect(finalRun.scheduler.runAfter).not.toHaveBeenCalled();
   });
 });
 
-describe("cancelDeletedUserSubscriptions", () => {
+describe("revokeDeletedUserAccess", () => {
   const userId = "users:deleted" as Id<"users">;
 
-  it("retries a failed cancellation with backoff", async () => {
+  it("cancels subscriptions and deletes every Composio account of the user", async () => {
+    const ctx = createFakeCtx(createFakeDb());
+
+    await asHandler(revokeDeletedUserAccess)(ctx, { userId });
+
+    expect(mocks.cancelBillableSubscriptions).toHaveBeenCalledWith(ctx, userId);
+    expect(mocks.disconnectAccount).toHaveBeenCalledWith(userId);
+    expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
+  });
+
+  it("still revokes Composio when Stripe fails, then retries with backoff", async () => {
     mocks.cancelBillableSubscriptions.mockRejectedValueOnce(new Error("Stripe down"));
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const ctx = createFakeCtx(createFakeDb());
 
-    await asHandler(cancelDeletedUserSubscriptions)(ctx, { userId, attempt: 2 });
+    await asHandler(revokeDeletedUserAccess)(ctx, { userId, attempt: 2 });
+
+    expect(mocks.disconnectAccount).toHaveBeenCalledWith(userId);
+    expect(scheduled(ctx)).toEqual([
+      [60_000, "account_deletion:revokeDeletedUserAccess", { userId, attempt: 3 }],
+    ]);
+  });
+
+  it("retries when only Composio fails", async () => {
+    mocks.disconnectAccount.mockRejectedValueOnce(new Error("Composio down"));
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const ctx = createFakeCtx(createFakeDb());
+
+    await asHandler(revokeDeletedUserAccess)(ctx, { userId });
 
     expect(scheduled(ctx)).toEqual([
-      [60_000, "users:cancelDeletedUserSubscriptions", { userId, attempt: 3 }],
+      [30_000, "account_deletion:revokeDeletedUserAccess", { userId, attempt: 2 }],
     ]);
   });
 
@@ -158,19 +198,10 @@ describe("cancelDeletedUserSubscriptions", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const ctx = createFakeCtx(createFakeDb());
 
-    await expect(
-      asHandler(cancelDeletedUserSubscriptions)(ctx, { userId, attempt: 5 }),
-    ).rejects.toThrow("Stripe down");
+    await expect(asHandler(revokeDeletedUserAccess)(ctx, { userId, attempt: 5 })).rejects.toThrow(
+      "Stripe down",
+    );
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining(userId), expect.any(Error));
-  });
-
-  it("does not reschedule after a successful cancellation", async () => {
-    const ctx = createFakeCtx(createFakeDb());
-
-    await asHandler(cancelDeletedUserSubscriptions)(ctx, { userId });
-
-    expect(mocks.cancelBillableSubscriptions).toHaveBeenCalledWith(ctx, userId);
-    expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
   });
 });

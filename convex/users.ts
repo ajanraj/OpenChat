@@ -4,7 +4,6 @@ import { ERROR_CODES } from "../src/lib/error-codes";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
-  internalAction,
   internalMutation,
   internalQuery,
   mutation,
@@ -14,7 +13,7 @@ import {
 import { assertServerSecret, ensureAuthenticated, getCurrentUserOrNull } from "./lib/auth_helper";
 import { deleteAuthData, purgeUserDataBatch } from "./lib/cleanup_helper";
 import * as credits from "./lib/credits";
-import { cancelBillableSubscriptions, hasActivePremium } from "./stripe";
+import { hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
 import { User } from "./schema/user";
 
@@ -244,9 +243,9 @@ export const getRateLimitStatus = query({
 
 /**
  * Deletes the signed-in account. Sign-in data and the user record go right away; everything
- * else is purged in the background (purgeDeletedUserData) and any subscription that can still
- * bill is canceled immediately (cancelDeletedUserSubscriptions). Stripe billing records are
- * kept. Calling it again after the user is gone is a no-op.
+ * else is purged in the background (purgeDeletedUserData), and subscriptions that can still bill
+ * and Composio connected accounts are revoked (account_deletion.revokeDeletedUserAccess). Stripe
+ * billing records are kept. Calling it again after the user is gone is a no-op.
  */
 export const deleteAccount = mutation({
   args: {},
@@ -263,56 +262,31 @@ export const deleteAccount = mutation({
     await deleteAuthData(ctx, userId);
     await ctx.db.delete("users", userId);
     await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
-    await ctx.scheduler.runAfter(0, internal.users.cancelDeletedUserSubscriptions, { userId });
+    await ctx.scheduler.runAfter(0, internal.account_deletion.revokeDeletedUserAccess, { userId });
     return null;
   },
 });
+
+// A session token issued before the deletion stays valid for Convex Auth's default JWT lifetime
+// (1 hour) and can still write rows, so the purge runs once more after it expires.
+const FINAL_PURGE_DELAY_MS = 65 * 60 * 1000;
 
 /**
  * Purges a deleted user's data one budget-bounded batch per run, rescheduling itself until
- * nothing is left. If a run throws, re-run it with the same userId; it resumes where it stopped.
+ * nothing is left, then once more (`final`) after the last session token expired. If a run
+ * throws, re-run it with the same args; it resumes where it stopped.
  */
 export const purgeDeletedUserData = internalMutation({
-  args: { userId: v.id("users") },
+  args: { userId: v.id("users"), final: v.optional(v.boolean()) },
   returns: v.null(),
-  handler: async (ctx, { userId }): Promise<null> => {
+  handler: async (ctx, { userId, final }): Promise<null> => {
     if (!(await purgeUserDataBatch(ctx, userId))) {
-      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
-    }
-    return null;
-  },
-});
-
-const SUBSCRIPTION_CANCEL_MAX_ATTEMPTS = 5;
-const SUBSCRIPTION_CANCEL_RETRY_BASE_MS = 30_000;
-
-/**
- * Cancels a deleted user's billable Stripe subscriptions. A failure would keep billing the
- * user, so it retries with exponential backoff before giving up with an error log.
- */
-export const cancelDeletedUserSubscriptions = internalAction({
-  args: { userId: v.id("users"), attempt: v.optional(v.number()) },
-  returns: v.null(),
-  handler: async (ctx, { userId, attempt = 1 }): Promise<null> => {
-    try {
-      await cancelBillableSubscriptions(ctx, userId);
-    } catch (error) {
-      if (attempt >= SUBSCRIPTION_CANCEL_MAX_ATTEMPTS) {
-        console.error(
-          `Giving up canceling Stripe subscriptions of deleted user ${userId} after ${attempt} attempts; cancel them in the Stripe dashboard:`,
-          error,
-        );
-        throw error;
-      }
-      console.warn(
-        `Canceling Stripe subscriptions of deleted user ${userId} failed (attempt ${attempt}); retrying:`,
-        error,
-      );
-      await ctx.scheduler.runAfter(
-        SUBSCRIPTION_CANCEL_RETRY_BASE_MS * 2 ** (attempt - 1),
-        internal.users.cancelDeletedUserSubscriptions,
-        { userId, attempt: attempt + 1 },
-      );
+      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId, final });
+    } else if (!final) {
+      await ctx.scheduler.runAfter(FINAL_PURGE_DELAY_MS, internal.users.purgeDeletedUserData, {
+        userId,
+        final: true,
+      });
     }
     return null;
   },

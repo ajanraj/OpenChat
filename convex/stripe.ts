@@ -86,9 +86,8 @@ const ENDED_STATUSES = new Set(["canceled", "incomplete_expired"]);
 
 /**
  * Immediately cancels every subscription of the user that can still bill, and stores the new
- * state. Used on account deletion; the Stripe and billing records themselves are kept. The
- * idempotency key lets a retry repeat a cancel that already went through without Stripe
- * rejecting it as already canceled.
+ * state. Used on account deletion; the Stripe and billing records themselves are kept. Safe to
+ * retry; throws an AggregateError if any subscription failed.
  */
 export async function cancelBillableSubscriptions(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
@@ -102,11 +101,23 @@ export async function cancelBillableSubscriptions(
     return;
   }
   const stripe = stripeApi();
+  const failures: unknown[] = [];
+  // Every subscription is attempted. Stripe's live status decides whether to cancel, so a retry
+  // after a failed sync doesn't re-cancel an already canceled subscription (cancel is a DELETE,
+  // which ignores idempotency keys).
   for (const { stripeSubscriptionId } of billable) {
-    await stripe.subscriptions.cancel(stripeSubscriptionId, undefined, {
-      idempotencyKey: `account-deletion-cancel-${stripeSubscriptionId}`,
-    });
-    await syncSubscriptionFromStripe(ctx, stripe, stripeSubscriptionId);
+    try {
+      const live = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+      if (!ENDED_STATUSES.has(live.status)) {
+        await stripe.subscriptions.cancel(stripeSubscriptionId);
+      }
+      await syncSubscriptionFromStripe(ctx, stripe, stripeSubscriptionId);
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length > 0) {
+    throw new AggregateError(failures, `${failures.length} subscription(s) not canceled`);
   }
 }
 
