@@ -1,4 +1,4 @@
-import { ConvexError } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import { ERROR_CODES, type ErrorCode } from "../../src/lib/error-codes";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -15,14 +15,18 @@ import { hasActivePremium } from "../stripe";
  * - non-premium user: anonymousDaily or authenticatedDaily, plus standardMonthly
  *
  * Charge with consumeMessageCredit when a request starts and refund with
- * refundMessageCredit only when the generation itself fails.
+ * refundMessageCredit only when the generation itself fails, passing back the bucket
+ * names the charge returned.
  */
 
-export type CreditBucketName =
-  | "anonymousDaily"
-  | "authenticatedDaily"
-  | "standardMonthly"
-  | "premiumMonthly";
+export const creditBucketValidator = v.union(
+  v.literal("anonymousDaily"),
+  v.literal("authenticatedDaily"),
+  v.literal("standardMonthly"),
+  v.literal("premiumMonthly"),
+);
+
+export type CreditBucketName = Infer<typeof creditBucketValidator>;
 
 interface CreditBucket {
   name: CreditBucketName;
@@ -98,8 +102,9 @@ export async function assertMessageCreditAvailable(
 }
 
 /**
- * Charges one message credit, throwing the same errors as assertMessageCreditAvailable
- * when the user is out of credits. Every bucket is checked before any is charged, so a
+ * Charges one message credit and returns the names of the buckets it was drawn from
+ * (the refund receipt), throwing the same errors as assertMessageCreditAvailable when
+ * the user is out of credits. Every bucket is checked before any is charged, so a
  * caller that catches the error never keeps a partial charge. The writes join the
  * calling mutation's transaction, so concurrent requests serialize on the bucket
  * documents and cannot spend the same credit twice.
@@ -108,27 +113,28 @@ export async function consumeMessageCredit(
   ctx: MutationCtx,
   userId: Id<"users">,
   options: MessageCreditOptions = {},
-): Promise<void> {
+): Promise<CreditBucketName[]> {
   const buckets = await getMessageCreditBuckets(ctx, userId, options);
   await assertBucketsHaveCredit(ctx, userId, buckets);
   for (const bucket of buckets) {
     await rateLimiter.limit(ctx, bucket.name, { key: userId, throws: true });
   }
+  return buckets.map((bucket) => bucket.name);
 }
 
 /**
- * Returns the credit charged by consumeMessageCredit. Call it only when the generation
- * itself failed (provider or server error), never for user aborts or failed saves.
+ * Returns a credit charged by consumeMessageCredit to exactly the buckets it returned,
+ * whatever the user's subscription is now. Call it only when the generation itself
+ * failed (provider or server error), never for user aborts or failed saves.
  * A negative count adds a token back; the limiter caps values at capacity whenever it
  * reads them, so a refund that lands after the window reset cannot exceed the allowance.
  */
 export async function refundMessageCredit(
   ctx: MutationCtx,
   userId: Id<"users">,
-  { usesPremiumCredits }: Pick<MessageCreditOptions, "usesPremiumCredits"> = {},
+  buckets: CreditBucketName[],
 ): Promise<void> {
-  const buckets = await getMessageCreditBuckets(ctx, userId, { usesPremiumCredits });
-  for (const bucket of buckets) {
-    await rateLimiter.limit(ctx, bucket.name, { key: userId, count: -1 });
+  for (const name of new Set(buckets)) {
+    await rateLimiter.limit(ctx, name, { key: userId, count: -1 });
   }
 }

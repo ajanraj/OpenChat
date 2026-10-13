@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import type { CreditBucketName } from "@/convex/lib/credits";
 import { getServerRouteSecret } from "@/lib/middleware/auth";
 
 type CreditClient = Pick<ConvexHttpClient, "mutation">;
@@ -12,29 +13,30 @@ export type MessageCreditTracker = ReturnType<typeof createMessageCreditTracker>
  *
  * charge() consumes a credit atomically before generating and throws the
  * DAILY/MONTHLY/PREMIUM_LIMIT_REACHED ConvexError when the user is out of credits.
- * refund() returns the outstanding charge at most once, and only while the client is
- * still connected: call it when the generation itself fails. User aborts and failed
- * saves keep the charge, otherwise deleting a chat mid-stream would make replies free.
+ * refund() returns the outstanding charge at most once, to the buckets it was drawn
+ * from, and only while the client is still connected: call it when the generation
+ * itself fails. User aborts and failed saves keep the charge, otherwise deleting a chat
+ * mid-stream would make replies free.
  */
 export function createMessageCreditTracker(client: CreditClient, signal: AbortSignal) {
-  let charged: { usesPremiumCredits: boolean } | null = null;
+  // Buckets the outstanding charge was drawn from
+  let charged: CreditBucketName[] | null = null;
 
   return {
     async charge(usesPremiumCredits: boolean): Promise<void> {
-      await client.mutation(api.users.consumeMessageCredit, { usesPremiumCredits });
-      charged = { usesPremiumCredits };
+      charged = await client.mutation(api.users.consumeMessageCredit, { usesPremiumCredits });
     },
 
     async refund(): Promise<void> {
       if (!charged || signal.aborted) {
         return;
       }
-      const { usesPremiumCredits } = charged;
+      const buckets = charged;
       charged = null;
       try {
         await client.mutation(api.users.refundMessageCredit, {
           serverSecret: getServerRouteSecret(),
-          usesPremiumCredits,
+          buckets,
         });
       } catch (error) {
         console.error("Failed to refund message credit:", error);

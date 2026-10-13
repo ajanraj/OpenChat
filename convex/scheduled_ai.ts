@@ -22,6 +22,7 @@ import { createMeteredSearchTool } from "../src/lib/tools/search-credit-metering
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
+import type { CreditBucketName } from "./lib/credits";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -63,8 +64,9 @@ export const executeTask = internalAction({
 
     const startTime = Date.now();
     let chatId: Id<"chats"> | undefined;
-    // A charged credit is refunded only if the run fails before the model finishes generating
-    let chargedCredit: { usesPremiumCredits: boolean } | null = null;
+    // Buckets of the charged credit; refunded only if the run fails before the model finishes
+    // generating
+    let chargedCredit: CreditBucketName[] | null = null;
     let generated = false;
     // Every path after a successful claim must end here (or the claim expires as "timeout")
     const finish = async (
@@ -117,8 +119,10 @@ export const executeTask = internalAction({
         if (selectedModel.skipRateLimit) {
           await ctx.runMutation(internal.users.assertNotOverLimitInternal, creditArgs);
         } else {
-          await ctx.runMutation(internal.users.consumeMessageCreditInternal, creditArgs);
-          chargedCredit = { usesPremiumCredits: creditArgs.usesPremiumCredits };
+          chargedCredit = await ctx.runMutation(
+            internal.users.consumeMessageCreditInternal,
+            creditArgs,
+          );
         }
       } catch (error) {
         if (
@@ -398,7 +402,7 @@ export const executeTask = internalAction({
         await ctx
           .runMutation(internal.users.refundMessageCreditInternal, {
             userId: task.userId,
-            ...chargedCredit,
+            buckets: chargedCredit,
           })
           .catch((refundError: unknown) => {
             console.error("Failed to refund scheduled task credit:", refundError);

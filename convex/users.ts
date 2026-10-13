@@ -147,32 +147,33 @@ export const assertNotOverLimit = mutation({
   },
 });
 
-// Charges one message credit when /api/chat starts a platform-key generation.
-// Throws DAILY/MONTHLY/PREMIUM_LIMIT_REACHED when the user is out of credits.
+// Charges one message credit when /api/chat starts a platform-key generation and returns
+// the charged bucket names for a refund. Throws DAILY/MONTHLY/PREMIUM_LIMIT_REACHED when
+// the user is out of credits.
 export const consumeMessageCredit = mutation({
   args: {
     usesPremiumCredits: v.optional(v.boolean()),
   },
-  returns: v.null(),
+  returns: v.array(credits.creditBucketValidator),
   handler: async (ctx, { usesPremiumCredits }) => {
     const userId = await ensureAuthenticated(ctx);
-    await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
-    return null;
+    return await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
   },
 });
 
-// Refunds a consumeMessageCredit charge when the generation itself failed.
-// Server routes only: without SERVER_ROUTE_SECRET a user could mint credits for themselves.
+// Refunds a consumeMessageCredit charge (the buckets it returned) when the generation itself
+// failed. Server routes only: without SERVER_ROUTE_SECRET a user could mint credits for
+// themselves.
 export const refundMessageCredit = mutation({
   args: {
     serverSecret: v.string(),
-    usesPremiumCredits: v.optional(v.boolean()),
+    buckets: v.array(credits.creditBucketValidator),
   },
   returns: v.null(),
-  handler: async (ctx, { serverSecret, usesPremiumCredits }) => {
+  handler: async (ctx, { serverSecret, buckets }) => {
     assertServerSecret(serverSecret);
     const userId = await ensureAuthenticated(ctx);
-    await credits.refundMessageCredit(ctx, userId, { usesPremiumCredits });
+    await credits.refundMessageCredit(ctx, userId, buckets);
     return null;
   },
 });
@@ -307,29 +308,29 @@ export const getUser = internalQuery({
 });
 
 // Charges one message credit for a scheduled run before it generates (internal variant of
-// consumeMessageCredit). Also enforces subscription access with requiresPremium.
+// consumeMessageCredit) and returns the charged bucket names. Also enforces subscription
+// access with requiresPremium.
 export const consumeMessageCreditInternal = internalMutation({
   args: {
     userId: v.id("users"),
     usesPremiumCredits: v.optional(v.boolean()),
     requiresPremium: v.optional(v.boolean()),
   },
-  returns: v.null(),
-  handler: async (ctx, { userId, ...options }) => {
-    await credits.consumeMessageCredit(ctx, userId, options);
-    return null;
-  },
+  returns: v.array(credits.creditBucketValidator),
+  handler: async (ctx, { userId, ...options }) =>
+    await credits.consumeMessageCredit(ctx, userId, options),
 });
 
-// Refunds a consumeMessageCreditInternal charge when the scheduled generation failed.
+// Refunds a consumeMessageCreditInternal charge (the buckets it returned) when the scheduled
+// generation failed.
 export const refundMessageCreditInternal = internalMutation({
   args: {
     userId: v.id("users"),
-    usesPremiumCredits: v.optional(v.boolean()),
+    buckets: v.array(credits.creditBucketValidator),
   },
   returns: v.null(),
-  handler: async (ctx, { userId, usesPremiumCredits }) => {
-    await credits.refundMessageCredit(ctx, userId, { usesPremiumCredits });
+  handler: async (ctx, { userId, buckets }) => {
+    await credits.refundMessageCredit(ctx, userId, buckets);
     return null;
   },
 });

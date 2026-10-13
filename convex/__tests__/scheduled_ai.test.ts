@@ -54,6 +54,7 @@ type FunctionRef = Parameters<typeof getFunctionName>[0];
 
 const TASK_ID = "scheduled_tasks:task1";
 const USER_ID = "users:user1";
+const CHARGED_BUCKETS = ["authenticatedDaily", "standardMonthly"];
 
 /** ctx whose runMutation/runQuery answer by function name; `overrides` replaces a mutation. */
 function createCtx(overrides: Record<string, () => Promise<unknown>> = {}) {
@@ -65,6 +66,7 @@ function createCtx(overrides: Record<string, () => Promise<unknown>> = {}) {
       prompt: "Summarise my day",
       timezone: "UTC",
     }),
+    "users:consumeMessageCreditInternal": async () => CHARGED_BUCKETS,
     "chats:createChatInternal": async () => ({ chatId: "chats:chat1" }),
     "messages:sendUserMessageToChatInternal": async () => ({ messageId: "messages:m1" }),
     ...overrides,
@@ -137,14 +139,14 @@ describe("executeTask credits", () => {
     expect(mocks.generate).not.toHaveBeenCalled();
   });
 
-  it("refunds the credit when generation fails", async () => {
+  it("refunds the charged buckets when generation fails", async () => {
     mocks.generate.mockRejectedValueOnce(new Error("Provider down"));
     const ctx = createCtx();
 
     await run(ctx);
 
     expect(called(ctx, "users:refundMessageCreditInternal")).toEqual([
-      ["users:refundMessageCreditInternal", { userId: USER_ID, usesPremiumCredits: false }],
+      ["users:refundMessageCreditInternal", { userId: USER_ID, buckets: CHARGED_BUCKETS }],
     ]);
     expect(outcome(ctx)).toBe("failure");
   });
