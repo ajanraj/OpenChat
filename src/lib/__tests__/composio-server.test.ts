@@ -190,6 +190,17 @@ describe("composio-server", () => {
       expect(mockAccountDelete).not.toHaveBeenCalled();
     });
 
+    it("disconnects every toolkit when none is given (account deletion)", async () => {
+      mockList.mockResolvedValue({
+        items: [account("ca_gmail", "gmail"), account("ca_notion", "notion")],
+      });
+
+      await disconnectAccount("user-123");
+
+      expect(mockList).toHaveBeenCalledWith({ userIds: ["user-123"], cursor: undefined });
+      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_gmail", "ca_notion"]);
+    });
+
     it("refuses to wait on a connection request the user does not own", async () => {
       mockList.mockResolvedValue({ items: [account("ca_mine", "gmail", "INITIATED")] });
 
@@ -222,10 +233,42 @@ describe("composio-server", () => {
       const result = await initiateConnection("user-123", "gmail", "https://app/callback");
 
       expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_stale"]);
+      // A still-active account must not make initiate throw
+      expect(mockInitiate).toHaveBeenCalledWith("user-123", expect.any(String), {
+        allowMultiple: true,
+        callbackUrl: "https://app/callback",
+      });
       expect(result).toEqual({
         redirectUrl: "https://example.com/oauth",
         connectionRequestId: "ca_new",
       });
+    });
+
+    it("replaces the user's older accounts for the toolkit once the new one is active", async () => {
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_old", "gmail"),
+          account("ca_new", "GMAIL", "INITIATED"),
+          account("ca_notion", "notion"),
+        ],
+      });
+      mockWaitForConnection.mockResolvedValue({ id: "ca_new", status: "ACTIVE" });
+
+      await waitForConnection("user-123", "ca_new", 60);
+
+      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_old"]);
+    });
+
+    it("keeps the older accounts when the new connection did not become active", async () => {
+      mockList.mockResolvedValue({
+        items: [account("ca_old", "gmail"), account("ca_new", "gmail", "INITIATED")],
+      });
+      mockWaitForConnection.mockResolvedValue({ id: "ca_new", status: "FAILED" });
+
+      const result = await waitForConnection("user-123", "ca_new", 60);
+
+      expect(result).toEqual({ connectionId: "ca_new", isConnected: false });
+      expect(mockAccountDelete).not.toHaveBeenCalled();
     });
   });
 });

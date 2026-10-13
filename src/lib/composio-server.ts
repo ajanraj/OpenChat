@@ -83,11 +83,12 @@ export const initiateConnection = async (
     console.error("Failed to cleanup existing Composio connection:", error);
   }
 
-  const connectionRequest = await composio.connectedAccounts.initiate(
-    userId,
-    authConfigId,
-    callbackUrl ? { callbackUrl } : undefined,
-  );
+  // allowMultiple: a still-active account (e.g. one whose Convex row was lost) would otherwise
+  // make initiate throw. waitForConnection removes the replaced accounts once this one is active.
+  const connectionRequest = await composio.connectedAccounts.initiate(userId, authConfigId, {
+    allowMultiple: true,
+    ...(callbackUrl ? { callbackUrl } : {}),
+  });
 
   return {
     redirectUrl: connectionRequest.redirectUrl || "",
@@ -98,7 +99,8 @@ export const initiateConnection = async (
 /**
  * Wait for one of the user's connection requests to complete (for polling).
  * Returns null when the request id does not belong to the user, so callers can
- * never observe another user's connection.
+ * never observe another user's connection. Once the new connection is active, the
+ * user's older accounts for the same toolkit are deleted (it replaces them).
  */
 export const waitForConnection = async (
   userId: string,
@@ -106,7 +108,8 @@ export const waitForConnection = async (
   timeoutSeconds = 300,
 ): Promise<{ connectionId: string; isConnected: boolean } | null> => {
   const userAccounts = await listUserConnectedAccounts(userId);
-  if (!userAccounts.some((account) => account.id === connectionRequestId)) {
+  const request = userAccounts.find((account) => account.id === connectionRequestId);
+  if (!request) {
     return null;
   }
 
@@ -116,6 +119,18 @@ export const waitForConnection = async (
   );
 
   const isConnected = connectedAccount.status === "ACTIVE";
+  if (isConnected) {
+    const toolkit = request.toolkit.slug.toLowerCase();
+    const replaced = userAccounts.filter(
+      (account) =>
+        account.id !== connectionRequestId && account.toolkit.slug.toLowerCase() === toolkit,
+    );
+    try {
+      await Promise.all(replaced.map((account) => composio.connectedAccounts.delete(account.id)));
+    } catch (error) {
+      console.error("Failed to remove replaced Composio connections:", error);
+    }
+  }
 
   return {
     connectionId: connectedAccount.id,
@@ -125,11 +140,12 @@ export const waitForConnection = async (
 
 /**
  * Disconnect a toolkit for a user (server-side only) by deleting every connected
- * account Composio holds for that user and toolkit.
+ * account Composio holds for that user and toolkit. Omit the toolkit to delete all of
+ * the user's accounts (account deletion).
  */
 export const disconnectAccount = async (
   userId: string,
-  connectorType: ConnectorType,
+  connectorType?: ConnectorType,
 ): Promise<void> => {
   const accounts = await listUserConnectedAccounts(userId, connectorType);
   await Promise.all(accounts.map((account) => composio.connectedAccounts.delete(account.id)));
