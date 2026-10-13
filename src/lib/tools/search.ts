@@ -100,16 +100,19 @@ export const createSearchTool = ({ onSearchSuccess }: SearchToolCallbacks = {}) 
           'Focus search on specific content type for more targeted results. Options: "company" (businesses/corporations), "research paper" (academic papers), "news" (current events/articles), "linkedin profile" (professional profiles), "github" (code repositories), "tweet" (twitter/X posts), "movie" (film content), "song" (music), "personal site" (blogs/portfolios), "pdf" (PDF documents), "financial report" (financial documents)',
         ),
     }),
-    execute: async ({
-      query,
-      maxResults,
-      scrapeContent,
-      includeDomains,
-      excludeDomains,
-      startPublishedDate,
-      endPublishedDate,
-      category,
-    }) => {
+    execute: async (
+      {
+        query,
+        maxResults,
+        scrapeContent,
+        includeDomains,
+        excludeDomains,
+        startPublishedDate,
+        endPublishedDate,
+        category,
+      },
+      { abortSignal },
+    ) => {
       const options: SearchOptions = {
         maxResults,
         scrapeContent,
@@ -118,6 +121,7 @@ export const createSearchTool = ({ onSearchSuccess }: SearchToolCallbacks = {}) 
         startPublishedDate,
         endPublishedDate,
         category: category,
+        signal: abortSignal,
       };
 
       try {

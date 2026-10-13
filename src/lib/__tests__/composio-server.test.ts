@@ -42,7 +42,13 @@ const {
 
   return {
     mockCreate:
-      vi.fn<(userId: string, config: ToolRouterCreateSessionConfig) => Promise<MockSession>>(),
+      vi.fn<
+        (
+          userId: string,
+          config: ToolRouterCreateSessionConfig,
+          options?: { signal?: AbortSignal },
+        ) => Promise<MockSession>
+      >(),
     mockSessionDelete: vi.fn<() => Promise<{ sessionId: string; deleted: boolean }>>(),
     mockSessionTools: vi.fn<() => Promise<Record<string, MockTool>>>(),
     mockAccountDelete: vi.fn<(connectionId: string) => Promise<void>>(),
@@ -107,15 +113,16 @@ describe("composio-server", () => {
       COMPOSIO_SEARCH_TOOLS: { description: "Search tools" },
     };
     mockSessionTools.mockResolvedValue(routerTools);
+    const { signal } = new AbortController();
 
-    const result = await getComposioTools("user-123", [" GMAIL ", "gmail", "NOTION", " "]);
+    const result = await getComposioTools("user-123", [" GMAIL ", "gmail", "NOTION", " "], signal);
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    expect(mockCreate).toHaveBeenCalledWith("user-123", {
-      toolkits: ["gmail", "notion"],
-      manageConnections: false,
-      sandbox: { enable: false },
-    });
+    expect(mockCreate).toHaveBeenCalledWith(
+      "user-123",
+      { toolkits: ["gmail", "notion"], manageConnections: false, sandbox: { enable: false } },
+      { signal },
+    );
     expect(result?.tools).toBe(routerTools);
 
     await result?.close();

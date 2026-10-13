@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import * as ai from "ai";
+import { MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import type { ComposioToolsSession } from "../composio-server";
 import {
@@ -12,7 +13,13 @@ import {
 
 const { mockGetComposioTools, mockStreamText } = vi.hoisted(() => ({
   mockGetComposioTools:
-    vi.fn<(userId: string, toolkitSlugs: string[]) => Promise<ComposioToolsSession | null>>(),
+    vi.fn<
+      (
+        userId: string,
+        toolkitSlugs: string[],
+        signal?: AbortSignal,
+      ) => Promise<ComposioToolsSession | null>
+    >(),
   mockStreamText: vi.fn<typeof ai.streamText>(),
 }));
 
@@ -120,6 +127,53 @@ describe("create-agent-tool", () => {
       ),
     ).rejects.toThrow("Stop after inspecting options");
     expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ reasoning: "high" }));
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("stops the nested agent promptly when the caller aborts", async () => {
+    const close = vi.fn<() => Promise<void>>().mockResolvedValue();
+    mockGetComposioTools.mockResolvedValue({
+      tools: {
+        TEST_TOOL: ai.tool({
+          description: "Test connector tool",
+          inputSchema: z.object({}),
+          execute: () => ({ successful: true, error: null }),
+        }),
+      },
+      close,
+    });
+    // A model that streams nothing until it is cancelled, like a stalled provider
+    const model = new MockLanguageModelV4({
+      doStream: async () => ({ stream: new ReadableStream() }),
+    });
+    const { streamText } = await vi.importActual<typeof ai>("ai");
+    mockStreamText.mockImplementation((options) => streamText({ ...options, model }));
+    const writer: ai.UIMessageStreamWriter = {
+      write: vi.fn<ai.UIMessageStreamWriter["write"]>(),
+      merge: vi.fn<ai.UIMessageStreamWriter["merge"]>(),
+      onError: undefined,
+    };
+    const agentTool = createAgentTool({
+      userId: "user-123",
+      availableToolkits: ["GMAIL"],
+      model: "test-model",
+      writer,
+    });
+
+    if (!agentTool.execute) {
+      throw new Error("Expected create-agent tool to be executable");
+    }
+
+    const controller = new AbortController();
+    const execution = agentTool.execute(
+      { tool: "GMAIL", task: "Send an email" },
+      { toolCallId: "agent-call", messages: [], context: {}, abortSignal: controller.signal },
+    );
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1));
+    controller.abort(new Error("Run deadline reached"));
+
+    await expect(execution).rejects.toThrow("Run deadline reached");
+    expect(mockGetComposioTools).toHaveBeenCalledWith("user-123", ["GMAIL"], controller.signal);
     expect(close).toHaveBeenCalledOnce();
   });
 

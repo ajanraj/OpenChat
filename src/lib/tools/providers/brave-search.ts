@@ -25,6 +25,7 @@ export class BraveSearchProvider implements SearchAdapter {
       scrapeContent = SEARCH_CONFIG.scrapeContent,
       includeDomains,
       excludeDomains,
+      signal,
     } = options;
 
     const limit = Math.min(maxResults, PROVIDER_LIMITS.brave.maxResults);
@@ -51,6 +52,7 @@ export class BraveSearchProvider implements SearchAdapter {
           Accept: "application/json",
           "X-Subscription-Token": this.apiKey,
         },
+        signal,
       });
 
       if (!response.ok) {

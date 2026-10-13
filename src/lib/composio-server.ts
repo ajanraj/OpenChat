@@ -159,11 +159,13 @@ export const disconnectAccount = async (
 };
 
 /**
- * Get Composio tools for enabled toolkits (for chat integration)
+ * Get Composio tools for enabled toolkits (for chat integration). `signal` cancels creating the
+ * session; loading and executing its tools take no signal.
  */
 export const getComposioTools = async (
   userId: string,
   toolkitSlugs: string[],
+  signal?: AbortSignal,
 ): Promise<ComposioToolsSession | null> => {
   const normalizedToolkits = normalizeToolkitSlugs(toolkitSlugs);
 
@@ -173,7 +175,9 @@ export const getComposioTools = async (
 
   try {
     // Tool Router sessions retain task memory, so each agent run needs a fresh session.
-    const session = await composio.create(userId, createSessionConfig(normalizedToolkits));
+    const session = await composio.create(userId, createSessionConfig(normalizedToolkits), {
+      signal,
+    });
     const close = async (): Promise<void> => {
       try {
         await session.delete();

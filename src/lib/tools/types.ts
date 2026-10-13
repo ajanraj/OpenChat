@@ -34,6 +34,8 @@ export interface SearchOptions {
   startPublishedDate?: string;
   endPublishedDate?: string;
   category?: ExaSearchCategory;
+  // Cancels the provider request (Brave and Tavily; exa-js takes no signal) and further fallbacks
+  signal?: AbortSignal;
 }
 
 export type SearchProvider = "exa" | "tavily" | "brave";
