@@ -476,7 +476,9 @@ export const updateTaskChatId = internalMutation({
  * `npx convex run scheduled_tasks:pauseDeadTasks`. Pauses (does not reschedule) "active" tasks
  * with no pending or in-progress run and "running" tasks whose run is stale, marking their
  * dangling "running" history rows as "timeout". Handles 100 tasks per batch and schedules
- * itself until the table is exhausted.
+ * itself until the table is exhausted. Run it at least STALE_RUN_MS (15 minutes) after deploying
+ * the new executor, once every run the old code started has finished or died; run it again if
+ * it ran sooner.
  */
 export const pauseDeadTasks = internalMutation({
   args: { cursor: v.optional(v.union(v.string(), v.null())) },

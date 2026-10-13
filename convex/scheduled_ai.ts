@@ -35,6 +35,10 @@ const PAUSING_LIMIT_ERRORS = new Set<string>([
   ERROR_CODES.PREMIUM_LIMIT_REACHED,
 ]);
 
+// Generation is aborted this long after the run starts, so a slow run still fails inside the
+// action (refunding its credit) instead of being killed at Convex's 10-minute action limit.
+const GENERATION_DEADLINE_MS = 8 * 60 * 1000;
+
 // Execute a scheduled task. Scheduled by create/update/resume and by claimTaskExecution (recurring
 // runs), and with isManualTrigger by triggerScheduledTask. Keep the args shape: jobs that are
 // already scheduled call it with { taskId } or { taskId, isManualTrigger }.
@@ -305,6 +309,7 @@ export const executeTask = internalAction({
       // Execute Agent
       const result = await agent.generate({
         messages: [...history, { role: "user" as const, content: task.prompt }],
+        timeout: Math.max(0, startTime + GENERATION_DEADLINE_MS - Date.now()),
       });
 
       generated = true;
