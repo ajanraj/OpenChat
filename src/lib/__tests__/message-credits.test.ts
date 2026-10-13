@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UIMessage } from "ai";
 import { createMessageCreditTracker, shouldRefundGeneration } from "../message-credits";
 
-vi.mock("@/lib/middleware/auth", () => ({
-  getServerRouteSecret: () => "route-secret",
-}));
+const getServerRouteSecret = vi.hoisted(() => vi.fn<() => string>(() => "route-secret"));
+
+vi.mock("@/lib/middleware/auth", () => ({ getServerRouteSecret }));
 
 type MutationCall = [FunctionReference<"mutation">, Record<string, unknown>];
 
@@ -47,6 +47,18 @@ describe("createMessageCreditTracker", () => {
       ["users:consumeMessageCredit", { usesPremiumCredits: true }],
       ["users:refundMessageCredit", { serverSecret: "route-secret", buckets: CHARGED_BUCKETS }],
     ]);
+  });
+
+  it("charges nothing when the server secret is missing, since it could not be refunded", async () => {
+    getServerRouteSecret.mockImplementationOnce(() => {
+      throw new Error("Environment variable SERVER_ROUTE_SECRET is missing.");
+    });
+    const { credits, calls } = setup();
+
+    await expect(credits.charge(false)).rejects.toThrow("SERVER_ROUTE_SECRET is missing");
+    await credits.refund();
+
+    expect(calls()).toEqual([]);
   });
 
   it("does nothing on refund when no credit was charged", async () => {

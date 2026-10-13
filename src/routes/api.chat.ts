@@ -234,7 +234,7 @@ async function handleImageGeneration({
   let generated = false;
 
   try {
-    // Read before generating so a missing secret fails (and refunds) before the paid call
+    // Needed for the upload; credits.charge() already failed the request if it were missing
     const serverSecret = getServerRouteSecret();
     // Save user message first
     if (!currentUserMsgId && client) {

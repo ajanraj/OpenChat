@@ -12,32 +12,33 @@ export type MessageCreditTracker = ReturnType<typeof createMessageCreditTracker>
  * Tracks the platform message credit of one /api/chat request.
  *
  * charge() consumes a credit atomically before generating and throws the
- * DAILY/MONTHLY/PREMIUM_LIMIT_REACHED ConvexError when the user is out of credits.
+ * DAILY/MONTHLY/PREMIUM_LIMIT_REACHED ConvexError when the user is out of credits. It reads
+ * SERVER_ROUTE_SECRET first, so a deployment missing it fails before charging a credit it
+ * could never refund.
  * refund() returns the outstanding charge at most once, to the buckets it was drawn
  * from, and only while the client is still connected: call it when the generation
  * itself fails. User aborts and failed saves keep the charge, otherwise deleting a chat
  * mid-stream would make replies free.
  */
 export function createMessageCreditTracker(client: CreditClient, signal: AbortSignal) {
-  // Buckets the outstanding charge was drawn from
-  let charged: CreditBucketName[] | null = null;
+  // The outstanding charge: the buckets it was drawn from and the secret to refund it with
+  let charged: { buckets: CreditBucketName[]; serverSecret: string } | null = null;
 
   return {
     async charge(usesPremiumCredits: boolean): Promise<void> {
-      charged = await client.mutation(api.users.consumeMessageCredit, { usesPremiumCredits });
+      const serverSecret = getServerRouteSecret();
+      const buckets = await client.mutation(api.users.consumeMessageCredit, { usesPremiumCredits });
+      charged = { buckets, serverSecret };
     },
 
     async refund(): Promise<void> {
       if (!charged || signal.aborted) {
         return;
       }
-      const buckets = charged;
+      const { buckets, serverSecret } = charged;
       charged = null;
       try {
-        await client.mutation(api.users.refundMessageCredit, {
-          serverSecret: getServerRouteSecret(),
-          buckets,
-        });
+        await client.mutation(api.users.refundMessageCredit, { serverSecret, buckets });
       } catch (error) {
         console.error("Failed to refund message credit:", error);
       }
