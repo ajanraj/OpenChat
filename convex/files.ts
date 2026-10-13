@@ -377,8 +377,11 @@ export const recheckAttachment = internalAction({
     try {
       await r2.syncMetadata(ctx, key);
     } catch (error) {
-      // An object already deleted with its chat fails too (that deletion schedules its own
-      // enforceAttachmentPolicy run); retrying it only costs a few HEAD requests.
+      // Deleting the row (e.g. with its chat) deleted the object, which fails the sync, and
+      // scheduled its own enforceAttachmentPolicy run, so there is nothing left to check
+      if (!(await ctx.runQuery(internal.files.hasAttachmentWithKey, { key }))) {
+        return null;
+      }
       const retryDelay = RECHECK_RETRY_DELAYS_MS[attempt];
       if (retryDelay === undefined) {
         console.error("R2 metadata re-check failed; giving up", { key, error });
@@ -394,6 +397,17 @@ export const recheckAttachment = internalAction({
     await ctx.runMutation(internal.files.enforceAttachmentPolicy, { key });
     return null;
   },
+});
+
+/** Whether an attachment row still references the R2 object at `key`. */
+export const hasAttachmentWithKey = internalQuery({
+  args: { key: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { key }) =>
+    (await ctx.db
+      .query("chat_attachments")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first()) !== null,
 });
 
 /**

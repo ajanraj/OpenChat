@@ -53,6 +53,7 @@ vi.mock("../_generated/api", () => ({
       cleanupPendingUploads: "files:cleanupPendingUploads",
       recheckAttachment: "files:recheckAttachment",
       enforceAttachmentPolicy: "files:enforceAttachmentPolicy",
+      hasAttachmentWithKey: "files:hasAttachmentWithKey",
     },
   },
 }));
@@ -494,13 +495,27 @@ describe("recheckAttachment", () => {
     expect(runMutation).toHaveBeenCalledWith("files:enforceAttachmentPolicy", args);
   });
 
-  const failingSync = () => {
+  const failingSync = (rowExists = true) => {
     mocks.syncMetadata.mockRejectedValueOnce(new Error("R2 unavailable"));
     return {
       runMutation: vi.fn<(fn: string, args: unknown) => Promise<null>>(async () => null),
+      runQuery: vi.fn<(fn: string, args: unknown) => Promise<boolean>>(async () => rowExists),
       scheduler: { runAfter: vi.fn<(delay: number, fn: string, args: unknown) => Promise<void>>() },
     };
   };
+
+  it("stops quietly when the row was deleted meanwhile, taking its object with it", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const ctx = failingSync(false);
+
+    await run(recheckAttachment)(ctx, args);
+
+    expect(ctx.runQuery).toHaveBeenCalledWith("files:hasAttachmentWithKey", { key: "k1" });
+    expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
+    expect(ctx.runMutation).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
 
   it("retries a failed metadata sync later instead of enforcing stale metadata", async () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
