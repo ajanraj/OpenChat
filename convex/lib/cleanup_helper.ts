@@ -218,18 +218,19 @@ function createPurger(ctx: MutationCtx) {
 /**
  * Deletes one budget-bounded batch of the user's `chats`, each with its attachments and messages
  * (messages go by chat, which also covers legacy messages without a userId). Branch links are
- * cleared on chats that survive; `isDeleting` says which chats are being deleted too. Returns
- * true once `chats` is exhausted, false when the caller must run it again (a partly deleted chat
- * resumes where it stopped).
+ * cleared on chats that survive; `isDeleting` says which chats are being deleted too, or is
+ * "all" when every chat of the user goes (no links to clear). Returns true once `chats` is
+ * exhausted, false when the caller must run it again (a partly deleted chat resumes where it
+ * stopped).
  *
  * @example
- * const done = await purgeChatsBatch(ctx, userId, chats, () => true);
+ * const done = await purgeChatsBatch(ctx, userId, chats, "all");
  */
 export async function purgeChatsBatch(
   ctx: MutationCtx,
   userId: Id<"users">,
   chats: AsyncIterable<Doc<"chats">>,
-  isDeleting: (chat: Doc<"chats">) => boolean,
+  isDeleting: ((chat: Doc<"chats">) => boolean) | "all",
 ): Promise<boolean> {
   const { deleteRow, deleteAttachment } = createPurger(ctx);
   return await purgeEach(ctx, chats, async (chat) => {
@@ -247,7 +248,9 @@ export async function purgeChatsBatch(
     if (!contentDone) {
       return false;
     }
-    await removeBranchReferences(ctx, chat._id, userId, isDeleting);
+    if (isDeleting !== "all") {
+      await removeBranchReferences(ctx, chat._id, userId, isDeleting);
+    }
     await ctx.db.delete("chats", chat._id);
     return true;
   });
@@ -297,13 +300,12 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
         ctx.db.query("chat_attachments").withIndex("by_userId", (q) => q.eq("userId", userId)),
         deleteAttachment,
       ),
-    // Every chat goes, so no branch link needs clearing
     () =>
       purgeChatsBatch(
         ctx,
         userId,
         ctx.db.query("chats").withIndex("by_user", (q) => q.eq("userId", userId)),
-        () => true,
+        "all",
       ),
     () =>
       purgeEach(

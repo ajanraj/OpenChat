@@ -117,7 +117,7 @@ describe("purgeChatsBatch", () => {
         asCtx(createFakeCtx(db)),
         userId,
         each(db.all("chats") as unknown as Doc<"chats">[]),
-        () => true,
+        "all",
       );
 
     expect(await run()).toBe(false);
