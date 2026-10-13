@@ -1,3 +1,4 @@
+import type { UIMessage } from "ai";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { getServerRouteSecret } from "@/lib/middleware/auth";
@@ -40,4 +41,29 @@ export function createMessageCreditTracker(client: CreditClient, signal: AbortSi
       }
     },
   };
+}
+
+/**
+ * Whether a finished /api/chat stream should refund its credit: when no attempt streamed at all,
+ * or when the provider failed before any assistant output (text, reasoning, tool calls) reached
+ * the client. Output delivered before a later step failed keeps the charge.
+ */
+export function shouldRefundGeneration({
+  hasResult,
+  generationFailed,
+  parts,
+}: {
+  hasResult: boolean;
+  generationFailed: boolean;
+  parts: UIMessage["parts"];
+}): boolean {
+  if (!hasResult) {
+    return true;
+  }
+  const producedOutput = parts.some((part) =>
+    part.type === "text" || part.type === "reasoning"
+      ? part.text.trim().length > 0
+      : part.type !== "step-start",
+  );
+  return generationFailed && !producedOutput;
 }

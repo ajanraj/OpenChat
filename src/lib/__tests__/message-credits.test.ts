@@ -2,7 +2,8 @@ import type { ConvexHttpClient } from "convex/browser";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { ConvexError } from "convex/values";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createMessageCreditTracker } from "../message-credits";
+import type { UIMessage } from "ai";
+import { createMessageCreditTracker, shouldRefundGeneration } from "../message-credits";
 
 vi.mock("@/lib/middleware/auth", () => ({
   getServerRouteSecret: () => "route-secret",
@@ -87,6 +88,44 @@ describe("createMessageCreditTracker", () => {
     expect(consoleError).toHaveBeenCalledWith(
       "Failed to refund message credit:",
       expect.any(Error),
+    );
+  });
+});
+
+describe("shouldRefundGeneration", () => {
+  const failed = (parts: UIMessage["parts"]) =>
+    shouldRefundGeneration({ hasResult: true, generationFailed: true, parts });
+
+  it("refunds when no attempt streamed", () => {
+    expect(shouldRefundGeneration({ hasResult: false, generationFailed: false, parts: [] })).toBe(
+      true,
+    );
+  });
+
+  it("refunds a provider failure before any output", () => {
+    expect(failed([])).toBe(true);
+    expect(failed([{ type: "step-start" }, { type: "text", text: "  " }])).toBe(true);
+  });
+
+  it("keeps the charge once output reached the client", () => {
+    expect(failed([{ type: "step-start" }, { type: "text", text: "Partial answer" }])).toBe(false);
+    expect(failed([{ type: "reasoning", text: "Thinking" }])).toBe(false);
+    expect(
+      failed([
+        {
+          type: "dynamic-tool",
+          toolName: "create_agent",
+          toolCallId: "call-1",
+          state: "input-available",
+          input: {},
+        },
+      ]),
+    ).toBe(false);
+  });
+
+  it("keeps the charge for a successful generation, even if a later save fails", () => {
+    expect(shouldRefundGeneration({ hasResult: true, generationFailed: false, parts: [] })).toBe(
+      false,
     );
   });
 });

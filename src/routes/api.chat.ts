@@ -33,7 +33,11 @@ import {
   createStreamingError,
   shouldShowInConversation,
 } from "@/lib/error-utils";
-import { createMessageCreditTracker, type MessageCreditTracker } from "@/lib/message-credits";
+import {
+  createMessageCreditTracker,
+  shouldRefundGeneration,
+  type MessageCreditTracker,
+} from "@/lib/message-credits";
 import { compactMessagePartsForStorage } from "@/lib/message-parts-storage";
 import { authMiddleware, getServerRouteSecret } from "@/lib/middleware/auth";
 import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
@@ -225,10 +229,13 @@ async function handleImageGeneration({
   credits: MessageCreditTracker;
 }) {
   let currentUserMsgId: Id<"messages"> | null = userMsgId;
-  // A failed save (e.g. the chat was deleted meanwhile) keeps the charge
-  let savingAssistantMessage = false;
+  // Only a failed generation is refunded; once the image exists, later failures (upload, or the
+  // chat being deleted meanwhile) keep the charge
+  let generated = false;
 
   try {
+    // Read before generating so a missing secret fails (and refunds) before the paid call
+    const serverSecret = getServerRouteSecret();
     // Save user message first
     if (!currentUserMsgId && client) {
       currentUserMsgId = await saveUserMessage(messages, chatId, client);
@@ -252,6 +259,7 @@ async function handleImageGeneration({
             prompt,
             aspectRatio: "1:1",
           });
+    generated = true;
 
     // Upload image to R2 using standard upload helper (includes syncMetadata).
     // Providers return different formats (e.g. Flux 3 defaults to JPEG), so keep the reported type.
@@ -268,6 +276,7 @@ async function handleImageGeneration({
       fileName: `generated-${Date.now()}.${extension}`,
       token,
       isGenerated: true,
+      serverSecret,
     });
 
     if (!savedGenerated?.url) {
@@ -284,7 +293,6 @@ async function handleImageGeneration({
 
     // Save assistant message with image
     if (currentUserMsgId && client) {
-      savingAssistantMessage = true;
       await client.mutation(api.messages.saveAssistantMessage, {
         chatId,
         role: "assistant",
@@ -306,7 +314,7 @@ async function handleImageGeneration({
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    if (!savingAssistantMessage) {
+    if (!generated) {
       await credits.refund();
     }
     if (currentUserMsgId && client) {
@@ -1023,8 +1031,13 @@ export const Route = createFileRoute("/api/chat")({
               await tryRun();
             },
             async onEnd({ responseMessage }) {
-              // No result means every attempt threw before streaming
-              if (generationFailed || !result) {
+              if (
+                shouldRefundGeneration({
+                  hasResult: result !== null,
+                  generationFailed,
+                  parts: responseMessage.parts ?? [],
+                })
+              ) {
                 await credits.refund();
               }
               if (!result || errorMessageSaved) {
