@@ -475,7 +475,8 @@ export function DrawerHistory({
 														handleSaveEdit={handleSaveEdit}
 														handleTogglePin={handleTogglePin}
 														key={chat._id}
-														pinned={false}
+														// Pinned chats past the pinned list's cap show here too
+														pinned={chat.isPinned === true}
 														setEditTitle={setEditTitle}
 													/>
 												))}

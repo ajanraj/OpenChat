@@ -12,8 +12,9 @@ export const CHAT_LIST_PAGE_SIZE = 50;
  * A profile's chats for the sidebar, history palette and drawer, split into pinned and other
  * chats. Nothing loads while `profileId` is undefined (still loading); null means the user has no
  * profile yet, so no chats. Without a search term, chats are paged by recent activity (`loadMore`
- * fetches the next page) and pinned chats come from their own query so they always show. With a
- * term, both lists hold the server's title-search matches.
+ * fetches the next page) and pinned chats come from their own query so they always show; pinned
+ * chats past that query's cap stay in the paged list. With a term, both lists hold the server's
+ * title-search matches.
  */
 export function useChatList(searchTerm: string, profileId: Id<"profiles"> | null | undefined) {
   const term = searchTerm.trim();
@@ -41,9 +42,12 @@ export function useChatList(searchTerm: string, profileId: Id<"profiles"> | null
         otherChats: found.filter((chat) => !chat.isPinned),
       };
     }
+    // Drop the chats the pinned list shows; until it loads, drop every pinned chat so none
+    // flashes in the other list
+    const pinnedIds = pinned && new Set(pinned.map((chat) => chat._id));
     return {
       pinnedChats: pinned ?? [],
-      otherChats: results.filter((chat) => !chat.isPinned),
+      otherChats: results.filter((chat) => (pinnedIds ? !pinnedIds.has(chat._id) : !chat.isPinned)),
     };
   }, [term, matches, pinned, results]);
 
@@ -63,7 +67,8 @@ export function useChatList(searchTerm: string, profileId: Id<"profiles"> | null
 /**
  * Callback ref for a sentinel element at the end of a scrolling list. Whenever another page can
  * load and the sentinel is visible, it calls `loadMore`; the ref re-attaches when `canLoadMore`
- * turns true again, so short pages (e.g. of pinned chats) keep loading until the view fills.
+ * turns true again, so short pages (e.g. of chats the pinned list already shows) keep loading
+ * until the view fills.
  */
 export function useLoadMoreRef(canLoadMore: boolean, loadMore: () => void) {
   return useCallback(

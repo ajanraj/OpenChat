@@ -110,7 +110,8 @@ export const ChatList = memo(function ChatListComponent({
 										handleTogglePin={handleTogglePin}
 										id={chat._id}
 										isActive={chat._id === activeChatId}
-										isPinned={false}
+										// Pinned chats past the pinned list's cap show here too
+										isPinned={chat.isPinned === true}
 										key={chat._id}
 										originalChatId={chat.originalChatId}
 										parentChatTitle={getParentChatTitle(chat.originalChatId)}

@@ -174,7 +174,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 	);
 
 	// Keep the skeleton while the view is still empty but more pages can fill it (e.g. a first
-	// page of pinned chats)
+	// page of pinned chats while the pinned list loads)
 	const showSkeleton =
 		chatsLoading ||
 		(hasMore && pinnedChats.length === 0 && unpinnedChats.length === 0);

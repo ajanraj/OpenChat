@@ -90,6 +90,28 @@ describe("useChatList", () => {
     expect(loadMore).toHaveBeenCalledWith(CHAT_LIST_PAGE_SIZE);
   });
 
+  it("keeps pinned chats past the pinned list's cap in the paged list", () => {
+    mockPage([chat("listed", true), chat("overflow", true), chat("plain")]);
+    mocks.queryData.mockImplementation((name) =>
+      name === "chats:listPinnedChatsForUser" ? [chat("listed", true)] : undefined,
+    );
+
+    const { result } = renderHook(() => useChatList("", WORK));
+
+    expect(result.current.pinnedChats.map((c) => c._id)).toEqual(["listed"]);
+    expect(result.current.otherChats.map((c) => c._id)).toEqual(["overflow", "plain"]);
+  });
+
+  it("holds back every pinned chat while the pinned list loads", () => {
+    mockPage([chat("pinned", true), chat("plain")]);
+    mocks.queryData.mockReturnValue(undefined);
+
+    const { result } = renderHook(() => useChatList("", WORK));
+
+    expect(result.current.pinnedChats).toEqual([]);
+    expect(result.current.otherChats.map((c) => c._id)).toEqual(["plain"]);
+  });
+
   it("shows the profile's server title matches while searching, with no paging", () => {
     mockPage([chat("recent")]);
     mocks.queryData.mockImplementation((name, args) =>

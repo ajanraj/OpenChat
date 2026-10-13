@@ -403,6 +403,34 @@ describe("history delete keyboard flow", () => {
 		}
 	});
 
+	it("offers to unpin a pinned chat shown past the pinned list's cap", () => {
+		const overflow = buildChatWithOverrides({
+			_id: "chat-overflow",
+			title: "Overflow pinned chat",
+			isPinned: true,
+		});
+		usePaginatedQueryMock.mockReturnValue({
+			results: [overflow],
+			status: "Exhausted",
+			isLoading: false,
+			loadMore: vi.fn(),
+		});
+		// The pinned list is loaded but capped before this chat
+		useQueryMock.mockImplementation(() => ({ data: [] }));
+		primeMutationMocks(vi.fn(async () => {}));
+
+		const { getByText, getByLabelText } = render(
+			<DrawerHistory
+				isOpen
+				setIsOpen={vi.fn()}
+				trigger={<span>history</span>}
+			/>,
+		);
+
+		expect(getByText("Overflow pinned chat")).toBeTruthy();
+		expect(getByLabelText("Unpin chat")).toBeTruthy();
+	});
+
 	it("switches profile from drawer header icon buttons", () => {
 		const setActiveProfile = vi.fn();
 		useProfileMock.mockReturnValue({
