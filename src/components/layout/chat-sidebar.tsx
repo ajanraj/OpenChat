@@ -5,11 +5,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModifierKey } from "@/lib/hooks/use-modifier-key";
 import { useTheme } from "@/components/theme-provider";
-import {
-	isChatInProfile,
-	useChatList,
-	useLoadMoreRef,
-} from "@/hooks/use-chat-list";
+import { useChatList, useLoadMoreRef } from "@/hooks/use-chat-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -29,7 +25,7 @@ import { useProfile } from "@/providers/profile-provider";
 import { useSidebar } from "@/providers/sidebar-provider";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { SidebarProfileSection } from "../profile/sidebar-profile-section";
 import { ChatList } from "./chat-list";
 
@@ -50,7 +46,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 		activeChatIdRef.current = activeChatId;
 	}, [activeChatId]);
 	const { user } = useUser();
-	const { activeProfile, isProfilesLoading, slideDirection, getLastChatForProfile } = useProfile();
+	const { activeProfile, chatListProfileId, slideDirection, getLastChatForProfile } = useProfile();
 
 	const router = useRouter();
 	const location = useLocation();
@@ -81,13 +77,13 @@ const ChatSidebar = memo(function SidebarComponent() {
 	// State for search and edit/delete in the main sidebar list
 	const [searchQuery, setSearchQuery] = useState("");
 	const {
-		pinnedChats: pinnedResults,
-		otherChats,
+		pinnedChats,
+		otherChats: unpinnedChats,
 		isLoading: chatsLoading,
 		hasMore,
 		canLoadMore,
 		loadMore,
-	} = useChatList(searchQuery);
+	} = useChatList(searchQuery, chatListProfileId);
 	const loadMoreRef = useLoadMoreRef(canLoadMore, loadMore);
 
 	// Memoize search input handler
@@ -177,24 +173,8 @@ const ChatSidebar = memo(function SidebarComponent() {
 		[pinChatToggle],
 	);
 
-	// Scope the loaded (or searched) chats to the active profile
-	const { pinnedChats, unpinnedChats } = useMemo(() => {
-		const isAnonymous = !user || user.isAnonymous;
-		// Block renders until profile is resolved to enforce isolation (signed-in only)
-		if (!isAnonymous && (isProfilesLoading || !activeProfile)) {
-			return { pinnedChats: [], unpinnedChats: [] };
-		}
-
-		// Profile filter (skipped for anonymous users who have no profiles)
-		const inProfile = (chat: Doc<"chats">) =>
-			isAnonymous || !activeProfile || isChatInProfile(chat, activeProfile);
-
-		return {
-			pinnedChats: pinnedResults.filter(inProfile),
-			unpinnedChats: otherChats.filter(inProfile),
-		};
-	}, [pinnedResults, otherChats, activeProfile, isProfilesLoading, user]);
-	// Keep the skeleton while a filtered view is still empty but more pages can fill it
+	// Keep the skeleton while the view is still empty but more pages can fill it (e.g. a first
+	// page of pinned chats)
 	const showSkeleton =
 		chatsLoading ||
 		(hasMore && pinnedChats.length === 0 && unpinnedChats.length === 0);

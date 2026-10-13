@@ -26,6 +26,12 @@ interface PendingProfileSwitch {
 interface ProfileContextType {
   profiles: Profile[];
   activeProfile: Profile | undefined;
+  /**
+   * The profile whose chats the chat lists show: the active profile, or the user's stored active
+   * profile id until profiles load (anonymous users never load them). Null while an anonymous user
+   * has no profile (so no chats yet); undefined while unknown.
+   */
+  chatListProfileId: Id<"profiles"> | null | undefined;
   setActiveProfile: (profileId: Id<"profiles">, currentChatId?: string | null) => void;
   isProfilesLoading: boolean;
   slideDirection: number;
@@ -108,6 +114,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
     return profiles.find((p) => p._id === activeProfileId) ?? profiles.find((p) => p.isDefault);
   }, [activeProfileId, profiles]);
+  // The stored id lets chats load alongside the profiles (anonymous users never load profiles; their
+  // first chat creates a default profile and makes it active)
+  const chatListProfileId =
+    activeProfile?._id ?? activeProfileId ?? (user?.isAnonymous ? null : undefined);
 
   // Apply theme config when active profile changes
   const prevProfileIdRef = useRef<Id<"profiles"> | undefined>(undefined);
@@ -298,6 +308,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     () => ({
       profiles,
       activeProfile,
+      chatListProfileId,
       setActiveProfile,
       isProfilesLoading: isLoading,
       slideDirection,
@@ -311,6 +322,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     [
       profiles,
       activeProfile,
+      chatListProfileId,
       setActiveProfile,
       isLoading,
       slideDirection,

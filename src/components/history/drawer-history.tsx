@@ -10,7 +10,7 @@ import {
 import { Link, useParams } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { PhosphorIcon } from "@/components/profile/phosphor-icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,11 +28,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-	isChatInProfile,
-	useChatList,
-	useLoadMoreRef,
-} from "@/hooks/use-chat-list";
+import { useChatList, useLoadMoreRef } from "@/hooks/use-chat-list";
 import {
 	getOrderedGroupKeys,
 	groupChatsByTime,
@@ -265,7 +261,7 @@ export function DrawerHistory({
 	const {
 		profiles,
 		activeProfile,
-		isProfilesLoading,
+		chatListProfileId,
 		setActiveProfile,
 		slideDirection,
 	} = useProfile();
@@ -274,8 +270,12 @@ export function DrawerHistory({
 	const pinChatToggle = useMutation(api.chats.pinChatToggle);
 
 	const [searchQuery, setSearchQuery] = useState("");
-	const { pinnedChats: pinnedResults, otherChats, canLoadMore, loadMore } =
-		useChatList(searchQuery);
+	const {
+		pinnedChats,
+		otherChats: unpinnedChats,
+		canLoadMore,
+		loadMore,
+	} = useChatList(searchQuery, chatListProfileId);
 	const loadMoreRef = useLoadMoreRef(canLoadMore, loadMore);
 	const [editingId, setEditingId] = useState<Id<"chats"> | null>(null);
 	const [editTitle, setEditTitle] = useState("");
@@ -330,21 +330,6 @@ export function DrawerHistory({
 	};
 
 	const isAnonymous = !user || user.isAnonymous;
-
-	// Scope the loaded (or searched) chats to the active profile
-	const { pinnedChats, unpinnedChats } = useMemo(() => {
-		if (!isAnonymous && (isProfilesLoading || !activeProfile)) {
-			return { pinnedChats: [], unpinnedChats: [] };
-		}
-
-		const inProfile = (chat: Doc<"chats">) =>
-			isAnonymous || !activeProfile || isChatInProfile(chat, activeProfile);
-
-		return {
-			pinnedChats: pinnedResults.filter(inProfile),
-			unpinnedChats: otherChats.filter(inProfile),
-		};
-	}, [pinnedResults, otherChats, isAnonymous, isProfilesLoading, activeProfile]);
 
 	// Group unpinned chats by time
 	const groupedChats = groupChatsByTime(unpinnedChats);

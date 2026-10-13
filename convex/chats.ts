@@ -10,6 +10,7 @@ import { internalMutation, type MutationCtx, mutation, query } from "./_generate
 import { ensureAuthenticated, ensureChatAccess, tryEnsureChatAccess } from "./lib/auth_helper";
 import { deleteChatCompletely, purgeChatsBatch } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
+import { getOrCreateDefaultProfileId, resolveChatProfileId } from "./profiles";
 import { Chat } from "./schema/chat";
 
 const chatDoc = v.object({
@@ -108,20 +109,13 @@ export const forkFromShared = mutation({
     }
 
     const now = Date.now();
-    const user = await ctx.db.get("users", userId);
-    let profileId = user?.activeProfileId;
-    if (profileId) {
-      const profile = await ctx.db.get("profiles", profileId);
-      if (!profile || profile.userId !== userId) {
-        profileId = undefined;
-      }
-    }
     const newChatId = await ctx.db.insert("chats", {
       userId,
       title: source.title || "Forked Chat",
       model: source.model,
       personaId: source.personaId,
-      profileId,
+      // The user's active profile
+      profileId: await resolveChatProfileId(ctx, userId, undefined),
       createdAt: now,
       updatedAt: now,
       // Do not mark fork as public by default
@@ -189,28 +183,14 @@ export const createChat = mutation({
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
 
-    // Use provided profileId, or fall back to user's activeProfileId
-    let resolvedProfileId = args.profileId;
-    if (!resolvedProfileId) {
-      const user = await ctx.db.get("users", userId);
-      resolvedProfileId = user?.activeProfileId ?? undefined;
-    }
-
-    // Validate profile belongs to this user
-    if (resolvedProfileId) {
-      const profile = await ctx.db.get("profiles", resolvedProfileId);
-      if (!profile || profile.userId !== userId) {
-        resolvedProfileId = undefined;
-      }
-    }
-
     const now = Date.now();
     const chatId = await ctx.db.insert("chats", {
       userId,
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
-      profileId: resolvedProfileId,
+      // The given profile if it's the user's, else their active one
+      profileId: await resolveChatProfileId(ctx, userId, args.profileId),
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -222,45 +202,54 @@ export const createChat = mutation({
 });
 
 /**
- * Pages through the user's chats, most recently active first. Includes pinned chats; clients
- * also load listPinnedChatsForUser so pinned chats show before their page is loaded.
+ * Pages through the user's chats in a profile, or in every profile when `profileId` is null (the
+ * settings history page), most recently active first. Includes pinned chats; the chat lists also
+ * load listPinnedChatsForUser so pinned chats show before their page is loaded.
  */
 export const listChatsForUser = query({
-  args: { paginationOpts: paginationOptsValidator },
+  args: {
+    profileId: v.union(v.id("profiles"), v.null()),
+    paginationOpts: paginationOptsValidator,
+  },
   returns: paginationResultValidator(chatDoc),
-  handler: async (ctx, { paginationOpts }) => {
+  handler: async (ctx, { profileId, paginationOpts }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return { page: [], isDone: true, continueCursor: "" };
     }
-    return await ctx.db
-      .query("chats")
-      .withIndex("by_user_and_updated", (q) => q.eq("userId", userId))
-      .order("desc")
-      .paginate(paginationOpts);
+    const chats = profileId
+      ? ctx.db
+          .query("chats")
+          .withIndex("by_user_and_profile_and_updated", (q) =>
+            q.eq("userId", userId).eq("profileId", profileId),
+          )
+      : ctx.db.query("chats").withIndex("by_user_and_updated", (q) => q.eq("userId", userId));
+    return await chats.order("desc").paginate(paginationOpts);
   },
 });
 
-/** The user's pinned chats, newest first. */
+/** The user's pinned chats in a profile, newest first. */
 export const listPinnedChatsForUser = query({
-  args: {},
+  args: { profileId: v.id("profiles") },
   returns: v.array(chatDoc),
-  handler: async (ctx) => {
+  handler: async (ctx, { profileId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return [];
     }
     return await ctx.db
       .query("chats")
-      .withIndex("by_user_and_pinned", (q) => q.eq("userId", userId).eq("isPinned", true))
+      .withIndex("by_user_and_profile_and_pinned", (q) =>
+        q.eq("userId", userId).eq("profileId", profileId).eq("isPinned", true),
+      )
       .order("desc")
       .take(PINNED_CHATS_LIMIT);
   },
 });
 
-/** Full-text search over the user's chat titles, best matches first. */
+/** Full-text search over the titles of the user's chats in a profile, best matches first. */
 export const searchChats = query({
-  args: { query: v.string() },
+  args: { query: v.string(), profileId: v.id("profiles") },
   returns: v.array(chatDoc),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -270,7 +259,9 @@ export const searchChats = query({
     }
     return await ctx.db
       .query("chats")
-      .withSearchIndex("search_title", (q) => q.search("title", search).eq("userId", userId))
+      .withSearchIndex("search_title", (q) =>
+        q.search("title", search).eq("userId", userId).eq("profileId", args.profileId),
+      )
       .take(CHAT_SEARCH_LIMIT);
   },
 });
@@ -449,7 +440,8 @@ export const branchChat = mutation({
       title: originalChat.title || "New Chat",
       model: originalChat.model,
       personaId: originalChat.personaId,
-      profileId: originalChat.profileId,
+      // The original's profile (legacy chats without one get the user's active profile)
+      profileId: await resolveChatProfileId(ctx, userId, originalChat.profileId),
       originalChatId: args.originalChatId,
       createdAt: now,
       updatedAt: now,
@@ -527,7 +519,8 @@ export const createChatInternal = internalMutation({
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
-      profileId: args.profileId,
+      // The task's profile if it's the user's, else their active one
+      profileId: await resolveChatProfileId(ctx, args.userId, args.profileId),
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -535,5 +528,57 @@ export const createChatInternal = internalMutation({
       shareAttachments: false,
     });
     return { chatId };
+  },
+});
+
+/**
+ * One-off backfill that files every chat under a profile, since the chat list and title search
+ * only show a profile's own chats. Run it right after deploying the profile-scoped chat indexes
+ * (until it finishes, legacy chats are missing from the chat lists):
+ * `npx convex run chats:backfillChatProfiles --prod`. Chats without a profile, or whose profile
+ * was deleted or isn't the owner's, move to the owner's default profile (created if missing);
+ * chats of deleted users are skipped. Handles 100 chats per batch and schedules itself until the
+ * table is exhausted; safe to run again.
+ */
+export const backfillChatProfiles = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    skipped: v.number(),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("chats")
+      .paginate({ numItems: 100, cursor: args.cursor ?? null });
+
+    let updated = 0;
+    let skipped = 0;
+    for (const chat of page.page) {
+      const profile = chat.profileId ? await ctx.db.get("profiles", chat.profileId) : null;
+      if (profile?.userId === chat.userId) {
+        continue;
+      }
+      const user = await ctx.db.get("users", chat.userId);
+      if (!user) {
+        skipped += 1;
+        continue;
+      }
+      await ctx.db.patch("chats", chat._id, {
+        profileId: await getOrCreateDefaultProfileId(ctx, user),
+      });
+      updated += 1;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.chats.backfillChatProfiles, {
+        cursor: page.continueCursor,
+      });
+    }
+    console.log(
+      `backfillChatProfiles: scanned ${page.page.length}, updated ${updated}, skipped ${skipped}`,
+    );
+    return { scanned: page.page.length, updated, skipped, isDone: page.isDone };
   },
 });

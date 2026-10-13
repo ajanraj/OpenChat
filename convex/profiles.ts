@@ -2,10 +2,81 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { MODEL_DEFAULT } from "../src/lib/config";
 import { ERROR_CODES } from "../src/lib/error-codes";
-import { internalQuery, mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalQuery, type MutationCtx, mutation, query } from "./_generated/server";
 import { Profile } from "./schema/profile";
 
 const MAX_PROFILES = 5;
+
+/** The profile if it exists and belongs to the user, else null. */
+async function getOwnedProfile(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  profileId: Id<"profiles"> | undefined,
+): Promise<Doc<"profiles"> | null> {
+  const profile = profileId ? await ctx.db.get("profiles", profileId) : null;
+  return profile?.userId === userId ? profile : null;
+}
+
+/**
+ * The user's default profile, created from their current settings if they have none (it then
+ * becomes their active profile unless they have a valid one). Every chat belongs to a profile, so
+ * chat writers use this for users whose default profile the client hasn't created yet.
+ */
+export async function getOrCreateDefaultProfileId(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  themeConfig?: string,
+): Promise<Id<"profiles">> {
+  const existing = await ctx.db
+    .query("profiles")
+    .withIndex("by_user_and_default", (q) => q.eq("userId", user._id).eq("isDefault", true))
+    .first();
+  if (existing) {
+    return existing._id;
+  }
+
+  const profileId = await ctx.db.insert("profiles", {
+    userId: user._id,
+    name: "Default",
+    icon: "ChatCircle",
+    isDefault: true,
+    order: 0,
+    preferredName: user.preferredName,
+    occupation: user.occupation,
+    traits: user.traits,
+    about: user.about,
+    preferredModel: user.preferredModel,
+    disabledModels: user.disabledModels,
+    favoriteModels: user.favoriteModels,
+    themeConfig,
+  });
+  if (!(await getOwnedProfile(ctx, user._id, user.activeProfileId))) {
+    await ctx.db.patch("users", user._id, { activeProfileId: profileId });
+  }
+  return profileId;
+}
+
+/**
+ * The profile a new chat belongs to: `requested` if the user owns it, else the user's active
+ * profile if they own it, else their default profile (created if missing).
+ */
+export async function resolveChatProfileId(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  requested: Id<"profiles"> | undefined,
+): Promise<Id<"profiles">> {
+  const profile = await getOwnedProfile(ctx, userId, requested);
+  if (profile) {
+    return profile._id;
+  }
+  const user = await ctx.db.get("users", userId);
+  if (!user) {
+    throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
+  }
+  const active = await getOwnedProfile(ctx, userId, user.activeProfileId);
+  return active?._id ?? (await getOrCreateDefaultProfileId(ctx, user));
+}
 
 export const listProfiles = query({
   args: {},
@@ -78,42 +149,13 @@ export const ensureDefaultProfile = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    // Check if default already exists
-    const existing = await ctx.db
-      .query("profiles")
-      .withIndex("by_user_and_default", (q) => q.eq("userId", userId).eq("isDefault", true))
-      .first();
-
-    if (existing) {
-      return existing._id;
-    }
-
-    // Copy current user settings into default profile
     const user = await ctx.db.get("users", userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
 
-    const profileId = await ctx.db.insert("profiles", {
-      userId,
-      name: "Default",
-      icon: "ChatCircle",
-      isDefault: true,
-      order: 0,
-      preferredName: user.preferredName,
-      occupation: user.occupation,
-      traits: user.traits,
-      about: user.about,
-      preferredModel: user.preferredModel,
-      disabledModels: user.disabledModels,
-      favoriteModels: user.favoriteModels,
-      themeConfig: args.themeConfig,
-    });
-
-    // Set as active profile
-    await ctx.db.patch("users", userId, { activeProfileId: profileId });
-
-    return profileId;
+    // A new default profile copies the user's current settings and the client's theme
+    return await getOrCreateDefaultProfileId(ctx, user, args.themeConfig);
   },
 });
 
@@ -248,21 +290,24 @@ export const deleteProfile = mutation({
       throw new ConvexError(ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE);
     }
 
-    // Find default profile to reassign chats
-    const defaultProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_user_and_default", (q) => q.eq("userId", userId).eq("isDefault", true))
-      .first();
+    const user = await ctx.db.get("users", userId);
+    if (!user) {
+      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
+    }
+    // Every chat needs a profile, so create the default to reassign to if it's missing
+    const defaultProfileId = await getOrCreateDefaultProfileId(ctx, user);
 
     // Reassign orphaned chats to default profile
     const orphanedChats = await ctx.db
       .query("chats")
-      .withIndex("by_user_and_profile", (q) => q.eq("userId", userId).eq("profileId", profileId))
+      .withIndex("by_user_and_profile_and_updated", (q) =>
+        q.eq("userId", userId).eq("profileId", profileId),
+      )
       .collect();
 
     for (const chat of orphanedChats) {
       await ctx.db.patch("chats", chat._id, {
-        profileId: defaultProfile?._id,
+        profileId: defaultProfileId,
       });
     }
 
@@ -274,7 +319,7 @@ export const deleteProfile = mutation({
 
     for (const task of orphanedTasks) {
       await ctx.db.patch("scheduled_tasks", task._id, {
-        profileId: defaultProfile?._id,
+        profileId: defaultProfileId,
       });
     }
 
@@ -282,10 +327,9 @@ export const deleteProfile = mutation({
     await ctx.db.delete("profiles", profileId);
 
     // If user's active profile was the deleted one, switch to default
-    const user = await ctx.db.get("users", userId);
-    if (user?.activeProfileId === profileId && defaultProfile) {
+    if (user.activeProfileId === profileId) {
       await ctx.db.patch("users", userId, {
-        activeProfileId: defaultProfile._id,
+        activeProfileId: defaultProfileId,
       });
     }
 

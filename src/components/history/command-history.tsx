@@ -23,6 +23,7 @@ import {
 	groupChatsByTime,
 	hasChatsInGroup,
 } from "@/lib/chat-utils/time-grouping";
+import { useProfile } from "@/providers/profile-provider";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { CommandHistoryItem } from "./command-history-item";
@@ -103,8 +104,11 @@ function useCommandHistoryView() {
 		{ isOpen: false, searchQuery: "", editingId: null, editTitle: "", deletingId: null },
 	);
 	const { isOpen, searchQuery, editingId, editTitle, deletingId } = state;
-	const { pinnedChats, otherChats, canLoadMore, loadMore } =
-		useChatList(searchQuery);
+	const { chatListProfileId } = useProfile();
+	const { pinnedChats, otherChats, canLoadMore, loadMore } = useChatList(
+		searchQuery,
+		chatListProfileId,
+	);
 	const loadMoreRef = useLoadMoreRef(canLoadMore, loadMore);
 
 	const { data: messageResults = [] } = useTanStackQuery({

@@ -2,24 +2,25 @@ import { renderHook } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
-import {
-  CHAT_LIST_PAGE_SIZE,
-  isChatInProfile,
-  useChatList,
-  useLoadMoreRef,
-} from "../use-chat-list";
+import { CHAT_LIST_PAGE_SIZE, useChatList, useLoadMoreRef } from "../use-chat-list";
 
-type Chat = Pick<Doc<"chats">, "_id" | "title" | "isPinned">;
+type Chat = Pick<Doc<"chats">, "_id" | "title" | "isPinned" | "profileId">;
 interface PaginatedResult {
   results: Chat[];
   status: string;
   loadMore: (n: number) => void;
 }
+interface QueryOptions {
+  queryKey: [string, unknown];
+  placeholderData?: (previous: Chat[] | undefined) => Chat[] | undefined;
+}
 
 const mocks = vi.hoisted(() => ({
-  usePaginatedQuery: vi.fn<() => PaginatedResult>(),
+  usePaginatedQuery: vi.fn<(query: unknown, args: unknown) => PaginatedResult>(),
   // Answers useQuery by query name: [functionName, args]
   queryData: vi.fn<(name: string, args: unknown) => Chat[] | undefined>(),
+  // Every useQuery call's options, latest last
+  queryOptions: [] as QueryOptions[],
 }));
 
 vi.mock("convex/react", () => ({ usePaginatedQuery: mocks.usePaginatedQuery }));
@@ -31,38 +32,54 @@ vi.mock("@convex-dev/react-query", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  keepPreviousData: undefined,
-  useQuery: (options: { queryKey: [string, unknown] }) => ({
-    data: mocks.queryData(...options.queryKey),
-  }),
+  useQuery: (options: QueryOptions) => {
+    mocks.queryOptions.push(options);
+    return { data: mocks.queryData(...options.queryKey) };
+  },
 }));
 
-const chat = (id: string, isPinned = false): Chat => ({
+const WORK = "profiles:work" as Id<"profiles">;
+const HOME = "profiles:home" as Id<"profiles">;
+
+const chat = (id: string, isPinned = false, profileId = WORK): Chat => ({
   _id: id as Id<"chats">,
   title: id,
   isPinned,
+  profileId,
 });
+
+function mockPage(results: Chat[], status = "CanLoadMore") {
+  const loadMore = vi.fn<(n: number) => void>();
+  mocks.usePaginatedQuery.mockReturnValue({ results, status, loadMore });
+  return loadMore;
+}
+
+/** The last useQuery options for a query, by function name. */
+const lastOptions = (name: string) =>
+  mocks.queryOptions.filter((o) => o.queryKey[0] === name).at(-1);
 
 afterEach(() => {
   vi.clearAllMocks();
+  mocks.queryOptions.length = 0;
 });
 
 describe("useChatList", () => {
-  it("lists pinned chats from their own query and pages the rest by activity", () => {
-    const loadMore = vi.fn<(n: number) => void>();
-    mocks.usePaginatedQuery.mockReturnValue({
-      results: [chat("recent"), chat("pinned-loaded", true), chat("older")],
-      status: "CanLoadMore",
-      loadMore,
-    });
+  it("lists the profile's pinned chats from their own query and pages the rest by activity", () => {
+    const loadMore = mockPage([chat("recent"), chat("pinned-loaded", true), chat("older")]);
     mocks.queryData.mockImplementation((name) =>
       name === "chats:listPinnedChatsForUser"
         ? [chat("pinned-loaded", true), chat("pinned-unloaded", true)]
         : undefined,
     );
 
-    const { result } = renderHook(() => useChatList(""));
+    const { result } = renderHook(() => useChatList("", WORK));
 
+    expect(mocks.usePaginatedQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      { profileId: WORK },
+      { initialNumItems: CHAT_LIST_PAGE_SIZE },
+    );
+    expect(lastOptions("chats:listPinnedChatsForUser")?.queryKey[1]).toEqual({ profileId: WORK });
     expect(result.current.pinnedChats.map((c) => c._id)).toEqual([
       "pinned-loaded",
       "pinned-unloaded",
@@ -73,37 +90,73 @@ describe("useChatList", () => {
     expect(loadMore).toHaveBeenCalledWith(CHAT_LIST_PAGE_SIZE);
   });
 
-  it("shows server title matches while searching, with no paging", () => {
-    mocks.usePaginatedQuery.mockReturnValue({
-      results: [chat("recent")],
-      status: "CanLoadMore",
-      loadMore: vi.fn<(n: number) => void>(),
-    });
+  it("shows the profile's server title matches while searching, with no paging", () => {
+    mockPage([chat("recent")]);
     mocks.queryData.mockImplementation((name, args) =>
       name === "chats:searchChats" && (args as { query: string }).query === "paris"
         ? [chat("paris-pinned", true), chat("paris-trip")]
         : [],
     );
 
-    const { result } = renderHook(() => useChatList("  paris "));
+    const { result } = renderHook(() => useChatList("  paris ", WORK));
 
+    expect(lastOptions("chats:searchChats")?.queryKey[1]).toEqual({
+      query: "paris",
+      profileId: WORK,
+    });
     expect(result.current.pinnedChats.map((c) => c._id)).toEqual(["paris-pinned"]);
     expect(result.current.otherChats.map((c) => c._id)).toEqual(["paris-trip"]);
     expect(result.current).toMatchObject({ isLoading: false, hasMore: false, canLoadMore: false });
   });
 
-  it("is loading until the first page arrives", () => {
-    mocks.usePaginatedQuery.mockReturnValue({
-      results: [],
-      status: "LoadingFirstPage",
-      loadMore: vi.fn<(n: number) => void>(),
-    });
+  it("keeps the last search results while the next loads, but not another profile's", () => {
+    mockPage([]);
     mocks.queryData.mockReturnValue(undefined);
 
-    const { result } = renderHook(() => useChatList(""));
+    renderHook(() => useChatList("paris", WORK));
+    const placeholder = lastOptions("chats:searchChats")?.placeholderData;
+
+    const workMatches = [chat("work-trip")];
+    expect(placeholder?.(workMatches)).toBe(workMatches);
+    expect(placeholder?.([chat("home-trip", false, HOME)])).toBeUndefined();
+  });
+
+  it("is loading until the first page arrives", () => {
+    mockPage([], "LoadingFirstPage");
+    mocks.queryData.mockReturnValue(undefined);
+
+    const { result } = renderHook(() => useChatList("", WORK));
 
     expect(result.current.isLoading).toBe(true);
     expect(result.current.pinnedChats).toEqual([]);
+  });
+
+  it("loads nothing until the profile is known", () => {
+    mockPage([], "LoadingFirstPage");
+    mocks.queryData.mockReturnValue(undefined);
+
+    const { result } = renderHook(() => useChatList("paris", undefined));
+
+    expect(mocks.usePaginatedQuery).toHaveBeenCalledWith(expect.anything(), "skip", {
+      initialNumItems: CHAT_LIST_PAGE_SIZE,
+    });
+    expect(mocks.queryOptions.map((o) => o.queryKey[1])).toEqual(["skip", "skip"]);
+    expect(result.current.isLoading).toBe(true);
+  });
+
+  it("is empty, not loading, when the user has no profile yet", () => {
+    mockPage([], "LoadingFirstPage");
+    mocks.queryData.mockReturnValue(undefined);
+
+    const { result } = renderHook(() => useChatList("", null));
+
+    expect(mocks.queryOptions.map((o) => o.queryKey[1])).toEqual(["skip", "skip"]);
+    expect(result.current).toMatchObject({
+      pinnedChats: [],
+      otherChats: [],
+      isLoading: false,
+      hasMore: false,
+    });
   });
 });
 
@@ -152,21 +205,5 @@ describe("useLoadMoreRef", () => {
 
     expect(result.current(document.createElement("div"))).toBeUndefined();
     expect(observers).toHaveLength(0);
-  });
-});
-
-describe("isChatInProfile", () => {
-  const defaultProfile = { _id: "profiles:default" as Id<"profiles">, isDefault: true };
-  const workProfile = { _id: "profiles:work" as Id<"profiles">, isDefault: false };
-
-  it("gives the default profile its own chats and chats without a profile", () => {
-    expect(isChatInProfile({ profileId: undefined }, defaultProfile)).toBe(true);
-    expect(isChatInProfile({ profileId: defaultProfile._id }, defaultProfile)).toBe(true);
-    expect(isChatInProfile({ profileId: workProfile._id }, defaultProfile)).toBe(false);
-  });
-
-  it("gives other profiles only their own chats", () => {
-    expect(isChatInProfile({ profileId: workProfile._id }, workProfile)).toBe(true);
-    expect(isChatInProfile({ profileId: undefined }, workProfile)).toBe(false);
   });
 });

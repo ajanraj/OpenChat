@@ -243,6 +243,7 @@ describe("history delete keyboard flow", () => {
 				icon: "ChatCircle",
 				isDefault: true,
 			},
+			chatListProfileId: "profile-default",
 			setActiveProfile: vi.fn(),
 			isProfilesLoading: false,
 			slideDirection: 0,
@@ -344,7 +345,7 @@ describe("history delete keyboard flow", () => {
 		});
 	});
 
-	it("scopes drawer history to active non-default profile chats", () => {
+	it("lists the active profile's chats in drawer and command history", () => {
 		useProfileMock.mockReturnValue({
 			profiles: [
 				{
@@ -366,20 +367,12 @@ describe("history delete keyboard flow", () => {
 				icon: "Briefcase",
 				isDefault: false,
 			},
+			chatListProfileId: "profile-p2",
 			setActiveProfile: vi.fn(),
 			isProfilesLoading: false,
 			slideDirection: 1,
 		});
 		primeQueryMocks([
-			buildChatWithOverrides({
-				_id: "chat-default",
-				title: "Default profile chat",
-			}),
-			buildChatWithOverrides({
-				_id: "chat-p1",
-				title: "Profile one chat",
-				profileId: "profile-p1",
-			}),
 			buildChatWithOverrides({
 				_id: "chat-p2",
 				title: "Profile two chat",
@@ -388,17 +381,26 @@ describe("history delete keyboard flow", () => {
 		]);
 		primeMutationMocks(vi.fn(async () => {}));
 
-		const { getByText, queryByText } = render(
+		const { getByText } = render(
 			<DrawerHistory
 				isOpen
 				setIsOpen={vi.fn()}
 				trigger={<span>history</span>}
 			/>,
 		);
+		render(<CommandHistory />);
 
 		expect(getByText("Profile two chat")).toBeTruthy();
-		expect(queryByText("Default profile chat")).toBeNull();
-		expect(queryByText("Profile one chat")).toBeNull();
+		// The server scopes the lists, so every chat query asks for the active profile
+		const listArgs = usePaginatedQueryMock.mock.calls.map(([, args]) => args);
+		const pinnedArgs = convexQueryMock.mock.calls
+			.filter(([query]) => getFunctionName(query) === "chats:listPinnedChatsForUser")
+			.map(([, args]) => args);
+		expect(listArgs).not.toHaveLength(0);
+		expect(pinnedArgs).not.toHaveLength(0);
+		for (const args of [...listArgs, ...pinnedArgs]) {
+			expect(args).toEqual({ profileId: "profile-p2" });
+		}
 	});
 
 	it("switches profile from drawer header icon buttons", () => {

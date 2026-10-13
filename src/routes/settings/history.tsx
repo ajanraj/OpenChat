@@ -105,12 +105,17 @@ export function HistorySettingsPage() {
 }
 
 function useHistorySettingsPageView() {
-  // Chats load a page at a time, so counts and "Select All" cover the loaded chats
+  // Every profile's chats, like "Delete All". Chats load a page at a time, so counts and
+  // "Select All" cover the loaded chats
   const {
     results: chats,
     status: chatsStatus,
     loadMore,
-  } = usePaginatedQuery(api.chats.listChatsForUser, {}, { initialNumItems: CHAT_LIST_PAGE_SIZE });
+  } = usePaginatedQuery(
+    api.chats.listChatsForUser,
+    { profileId: null },
+    { initialNumItems: CHAT_LIST_PAGE_SIZE },
+  );
   const isChatsLoading = chatsStatus === "LoadingFirstPage";
   const hasMoreChats = chatsStatus === "CanLoadMore" || chatsStatus === "LoadingMore";
   const loadMoreChats = useCallback(() => loadMore(CHAT_LIST_PAGE_SIZE), [loadMore]);
