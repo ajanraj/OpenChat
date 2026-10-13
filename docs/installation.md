@@ -188,15 +188,21 @@ Visit [http://localhost:3000](http://localhost:3000) to see OS Chat running loca
 
 ## 7. Production Deployment
 
-For production deployment:
+For production deployment, set the environment variables before deploying either side: the web app and the Convex functions authenticate to each other with `SERVER_ROUTE_SECRET`.
 
-1. **Deploy Convex**:
+1. **Set Environment Variables**:
+   - Add your production API keys to Vercel
+   - Set `SERVER_ROUTE_SECRET` in Vercel and the same value on the Convex production deployment (`bunx convex env set SERVER_ROUTE_SECRET ... --prod`)
+   - Update `SITE_URL` in Convex production dashboard to your production URL
+   - Set the live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PREMIUM_PRICE_ID` on the Convex production deployment (`bunx convex env set ... --prod`), with a live-mode webhook pointing at `https://<your-prod-deployment>.convex.site/stripe/webhook` using the same API version and events as in [Stripe Payments](#d-stripe-payments-optional)
+
+2. **Deploy Convex**:
 
    ```bash
    bunx convex deploy --prod
    ```
 
-2. **Deploy Frontend** (Vercel recommended):
+3. **Deploy Frontend** (Vercel recommended) right after Convex:
 
    ```bash
    # Install Vercel CLI
@@ -206,11 +212,7 @@ For production deployment:
    vercel --prod
    ```
 
-3. **Update Environment Variables**:
-   - Add your production API keys to Vercel
-   - Set `SERVER_ROUTE_SECRET` in Vercel and the same value on the Convex production deployment (`bunx convex env set SERVER_ROUTE_SECRET ... --prod`)
-   - Update `SITE_URL` in Convex production dashboard to your production URL
-   - Set the live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PREMIUM_PRICE_ID` on the Convex production deployment (`bunx convex env set ... --prod`), with a live-mode webhook pointing at `https://<your-prod-deployment>.convex.site/stripe/webhook` using the same API version and events as in [Stripe Payments](#d-stripe-payments-optional)
+   Releases can change Convex function arguments, so a frontend deployed ahead of its Convex functions breaks, and tabs still running the old frontend need a reload. If Vercel deploys automatically from git, merge only after the Convex deploy.
 
 ## Development Commands
 
