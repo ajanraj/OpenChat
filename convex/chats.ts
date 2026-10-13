@@ -1,18 +1,14 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { detectRedactedContent } from "../src/lib/redacted-content-detector";
-import type { Id } from "./_generated/dataModel";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
 // Import helper functions
-import {
-  ensureAuthenticated,
-  ensureChatAccess,
-  tryEnsureChatAccess,
-  validateChatOwnership,
-} from "./lib/auth_helper";
-import { deleteChatCompletely, deleteMultipleChats } from "./lib/cleanup_helper";
+import { ensureAuthenticated, ensureChatAccess, tryEnsureChatAccess } from "./lib/auth_helper";
+import { deleteChatCompletely, purgeChatsBatch } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
 import { Chat } from "./schema/chat";
 
@@ -328,6 +324,73 @@ export const deleteChat = mutation({
   },
 });
 
+// Which chats a purge deletes: every chat created up to a time, or the listed chats
+const chatPurgeScope = v.union(
+  v.object({ createdBefore: v.number() }),
+  v.object({ chatIds: v.array(v.id("chats")) }),
+);
+
+/**
+ * Deletes one budget-bounded batch of the user's chats in `scope` and schedules purgeChats for
+ * the rest, so deleting many or large chats never exceeds a transaction's limits.
+ */
+async function purgeChatsInScope(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  scope: Infer<typeof chatPurgeScope>,
+): Promise<void> {
+  if ("createdBefore" in scope) {
+    // Chats created after the request (e.g. while the purge runs) are kept
+    const { createdBefore } = scope;
+    const done = await purgeChatsBatch(
+      ctx,
+      userId,
+      ctx.db
+        .query("chats")
+        .withIndex("by_user", (q) => q.eq("userId", userId).lte("_creationTime", createdBefore)),
+      (chat) => chat._creationTime <= createdBefore,
+    );
+    if (!done) {
+      await ctx.scheduler.runAfter(0, internal.chats.purgeChats, { userId, scope });
+    }
+    return;
+  }
+
+  const { chatIds } = scope;
+  const listed = new Set(chatIds);
+  // Listed chats before `next` are deleted (or not the user's); a stopped run passes on the rest
+  let next = 0;
+  async function* listedChats(): AsyncGenerator<Doc<"chats">> {
+    for (; next < chatIds.length; next += 1) {
+      const chat = await ctx.db.get("chats", chatIds[next]);
+      if (chat?.userId === userId) {
+        yield chat;
+      }
+    }
+  }
+  const done = await purgeChatsBatch(ctx, userId, listedChats(), (chat) => listed.has(chat._id));
+  if (!done) {
+    await ctx.scheduler.runAfter(0, internal.chats.purgeChats, {
+      userId,
+      scope: { chatIds: chatIds.slice(next) },
+    });
+  }
+}
+
+/** Continues a bulk chat deletion started by deleteAllChatsForUser or deleteBulkChats. */
+export const purgeChats = internalMutation({
+  args: { userId: v.id("users"), scope: chatPurgeScope },
+  returns: v.null(),
+  handler: async (ctx, { userId, scope }) => {
+    await purgeChatsInScope(ctx, userId, scope);
+    return null;
+  },
+});
+
+/**
+ * Deletes every chat the user has now. Most users' chats go in this call; the rest are deleted in
+ * the background, and the chat list updates as they go.
+ */
 export const deleteAllChatsForUser = mutation({
   args: {},
   returns: v.null(),
@@ -336,17 +399,12 @@ export const deleteAllChatsForUser = mutation({
     if (!userId) {
       return null;
     }
-
-    const chats = await ctx.db
-      .query("chats")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    await deleteMultipleChats(ctx, chats, userId);
+    await purgeChatsInScope(ctx, userId, { createdBefore: Date.now() });
     return null;
   },
 });
 
+/** Deletes the listed chats the user owns (others are ignored), like deleteAllChatsForUser. */
 export const deleteBulkChats = mutation({
   args: { chatIds: v.array(v.id("chats")) },
   returns: v.null(),
@@ -354,16 +412,8 @@ export const deleteBulkChats = mutation({
     if (chatIds.length === 0) {
       return null;
     }
-
-    // Validate all chats belong to the user
-    const validChats = await validateChatOwnership(ctx, chatIds);
-    if (validChats.length === 0) {
-      return null;
-    }
-
-    // Get userId from the first valid chat (all have same owner)
-    const userId = validChats[0].userId;
-    await deleteMultipleChats(ctx, validChats, userId);
+    const userId = await ensureAuthenticated(ctx);
+    await purgeChatsInScope(ctx, userId, { chatIds });
     return null;
   },
 });

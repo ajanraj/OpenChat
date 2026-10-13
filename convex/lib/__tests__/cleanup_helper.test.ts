@@ -7,7 +7,7 @@ import {
   type FakeCtx,
   type FakeDb,
 } from "../../__tests__/fake_db.testutil";
-import { deleteMultipleChats, purgeUserDataBatch, removeBranchReferences } from "../cleanup_helper";
+import { purgeChatsBatch, purgeUserDataBatch, removeBranchReferences } from "../cleanup_helper";
 
 const mocks = vi.hoisted(() => ({
   r2DeleteObject: vi.fn<(ctx: unknown, key: string) => Promise<void>>(async () => undefined),
@@ -63,8 +63,12 @@ describe("removeBranchReferences", () => {
   });
 });
 
-describe("deleteMultipleChats", () => {
-  it("deletes the chats with their messages and unlinks only surviving branches", async () => {
+async function* each<T>(rows: T[]) {
+  yield* rows;
+}
+
+describe("purgeChatsBatch", () => {
+  it("deletes the chats with their messages and attachments, unlinking only surviving branches", async () => {
     const db = createFakeDb();
     const userId = seedUser(db);
     const parent = seedChat(db, userId);
@@ -78,16 +82,49 @@ describe("deleteMultipleChats", () => {
       content: "hi",
       createdAt: 1,
     });
+    // Legacy attachment without a userId, only reachable through its chat
+    db.seed("chat_attachments", { chatId: parent, key: "uploads/legacy.png" });
     const patch = vi.spyOn(db, "patch");
-    const chats = db.all("chats").filter((chat) => chat._id !== survivingBranch);
+    const deleting = new Set<string>([parent, deletedBranch]);
+    const chats = db.all("chats").filter((chat) => deleting.has(chat._id));
 
-    await deleteMultipleChats(asCtx(createFakeCtx(db)), chats as unknown as Doc<"chats">[], userId);
+    const done = await purgeChatsBatch(
+      asCtx(createFakeCtx(db)),
+      userId,
+      each(chats as unknown as Doc<"chats">[]),
+      (chat) => deleting.has(chat._id),
+    );
 
+    expect(done).toBe(true);
     expect(db.all("chats").map((chat) => chat._id)).toEqual([survivingBranch]);
     expect(db.all("chats")[0].originalChatId).toBeUndefined();
     expect(db.all("messages")).toEqual([]);
+    expect(db.all("chat_attachments")).toEqual([]);
+    expect(mocks.r2DeleteObject).toHaveBeenCalledWith(expect.anything(), "uploads/legacy.png");
     // The deleted branch is removed outright, never patched first
     expect(patch.mock.calls.map(([, id]) => id)).toEqual([survivingBranch]);
+  });
+
+  it("stops at its budget and resumes a partly deleted chat on the next run", async () => {
+    const db = createFakeDb();
+    const userId = seedUser(db);
+    const chatId = seedChat(db, userId);
+    for (let i = 0; i < 2100; i += 1) {
+      db.seed("messages", { chatId, userId, role: "user", content: `m${i}`, createdAt: i });
+    }
+    const run = () =>
+      purgeChatsBatch(
+        asCtx(createFakeCtx(db)),
+        userId,
+        each(db.all("chats") as unknown as Doc<"chats">[]),
+        () => true,
+      );
+
+    expect(await run()).toBe(false);
+    expect(db.all("chats")).toHaveLength(1);
+    expect(await run()).toBe(true);
+    expect(db.all("messages")).toEqual([]);
+    expect(db.all("chats")).toEqual([]);
   });
 });
 

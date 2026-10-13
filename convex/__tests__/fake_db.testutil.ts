@@ -75,13 +75,14 @@ function tableDefinition(table: TableNames): ExportedTable {
   return found;
 }
 
+// Like Convex, every index ends with _creationTime
 function indexFields(table: TableNames, index: string): string[] {
-  if (index === "by_creation_time") return [];
+  if (index === "by_creation_time") return ["_creationTime"];
   const found = tableDefinition(table).indexes.find((i) => i.indexDescriptor === index);
   if (!found) {
     throw new Error(`Index ${table}.${index} is not defined in the schema`);
   }
-  return found.fields;
+  return [...found.fields, "_creationTime"];
 }
 
 function tokens(text: unknown): string[] {
@@ -116,7 +117,7 @@ export function createFakeDb() {
 
   class FakeQuery {
     private bounds: Bound[] = [];
-    private fields: string[] = [];
+    private fields: string[] = ["_creationTime"];
     private descending = false;
     private searchField: string | null = null;
     private searchTerms: string[] = [];
@@ -197,9 +198,8 @@ export function createFakeDb() {
           tokens(doc[field]).some((word) => terms.includes(word) || word.startsWith(last)),
         );
       }
-      const keys = [...this.fields, "_creationTime"];
       found.sort((a, b) => {
-        for (const key of keys) {
+        for (const key of this.fields) {
           const cmp = compareValues(a[key], b[key]);
           if (cmp !== 0) return cmp;
         }

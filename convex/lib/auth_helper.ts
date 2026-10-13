@@ -160,29 +160,3 @@ export function assertServerSecret(provided: string): void {
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
   }
 }
-
-/**
- * Validates that multiple chats belong to the authenticated user.
- * Returns only the valid chats that the user owns.
- *
- * @example
- * const validChats = await validateChatOwnership(ctx, chatIds);
- */
-export async function validateChatOwnership(
-  ctx: QueryCtx | MutationCtx,
-  chatIds: Id<"chats">[],
-): Promise<Doc<"chats">[]> {
-  if (chatIds.length === 0) {
-    return [];
-  }
-
-  const userId = await ensureAuthenticated(ctx);
-
-  // Get all chats in parallel
-  const chatResults = await Promise.all(chatIds.map((chatId) => ctx.db.get("chats", chatId)));
-
-  // Filter to only valid chats owned by the user
-  return chatResults.filter(
-    (chat): chat is Doc<"chats"> => chat !== null && chat.userId === userId,
-  );
-}

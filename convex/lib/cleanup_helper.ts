@@ -66,8 +66,8 @@ export async function deleteAttachmentsForChat(
 }
 
 /**
- * Clears `originalChatId` on chats branched from the specified chat, skipping chats in
- * `skipChatIds` (ones deleted in the same operation, which need no patch).
+ * Clears `originalChatId` on chats branched from the specified chat, skipping chats for which
+ * `isDeleting` is true (they are deleted by the same operation, so need no patch).
  *
  * @example
  * await removeBranchReferences(ctx, originalChatId, userId);
@@ -76,7 +76,7 @@ export async function removeBranchReferences(
   ctx: MutationCtx,
   originalChatId: Id<"chats">,
   userId: Id<"users">,
-  skipChatIds?: ReadonlySet<Id<"chats">>,
+  isDeleting?: (chat: Doc<"chats">) => boolean,
 ): Promise<void> {
   const branchedChats = await ctx.db
     .query("chats")
@@ -87,7 +87,7 @@ export async function removeBranchReferences(
 
   await Promise.all(
     branchedChats
-      .filter((branchedChat) => !skipChatIds?.has(branchedChat._id))
+      .filter((branchedChat) => !isDeleting?.(branchedChat))
       .map((branchedChat) =>
         ctx.db.patch("chats", branchedChat._id, {
           originalChatId: undefined,
@@ -117,38 +117,6 @@ export async function deleteChatCompletely(
 
   // Finally delete the chat itself
   await ctx.db.delete("chats", chatId);
-}
-
-/**
- * Deletes multiple chats and all their associated data in parallel.
- * Branch links are only cleared on chats that survive the deletion.
- *
- * @example
- * await deleteMultipleChats(ctx, validChats, userId);
- */
-export async function deleteMultipleChats(
-  ctx: MutationCtx,
-  chats: Doc<"chats">[],
-  userId: Id<"users">,
-): Promise<void> {
-  const deletingChatIds = new Set(chats.map((chat) => chat._id));
-  await Promise.all(
-    chats.map((chat) => removeBranchReferences(ctx, chat._id, userId, deletingChatIds)),
-  );
-
-  // Process all chat deletions in parallel
-  await Promise.all(
-    chats.map(async (chat) => {
-      // Delete messages and attachments in parallel for each chat
-      await Promise.all([
-        deleteMessagesForChat(ctx, chat._id),
-        deleteAttachmentsForChat(ctx, chat._id),
-      ]);
-
-      // Delete the chat
-      await ctx.db.delete("chats", chat._id);
-    }),
-  );
 }
 
 /**
@@ -224,6 +192,68 @@ async function purgeEach<Row>(
 }
 
 /**
+ * Row deleters for purgeEach. Each purger allows PURGE_MAX_ATTACHMENTS R2 deletes, then stops.
+ */
+function createPurger(ctx: MutationCtx) {
+  const r2 = new R2(components.r2);
+  let attachmentsDeleted = 0;
+  return {
+    // Shared across tables, so it keeps the id-only delete form (the table-first form needs a
+    // literal table name per call site)
+    deleteRow: async (row: { _id: Id<TableNames> }) => {
+      await ctx.db.delete(row._id);
+      return true;
+    },
+    deleteAttachment: async (attachment: Doc<"chat_attachments">) => {
+      if (attachmentsDeleted >= PURGE_MAX_ATTACHMENTS) {
+        return false;
+      }
+      attachmentsDeleted += 1;
+      await deleteAttachment(ctx, r2, attachment);
+      return true;
+    },
+  };
+}
+
+/**
+ * Deletes one budget-bounded batch of the user's `chats`, each with its attachments and messages
+ * (messages go by chat, which also covers legacy messages without a userId). Branch links are
+ * cleared on chats that survive; `isDeleting` says which chats are being deleted too. Returns
+ * true once `chats` is exhausted, false when the caller must run it again (a partly deleted chat
+ * resumes where it stopped).
+ *
+ * @example
+ * const done = await purgeChatsBatch(ctx, userId, chats, () => true);
+ */
+export async function purgeChatsBatch(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  chats: AsyncIterable<Doc<"chats">>,
+  isDeleting: (chat: Doc<"chats">) => boolean,
+): Promise<boolean> {
+  const { deleteRow, deleteAttachment } = createPurger(ctx);
+  return await purgeEach(ctx, chats, async (chat) => {
+    const contentDone =
+      (await purgeEach(
+        ctx,
+        ctx.db.query("chat_attachments").withIndex("by_chatId", (q) => q.eq("chatId", chat._id)),
+        deleteAttachment,
+      )) &&
+      (await purgeEach(
+        ctx,
+        ctx.db.query("messages").withIndex("by_chat_and_created", (q) => q.eq("chatId", chat._id)),
+        deleteRow,
+      ));
+    if (!contentDone) {
+      return false;
+    }
+    await removeBranchReferences(ctx, chat._id, userId, isDeleting);
+    await ctx.db.delete("chats", chat._id);
+    return true;
+  });
+}
+
+/**
  * Deletes one budget-bounded batch of a deleted user's data. Returns true when nothing is left,
  * false when the caller must run it again (each run restarts from the first table; finished
  * tables cost one empty index read). Stripe billing records are kept.
@@ -232,14 +262,7 @@ async function purgeEach<Row>(
  * const done = await purgeUserDataBatch(ctx, userId);
  */
 export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">): Promise<boolean> {
-  const r2 = new R2(components.r2);
-  let attachmentsDeleted = 0;
-  // Shared across tables, so it keeps the id-only delete form (the table-first form needs a
-  // literal table name per call site)
-  const deleteRow = async (row: { _id: Id<TableNames> }) => {
-    await ctx.db.delete(row._id);
-    return true;
-  };
+  const { deleteRow, deleteAttachment } = createPurger(ctx);
 
   const steps: Array<() => Promise<boolean>> = [
     // Scheduled tasks first, so no new run starts writing to the user's chats mid-purge
@@ -272,33 +295,15 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
       purgeEach(
         ctx,
         ctx.db.query("chat_attachments").withIndex("by_userId", (q) => q.eq("userId", userId)),
-        async (attachment) => {
-          if (attachmentsDeleted >= PURGE_MAX_ATTACHMENTS) {
-            return false;
-          }
-          attachmentsDeleted += 1;
-          await deleteAttachment(ctx, r2, attachment);
-          return true;
-        },
+        deleteAttachment,
       ),
-    // Messages go by chat, which also covers legacy messages without a userId
+    // Every chat goes, so no branch link needs clearing
     () =>
-      purgeEach(
+      purgeChatsBatch(
         ctx,
+        userId,
         ctx.db.query("chats").withIndex("by_user", (q) => q.eq("userId", userId)),
-        async (chat) => {
-          const messagesDone = await purgeEach(
-            ctx,
-            ctx.db
-              .query("messages")
-              .withIndex("by_chat_and_created", (q) => q.eq("chatId", chat._id)),
-            deleteRow,
-          );
-          if (!messagesDone) {
-            return false;
-          }
-          return await deleteRow(chat);
-        },
+        () => true,
       ),
     () =>
       purgeEach(

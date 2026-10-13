@@ -1,8 +1,16 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "../_generated/dataModel";
-import { branchChat, listChatsForUser, listPinnedChatsForUser, searchChats } from "../chats";
-import { createFakeCtx, createFakeDb, type FakeDb } from "./fake_db.testutil";
+import {
+  branchChat,
+  deleteAllChatsForUser,
+  deleteBulkChats,
+  listChatsForUser,
+  listPinnedChatsForUser,
+  purgeChats,
+  searchChats,
+} from "../chats";
+import { createFakeCtx, createFakeDb, type FakeCtx, type FakeDb } from "./fake_db.testutil";
 
 // Keep the real authTables, which the schema (and so the fake db) needs
 vi.mock(import("@convex-dev/auth/server"), async (importOriginal) => ({
@@ -15,6 +23,12 @@ vi.mock("../_generated/server", () => ({
   mutation: (def: { handler: unknown }) => def.handler,
   query: (def: { handler: unknown }) => def.handler,
   internalMutation: (def: { handler: unknown }) => def.handler,
+}));
+
+vi.mock("@convex-dev/r2", () => ({
+  R2: class {
+    deleteObject = vi.fn<() => Promise<void>>(async () => undefined);
+  },
 }));
 
 type Handler = (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;
@@ -143,5 +157,74 @@ describe("branchChat", () => {
     // Messages after the branch point are never read
     expect(db.readIds).not.toContain(u3);
     expect(db.readIds).not.toContain(a3);
+  });
+});
+
+describe("bulk chat deletion", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Seeds a chat with more messages than one purge run deletes. */
+  function seedLargeChat(db: FakeDb, userId: Id<"users">) {
+    const chatId = seedChat(db, userId, {});
+    for (let i = 0; i < 2100; i += 1) {
+      db.seed("messages", { chatId, userId, role: "user", content: `m${i}`, createdAt: i });
+    }
+    return chatId;
+  }
+
+  /** The purgeChats continuation a run scheduled, if any. */
+  const continuation = (ctx: FakeCtx) =>
+    ctx.scheduler.runAfter.mock.calls.map(([, , args]) => args)[0] as
+      | Record<string, unknown>
+      | undefined;
+
+  it("deletes all of the user's chats and their messages in one call when small", async () => {
+    const { db, userId, otherUserId, ctx } = setup();
+    const chatId = seedChat(db, userId, {});
+    db.seed("messages", { chatId, userId, role: "user", content: "hi", createdAt: 1 });
+    const othersChat = seedChat(db, otherUserId, {});
+
+    await asHandler(deleteAllChatsForUser)(ctx, {});
+
+    expect(db.all("chats").map((chat) => chat._id)).toEqual([othersChat]);
+    expect(db.all("messages")).toEqual([]);
+    expect(continuation(ctx)).toBeUndefined();
+  });
+
+  it("finishes a large delete-all in the background, keeping chats created since", async () => {
+    const { db, userId, ctx } = setup();
+    seedLargeChat(db, userId);
+    const requestedAt = Math.max(...db.all("messages").map((m) => m._creationTime));
+    vi.spyOn(Date, "now").mockReturnValue(requestedAt);
+
+    await asHandler(deleteAllChatsForUser)(ctx, {});
+    const args = continuation(ctx);
+    expect(args).toEqual({ userId, scope: { createdBefore: requestedAt } });
+
+    const newChat = seedChat(db, userId, {});
+    await asHandler(purgeChats)(createFakeCtx(db), args ?? {});
+
+    expect(db.all("chats").map((chat) => chat._id)).toEqual([newChat]);
+    expect(db.all("messages")).toEqual([]);
+  });
+
+  it("passes the chats not yet deleted on to the next run, ignoring other users' chats", async () => {
+    const { db, userId, otherUserId, ctx } = setup();
+    const small = seedChat(db, userId, {});
+    const large = seedLargeChat(db, userId);
+    const othersChat = seedChat(db, otherUserId, {});
+
+    await asHandler(deleteBulkChats)(ctx, { chatIds: [small, large, othersChat] });
+    const args = continuation(ctx);
+    expect(args).toEqual({ userId, scope: { chatIds: [large, othersChat] } });
+
+    const next = createFakeCtx(db);
+    await asHandler(purgeChats)(next, args ?? {});
+
+    expect(continuation(next)).toBeUndefined();
+    expect(db.all("chats").map((chat) => chat._id)).toEqual([othersChat]);
+    expect(db.all("messages")).toEqual([]);
   });
 });
