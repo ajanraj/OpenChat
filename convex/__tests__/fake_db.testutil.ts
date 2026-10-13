@@ -194,7 +194,9 @@ export function createFakeDb() {
       if (this.searchField) {
         const field = this.searchField;
         const terms = this.searchTerms;
-        const last = terms.at(-1) ?? "";
+        const last = terms.at(-1);
+        // Like Convex, a search with no terms matches nothing
+        if (last === undefined) return [];
         // Any term matches a word; the last term also matches as a prefix
         return found.filter((doc) =>
           tokens(doc[field]).some((word) => terms.includes(word) || word.startsWith(last)),
@@ -314,15 +316,17 @@ export function createFakeDb() {
 export function createFakeCtx(db: FakeDb) {
   const start = { ...db.stats };
   const metric = (used: number, limit: number) => ({ used, remaining: limit - used });
+  const runAfter = vi.fn<(delayMs: number, fn: unknown, args: unknown) => Promise<string>>(
+    async () => "scheduled:1",
+  );
+  const runAt = vi.fn<(timestamp: number, fn: unknown, args: unknown) => Promise<string>>(
+    async () => "scheduled:1",
+  );
   return {
     db,
     scheduler: {
-      runAfter: vi.fn<(delayMs: number, fn: unknown, args: unknown) => Promise<string>>(
-        async () => "scheduled:1",
-      ),
-      runAt: vi.fn<(timestamp: number, fn: unknown, args: unknown) => Promise<string>>(
-        async () => "scheduled:1",
-      ),
+      runAfter,
+      runAt,
       cancel: vi.fn<(id: string) => Promise<void>>(async () => undefined),
     },
     meta: {
@@ -330,7 +334,10 @@ export function createFakeCtx(db: FakeDb) {
         documentsWritten: metric(db.stats.writes - start.writes, LIMITS.documentsWritten),
         documentsRead: metric(db.stats.reads - start.reads, LIMITS.documentsRead),
         databaseQueries: metric(db.stats.queries - start.queries, LIMITS.databaseQueries),
-        functionsScheduled: metric(0, LIMITS.functionsScheduled),
+        functionsScheduled: metric(
+          runAfter.mock.calls.length + runAt.mock.calls.length,
+          LIMITS.functionsScheduled,
+        ),
         bytesRead: metric(db.stats.bytesRead - start.bytesRead, 16 * MiB),
         bytesWritten: metric(0, 16 * MiB),
         scheduledFunctionArgsBytes: metric(0, 16 * MiB),
