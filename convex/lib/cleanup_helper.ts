@@ -410,12 +410,6 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("usage_history").withIndex("by_user", (q) => q.eq("userId", userId)),
-        deleteRow,
-      ),
-    () =>
-      purgeEach(
-        ctx,
         ctx.db.query("profiles").withIndex("by_user", (q) => q.eq("userId", userId)),
         deleteRow,
       ),

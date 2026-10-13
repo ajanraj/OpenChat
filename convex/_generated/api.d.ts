@@ -39,7 +39,6 @@ import type * as schema_message from "../schema/message.js";
 import type * as schema_profile from "../schema/profile.js";
 import type * as schema_scheduled_task from "../schema/scheduled_task.js";
 import type * as schema_task_history from "../schema/task_history.js";
-import type * as schema_usage_history from "../schema/usage_history.js";
 import type * as schema_user from "../schema/user.js";
 import type * as schema_user_api_key from "../schema/user_api_key.js";
 import type * as stripe from "../stripe.js";
@@ -85,7 +84,6 @@ declare const fullApi: ApiFromModules<{
   "schema/profile": typeof schema_profile;
   "schema/scheduled_task": typeof schema_scheduled_task;
   "schema/task_history": typeof schema_task_history;
-  "schema/usage_history": typeof schema_usage_history;
   "schema/user": typeof schema_user;
   "schema/user_api_key": typeof schema_user_api_key;
   stripe: typeof stripe;

@@ -25,7 +25,6 @@ This folder contains the modularized schema definitions for the oschat applicati
 - `chat_attachment.ts` - File attachments for chats
 - `feedback.ts` - User feedback
 - `user_api_key.ts` - User's custom API keys
-- `usage_history.ts` - Usage tracking
 - `purchase.ts` - Payment records
 - `order.ts` - Order management
 - `logo.ts` - Logo customization

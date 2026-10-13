@@ -222,7 +222,6 @@ describe("purgeUserDataBatch", () => {
     db.seed("messages", { chatId, role: "assistant", content: "hello", createdAt: 2 });
     db.seed("chat_attachments", { userId, chatId, key: "uploads/a.png" });
     db.seed("feedback", { userId, message: "great" });
-    db.seed("usage_history", { userId });
     db.seed("profiles", { userId, isDefault: true });
     db.seed("connectors", { userId, type: "gmail", isConnected: true });
     db.seed("user_api_keys", { userId, provider: "openai" });
@@ -235,7 +234,6 @@ describe("purgeUserDataBatch", () => {
     "messages",
     "chat_attachments",
     "feedback",
-    "usage_history",
     "profiles",
     "connectors",
     "user_api_keys",

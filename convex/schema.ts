@@ -9,7 +9,6 @@ import { Message } from "./schema/message";
 import { Profile } from "./schema/profile";
 import { ScheduledTask } from "./schema/scheduled_task";
 import { TaskHistory } from "./schema/task_history";
-import { UsageHistory } from "./schema/usage_history";
 // Import all schema modules
 import { User } from "./schema/user";
 import { UserApiKey } from "./schema/user_api_key";
@@ -42,7 +41,6 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     // Dedicated index for direct lookups/deletes by R2 object key
     .index("by_key", ["key"]),
-  usage_history: defineTable(UsageHistory).index("by_user", ["userId"]),
   user_api_keys: defineTable(UserApiKey).index("by_user_provider", ["userId", "provider"]),
   connectors: defineTable(Connector)
     .index("by_user", ["userId"])
