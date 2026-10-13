@@ -77,7 +77,13 @@ function seedSignedInUser(db: FakeDb) {
   const sessionId = db.seed("authSessions", { userId, expirationTime: 1 });
   db.seed("authRefreshTokens", { sessionId, expirationTime: 1 });
   db.seed("authRefreshTokens", { sessionId, expirationTime: 2 });
-  return userId;
+  return { userId, sessionId };
+}
+
+function seedRefreshTokens(db: FakeDb, sessionId: string, count: number) {
+  for (let i = 0; i < count; i += 1) {
+    db.seed("authRefreshTokens", { sessionId, expirationTime: i });
+  }
 }
 
 describe("deleteAccount", () => {
@@ -102,24 +108,44 @@ describe("deleteAccount", () => {
 
   it("deletes sign-in data and the user now, then schedules the purge and revocation", async () => {
     const db = createFakeDb();
-    const userId = seedSignedInUser(db);
-    const otherUserId = seedSignedInUser(db);
+    const { userId, sessionId } = seedSignedInUser(db);
+    const other = seedSignedInUser(db);
     const chatId = db.seed("chats", { userId, title: "Kept until the purge" });
     authUser.mockResolvedValue(userId);
     const ctx = createFakeCtx(db);
 
     expect(await asHandler(deleteAccount)(ctx, {})).toBeNull();
 
-    expect(db.all("users").map((u) => u._id)).toEqual([otherUserId]);
-    expect(db.all("authAccounts").map((a) => a.userId)).toEqual([otherUserId]);
-    expect(db.all("authSessions").map((s) => s.userId)).toEqual([otherUserId]);
+    expect(db.all("users").map((u) => u._id)).toEqual([other.userId]);
+    expect(db.all("authAccounts").map((a) => a.userId)).toEqual([other.userId]);
+    expect(db.all("authSessions").map((s) => s.userId)).toEqual([other.userId]);
     expect(db.all("authVerificationCodes")).toHaveLength(1);
-    expect(db.all("authRefreshTokens")).toHaveLength(2);
+    // Refresh tokens are useless without their session and go with the purge
+    expect(db.all("authRefreshTokens")).toHaveLength(4);
     expect(db.all("chats").map((c) => c._id)).toEqual([chatId]);
     expect(scheduled(ctx)).toEqual([
-      [0, "users:purgeDeletedUserData", { userId }],
+      [0, "users:purgeDeletedUserData", { userId, sessionIds: [sessionId] }],
       [0, "account_deletion:revokeDeletedUserAccess", { userId }],
     ]);
+
+    await asHandler(purgeDeletedUserData)(createFakeCtx(db), { userId, sessionIds: [sessionId] });
+    expect(db.all("authRefreshTokens").map((t) => t.sessionId)).toEqual([
+      other.sessionId,
+      other.sessionId,
+    ]);
+  });
+
+  it("stays within one transaction's limits for a user with many refresh tokens", async () => {
+    const db = createFakeDb();
+    const { userId, sessionId } = seedSignedInUser(db);
+    seedRefreshTokens(db, sessionId, 20_000);
+    authUser.mockResolvedValue(userId);
+    const ctx = createFakeCtx(db);
+
+    await asHandler(deleteAccount)(ctx, {});
+
+    expect(db.all("users")).toEqual([]);
+    expect(db.stats.writes).toBeLessThan(10);
   });
 });
 
@@ -134,7 +160,9 @@ describe("purgeDeletedUserData", () => {
 
     const firstRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(firstRun, { userId });
-    expect(scheduled(firstRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+    expect(scheduled(firstRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId, sessionIds: [] }],
+    ]);
 
     const secondRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(secondRun, { userId });
@@ -150,6 +178,54 @@ describe("purgeDeletedUserData", () => {
     await asHandler(purgeDeletedUserData)(finalRun, { userId, final: true });
     expect(db.all("chats")).toEqual([]);
     expect(finalRun.scheduler.runAfter).not.toHaveBeenCalled();
+  });
+
+  it("purges the deleted sessions' refresh tokens in budgeted batches first", async () => {
+    const db = createFakeDb();
+    const userId = "users:deleted" as Id<"users">;
+    const sessionIds = ["authSessions:big", "authSessions:small"];
+    seedRefreshTokens(db, "authSessions:big", 2100);
+    seedRefreshTokens(db, "authSessions:small", 3);
+    seedRefreshTokens(db, "authSessions:someone-else", 1);
+    db.seed("chats", { userId, title: "Chat" });
+
+    const firstRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(firstRun, { userId, sessionIds });
+    expect(scheduled(firstRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId, sessionIds }],
+    ]);
+    expect(db.all("chats")).toHaveLength(1);
+
+    const secondRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(secondRun, { userId, sessionIds });
+    expect(db.all("authRefreshTokens").map((t) => t.sessionId)).toEqual([
+      "authSessions:someone-else",
+    ]);
+    expect(db.all("chats")).toEqual([]);
+    expect(scheduled(secondRun)).toEqual([
+      [65 * 60 * 1000, "users:purgeDeletedUserData", { userId, final: true }],
+    ]);
+  });
+
+  it("drops finished sessions when it runs out of budget", async () => {
+    const db = createFakeDb();
+    const userId = "users:deleted" as Id<"users">;
+    // Tokens already deleted by Convex Auth when a device failed to refresh: one query each
+    const sessionIds = Array.from({ length: 1500 }, (_, i) => `authSessions:${i}`);
+
+    const firstRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(firstRun, { userId, sessionIds });
+    const [[, , args]] = scheduled(firstRun) as [[number, string, { sessionIds: string[] }]];
+    // A non-empty tail: finished sessions are dropped, the rest carried over
+    expect(args.sessionIds.length).toBeGreaterThan(0);
+    expect(args.sessionIds.length).toBeLessThan(sessionIds.length);
+    expect(args.sessionIds).toEqual(sessionIds.slice(-args.sessionIds.length));
+
+    const secondRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(secondRun, { userId, sessionIds: args.sessionIds });
+    expect(scheduled(secondRun)).toEqual([
+      [65 * 60 * 1000, "users:purgeDeletedUserData", { userId, final: true }],
+    ]);
   });
 });
 
