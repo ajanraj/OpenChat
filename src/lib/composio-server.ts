@@ -158,9 +158,32 @@ export const disconnectAccount = async (
   await Promise.all(accounts.map((account) => composio.connectedAccounts.delete(account.id)));
 };
 
+// Deleting a session is best-effort cleanup, so it never holds up the caller for longer than this
+const SESSION_DELETE_TIMEOUT_MS = 5_000;
+
 /**
- * Get Composio tools for enabled toolkits (for chat integration). `signal` cancels creating the
- * session; loading and executing its tools take no signal.
+ * Settles like `promise`, but rejects with the abort reason as soon as `signal` aborts. For SDK
+ * calls whose typings take no signal: the request keeps running, it just stops being waited on.
+ */
+const untilAborted = <T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> => {
+  if (!signal) {
+    return promise;
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+};
+
+/**
+ * Get Composio tools for enabled toolkits (for chat integration). Once `signal` aborts, creating
+ * the session is cancelled and loading its tools stops being waited on (executing a tool takes no
+ * signal). Returns null when the tools can't be loaded.
  */
 export const getComposioTools = async (
   userId: string,
@@ -180,7 +203,7 @@ export const getComposioTools = async (
     });
     const close = async (): Promise<void> => {
       try {
-        await session.delete();
+        await session.delete({ signal: AbortSignal.timeout(SESSION_DELETE_TIMEOUT_MS) });
       } catch (error) {
         console.error("Failed to delete Composio session:", error);
       }
@@ -188,7 +211,7 @@ export const getComposioTools = async (
 
     try {
       return {
-        tools: await session.tools(),
+        tools: await untilAborted(session.tools(), signal),
         close,
       };
     } catch (error) {

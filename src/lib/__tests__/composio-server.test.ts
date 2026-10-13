@@ -14,7 +14,7 @@ interface MockTool {
 interface MockSession {
   sessionId: string;
   tools: () => Promise<Record<string, MockTool>>;
-  delete: () => Promise<{ sessionId: string; deleted: boolean }>;
+  delete: (options?: { signal?: AbortSignal }) => Promise<{ sessionId: string; deleted: boolean }>;
 }
 
 interface MockAccount {
@@ -49,7 +49,10 @@ const {
           options?: { signal?: AbortSignal },
         ) => Promise<MockSession>
       >(),
-    mockSessionDelete: vi.fn<() => Promise<{ sessionId: string; deleted: boolean }>>(),
+    mockSessionDelete:
+      vi.fn<
+        (options?: { signal?: AbortSignal }) => Promise<{ sessionId: string; deleted: boolean }>
+      >(),
     mockSessionTools: vi.fn<() => Promise<Record<string, MockTool>>>(),
     mockAccountDelete: vi.fn<(connectionId: string) => Promise<void>>(),
     mockLink:
@@ -127,7 +130,23 @@ describe("composio-server", () => {
 
     await result?.close();
 
+    // Cleanup has its own deadline, independent of the caller's signal
+    expect(mockSessionDelete).toHaveBeenCalledExactlyOnceWith({ signal: expect.any(AbortSignal) });
+  });
+
+  it("stops waiting for the tools once the signal aborts, and deletes the session", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockSessionTools.mockReturnValue(new Promise(() => undefined));
+    const controller = new AbortController();
+
+    const pending = getComposioTools("user-123", ["GMAIL"], controller.signal);
+    // Let the session be created and tool loading start before aborting
+    await vi.waitFor(() => expect(mockSessionTools).toHaveBeenCalledOnce());
+    controller.abort();
+
+    await expect(pending).resolves.toBeNull();
     expect(mockSessionDelete).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
   });
 
   it("creates a fresh router session for each agent run", async () => {
