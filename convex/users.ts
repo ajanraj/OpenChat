@@ -11,7 +11,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { assertServerSecret, ensureAuthenticated, getCurrentUserOrNull } from "./lib/auth_helper";
-import { deleteAuthData, purgeRefreshTokensBatch, purgeUserDataBatch } from "./lib/cleanup_helper";
+import { deleteAuthAccounts, purgeUserDataBatch } from "./lib/cleanup_helper";
 import * as credits from "./lib/credits";
 import { hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
@@ -243,9 +243,9 @@ export const getRateLimitStatus = query({
 // for security and simplicity. Users who sign in with Google will start with fresh accounts.
 
 /**
- * Deletes the signed-in account. Auth accounts, sessions and the user record go right away, so no
- * device can sign back in to it or refresh its token; everything else (including the sessions'
- * refresh tokens) is purged in the background (purgeDeletedUserData), and open checkouts,
+ * Deletes the signed-in account. Auth accounts and the user record go right away, so nobody can
+ * sign back in to it; everything else is purged in the background (purgeDeletedUserData), whose
+ * first batch deletes the sessions so no device can refresh its token. Open checkouts,
  * subscriptions that can still bill and Composio connected accounts are revoked
  * (account_deletion.revokeDeletedUserAccess). Stripe billing records are kept. Calling it again
  * after the user is gone is a no-op.
@@ -262,9 +262,9 @@ export const deleteAccount = mutation({
       return null;
     }
 
-    const sessionIds = await deleteAuthData(ctx, userId);
+    await deleteAuthAccounts(ctx, userId);
     await ctx.db.delete("users", userId);
-    await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId, sessionIds });
+    await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
     await ctx.scheduler.runAfter(0, internal.account_deletion.revokeDeletedUserAccess, { userId });
     return null;
   },
@@ -275,26 +275,20 @@ export const deleteAccount = mutation({
 const FINAL_PURGE_DELAY_MS = 65 * 60 * 1000;
 
 /**
- * Purges a deleted user's data one budget-bounded batch per run, rescheduling itself until
- * nothing is left, then once more (`final`) after the last session token expired. The refresh
- * tokens of the sessions deleteAccount removed (`sessionIds`) go first. If a run throws, re-run
- * it with the same args; it resumes where it stopped.
+ * Purges a deleted user's data one budget-bounded batch per run, sessions first (see
+ * purgeUserDataBatch), rescheduling itself until nothing is left, then once more (`final`) after
+ * the last session token expired. If a run throws, re-run it with the same args; it resumes where
+ * it stopped.
  */
 export const purgeDeletedUserData = internalMutation({
   args: {
     userId: v.id("users"),
-    sessionIds: v.optional(v.array(v.id("authSessions"))),
     final: v.optional(v.boolean()),
   },
   returns: v.null(),
-  handler: async (ctx, { userId, sessionIds = [], final }): Promise<null> => {
-    const pendingSessionIds = await purgeRefreshTokensBatch(ctx, sessionIds);
-    if (pendingSessionIds.length > 0 || !(await purgeUserDataBatch(ctx, userId))) {
-      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, {
-        userId,
-        sessionIds: pendingSessionIds,
-        final,
-      });
+  handler: async (ctx, { userId, final }): Promise<null> => {
+    if (!(await purgeUserDataBatch(ctx, userId))) {
+      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId, final });
     } else if (!final) {
       await ctx.scheduler.runAfter(FINAL_PURGE_DELAY_MS, internal.users.purgeDeletedUserData, {
         userId,

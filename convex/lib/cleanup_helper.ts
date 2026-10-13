@@ -152,19 +152,14 @@ export async function deleteChatCompletely(
 }
 
 /**
- * Deletes the user's sign-in data: auth accounts (with their verification codes) and sessions,
- * so no device can sign in or refresh its token afterwards (Convex Auth rejects a refresh token
- * whose session is gone). Returns the deleted session ids: Convex Auth keeps used refresh tokens,
- * so a session can have too many to delete in the same transaction; purge them with
- * purgeRefreshTokensBatch.
+ * Deletes the user's auth accounts (with their verification codes), so nobody can sign in to the
+ * account again. Its sessions can be too many for one transaction (Convex Auth creates one per
+ * sign-in and keeps every used refresh token), so purgeUserDataBatch deletes them first instead.
  *
  * @example
- * const sessionIds = await deleteAuthData(ctx, userId);
+ * await deleteAuthAccounts(ctx, userId);
  */
-export async function deleteAuthData(
-  ctx: MutationCtx,
-  userId: Id<"users">,
-): Promise<Id<"authSessions">[]> {
+export async function deleteAuthAccounts(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
   for await (const account of ctx.db
     .query("authAccounts")
     .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))) {
@@ -175,51 +170,6 @@ export async function deleteAuthData(
     }
     await ctx.db.delete("authAccounts", account._id);
   }
-
-  const sessionIds: Id<"authSessions">[] = [];
-  for await (const session of ctx.db
-    .query("authSessions")
-    .withIndex("userId", (q) => q.eq("userId", userId))) {
-    await ctx.db.delete("authSessions", session._id);
-    sessionIds.push(session._id);
-  }
-  return sessionIds;
-}
-
-/**
- * Deletes one budget-bounded batch of the refresh tokens of sessions deleteAuthData removed,
- * session by session. Returns the session ids still to purge (empty once done), so a rerun
- * skips finished sessions.
- *
- * @example
- * const pendingSessionIds = await purgeRefreshTokensBatch(ctx, sessionIds);
- */
-export async function purgeRefreshTokensBatch(
-  ctx: MutationCtx,
-  sessionIds: Id<"authSessions">[],
-): Promise<Id<"authSessions">[]> {
-  let finished = 0;
-  for (const sessionId of sessionIds) {
-    // Checked per session too, since purgeEach checks only before rows and a session's tokens
-    // may already be gone (a refresh attempt after the deletion deletes them)
-    const done =
-      (await hasPurgeBudget(ctx)) &&
-      (await purgeEach(
-        ctx,
-        ctx.db
-          .query("authRefreshTokens")
-          .withIndex("sessionId", (q) => q.eq("sessionId", sessionId)),
-        async (token) => {
-          await ctx.db.delete("authRefreshTokens", token._id);
-          return true;
-        },
-      ));
-    if (!done) {
-      break;
-    }
-    finished += 1;
-  }
-  return sessionIds.slice(finished);
 }
 
 const MiB = 1024 * 1024;
@@ -355,7 +305,22 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
   const { deleteRow, deleteAttachment } = createPurger(ctx);
 
   const steps: Array<() => Promise<boolean>> = [
-    // Scheduled tasks first, so no new run starts writing to the user's chats mid-purge
+    // Sessions first: once one is gone, Convex Auth rejects its refresh tokens, so no device can
+    // renew its access. Its tokens go before it, so a resumed run still finds the session.
+    () =>
+      purgeEach(
+        ctx,
+        ctx.db.query("authSessions").withIndex("userId", (q) => q.eq("userId", userId)),
+        async (session) =>
+          (await purgeEach(
+            ctx,
+            ctx.db
+              .query("authRefreshTokens")
+              .withIndex("sessionId", (q) => q.eq("sessionId", session._id)),
+            deleteRow,
+          )) && (await deleteRow(session)),
+      ),
+    // Scheduled tasks next, so no new run starts writing to the user's chats mid-purge
     () =>
       purgeEach(
         ctx,
