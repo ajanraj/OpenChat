@@ -101,8 +101,8 @@ export async function deleteAttachmentsForChat(
 }
 
 /**
- * Clears `originalChatId` on chats branched from the specified chat, skipping chats for which
- * `isDeleting` is true (they are deleted by the same operation, so need no patch).
+ * Clears `originalChatId` on the user's chats branched from the specified chat, all in one go;
+ * purgeChatsBatch unlinks branches within its budget instead.
  *
  * @example
  * await removeBranchReferences(ctx, originalChatId, userId);
@@ -111,7 +111,6 @@ export async function removeBranchReferences(
   ctx: MutationCtx,
   originalChatId: Id<"chats">,
   userId: Id<"users">,
-  isDeleting?: (chat: Doc<"chats">) => boolean,
 ): Promise<void> {
   const branchedChats = await ctx.db
     .query("chats")
@@ -121,14 +120,12 @@ export async function removeBranchReferences(
     .collect();
 
   await Promise.all(
-    branchedChats
-      .filter((branchedChat) => !isDeleting?.(branchedChat))
-      .map((branchedChat) =>
-        ctx.db.patch("chats", branchedChat._id, {
-          originalChatId: undefined,
-          updatedAt: Date.now(),
-        }),
-      ),
+    branchedChats.map((branchedChat) =>
+      ctx.db.patch("chats", branchedChat._id, {
+        originalChatId: undefined,
+        updatedAt: Date.now(),
+      }),
+    ),
   );
 }
 
@@ -251,12 +248,12 @@ function createPurger(ctx: MutationCtx) {
 }
 
 /**
- * Deletes one budget-bounded batch of the user's `chats`, each with its attachments and messages
- * (messages go by chat, which also covers legacy messages without a userId). Branch links are
- * cleared on chats that survive; `isDeleting` says which chats are being deleted too, or is
- * "all" when every chat of the user goes (no links to clear). Returns true once `chats` is
- * exhausted, false when the caller must run it again (a partly deleted chat resumes where it
- * stopped).
+ * Deletes one budget-bounded batch of the user's `chats`. A chat goes once its attachments and
+ * messages are deleted (messages go by chat, which also covers legacy messages without a userId)
+ * and its branch links are cleared: chats branched from it lose `originalChatId` unless
+ * `isDeleting` says they are being deleted too. `isDeleting` is "all" when every chat of the user
+ * goes (no links to clear). Returns true once `chats` is exhausted, false when the caller must run
+ * it again (a partly deleted chat resumes where it stopped).
  *
  * @example
  * const done = await purgeChatsBatch(ctx, userId, chats, "all");
@@ -269,7 +266,7 @@ export async function purgeChatsBatch(
 ): Promise<boolean> {
   const { deleteRow, deleteAttachment } = createPurger(ctx);
   return await purgeEach(ctx, chats, async (chat) => {
-    const contentDone =
+    const done =
       (await purgeEach(
         ctx,
         ctx.db.query("chat_attachments").withIndex("by_chatId", (q) => q.eq("chatId", chat._id)),
@@ -279,12 +276,28 @@ export async function purgeChatsBatch(
         ctx,
         ctx.db.query("messages").withIndex("by_chat_and_created", (q) => q.eq("chatId", chat._id)),
         deleteRow,
-      ));
-    if (!contentDone) {
+      )) &&
+      (isDeleting === "all" ||
+        (await purgeEach(
+          ctx,
+          ctx.db
+            .query("chats")
+            .withIndex("by_user_and_original_chat", (q) =>
+              q.eq("userId", userId).eq("originalChatId", chat._id),
+            ),
+          async (branch) => {
+            // Branches being deleted too keep their link (a resumed run reads past them)
+            if (!isDeleting(branch)) {
+              await ctx.db.patch("chats", branch._id, {
+                originalChatId: undefined,
+                updatedAt: Date.now(),
+              });
+            }
+            return true;
+          },
+        )));
+    if (!done) {
       return false;
-    }
-    if (isDeleting !== "all") {
-      await removeBranchReferences(ctx, chat._id, userId, isDeleting);
     }
     await ctx.db.delete("chats", chat._id);
     return true;

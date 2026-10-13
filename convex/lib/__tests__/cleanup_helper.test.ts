@@ -138,6 +138,36 @@ describe("purgeChatsBatch", () => {
     expect(db.all("chats")).toEqual([]);
   });
 
+  it("unlinks branches within its budget and deletes the parent only once every link is cleared", async () => {
+    const db = createFakeDb();
+    const userId = seedUser(db);
+    const parent = seedChat(db, userId);
+    const deletedBranch = seedChat(db, userId, { originalChatId: parent });
+    for (let i = 0; i < 2100; i += 1) {
+      seedChat(db, userId, { originalChatId: parent });
+    }
+    const parentDoc = db.all("chats")[0] as unknown as Doc<"chats">;
+    const linked = () => db.all("chats").filter((chat) => chat.originalChatId === parent);
+    const run = () =>
+      purgeChatsBatch(
+        asCtx(createFakeCtx(db)),
+        userId,
+        each([parentDoc]),
+        (chat) => chat._id === parent || chat._id === deletedBranch,
+      );
+
+    // The first run stops partway through the branches, keeping the parent
+    expect(await run()).toBe(false);
+    expect(db.all("chats").some((chat) => chat._id === parent)).toBe(true);
+    expect(linked().length).toBeGreaterThan(1);
+    expect(linked().length).toBeLessThan(2101);
+
+    expect(await run()).toBe(true);
+    expect(db.all("chats").some((chat) => chat._id === parent)).toBe(false);
+    // Only the branch being deleted too keeps its link
+    expect(linked().map((chat) => chat._id)).toEqual([deletedBranch]);
+  });
+
   it("re-checks the key of an attachment deleted while its upload URL may still be live", async () => {
     const db = createFakeDb();
     const userId = seedUser(db);
