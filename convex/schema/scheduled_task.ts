@@ -22,5 +22,5 @@ export const ScheduledTask = v.object({
   nextExecution: v.optional(v.number()),
   scheduledFunctionId: v.optional(v.string()), // Convex scheduled function ID
   createdAt: v.number(),
-  chatId: v.optional(v.id("chats")), // Chat created by the most recent execution (server-managed)
+  chatId: v.optional(v.id("chats")), // Chat of the latest run that got as far as creating one (server-managed)
 });

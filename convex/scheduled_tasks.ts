@@ -404,7 +404,8 @@ export const updateScheduledTask = mutation({
   },
 });
 
-// Delete a scheduled task with its pending run and execution history
+// Delete a scheduled task with its pending run and execution history. A run in progress can't be
+// stopped, so the task can't be deleted until it finishes (or expires).
 export const deleteScheduledTask = mutation({
   args: { taskId: v.id("scheduled_tasks") },
   returns: v.null(),
@@ -414,6 +415,9 @@ export const deleteScheduledTask = mutation({
     const task = await ctx.db.get("scheduled_tasks", args.taskId);
     if (!task || task.userId !== userId) {
       throw new ConvexError(ERROR_CODES.INVALID_INPUT);
+    }
+    if (task.status === "running") {
+      throw new ConvexError(ERROR_CODES.UNSUPPORTED_OPERATION);
     }
 
     await cancelPendingRun(ctx, task.scheduledFunctionId);

@@ -141,7 +141,16 @@ function createFakeCtx() {
         collect: async () => results(),
         take: async (n: number) => results().slice(0, n),
         unique: async () => results()[0] ?? null,
-        paginate: async () => ({ page: results(), isDone: true, continueCursor: "" }),
+        paginate: async ({ numItems, cursor }: { numItems: number; cursor: string | null }) => {
+          const start = cursor ? Number(cursor) : 0;
+          const end = start + numItems;
+          const all = results();
+          return {
+            page: all.slice(start, end),
+            isDone: end >= all.length,
+            continueCursor: `${end}`,
+          };
+        },
       };
       return builder;
     },
@@ -545,6 +554,16 @@ describe("deleteScheduledTask", () => {
     expect(fake.rows("task_history").map((row) => row.taskId)).toEqual([otherTaskId]);
     expect(fake.jobs[0].state.kind).toBe("canceled");
   });
+
+  it("rejects deletion while a run is in progress", async () => {
+    const fake = createFakeCtx();
+    const taskId = await seedTask(fake, { status: "running", lastExecuted: NOW });
+
+    const deletion = call(deleteScheduledTask, fake.ctx, { taskId });
+
+    await expect(deletion).rejects.toMatchObject({ data: ERROR_CODES.UNSUPPORTED_OPERATION });
+    expect(fake.find(taskId)).not.toBeNull();
+  });
 });
 
 describe("migrateScheduledRuns", () => {
@@ -653,5 +672,25 @@ describe("migrateScheduledRuns", () => {
 
     expect(historyOf(live)).toMatchObject({ status: "success" });
     expect(fake.find(live)).toMatchObject({ status: "paused" });
+  });
+
+  it("continues past 100 tasks in a scheduled batch with the same mode", async () => {
+    const fake = createFakeCtx();
+    const taskIds: string[] = [];
+    for (let i = 0; i < 101; i++) {
+      taskIds.push(await seedTask(fake));
+    }
+
+    const first = await call(migrateScheduledRuns, fake.ctx, { pauseAll: true });
+
+    expect(first).toEqual({ scanned: 100, migrated: 0, paused: 100, isDone: false });
+    const [next] = pendingJobs(fake, "scheduled_tasks:migrateScheduledRuns");
+    expect(next.args).toEqual({ pauseAll: true, cursor: "100" });
+    expect(fake.find(taskIds[100])).toMatchObject({ status: "active" });
+
+    const second = await call(migrateScheduledRuns, fake.ctx, next.args as Record<string, unknown>);
+
+    expect(second).toEqual({ scanned: 1, migrated: 0, paused: 1, isDone: true });
+    expect(fake.rows("scheduled_tasks").every((task) => task.status === "paused")).toBe(true);
   });
 });
