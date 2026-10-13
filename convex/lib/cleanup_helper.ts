@@ -1,8 +1,41 @@
 import { R2 } from "@convex-dev/r2";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { rateLimiter } from "../rateLimiter";
+
+// Presigned PUT URLs from r2.generateUploadUrl use the AWS presigner default of 900 seconds, and
+// they don't sign the content type or length: until expiry the client can PUT the key again.
+const UPLOAD_URL_LIFETIME_MS = 15 * 60 * 1000;
+// Keys are re-checked this long after their URL expires, so uploads still in flight have landed.
+const RECHECK_MARGIN_MS = 60 * 1000;
+
+/**
+ * When to re-check an attachment's R2 key: just after the upload URL issued with its row (at
+ * `_creationTime`) expires. Null once that has passed, since the object can no longer change.
+ */
+export function uploadRecheckTime(attachment: Doc<"chat_attachments">): number | null {
+  const recheckAt = attachment._creationTime + UPLOAD_URL_LIFETIME_MS + RECHECK_MARGIN_MS;
+  return recheckAt > Date.now() ? recheckAt : null;
+}
+
+/**
+ * Call whenever an attachment row that may still have a live upload URL is deleted. Until the URL
+ * expires the client can PUT the key again, re-creating the object with no row left to clean it
+ * up, so this schedules files.enforceAttachmentPolicy (which deletes objects no row references)
+ * for after it expires. Rows older than the URL lifetime schedule nothing.
+ */
+export async function scheduleDeletedUploadCheck(
+  ctx: MutationCtx,
+  attachment: Doc<"chat_attachments">,
+): Promise<void> {
+  const recheckAt = uploadRecheckTime(attachment);
+  if (recheckAt !== null) {
+    await ctx.scheduler.runAt(recheckAt, internal.files.enforceAttachmentPolicy, {
+      key: attachment.key,
+    });
+  }
+}
 
 /**
  * Deletes all messages for a given chat.
@@ -29,8 +62,9 @@ export async function deleteMessagesForChat(
 }
 
 /**
- * Deletes an attachment's R2 object and its record. A failed R2 delete is logged (the object is
- * left orphaned) and the record is still removed, so storage errors never block cleanup.
+ * Deletes an attachment's R2 object and its record (see scheduleDeletedUploadCheck). A failed R2
+ * delete is logged (the object is left orphaned) and the record is still removed, so storage
+ * errors never block cleanup.
  */
 async function deleteAttachment(
   ctx: MutationCtx,
@@ -43,6 +77,7 @@ async function deleteAttachment(
     console.error(`Failed to delete R2 object "${attachment.key}"; it is now orphaned:`, error);
   }
   await ctx.db.delete("chat_attachments", attachment._id);
+  await scheduleDeletedUploadCheck(ctx, attachment);
 }
 
 /**

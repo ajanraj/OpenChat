@@ -1,3 +1,4 @@
+import { getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
@@ -33,7 +34,17 @@ const asCtx = (ctx: FakeCtx) => ctx as unknown as MutationCtx;
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
+
+/** Scheduled runAt calls as [time, function name, args]. */
+function scheduledAt(ctx: FakeCtx) {
+  return ctx.scheduler.runAt.mock.calls.map(([time, fn, args]) => [
+    time,
+    getFunctionName(fn as Parameters<typeof getFunctionName>[0]),
+    args,
+  ]);
+}
 
 function seedUser(db: FakeDb) {
   return db.seed("users", { name: "User" }) as Id<"users">;
@@ -126,6 +137,32 @@ describe("purgeChatsBatch", () => {
     expect(db.all("messages")).toEqual([]);
     expect(db.all("chats")).toEqual([]);
   });
+
+  it("re-checks the key of an attachment deleted while its upload URL may still be live", async () => {
+    const db = createFakeDb();
+    const userId = seedUser(db);
+    const chatId = seedChat(db, userId);
+    db.seed("chat_attachments", { userId, chatId, key: "uploads/fresh.png" });
+    const [attachment] = db.all("chat_attachments");
+    vi.spyOn(Date, "now").mockReturnValue(attachment._creationTime + 60_000);
+    const ctx = createFakeCtx(db);
+
+    const done = await purgeChatsBatch(
+      asCtx(ctx),
+      userId,
+      each(db.all("chats") as unknown as Doc<"chats">[]),
+      "all",
+    );
+
+    expect(done).toBe(true);
+    expect(scheduledAt(ctx)).toEqual([
+      [
+        attachment._creationTime + 16 * 60_000,
+        "files:enforceAttachmentPolicy",
+        { key: "uploads/fresh.png" },
+      ],
+    ]);
+  });
 });
 
 describe("purgeUserDataBatch", () => {
@@ -184,6 +221,8 @@ describe("purgeUserDataBatch", () => {
     expect(db.all("stripe_credit_resets")).toHaveLength(1);
     expect(ctx.scheduler.cancel).toHaveBeenCalledWith("_scheduled_functions:1");
     expect(mocks.r2DeleteObject).toHaveBeenCalledWith(ctx, "uploads/a.png");
+    // Its upload URL expired long ago, so the key needs no re-check
+    expect(ctx.scheduler.runAt).not.toHaveBeenCalled();
     expect(mocks.rateLimiterReset.mock.calls.map(([, name, args]) => [name, args])).toEqual([
       ["authenticatedDaily", { key: userId }],
       ["standardMonthly", { key: userId }],

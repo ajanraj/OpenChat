@@ -75,6 +75,8 @@ const run = (fn: unknown) => fn as Handler;
 
 const NOW = 1_700_000_000_000;
 const HOUR = 60 * 60 * 1000;
+// Rows created at NOW are re-checked a minute after their 15-minute upload URL expires
+const RECHECK_AT = NOW + 16 * 60 * 1000;
 const USER = "users:1";
 const CHAT = "chats:1";
 
@@ -227,11 +229,9 @@ describe("internalSave", () => {
 
     await run(internalSave)(ctx, args);
 
-    expect(ctx.scheduler.runAt).toHaveBeenCalledWith(
-      NOW + 16 * 60 * 1000,
-      "files:recheckAttachment",
-      { attachmentId: "chat_attachments:k1", key: "k1" },
-    );
+    expect(ctx.scheduler.runAt).toHaveBeenCalledWith(RECHECK_AT, "files:recheckAttachment", {
+      key: "k1",
+    });
   });
 
   it("skips the re-check when the upload URL had already expired", async () => {
@@ -271,6 +271,10 @@ describe("internalSave", () => {
     expect(result).toEqual({ status: "rejected", error: "FILE_TOO_LARGE" });
     expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "k1");
     expect(ctx.db.rows.has("chat_attachments:k1")).toBe(false);
+    // The live upload URL could re-create the object, so its key is checked again after expiry
+    expect(ctx.scheduler.runAt).toHaveBeenCalledWith(RECHECK_AT, "files:enforceAttachmentPolicy", {
+      key: "k1",
+    });
   });
 
   it("rejects generated files that are not images", async () => {
@@ -362,6 +366,29 @@ describe("deleteAttachments", () => {
     expect(ctx.db.rows.has("chat_attachments:theirs")).toBe(true);
   });
 
+  it("deletes an object re-created through a deleted row's live upload URL once it expires", async () => {
+    const ctx = fakeCtx([pending("mine", { chatId: CHAT })]);
+
+    await run(deleteAttachments)(ctx, { attachmentIds: ["chat_attachments:mine"] });
+
+    expect(ctx.scheduler.runAt.mock.calls).toEqual([
+      [RECHECK_AT, "files:enforceAttachmentPolicy", { key: "mine" }],
+    ]);
+    mocks.deleteObject.mockClear();
+    // The scheduled check, after the client PUT the key again
+    await run(enforceAttachmentPolicy)(ctx, { key: "mine" });
+    expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "mine");
+  });
+
+  it("schedules no check for rows older than the upload URL lifetime", async () => {
+    const ctx = fakeCtx([pending("old", { chatId: CHAT, _creationTime: NOW - 20 * 60 * 1000 })]);
+
+    await run(deleteAttachments)(ctx, { attachmentIds: ["chat_attachments:old"] });
+
+    expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "old");
+    expect(ctx.scheduler.runAt).not.toHaveBeenCalled();
+  });
+
   it("rejects batches above the cap", async () => {
     const attachmentIds = Array.from({ length: 101 }, (_, i) => `chat_attachments:${i}`);
     await expectConvexError(
@@ -404,7 +431,7 @@ describe("cleanupPendingUploads", () => {
 describe("enforceAttachmentPolicy", () => {
   const saved = (extra: Partial<Row> = {}) =>
     pending("k1", { chatId: CHAT, fileType: "image/png", fileSize: 2048, ...extra });
-  const args = { attachmentId: "chat_attachments:k1", key: "k1" };
+  const args = { key: "k1" };
 
   it("deletes an attachment whose object was replaced with a disallowed file", async () => {
     const ctx = fakeCtx([saved()]);
@@ -435,18 +462,18 @@ describe("enforceAttachmentPolicy", () => {
     expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "k1");
   });
 
-  it("does nothing when the attachment is already gone", async () => {
+  it("deletes the object at a key no row references, whatever its metadata", async () => {
     const ctx = fakeCtx([]);
-    mocks.getMetadata.mockResolvedValue({ contentType: "text/html", size: 100 });
+    mocks.getMetadata.mockResolvedValue({ contentType: "image/png", size: 2048 });
 
     await run(enforceAttachmentPolicy)(ctx, args);
 
-    expect(mocks.deleteObject).not.toHaveBeenCalled();
+    expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "k1");
   });
 });
 
 describe("recheckAttachment", () => {
-  const args = { attachmentId: "chat_attachments:k1", key: "k1" };
+  const args = { key: "k1" };
 
   it("re-syncs the object's metadata, then enforces the policy", async () => {
     const runMutation = vi.fn<(fn: string, args: unknown) => Promise<null>>(async () => null);

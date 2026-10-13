@@ -19,6 +19,7 @@ import {
   query,
 } from "./_generated/server";
 import { assertServerSecret } from "./lib/auth_helper";
+import { scheduleDeletedUploadCheck, uploadRecheckTime } from "./lib/cleanup_helper";
 import { supportsFileUploadModel } from "./lib/fileUploadModels";
 import { rateLimiter } from "./rateLimiter";
 import schema from "./schema";
@@ -33,17 +34,14 @@ import schema from "./schema";
  * 4. recheckAttachment: if the upload URL was still live at step 3, re-checks the object once
  *    after the URL expires, since the client could have replaced it.
  * Pending rows that never reach step 3 are removed with their objects by cleanupPendingUploads.
+ * Deleting a row while its URL is live schedules enforceAttachmentPolicy for after it expires
+ * (scheduleDeletedUploadCheck), since the client could re-create the object until then.
  */
 
 const r2 = new R2(components.r2);
 
 const TRAILING_SLASH_RE = /\/$/;
 
-// Presigned PUT URLs from r2.generateUploadUrl use the AWS presigner default of 900 seconds, and
-// they don't sign the content type or length: until expiry the client can overwrite the object.
-const UPLOAD_URL_LIFETIME_MS = 15 * 60 * 1000;
-// Attachments saved while their URL is still valid are re-checked this long after it expires.
-const RECHECK_MARGIN_MS = 60 * 1000;
 // Pending uploads older than this are deleted by the cron in crons.ts; their URLs have expired.
 const PENDING_UPLOAD_TTL_MS = 60 * 60 * 1000;
 const PENDING_CLEANUP_BATCH_SIZE = 50;
@@ -210,6 +208,7 @@ export const internalSave = internalMutation({
     if (policyError) {
       await r2.deleteObject(ctx, args.key);
       await ctx.db.delete("chat_attachments", row._id);
+      await scheduleDeletedUploadCheck(ctx, row);
       return { status: "rejected", error: policyError };
     }
 
@@ -226,12 +225,9 @@ export const internalSave = internalMutation({
 
     // The upload URL (issued with the row) may still be live, so the object could be replaced
     // after this check. Check it once more after the URL expires.
-    const recheckAt = row._creationTime + UPLOAD_URL_LIFETIME_MS + RECHECK_MARGIN_MS;
-    if (recheckAt > Date.now()) {
-      await ctx.scheduler.runAt(recheckAt, internal.files.recheckAttachment, {
-        attachmentId: row._id,
-        key: args.key,
-      });
+    const recheckAt = uploadRecheckTime(row);
+    if (recheckAt !== null) {
+      await ctx.scheduler.runAt(recheckAt, internal.files.recheckAttachment, { key: args.key });
     }
     return { status: "saved", attachment: { ...row, ...saved } };
   },
@@ -312,8 +308,8 @@ export const getAttachmentsForUser = query({
 });
 
 /**
- * Deletes up to ATTACHMENT_DELETE_BATCH_SIZE of the caller's attachments and their R2 objects.
- * Ids that are missing or owned by someone else are skipped.
+ * Deletes up to ATTACHMENT_DELETE_BATCH_SIZE of the caller's attachments and their R2 objects
+ * (see scheduleDeletedUploadCheck). Ids that are missing or owned by someone else are skipped.
  */
 export const deleteAttachments = mutation({
   args: { attachmentIds: v.array(v.id("chat_attachments")) },
@@ -334,6 +330,7 @@ export const deleteAttachments = mutation({
       }
       await r2.deleteObject(ctx, attachment.key);
       await ctx.db.delete("chat_attachments", attachment._id);
+      await scheduleDeletedUploadCheck(ctx, attachment);
     }
     return null;
   },
@@ -367,16 +364,18 @@ export const cleanupPendingUploads = internalMutation({
 
 /**
  * Re-syncs an attachment's R2 metadata after its upload URL expired (scheduled by internalSave),
- * catching objects replaced with a policy-breaking file after they were attached.
+ * then enforces the policy on its key: catches objects replaced with a policy-breaking file after
+ * they were attached, and objects re-created after their row was deleted.
  */
 export const recheckAttachment = internalAction({
-  args: { attachmentId: v.id("chat_attachments"), key: v.string() },
+  args: { key: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
       await r2.syncMetadata(ctx, args.key);
     } catch (error) {
-      // Leave the attachment as saved; the object may already be deleted with its chat.
+      // Leave the attachment as saved; the object may already be deleted with its chat (which
+      // schedules its own enforceAttachmentPolicy run).
       console.error("R2 metadata re-check failed", { key: args.key, error });
       return null;
     }
@@ -385,17 +384,27 @@ export const recheckAttachment = internalAction({
   },
 });
 
-/** Deletes an attachment and its object when its re-synced R2 metadata breaks the upload policy. */
+/**
+ * Deletes the R2 object at `key` unless an attachment row references it and its synced metadata
+ * passes the upload policy; a policy-breaking object goes with its row. Runs after the key's upload
+ * URL expired: from recheckAttachment, or scheduled when its row was deleted.
+ */
 export const enforceAttachmentPolicy = internalMutation({
-  args: { attachmentId: v.id("chat_attachments"), key: v.string() },
+  args: { key: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const row = await ctx.db.get("chat_attachments", args.attachmentId);
-    const meta = row?.key === args.key ? await r2.getMetadata(ctx, args.key) : null;
-    if (!(row && meta)) {
+    const row = await ctx.db
+      .query("chat_attachments")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .first();
+    if (!row) {
+      // Keys are never reused, so an object here was re-created through a deleted row's upload
+      // URL. Deleting a missing object is a no-op.
+      await r2.deleteObject(ctx, args.key);
       return null;
     }
-    if (getStoredObjectPolicyError(meta, row.isGenerated === true)) {
+    const meta = await r2.getMetadata(ctx, args.key);
+    if (meta && getStoredObjectPolicyError(meta, row.isGenerated === true)) {
       console.warn("Deleting attachment replaced after upload", { key: args.key });
       await r2.deleteObject(ctx, args.key);
       await ctx.db.delete("chat_attachments", row._id);

@@ -318,6 +318,9 @@ export function createFakeCtx(db: FakeDb) {
       runAfter: vi.fn<(delayMs: number, fn: unknown, args: unknown) => Promise<string>>(
         async () => "scheduled:1",
       ),
+      runAt: vi.fn<(timestamp: number, fn: unknown, args: unknown) => Promise<string>>(
+        async () => "scheduled:1",
+      ),
       cancel: vi.fn<(id: string) => Promise<void>>(async () => undefined),
     },
     meta: {

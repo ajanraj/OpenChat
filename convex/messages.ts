@@ -6,7 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
 // Import helper functions
 import { ensureChatAccess, ensureMessageAccess } from "./lib/auth_helper";
-import { deleteChatCompletely } from "./lib/cleanup_helper";
+import { deleteChatCompletely, scheduleDeletedUploadCheck } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
 
 // Keep reusable regex at top-level per lint rule
@@ -121,6 +121,7 @@ async function cleanupSingleAttachment(
     if (attByKey && attByKey.userId === userId && attByKey.chatId === chatId) {
       await r2.deleteObject(ctx, attByKey.key);
       await ctx.db.delete("chat_attachments", attByKey._id);
+      await scheduleDeletedUploadCheck(ctx, attByKey);
     }
   } catch (error) {
     console.error("Failed to clean up attachment:", error);

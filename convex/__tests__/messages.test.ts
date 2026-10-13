@@ -1,7 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "../_generated/dataModel";
-import { deleteMessageAndDescendants, searchMessages } from "../messages";
+import { deleteMessageAndDescendants, patchMessageContent, searchMessages } from "../messages";
 import { createFakeCtx, createFakeDb } from "./fake_db.testutil";
 
 const mocks = vi.hoisted(() => ({
@@ -32,6 +33,8 @@ const asHandler = (fn: unknown) => fn as Handler;
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 function setup() {
@@ -66,6 +69,42 @@ describe("deleteMessageAndDescendants", () => {
     const chats = db.all("chats");
     expect(chats.map((c) => c._id)).toEqual([branch]);
     expect(chats[0].originalChatId).toBeUndefined();
+  });
+});
+
+describe("patchMessageContent", () => {
+  it("deletes a removed attachment and re-checks its key after its upload URL expires", async () => {
+    const { db, userId, chatId, ctx } = setup();
+    vi.stubEnv("R2_PUBLIC_URL_BASE", "https://files.example");
+    db.seed("chat_attachments", { userId, chatId, key: "uploads/a.png" });
+    const [attachment] = db.all("chat_attachments");
+    const messageId = db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "see file",
+      createdAt: 1,
+      parts: [{ type: "file", url: "https://files.example/uploads/a.png" }],
+    });
+    vi.spyOn(Date, "now").mockReturnValue(attachment._creationTime + 60_000);
+
+    await asHandler(patchMessageContent)(ctx, { messageId, newContent: "no file", newParts: [] });
+
+    expect(db.all("chat_attachments")).toEqual([]);
+    expect(mocks.r2DeleteObject).toHaveBeenCalledWith(ctx, "uploads/a.png");
+    expect(
+      ctx.scheduler.runAt.mock.calls.map(([time, fn, args]) => [
+        time,
+        getFunctionName(fn as Parameters<typeof getFunctionName>[0]),
+        args,
+      ]),
+    ).toEqual([
+      [
+        attachment._creationTime + 16 * 60_000,
+        "files:enforceAttachmentPolicy",
+        { key: "uploads/a.png" },
+      ],
+    ]);
   });
 });
 
