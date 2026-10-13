@@ -244,9 +244,10 @@ export const getRateLimitStatus = query({
 
 /**
  * Deletes the signed-in account. Sign-in data and the user record go right away; everything
- * else is purged in the background (purgeDeletedUserData), and subscriptions that can still bill
- * and Composio connected accounts are revoked (account_deletion.revokeDeletedUserAccess). Stripe
- * billing records are kept. Calling it again after the user is gone is a no-op.
+ * else is purged in the background (purgeDeletedUserData), and open checkouts, subscriptions that
+ * can still bill and Composio connected accounts are revoked
+ * (account_deletion.revokeDeletedUserAccess). Stripe billing records are kept. Calling it again
+ * after the user is gone is a no-op.
  */
 export const deleteAccount = mutation({
   args: {},

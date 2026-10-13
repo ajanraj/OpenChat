@@ -9,10 +9,10 @@ const REVOKE_MAX_ATTEMPTS = 5;
 const REVOKE_RETRY_BASE_MS = 30_000;
 
 /**
- * Revokes what a deleted user still has outside Convex: cancels their billable Stripe
- * subscriptions and deletes their Composio connected accounts (live OAuth grants). Scheduled by
- * users.deleteAccount. Both steps are idempotent, so a failure of either retries both with
- * exponential backoff before giving up with an error log.
+ * Revokes what a deleted user still has outside Convex: expires their open Stripe checkouts and
+ * cancels their billable subscriptions, and deletes their Composio connected accounts (live OAuth
+ * grants). Scheduled by users.deleteAccount. Both steps are idempotent, so a failure of either
+ * retries both with exponential backoff before giving up with an error log.
  */
 export const revokeDeletedUserAccess = internalAction({
   args: { userId: v.id("users"), attempt: v.optional(v.number()) },
@@ -36,7 +36,7 @@ export const revokeDeletedUserAccess = internalAction({
     const error = new AggregateError(failures, failures.map(String).join("; "));
     if (attempt >= REVOKE_MAX_ATTEMPTS) {
       console.error(
-        `Giving up revoking access of deleted user ${userId} after ${attempt} attempts; cancel their Stripe subscriptions and delete their Composio connected accounts by hand:`,
+        `Giving up revoking access of deleted user ${userId} after ${attempt} attempts; expire their open Stripe checkouts, cancel their Stripe subscriptions and delete their Composio connected accounts by hand:`,
         error,
       );
       throw error;
