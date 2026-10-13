@@ -290,19 +290,19 @@ function createPurger(ctx: MutationCtx) {
 /**
  * Deletes one budget-bounded batch of the user's `chats`. A chat goes once its attachments and
  * messages are deleted (messages go by chat, which also covers legacy messages without a userId)
- * and its branch links are cleared: chats branched from it lose `originalChatId` unless
- * `isDeleting` says they are being deleted too. `isDeleting` is "all" when every chat of the user
- * goes (no links to clear). Returns true once `chats` is exhausted, false when the caller must run
- * it again (a partly deleted chat resumes where it stopped).
+ * and, with `unlinkBranches`, once every chat branched from it has lost its `originalChatId`.
+ * Pass `unlinkBranches: false` only when every chat of the user goes (no links to keep valid).
+ * Returns true once `chats` is exhausted, false when the caller must run it again (a partly
+ * deleted chat resumes where it stopped).
  *
  * @example
- * const done = await purgeChatsBatch(ctx, userId, chats, "all");
+ * const done = await purgeChatsBatch(ctx, userId, chats, true);
  */
 export async function purgeChatsBatch(
   ctx: MutationCtx,
   userId: Id<"users">,
   chats: AsyncIterable<Doc<"chats">>,
-  isDeleting: ((chat: Doc<"chats">) => boolean) | "all",
+  unlinkBranches: boolean,
 ): Promise<boolean> {
   const { deleteRow, deleteAttachment } = createPurger(ctx);
   return await purgeEach(ctx, chats, async (chat) => {
@@ -317,7 +317,7 @@ export async function purgeChatsBatch(
         ctx.db.query("messages").withIndex("by_chat_and_created", (q) => q.eq("chatId", chat._id)),
         deleteRow,
       )) &&
-      (isDeleting === "all" ||
+      (!unlinkBranches ||
         (await purgeEach(
           ctx,
           ctx.db
@@ -326,13 +326,12 @@ export async function purgeChatsBatch(
               q.eq("userId", userId).eq("originalChatId", chat._id),
             ),
           async (branch) => {
-            // Branches being deleted too keep their link (a resumed run reads past them)
-            if (!isDeleting(branch)) {
-              await ctx.db.patch("chats", branch._id, {
-                originalChatId: undefined,
-                updatedAt: Date.now(),
-              });
-            }
+            // Also unlinks branches being deleted too: the patch moves each branch out of this
+            // index range, so a resumed run never re-reads it
+            await ctx.db.patch("chats", branch._id, {
+              originalChatId: undefined,
+              updatedAt: Date.now(),
+            });
             return true;
           },
         )));
@@ -393,7 +392,8 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
         ctx,
         userId,
         ctx.db.query("chats").withIndex("by_user", (q) => q.eq("userId", userId)),
-        "all",
+        // Every chat of the user goes, so no branch link needs clearing
+        false,
       ),
     () =>
       purgeEach(

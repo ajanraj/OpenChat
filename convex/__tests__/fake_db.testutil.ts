@@ -93,7 +93,7 @@ export type FakeDb = ReturnType<typeof createFakeDb>;
 
 export function createFakeDb() {
   const rows = new Map<string, { table: TableNames; doc: Row }>();
-  const stats = { reads: 0, writes: 0, queries: 0 };
+  const stats = { reads: 0, writes: 0, queries: 0, bytesRead: 0 };
   // Ids of documents handed to the code under test, in order
   const readIds: string[] = [];
   let nextId = 0;
@@ -101,6 +101,8 @@ export function createFakeDb() {
 
   const read = (doc: Row) => {
     stats.reads += 1;
+    // Approximates Convex's bytesRead metric
+    stats.bytesRead += JSON.stringify(doc).length;
     readIds.push(doc._id);
     return { ...doc };
   };
@@ -329,7 +331,7 @@ export function createFakeCtx(db: FakeDb) {
         documentsRead: metric(db.stats.reads - start.reads, LIMITS.documentsRead),
         databaseQueries: metric(db.stats.queries - start.queries, LIMITS.databaseQueries),
         functionsScheduled: metric(0, LIMITS.functionsScheduled),
-        bytesRead: metric(0, 16 * MiB),
+        bytesRead: metric(db.stats.bytesRead - start.bytesRead, 16 * MiB),
         bytesWritten: metric(0, 16 * MiB),
         scheduledFunctionArgsBytes: metric(0, 16 * MiB),
       }),

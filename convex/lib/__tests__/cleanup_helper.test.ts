@@ -79,7 +79,7 @@ async function* each<T>(rows: T[]) {
 }
 
 describe("purgeChatsBatch", () => {
-  it("deletes the chats with their messages and attachments, unlinking only surviving branches", async () => {
+  it("deletes the chats with their messages and attachments, unlinking their branches", async () => {
     const db = createFakeDb();
     const userId = seedUser(db);
     const parent = seedChat(db, userId);
@@ -95,7 +95,6 @@ describe("purgeChatsBatch", () => {
     });
     // Legacy attachment without a userId, only reachable through its chat
     db.seed("chat_attachments", { chatId: parent, key: "uploads/legacy.png" });
-    const patch = vi.spyOn(db, "patch");
     const deleting = new Set<string>([parent, deletedBranch]);
     const chats = db.all("chats").filter((chat) => deleting.has(chat._id));
 
@@ -103,7 +102,7 @@ describe("purgeChatsBatch", () => {
       asCtx(createFakeCtx(db)),
       userId,
       each(chats as unknown as Doc<"chats">[]),
-      (chat) => deleting.has(chat._id),
+      true,
     );
 
     expect(done).toBe(true);
@@ -112,8 +111,6 @@ describe("purgeChatsBatch", () => {
     expect(db.all("messages")).toEqual([]);
     expect(db.all("chat_attachments")).toEqual([]);
     expect(mocks.r2DeleteObject).toHaveBeenCalledWith(expect.anything(), "uploads/legacy.png");
-    // The deleted branch is removed outright, never patched first
-    expect(patch.mock.calls.map(([, id]) => id)).toEqual([survivingBranch]);
   });
 
   it("stops at its budget and resumes a partly deleted chat on the next run", async () => {
@@ -128,7 +125,7 @@ describe("purgeChatsBatch", () => {
         asCtx(createFakeCtx(db)),
         userId,
         each(db.all("chats") as unknown as Doc<"chats">[]),
-        "all",
+        false,
       );
 
     expect(await run()).toBe(false);
@@ -142,19 +139,12 @@ describe("purgeChatsBatch", () => {
     const db = createFakeDb();
     const userId = seedUser(db);
     const parent = seedChat(db, userId);
-    const deletedBranch = seedChat(db, userId, { originalChatId: parent });
-    for (let i = 0; i < 2100; i += 1) {
+    for (let i = 0; i < 2101; i += 1) {
       seedChat(db, userId, { originalChatId: parent });
     }
     const parentDoc = db.all("chats")[0] as unknown as Doc<"chats">;
     const linked = () => db.all("chats").filter((chat) => chat.originalChatId === parent);
-    const run = () =>
-      purgeChatsBatch(
-        asCtx(createFakeCtx(db)),
-        userId,
-        each([parentDoc]),
-        (chat) => chat._id === parent || chat._id === deletedBranch,
-      );
+    const run = () => purgeChatsBatch(asCtx(createFakeCtx(db)), userId, each([parentDoc]), true);
 
     // The first run stops partway through the branches, keeping the parent
     expect(await run()).toBe(false);
@@ -164,8 +154,30 @@ describe("purgeChatsBatch", () => {
 
     expect(await run()).toBe(true);
     expect(db.all("chats").some((chat) => chat._id === parent)).toBe(false);
-    // Only the branch being deleted too keeps its link
-    expect(linked().map((chat) => chat._id)).toEqual([deletedBranch]);
+    expect(linked()).toEqual([]);
+  });
+
+  it("keeps making progress when the branches being deleted too overrun the read budget", async () => {
+    const db = createFakeDb();
+    const userId = seedUser(db);
+    const parent = seedChat(db, userId);
+    // Reading every branch takes more than one batch's read budget
+    const title = "x".repeat(900 * 1024);
+    for (let i = 0; i < 16; i += 1) {
+      seedChat(db, userId, { originalChatId: parent, title });
+    }
+    // Deletes every chat, as a bulk delete selecting the parent and all its branches does
+    const run = () =>
+      purgeChatsBatch(
+        asCtx(createFakeCtx(db)),
+        userId,
+        each(db.all("chats") as unknown as Doc<"chats">[]),
+        true,
+      );
+
+    expect(await run()).toBe(false);
+    expect(await run()).toBe(true);
+    expect(db.all("chats")).toEqual([]);
   });
 
   it("re-checks the key of an attachment deleted while its upload URL may still be live", async () => {
@@ -181,7 +193,7 @@ describe("purgeChatsBatch", () => {
       asCtx(ctx),
       userId,
       each(db.all("chats") as unknown as Doc<"chats">[]),
-      "all",
+      false,
     );
 
     expect(done).toBe(true);

@@ -339,7 +339,7 @@ async function purgeChatsInScope(
       ctx.db
         .query("chats")
         .withIndex("by_user", (q) => q.eq("userId", userId).lte("_creationTime", createdBefore)),
-      (chat) => chat._creationTime <= createdBefore,
+      true,
     );
     if (!done) {
       await ctx.scheduler.runAfter(0, internal.chats.purgeChats, { userId, scope });
@@ -348,7 +348,6 @@ async function purgeChatsInScope(
   }
 
   const { chatIds } = scope;
-  const listed = new Set(chatIds);
   // Listed chats before `next` are deleted (or not the user's); a stopped run passes on the rest
   let next = 0;
   async function* listedChats(): AsyncGenerator<Doc<"chats">> {
@@ -359,7 +358,7 @@ async function purgeChatsInScope(
       }
     }
   }
-  const done = await purgeChatsBatch(ctx, userId, listedChats(), (chat) => listed.has(chat._id));
+  const done = await purgeChatsBatch(ctx, userId, listedChats(), true);
   if (!done) {
     await ctx.scheduler.runAfter(0, internal.chats.purgeChats, {
       userId,
