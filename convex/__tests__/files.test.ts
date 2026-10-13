@@ -8,6 +8,7 @@ import {
   generateUploadUrl,
   getAttachmentsForUser,
   internalSave,
+  recheckAttachment,
   saveFileAttachment,
 } from "../files";
 
@@ -441,5 +442,31 @@ describe("enforceAttachmentPolicy", () => {
     await run(enforceAttachmentPolicy)(ctx, args);
 
     expect(mocks.deleteObject).not.toHaveBeenCalled();
+  });
+});
+
+describe("recheckAttachment", () => {
+  const args = { attachmentId: "chat_attachments:k1", key: "k1" };
+
+  it("re-syncs the object's metadata, then enforces the policy", async () => {
+    const runMutation = vi.fn<(fn: string, args: unknown) => Promise<null>>(async () => null);
+    const ctx = { runMutation };
+
+    await run(recheckAttachment)(ctx, args);
+
+    expect(mocks.syncMetadata).toHaveBeenCalledWith(ctx, "k1");
+    expect(runMutation).toHaveBeenCalledWith("files:enforceAttachmentPolicy", args);
+  });
+
+  it("leaves the attachment alone when the metadata can't be synced", async () => {
+    mocks.syncMetadata.mockRejectedValueOnce(new Error("Object not found"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const runMutation = vi.fn<(fn: string, args: unknown) => Promise<null>>(async () => null);
+
+    await run(recheckAttachment)({ runMutation }, args);
+
+    expect(runMutation).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith("R2 metadata re-check failed", expect.anything());
+    consoleError.mockRestore();
   });
 });
