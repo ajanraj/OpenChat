@@ -33,7 +33,7 @@ const {
   mockSessionDelete,
   mockSessionTools,
   mockAccountDelete,
-  mockInitiate,
+  mockLink,
   mockList,
   mockWaitForConnection,
 } = vi.hoisted(() => {
@@ -45,12 +45,12 @@ const {
     mockSessionDelete: vi.fn<() => Promise<{ sessionId: string; deleted: boolean }>>(),
     mockSessionTools: vi.fn<() => Promise<Record<string, MockTool>>>(),
     mockAccountDelete: vi.fn<(connectionId: string) => Promise<void>>(),
-    mockInitiate:
+    mockLink:
       vi.fn<
         (
           userId: string,
           authConfigId: string,
-          options?: { callbackUrl: string },
+          options?: { allowMultiple?: boolean; callbackUrl?: string },
         ) => Promise<{ id: string; redirectUrl: string }>
       >(),
     mockList: vi.fn<(options: { userIds: string[]; cursor?: string }) => Promise<MockListPage>>(),
@@ -66,7 +66,7 @@ vi.mock("@composio/core", () => ({
     create = mockCreate;
     connectedAccounts = {
       delete: mockAccountDelete,
-      initiate: mockInitiate,
+      link: mockLink,
       list: mockList,
       waitForConnection: mockWaitForConnection,
     };
@@ -228,13 +228,13 @@ describe("composio-server", () => {
           account("ca_other_toolkit", "notion", "FAILED"),
         ],
       });
-      mockInitiate.mockResolvedValue({ id: "ca_new", redirectUrl: "https://example.com/oauth" });
+      mockLink.mockResolvedValue({ id: "ca_new", redirectUrl: "https://example.com/oauth" });
 
       const result = await initiateConnection("user-123", "gmail", "https://app/callback");
 
       expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_stale"]);
-      // A still-active account must not make initiate throw
-      expect(mockInitiate).toHaveBeenCalledWith("user-123", expect.any(String), {
+      // A still-active account must not make link throw
+      expect(mockLink).toHaveBeenCalledWith("user-123", expect.any(String), {
         allowMultiple: true,
         callbackUrl: "https://app/callback",
       });

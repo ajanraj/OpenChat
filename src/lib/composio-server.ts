@@ -62,7 +62,8 @@ const listUserConnectedAccounts = async (
 };
 
 /**
- * Initiate OAuth connection for a user (server-side only)
+ * Initiate OAuth connection for a user through a Composio Connect Link (server-side only).
+ * The returned request id is the new connected account's id, used to poll waitForConnection.
  */
 export const initiateConnection = async (
   userId: string,
@@ -83,9 +84,10 @@ export const initiateConnection = async (
     console.error("Failed to cleanup existing Composio connection:", error);
   }
 
+  // link() replaces initiate(), which Composio retired for managed OAuth configs on 2026-07-03.
   // allowMultiple: a still-active account (e.g. one whose Convex row was lost) would otherwise
-  // make initiate throw. waitForConnection removes the replaced accounts once this one is active.
-  const connectionRequest = await composio.connectedAccounts.initiate(userId, authConfigId, {
+  // make link throw. waitForConnection removes the replaced accounts once this one is active.
+  const connectionRequest = await composio.connectedAccounts.link(userId, authConfigId, {
     allowMultiple: true,
     ...(callbackUrl ? { callbackUrl } : {}),
   });
