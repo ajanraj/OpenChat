@@ -303,6 +303,7 @@ export async function purgeChatsBatch(
  */
 export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">): Promise<boolean> {
   const { deleteRow, deleteAttachment } = createPurger(ctx);
+  let sessionsDeleted = 0;
 
   const steps: Array<() => Promise<boolean>> = [
     // Sessions first: once one is gone, Convex Auth rejects its refresh tokens, so no device can
@@ -311,15 +312,23 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
       purgeEach(
         ctx,
         ctx.db.query("authSessions").withIndex("userId", (q) => q.eq("userId", userId)),
-        async (session) =>
-          (await purgeEach(
+        async (session) => {
+          const tokensDone = await purgeEach(
             ctx,
             ctx.db
               .query("authRefreshTokens")
               .withIndex("sessionId", (q) => q.eq("sessionId", session._id)),
             deleteRow,
-          )) && (await deleteRow(session)),
+          );
+          if (!tokensDone) {
+            return false;
+          }
+          sessionsDeleted += 1;
+          return await deleteRow(session);
+        },
       ),
+    // A run that deleted sessions stops here, so a later step that throws can't roll them back
+    async () => sessionsDeleted === 0,
     // Scheduled tasks next, so no new run starts writing to the user's chats mid-purge
     () =>
       purgeEach(

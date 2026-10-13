@@ -127,12 +127,18 @@ describe("deleteAccount", () => {
       [0, "account_deletion:revokeDeletedUserAccess", { userId }],
     ]);
 
-    await asHandler(purgeDeletedUserData)(createFakeCtx(db), { userId });
+    // The first run deletes only the sessions, so a later step can't roll them back
+    const sessionsRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(sessionsRun, { userId });
     expect(db.all("authSessions").map((s) => s.userId)).toEqual([other.userId]);
     expect(db.all("authRefreshTokens").map((t) => t.sessionId)).toEqual([
       other.sessionId,
       other.sessionId,
     ]);
+    expect(db.all("chats").map((c) => c._id)).toEqual([chatId]);
+    expect(scheduled(sessionsRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+
+    await asHandler(purgeDeletedUserData)(createFakeCtx(db), { userId });
     expect(db.all("chats")).toEqual([]);
   });
 
@@ -204,8 +210,13 @@ describe("purgeDeletedUserData", () => {
     await asHandler(purgeDeletedUserData)(secondRun, { userId });
     expect(db.all("authSessions").map((s) => s._id)).toEqual([someoneElse]);
     expect(db.all("authRefreshTokens").map((t) => t.sessionId)).toEqual([someoneElse]);
+    // That run stopped after the sessions, committing them on their own
+    expect(db.all("chats")).toHaveLength(1);
+
+    const thirdRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(thirdRun, { userId });
     expect(db.all("chats")).toEqual([]);
-    expect(scheduled(secondRun)).toEqual([
+    expect(scheduled(thirdRun)).toEqual([
       [65 * 60 * 1000, "users:purgeDeletedUserData", { userId, final: true }],
     ]);
   });
@@ -228,7 +239,11 @@ describe("purgeDeletedUserData", () => {
     const secondRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(secondRun, { userId });
     expect(db.all("authSessions")).toEqual([]);
-    expect(scheduled(secondRun)).toEqual([
+    expect(scheduled(secondRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+
+    const thirdRun = createFakeCtx(db);
+    await asHandler(purgeDeletedUserData)(thirdRun, { userId });
+    expect(scheduled(thirdRun)).toEqual([
       [65 * 60 * 1000, "users:purgeDeletedUserData", { userId, final: true }],
     ]);
   });
