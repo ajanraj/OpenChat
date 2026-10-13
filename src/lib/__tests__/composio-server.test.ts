@@ -21,6 +21,7 @@ interface MockAccount {
   id: string;
   status: string;
   toolkit: { slug: string };
+  createdAt: string;
 }
 
 interface MockListPage {
@@ -77,10 +78,16 @@ vi.mock("@composio/vercel", () => ({
   VercelProvider: class MockVercelProvider {},
 }));
 
-const account = (id: string, slug: string, status = "ACTIVE"): MockAccount => ({
+const account = (
+  id: string,
+  slug: string,
+  status = "ACTIVE",
+  createdAt = "2026-10-01T00:00:00.000Z",
+): MockAccount => ({
   id,
   status,
   toolkit: { slug },
+  createdAt,
 });
 
 describe("composio-server", () => {
@@ -247,9 +254,9 @@ describe("composio-server", () => {
     it("replaces the user's older accounts for the toolkit once the new one is active", async () => {
       mockList.mockResolvedValue({
         items: [
-          account("ca_old", "gmail"),
-          account("ca_new", "GMAIL", "INITIATED"),
-          account("ca_notion", "notion"),
+          account("ca_old", "gmail", "ACTIVE", "2026-10-01T00:00:00.000Z"),
+          account("ca_new", "GMAIL", "INITIATED", "2026-10-02T00:00:00.000Z"),
+          account("ca_notion", "notion", "ACTIVE", "2026-09-01T00:00:00.000Z"),
         ],
       });
       mockWaitForConnection.mockResolvedValue({ id: "ca_new", status: "ACTIVE" });
@@ -259,9 +266,29 @@ describe("composio-server", () => {
       expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_old"]);
     });
 
+    it("completing an older request leaves newer and same-time accounts alone", async () => {
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_oldest", "gmail", "ACTIVE", "2026-10-01T00:00:00.000Z"),
+          account("ca_late", "gmail", "INITIATED", "2026-10-02T00:00:00.000Z"),
+          account("ca_tie", "gmail", "ACTIVE", "2026-10-02T00:00:00.000Z"),
+          account("ca_newer", "gmail", "ACTIVE", "2026-10-03T00:00:00.000Z"),
+        ],
+      });
+      mockWaitForConnection.mockResolvedValue({ id: "ca_late", status: "ACTIVE" });
+
+      const result = await waitForConnection("user-123", "ca_late", 60);
+
+      expect(result).toEqual({ connectionId: "ca_late", isConnected: true });
+      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_oldest"]);
+    });
+
     it("keeps the older accounts when the new connection did not become active", async () => {
       mockList.mockResolvedValue({
-        items: [account("ca_old", "gmail"), account("ca_new", "gmail", "INITIATED")],
+        items: [
+          account("ca_old", "gmail", "ACTIVE", "2026-10-01T00:00:00.000Z"),
+          account("ca_new", "gmail", "INITIATED", "2026-10-02T00:00:00.000Z"),
+        ],
       });
       mockWaitForConnection.mockResolvedValue({ id: "ca_new", status: "FAILED" });
 

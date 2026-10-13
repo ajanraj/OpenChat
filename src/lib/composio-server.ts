@@ -102,7 +102,8 @@ export const initiateConnection = async (
  * Wait for one of the user's connection requests to complete (for polling).
  * Returns null when the request id does not belong to the user, so callers can
  * never observe another user's connection. Once the new connection is active, the
- * user's older accounts for the same toolkit are deleted (it replaces them).
+ * user's accounts for the same toolkit created before it are deleted (it replaces them);
+ * newer ones are kept, so a late or concurrent completion never removes a newer connection.
  */
 export const waitForConnection = async (
   userId: string,
@@ -123,9 +124,13 @@ export const waitForConnection = async (
   const isConnected = connectedAccount.status === "ACTIVE";
   if (isConnected) {
     const toolkit = request.toolkit.slug.toLowerCase();
+    const requestCreatedAt = Date.parse(request.createdAt);
+    // Strictly older only: the request itself, same-time ties, and unparseable timestamps
+    // (NaN) all compare false and are kept.
     const replaced = userAccounts.filter(
       (account) =>
-        account.id !== connectionRequestId && account.toolkit.slug.toLowerCase() === toolkit,
+        account.toolkit.slug.toLowerCase() === toolkit &&
+        Date.parse(account.createdAt) < requestCreatedAt,
     );
     try {
       await Promise.all(replaced.map((account) => composio.connectedAccounts.delete(account.id)));
