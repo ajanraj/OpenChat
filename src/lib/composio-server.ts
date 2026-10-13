@@ -171,12 +171,13 @@ const untilAborted = <T>(promise: Promise<T>, signal: AbortSignal | undefined): 
   }
   return new Promise<T>((resolve, reject) => {
     const onAbort = () => reject(signal.reason);
+    // Attached first, so `promise` rejecting after an abort is still handled
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
     if (signal.aborted) {
       onAbort();
       return;
     }
     signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
   });
 };
 

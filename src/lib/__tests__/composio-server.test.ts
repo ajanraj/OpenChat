@@ -149,6 +149,32 @@ describe("composio-server", () => {
     consoleError.mockRestore();
   });
 
+  it("still handles a tools request that fails after the signal had already aborted", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const unhandled = vi.fn<(reason: unknown) => void>();
+    process.on("unhandledRejection", unhandled);
+    let failTools: (error: Error) => void = () => undefined;
+    const toolsRequest = new Promise<Record<string, MockTool>>((_resolve, reject) => {
+      failTools = reject;
+    });
+    // A plain function: vi.fn would itself attach handlers to the promise it returns
+    mockCreate.mockResolvedValueOnce({
+      sessionId: "session-123",
+      tools: () => toolsRequest,
+      delete: mockSessionDelete,
+    });
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(getComposioTools("user-123", ["GMAIL"], controller.signal)).resolves.toBeNull();
+    failTools(new Error("Tool loading failed"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    process.off("unhandledRejection", unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   it("creates a fresh router session for each agent run", async () => {
     mockSessionTools.mockResolvedValue({
       COMPOSIO_MULTI_EXECUTE_TOOL: { description: "Execute tools" },
