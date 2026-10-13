@@ -134,9 +134,7 @@ describe("purgeDeletedUserData", () => {
 
     const firstRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(firstRun, { userId });
-    expect(scheduled(firstRun)).toEqual([
-      [0, "users:purgeDeletedUserData", { userId, final: undefined }],
-    ]);
+    expect(scheduled(firstRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
 
     const secondRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(secondRun, { userId });

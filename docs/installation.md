@@ -143,6 +143,8 @@ VITE_CALENDAR_AUTH_CONFIG_ID=your_calendar_auth_config_id
 # ... add more as needed
 ```
 
+Scheduled tasks and account deletion call Composio from Convex too, so also set the key there: `bunx convex env set COMPOSIO_API_KEY your_composio_api_key`.
+
 ### D. Stripe Payments (Optional)
 
 ```bash

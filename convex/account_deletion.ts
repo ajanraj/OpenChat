@@ -1,7 +1,6 @@
 "use node";
 
 import { v } from "convex/values";
-import { disconnectAccount } from "../src/lib/composio-server";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { cancelBillableSubscriptions } from "./stripe";
@@ -21,7 +20,11 @@ export const revokeDeletedUserAccess = internalAction({
   handler: async (ctx, { userId, attempt = 1 }): Promise<null> => {
     const results = await Promise.allSettled([
       cancelBillableSubscriptions(ctx, userId),
-      disconnectAccount(userId),
+      // Imported lazily: the module throws at load without COMPOSIO_API_KEY, which must not
+      // block the Stripe cancel
+      import("../src/lib/composio-server").then(({ disconnectAccount }) =>
+        disconnectAccount(userId),
+      ),
     ]);
     const failures = results.flatMap((result) =>
       result.status === "rejected" ? [result.reason] : [],
