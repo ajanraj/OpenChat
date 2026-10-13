@@ -86,8 +86,8 @@ OS Chat uses Convex Auth for authentication with Google OAuth.
    # Generate and set API key encryption secret in Convex (REQUIRED)
    bunx convex env set API_KEY_SECRET $(openssl rand -hex 64)
 
-   # Shared server-route secret (REQUIRED): the same value as SERVER_ROUTE_SECRET in .env
-   bunx convex env set SERVER_ROUTE_SECRET your-server-route-secret
+   # Shared server-route secret (REQUIRED): paste the exact SERVER_ROUTE_SECRET value from .env
+   bunx convex env set SERVER_ROUTE_SECRET paste-the-value-from-env
 
    # Set site URL for development
    bunx convex env set SITE_URL http://localhost:3000
@@ -123,9 +123,9 @@ OS Chat uses Cloudflare R2 for file attachments and image storage.
    bunx convex env set R2_PUBLIC_URL_BASE https://your-bucket.your-domain.com/
    ```
 
-### C. Composio Integration (Optional - for service connectors)
+### C. Composio Integration (API key required; connectors optional)
 
-Set up [Composio](https://composio.dev) to enable Gmail, Calendar, Notion, GitHub, and other integrations.
+Set up [Composio](https://composio.dev) to enable Gmail, Calendar, Notion, GitHub, and other integrations. The chat route, scheduled tasks and account deletion load the Composio client, so `COMPOSIO_API_KEY` is required in `.env` and on Convex; only the per-service auth config IDs are optional.
 
 1. **Get your Composio API key** from the Composio dashboard
 2. **Configure auth config IDs** for each service you want to enable
@@ -195,14 +195,27 @@ For production deployment, set the environment variables before deploying either
 
 1. **Set Environment Variables**:
    - Add your production API keys to Vercel
+   - Set every Convex variable from [step 4](#4-set-up-convex-configuration) (`AUTH_GOOGLE_*`, `API_KEY_SECRET`, `R2_*`, `COMPOSIO_API_KEY`, ...) on the Convex production deployment too: `bunx convex env set NAME value --prod`
    - Set `SERVER_ROUTE_SECRET` in Vercel and the same value on the Convex production deployment (`bunx convex env set SERVER_ROUTE_SECRET ... --prod`)
    - Update `SITE_URL` in Convex production dashboard to your production URL
    - Set the live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PREMIUM_PRICE_ID` on the Convex production deployment (`bunx convex env set ... --prod`), with a live-mode webhook pointing at `https://<your-prod-deployment>.convex.site/stripe/webhook` using the same API version and events as in [Stripe Payments](#d-stripe-payments-optional)
 
-2. **Deploy Convex**:
+2. **Deploy Convex** (run locally, `convex deploy` targets the production deployment):
 
    ```bash
-   bunx convex deploy --prod
+   bunx convex deploy
+   ```
+
+   **Upgrading an existing deployment:** right after the Convex deploy, run the one-off migrations. Both are safe to run again.
+
+   ```bash
+   # Files chats created before profiles under their owner's default profile. Until it finishes,
+   # those chats are missing from the sidebar (Settings > History still lists them).
+   bunx convex run chats:backfillChatProfiles --prod
+
+   # Moves pending scheduled-task runs to the new scheduler entry point and pauses tasks left
+   # without a working schedule. Run it again 15 minutes later; resume paused tasks from their card.
+   bunx convex run scheduled_tasks:migrateScheduledRuns --prod
    ```
 
 3. **Deploy Frontend** (Vercel recommended) right after Convex:
