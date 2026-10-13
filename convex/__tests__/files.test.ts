@@ -105,8 +105,17 @@ function fakeDb(seed: Row[]) {
         };
         build(range);
         const matches = () => inTable(table).filter((row) => conditions.every((c) => c(row)));
+        // Supports the one filter the code uses: q.neq(q.field(name), value)
+        const filterBuilder = {
+          field: (name: string) => name,
+          neq: (name: string, value: unknown) => (row: Row) => row[name] !== value,
+        };
         const result = {
           order: () => result,
+          filter: (build: (q: typeof filterBuilder) => (row: Row) => boolean) => {
+            conditions.push(build(filterBuilder));
+            return result;
+          },
           first: async () => matches()[0] ?? null,
           take: async (n: number) => matches().slice(0, n),
           paginate: async () => ({ page: matches(), isDone: false, continueCursor: "next" }),
@@ -485,15 +494,40 @@ describe("recheckAttachment", () => {
     expect(runMutation).toHaveBeenCalledWith("files:enforceAttachmentPolicy", args);
   });
 
-  it("leaves the attachment alone when the metadata can't be synced", async () => {
-    mocks.syncMetadata.mockRejectedValueOnce(new Error("Object not found"));
+  const failingSync = () => {
+    mocks.syncMetadata.mockRejectedValueOnce(new Error("R2 unavailable"));
+    return {
+      runMutation: vi.fn<(fn: string, args: unknown) => Promise<null>>(async () => null),
+      scheduler: { runAfter: vi.fn<(delay: number, fn: string, args: unknown) => Promise<void>>() },
+    };
+  };
+
+  it("retries a failed metadata sync later instead of enforcing stale metadata", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const ctx = failingSync();
+
+    await run(recheckAttachment)(ctx, args);
+
+    expect(ctx.runMutation).not.toHaveBeenCalled();
+    expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(60_000, "files:recheckAttachment", {
+      key: "k1",
+      attempt: 1,
+    });
+    consoleWarn.mockRestore();
+  });
+
+  it("gives up after the last retry and leaves the attachment as saved", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const runMutation = vi.fn<(fn: string, args: unknown) => Promise<null>>(async () => null);
+    const ctx = failingSync();
 
-    await run(recheckAttachment)({ runMutation }, args);
+    await run(recheckAttachment)(ctx, { key: "k1", attempt: 3 });
 
-    expect(runMutation).not.toHaveBeenCalled();
-    expect(consoleError).toHaveBeenCalledWith("R2 metadata re-check failed", expect.anything());
+    expect(ctx.runMutation).not.toHaveBeenCalled();
+    expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      "R2 metadata re-check failed; giving up",
+      expect.anything(),
+    );
     consoleError.mockRestore();
   });
 });

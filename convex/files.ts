@@ -295,15 +295,14 @@ export const getAttachmentsForUser = query({
       return { page: [], isDone: true, continueCursor: "" };
     }
 
-    const result = await ctx.db
+    return await ctx.db
       .query("chat_attachments")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .order("desc")
+      // Inside the pagination, so pages and isDone count only saved attachments. Pending uploads
+      // are few (rate-limited, deleted after an hour), so skipping them costs little.
+      .filter((q) => q.neq(q.field("chatId"), undefined))
       .paginate(args.paginationOpts);
-    return {
-      ...result,
-      page: result.page.filter((attachment) => attachment.chatId !== undefined),
-    };
   },
 });
 
@@ -362,24 +361,37 @@ export const cleanupPendingUploads = internalMutation({
   },
 });
 
+// Delays before retrying a failed re-check: scheduled actions are not retried automatically
+const RECHECK_RETRY_DELAYS_MS = [60 * 1000, 10 * 60 * 1000, 60 * 60 * 1000];
+
 /**
  * Re-syncs an attachment's R2 metadata after its upload URL expired (scheduled by internalSave),
  * then enforces the policy on its key: catches objects replaced with a policy-breaking file after
- * they were attached, and objects re-created after their row was deleted.
+ * they were attached, and objects re-created after their row was deleted. A failed sync is retried
+ * a few times, then the attachment is left as saved.
  */
 export const recheckAttachment = internalAction({
-  args: { key: v.string() },
+  args: { key: v.string(), attempt: v.optional(v.number()) },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, { key, attempt = 0 }) => {
     try {
-      await r2.syncMetadata(ctx, args.key);
+      await r2.syncMetadata(ctx, key);
     } catch (error) {
-      // Leave the attachment as saved; the object may already be deleted with its chat (which
-      // schedules its own enforceAttachmentPolicy run).
-      console.error("R2 metadata re-check failed", { key: args.key, error });
+      // An object already deleted with its chat fails too (that deletion schedules its own
+      // enforceAttachmentPolicy run); retrying it only costs a few HEAD requests.
+      const retryDelay = RECHECK_RETRY_DELAYS_MS[attempt];
+      if (retryDelay === undefined) {
+        console.error("R2 metadata re-check failed; giving up", { key, error });
+        return null;
+      }
+      console.warn("R2 metadata re-check failed; retrying", { key, attempt, error });
+      await ctx.scheduler.runAfter(retryDelay, internal.files.recheckAttachment, {
+        key,
+        attempt: attempt + 1,
+      });
       return null;
     }
-    await ctx.runMutation(internal.files.enforceAttachmentPolicy, args);
+    await ctx.runMutation(internal.files.enforceAttachmentPolicy, { key });
     return null;
   },
 });
