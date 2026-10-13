@@ -13,8 +13,11 @@ import { TaskHistory } from "./schema/task_history";
 import { hasActivePremium } from "./stripe";
 import { deleteExecutionHistory, pruneExecutionHistory } from "./task_history";
 
-// Task lifecycle: create/update/resume schedule runs of scheduled_ai:executeTask. Each run first
-// claims the task (claimTaskExecution) and ends through finishTaskExecution, or through
+// Task lifecycle: create/update/resume book a task's next timed run as a startScheduledRun job, a
+// mutation, so it runs exactly once and is retried on transient errors (a scheduled action is
+// not). That job claims the run (claimRun), which also books a recurring task's following run,
+// and schedules scheduled_ai:executeTask to perform it; triggerScheduledTask ("run now") claims
+// the same way. Each claimed run ends through finishTaskExecution, or through
 // expireTaskExecution if the action dies before it can finish.
 
 // Constants for task limits ("active" and "running" tasks count)
@@ -142,7 +145,7 @@ async function scheduleRun(
   const nextExecution = calculateNextExecution(schedule, now);
   const scheduledFunctionId = await ctx.scheduler.runAt(
     nextExecution,
-    internal.scheduled_ai.executeTask,
+    internal.scheduled_tasks.startScheduledRun,
     { taskId },
   );
   return { nextExecution, scheduledFunctionId };
@@ -151,6 +154,65 @@ async function scheduleRun(
 /** True while a claimed run is younger than STALE_RUN_MS. */
 function hasLiveRun(task: Doc<"scheduled_tasks">, now: number): boolean {
   return task.status === "running" && (task.lastExecuted ?? 0) > now - STALE_RUN_MS;
+}
+
+/**
+ * Atomically starts a run of an "active" or "running" task and schedules
+ * scheduled_ai:executeTask to perform it. Used by startScheduledRun (timed runs) and
+ * triggerScheduledTask (manual runs).
+ *
+ * - A timed run of a recurring task books the next occurrence first, so a failure, timeout, or
+ *   skip never breaks the chain. A timed run whose task points at a pending job due in the future
+ *   (so not this run) is a stray duplicate, e.g. from a second chain, and is dropped without
+ *   rescheduling; the first claim of duplicates due together rebooks the chain, which makes the
+ *   rest strays. Manual runs neither book nor get dropped.
+ * - A run arriving while another one is live (e.g. a timed run during a manual run) is skipped.
+ *   A "running" claim older than STALE_RUN_MS is treated as dead and taken over.
+ * - A successful claim sets status "running" and lastExecuted, inserts the "running" history
+ *   row, and schedules expireTaskExecution in case the action dies without finishing.
+ */
+async function claimRun(
+  ctx: MutationCtx,
+  task: Doc<"scheduled_tasks">,
+  isManualTrigger: boolean,
+): Promise<void> {
+  const now = Date.now();
+  let booking = {};
+
+  if (!isManualTrigger) {
+    const pendingRun = await getPendingRun(ctx, task.scheduledFunctionId);
+    if (pendingRun && pendingRun.scheduledTime > now) {
+      return;
+    }
+    if (task.scheduleType !== "onetime") {
+      booking = await scheduleRun(ctx, task._id, task, now);
+      await ctx.db.patch("scheduled_tasks", task._id, booking);
+    }
+  }
+
+  if (hasLiveRun(task, now)) {
+    return;
+  }
+
+  const claim = { status: "running" as const, lastExecuted: now };
+  const executionId = `exec_${now}_${Math.random().toString(36).substring(2, 15)}`;
+  await ctx.db.patch("scheduled_tasks", task._id, claim);
+  await ctx.db.insert("task_history", {
+    taskId: task._id,
+    executionId,
+    status: "running",
+    startTime: now,
+    isManualTrigger,
+    createdAt: now,
+  });
+  await ctx.scheduler.runAfter(STALE_RUN_MS, internal.scheduled_tasks.expireTaskExecution, {
+    taskId: task._id,
+    executionId,
+  });
+  await ctx.scheduler.runAfter(0, internal.scheduled_ai.executeTask, {
+    task: { ...task, ...booking, ...claim },
+    executionId,
+  });
 }
 
 const RUN_OUTCOME_HISTORY_STATUS = {
@@ -281,7 +343,7 @@ export const updateScheduledTask = mutation({
     enabledToolSlugs: v.optional(v.array(v.string())),
     emailNotifications: v.optional(v.boolean()),
     profileId: v.optional(v.id("profiles")),
-    // "running" is set only by claimTaskExecution
+    // "running" is set only by claimRun
     status: v.optional(v.union(v.literal("active"), v.literal("paused"), v.literal("archived"))),
   },
   returns: v.null(),
@@ -362,65 +424,18 @@ export const deleteScheduledTask = mutation({
 });
 
 /**
- * Atomically starts a run of scheduled_ai:executeTask. Returns the claimed task, or null when
- * the run must not happen.
- *
- * - A scheduled (non-manual) run of a recurring task books the next occurrence first, so a
- *   failure, timeout, or skip never breaks the chain. A scheduled run whose task points at a
- *   pending job due in the future (so not this run) is a stray duplicate, e.g. from a second
- *   chain, and is dropped without rescheduling; the first claim of duplicates due together
- *   rebooks the chain, which makes the rest strays.
- * - A run arriving while another one is live (e.g. a scheduled run during a manual run) is
- *   skipped. A "running" claim older than STALE_RUN_MS is treated as dead and taken over.
- * - A successful claim sets status "running" and lastExecuted, inserts the "running" history
- *   row, and schedules expireTaskExecution in case the action dies without finishing.
+ * The scheduled job of a timed run, booked by scheduleRun at the task's next occurrence. Claims
+ * the run (see claimRun); paused, archived, and deleted tasks are ignored.
  */
-export const claimTaskExecution = internalMutation({
-  args: {
-    taskId: v.id("scheduled_tasks"),
-    executionId: v.string(),
-    isManualTrigger: v.optional(v.boolean()),
-  },
-  returns: v.union(v.null(), scheduledTaskDoc),
+export const startScheduledRun = internalMutation({
+  args: { taskId: v.id("scheduled_tasks") },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get("scheduled_tasks", args.taskId);
-    if (!task || task.status === "paused" || task.status === "archived") {
-      return null;
+    if (task?.status === "active" || task?.status === "running") {
+      await claimRun(ctx, task, false);
     }
-    const now = Date.now();
-
-    if (!args.isManualTrigger) {
-      const pendingRun = await getPendingRun(ctx, task.scheduledFunctionId);
-      if (pendingRun && pendingRun.scheduledTime > now) {
-        return null;
-      }
-      if (task.scheduleType !== "onetime") {
-        await ctx.db.patch(
-          "scheduled_tasks",
-          task._id,
-          await scheduleRun(ctx, task._id, task, now),
-        );
-      }
-    }
-
-    if (hasLiveRun(task, now)) {
-      return null;
-    }
-
-    await ctx.db.patch("scheduled_tasks", task._id, { status: "running", lastExecuted: now });
-    await ctx.db.insert("task_history", {
-      taskId: task._id,
-      executionId: args.executionId,
-      status: "running",
-      startTime: now,
-      isManualTrigger: args.isManualTrigger,
-      createdAt: now,
-    });
-    await ctx.scheduler.runAfter(STALE_RUN_MS, internal.scheduled_tasks.expireTaskExecution, {
-      taskId: task._id,
-      executionId: args.executionId,
-    });
-    return await ctx.db.get("scheduled_tasks", task._id);
+    return null;
   },
 });
 
@@ -441,7 +456,7 @@ export const finishTaskExecution = internalMutation({
   },
 });
 
-// Scheduled by claimTaskExecution: marks a run that never finished as "timeout".
+// Scheduled by claimRun: marks a run that never finished as "timeout".
 export const expireTaskExecution = internalMutation({
   args: {
     taskId: v.id("scheduled_tasks"),
@@ -471,68 +486,109 @@ export const updateTaskChatId = internalMutation({
   },
 });
 
+// Timed runs used to be jobs of this action. _scheduled_functions names carry the module's ".js"
+// extension ("scheduled_ai.js:executeTask"), which is dropped before comparing.
+const LEGACY_RUN_FUNCTION = "scheduled_ai:executeTask";
+
 /**
- * One-off repair for tasks broken by the previous executor; run manually, e.g.
- * `npx convex run scheduled_tasks:pauseDeadTasks`. Pauses (does not reschedule) "active" tasks
- * with no pending or in-progress run and "running" tasks whose run is stale, marking their
- * dangling "running" history rows as "timeout". Handles 100 tasks per batch and schedules
- * itself until the table is exhausted. Run it at least STALE_RUN_MS (15 minutes) after deploying
- * the new executor, once every run the old code started has finished or died; run it again if
- * it ran sooner.
+ * One-off migration of timed runs from scheduled_ai:executeTask jobs to startScheduledRun jobs.
+ * Pending old jobs can no longer run (executeTask now requires a claimed run), so run it right
+ * after deploying Convex: `npx convex run scheduled_tasks:migrateScheduledRuns --prod`. For each
+ * task whose scheduledFunctionId is a pending old job, it cancels that job and books
+ * startScheduledRun at the same time. It then pauses (does not reschedule) dead tasks: "active"
+ * tasks with no pending or in-progress run and "running" tasks whose run is stale, marking their
+ * dangling "running" history rows as "timeout". Run it again STALE_RUN_MS (15 minutes) later to
+ * catch runs the old code was still starting during the deploy.
+ *
+ * With `'{"pauseAll": true}'` it pauses every task that is not paused or archived instead,
+ * cancelling its pending run. A live run is left to finish and record its outcome (resolveRun
+ * keeps the task paused); a stale run's dangling history rows become "timeout".
+ *
+ * Handles 100 tasks per batch and schedules itself until the table is exhausted.
  */
-export const pauseDeadTasks = internalMutation({
-  args: { cursor: v.optional(v.union(v.string(), v.null())) },
-  returns: v.object({ scanned: v.number(), paused: v.number(), isDone: v.boolean() }),
+export const migrateScheduledRuns = internalMutation({
+  args: {
+    pauseAll: v.optional(v.boolean()),
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    migrated: v.number(),
+    paused: v.number(),
+    isDone: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     const now = Date.now();
     const page = await ctx.db
       .query("scheduled_tasks")
       .paginate({ numItems: 100, cursor: args.cursor ?? null });
 
+    let migrated = 0;
     let paused = 0;
     for (const task of page.page) {
-      let dead = task.status === "running" && !hasLiveRun(task, now);
-      if (task.status === "active") {
-        const job = task.scheduledFunctionId
-          ? await ctx.db.system.get(
-              "_scheduled_functions",
-              task.scheduledFunctionId as Id<"_scheduled_functions">,
-            )
-          : null;
-        dead = job?.state.kind !== "pending" && job?.state.kind !== "inProgress";
-      }
-      if (!dead) {
+      if (task.status === "paused" || task.status === "archived") {
         continue;
       }
+      const job = task.scheduledFunctionId
+        ? await ctx.db.system.get(
+            "_scheduled_functions",
+            task.scheduledFunctionId as Id<"_scheduled_functions">,
+          )
+        : null;
+      const liveRun = hasLiveRun(task, now);
+      const dead =
+        task.status === "running"
+          ? !liveRun
+          : job?.state.kind !== "pending" && job?.state.kind !== "inProgress";
 
-      const history = await ctx.db
-        .query("task_history")
-        .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
-        .collect();
-      for (const row of history) {
-        if (row.status === "running") {
-          await ctx.db.patch("task_history", row._id, {
-            status: "timeout",
-            endTime: now,
-            errorMessage: "The run did not finish within the time limit.",
-          });
+      if (args.pauseAll || dead) {
+        await cancelPendingRun(ctx, task.scheduledFunctionId);
+        if (!liveRun) {
+          const history = await ctx.db
+            .query("task_history")
+            .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
+            .collect();
+          for (const row of history) {
+            if (row.status === "running") {
+              await ctx.db.patch("task_history", row._id, {
+                status: "timeout",
+                endTime: now,
+                errorMessage: "The run did not finish within the time limit.",
+              });
+            }
+          }
         }
+        await ctx.db.patch("scheduled_tasks", task._id, {
+          status: "paused",
+          nextExecution: undefined,
+          scheduledFunctionId: undefined,
+        });
+        paused += 1;
+      } else if (
+        job?.state.kind === "pending" &&
+        job.name.replace(".js:", ":") === LEGACY_RUN_FUNCTION
+      ) {
+        await ctx.scheduler.cancel(job._id);
+        const scheduledFunctionId = await ctx.scheduler.runAt(
+          job.scheduledTime,
+          internal.scheduled_tasks.startScheduledRun,
+          { taskId: task._id },
+        );
+        await ctx.db.patch("scheduled_tasks", task._id, { scheduledFunctionId });
+        migrated += 1;
       }
-      await ctx.db.patch("scheduled_tasks", task._id, {
-        status: "paused",
-        nextExecution: undefined,
-        scheduledFunctionId: undefined,
-      });
-      paused += 1;
     }
 
     if (!page.isDone) {
-      await ctx.scheduler.runAfter(0, internal.scheduled_tasks.pauseDeadTasks, {
+      await ctx.scheduler.runAfter(0, internal.scheduled_tasks.migrateScheduledRuns, {
+        pauseAll: args.pauseAll,
         cursor: page.continueCursor,
       });
     }
-    console.log(`pauseDeadTasks: scanned ${page.page.length}, paused ${paused}`);
-    return { scanned: page.page.length, paused, isDone: page.isDone };
+    console.log(
+      `migrateScheduledRuns: scanned ${page.page.length}, migrated ${migrated}, paused ${paused}`,
+    );
+    return { scanned: page.page.length, migrated, paused, isDone: page.isDone };
   },
 });
 
@@ -580,7 +636,8 @@ export const getTaskLimits = query({
   },
 });
 
-// Run an active task once now; its regular schedule is unchanged
+// Run an active task once now (claimed here, so it shows as running at once); its regular
+// schedule is unchanged
 export const triggerScheduledTask = mutation({
   args: { taskId: v.id("scheduled_tasks") },
   returns: v.null(),
@@ -597,12 +654,7 @@ export const triggerScheduledTask = mutation({
     }
 
     await assertScheduledAgentAccess(ctx, userId);
-
-    await ctx.scheduler.runAfter(0, internal.scheduled_ai.executeTask, {
-      taskId: args.taskId,
-      isManualTrigger: true,
-    });
-
+    await claimRun(ctx, task, true);
     return null;
   },
 });

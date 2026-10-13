@@ -23,6 +23,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
 import type { CreditBucketName } from "./lib/credits";
+import schema from "./schema";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -40,41 +41,29 @@ const PAUSING_LIMIT_ERRORS = new Set<string>([
 // action (refunding its credit) instead of being killed at Convex's 10-minute action limit.
 const GENERATION_DEADLINE_MS = 8 * 60 * 1000;
 
-// Execute a scheduled task. Scheduled by create/update/resume and by claimTaskExecution (recurring
-// runs), and with isManualTrigger by triggerScheduledTask. Keep the args shape: jobs that are
-// already scheduled call it with { taskId } or { taskId, isManualTrigger }.
+// Performs one run of a scheduled task that is already claimed: scheduled right after the claim
+// by scheduled_tasks:startScheduledRun (timed runs) and triggerScheduledTask (manual runs), with
+// the claimed task and the executionId of its "running" history row.
 export const executeTask = internalAction({
   args: {
-    taskId: v.id("scheduled_tasks"),
-    isManualTrigger: v.optional(v.boolean()),
+    task: schema.doc("scheduled_tasks"),
+    executionId: v.string(),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
-    // Generate unique execution ID
-    const executionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-
-    // Atomically claim the run; this also books the next occurrence of a recurring task
-    const task: Doc<"scheduled_tasks"> | null = await ctx.runMutation(
-      internal.scheduled_tasks.claimTaskExecution,
-      { taskId: args.taskId, executionId, isManualTrigger: args.isManualTrigger },
-    );
-    if (!task) {
-      return null;
-    }
-
+  handler: async (ctx, { task, executionId }) => {
     const startTime = Date.now();
     let chatId: Id<"chats"> | undefined;
     // Buckets of the charged credit; refunded only if the run fails before the model finishes
     // generating
     let chargedCredit: CreditBucketName[] | null = null;
     let generated = false;
-    // Every path after a successful claim must end here (or the claim expires as "timeout")
+    // Every path must end here (or the claim expires as "timeout")
     const finish = async (
       outcome: "success" | "failure" | "paused",
       details: { errorMessage?: string; metadata?: Doc<"task_history">["metadata"] } = {},
     ): Promise<null> =>
       await ctx.runMutation(internal.scheduled_tasks.finishTaskExecution, {
-        taskId: args.taskId,
+        taskId: task._id,
         executionId,
         outcome,
         chatId,
@@ -148,7 +137,7 @@ export const executeTask = internalAction({
 
       // Point the task at the latest chat
       await ctx.runMutation(internal.scheduled_tasks.updateTaskChatId, {
-        taskId: args.taskId,
+        taskId: task._id,
         chatId,
       });
 
@@ -294,7 +283,7 @@ export const executeTask = internalAction({
       const memory = new ScheduledAgentMemory(redis);
 
       // Load history + working memory
-      const history = await memory.loadHistory(args.taskId, 20);
+      const history = await memory.loadHistory(task._id, 20);
       const workingMem = await memory.loadWorkingMemory(task.userId);
 
       // Inject working memory instructions into system prompt
@@ -321,7 +310,7 @@ export const executeTask = internalAction({
 
       // Save history after generation (best-effort only)
       try {
-        await memory.saveHistory(args.taskId, task.prompt, textContent);
+        await memory.saveHistory(task._id, task.prompt, textContent);
       } catch (error) {
         console.error("Failed to save history to Redis:", error);
       }
@@ -362,7 +351,7 @@ export const executeTask = internalAction({
         // Schedule email mutation to run immediately after this action completes
         await ctx.scheduler.runAfter(0, internal.email.sendTaskSummaryEmail, {
           userId: task.userId,
-          taskId: args.taskId,
+          taskId: task._id,
           taskTitle: task.title,
           taskContent: emailTextContent,
           executionDate,

@@ -5,8 +5,9 @@ import { ERROR_CODES } from "../../src/lib/error-codes";
 import { executeTask } from "../scheduled_ai";
 
 /**
- * Credit wiring of a scheduled run: what is charged, when a limit pauses the task, and that a
- * credit is refunded only when the run fails before the model finishes generating.
+ * A claimed scheduled run: it finishes the claim it was given, and its credit wiring (what is
+ * charged, when a limit pauses the task, and that a credit is refunded only when the run fails
+ * before the model finishes generating).
  */
 
 const mocks = vi.hoisted(() => ({
@@ -55,17 +56,25 @@ type FunctionRef = Parameters<typeof getFunctionName>[0];
 const TASK_ID = "scheduled_tasks:task1";
 const USER_ID = "users:user1";
 const CHARGED_BUCKETS = ["authenticatedDaily", "standardMonthly"];
+const EXECUTION_ID = "exec_1";
+// The task as claimed by scheduled_tasks.claimRun
+const TASK = {
+  _id: TASK_ID,
+  _creationTime: 0,
+  userId: USER_ID,
+  title: "Daily digest",
+  prompt: "Summarise my day",
+  scheduleType: "daily",
+  scheduledTime: "09:00",
+  timezone: "UTC",
+  status: "running",
+  lastExecuted: 0,
+  createdAt: 0,
+};
 
 /** ctx whose runMutation/runQuery answer by function name; `overrides` replaces a mutation. */
 function createCtx(overrides: Record<string, () => Promise<unknown>> = {}) {
   const mutationResults: Record<string, () => Promise<unknown>> = {
-    "scheduled_tasks:claimTaskExecution": async () => ({
-      _id: TASK_ID,
-      userId: USER_ID,
-      title: "Daily digest",
-      prompt: "Summarise my day",
-      timezone: "UTC",
-    }),
     "users:consumeMessageCreditInternal": async () => CHARGED_BUCKETS,
     "chats:createChatInternal": async () => ({ chatId: "chats:chat1" }),
     "messages:sendUserMessageToChatInternal": async () => ({ messageId: "messages:m1" }),
@@ -95,7 +104,7 @@ const outcome = (ctx: ReturnType<typeof createCtx>) =>
     ?.outcome;
 
 const run = (ctx: ReturnType<typeof createCtx>) =>
-  (executeTask as unknown as Handler)(ctx, { taskId: TASK_ID });
+  (executeTask as unknown as Handler)(ctx, { task: TASK, executionId: EXECUTION_ID });
 
 beforeEach(() => {
   vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.test");
@@ -106,6 +115,34 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.clearAllMocks();
+});
+
+describe("executeTask", () => {
+  it("runs the claimed task without claiming it again and finishes that claim", async () => {
+    const ctx = createCtx();
+
+    await run(ctx);
+
+    expect(
+      calls(ctx)
+        .map(([fn]) => fn)
+        .filter((fn) => fn.startsWith("scheduled_tasks:")),
+    ).toEqual(["scheduled_tasks:updateTaskChatId", "scheduled_tasks:finishTaskExecution"]);
+    expect(called(ctx, "scheduled_tasks:updateTaskChatId")).toEqual([
+      ["scheduled_tasks:updateTaskChatId", { taskId: TASK_ID, chatId: "chats:chat1" }],
+    ]);
+    expect(called(ctx, "scheduled_tasks:finishTaskExecution")).toEqual([
+      [
+        "scheduled_tasks:finishTaskExecution",
+        expect.objectContaining({
+          taskId: TASK_ID,
+          executionId: EXECUTION_ID,
+          outcome: "success",
+          chatId: "chats:chat1",
+        }),
+      ],
+    ]);
+  });
 });
 
 describe("executeTask credits", () => {

@@ -3,11 +3,12 @@ import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ERROR_CODES } from "../../src/lib/error-codes";
 import {
-  claimTaskExecution,
   deleteScheduledTask,
   expireTaskExecution,
   finishTaskExecution,
-  pauseDeadTasks,
+  migrateScheduledRuns,
+  startScheduledRun,
+  triggerScheduledTask,
   updateScheduledTask,
 } from "../scheduled_tasks";
 
@@ -49,7 +50,7 @@ interface Job {
   name: string;
   args: unknown;
   scheduledTime: number;
-  state: { kind: "pending" | "inProgress" | "success" | "canceled" };
+  state: { kind: "pending" | "inProgress" | "success" | "failed" | "canceled" };
 }
 type FunctionRef = Parameters<typeof getFunctionName>[0];
 
@@ -86,7 +87,11 @@ function createFakeCtx() {
   };
 
   const db = {
-    get: async (tableOrId: string, id?: string) => find(id ?? tableOrId),
+    // A copy, like Convex: later patches do not show through an earlier read
+    get: async (tableOrId: string, id?: string) => {
+      const row = find(id ?? tableOrId);
+      return row ? { ...row } : null;
+    },
     insert: async (table: string, doc: Record<string, unknown>) => {
       const _id = `${table}:${++nextId}`;
       rows(table).push({ ...doc, _id });
@@ -164,8 +169,13 @@ function createFakeCtx() {
 
 type Fake = ReturnType<typeof createFakeCtx>;
 
+const RUN = "scheduled_tasks:startScheduledRun";
+const ACTION = "scheduled_ai:executeTask";
+const EXPIRE = "scheduled_tasks:expireTaskExecution";
 // getFunctionName also accepts a plain "module:function" string
-const executeTaskRef = "scheduled_ai:executeTask" as unknown as FunctionRef;
+const runRef = RUN as unknown as FunctionRef;
+// A timed run booked by the old code; _scheduled_functions names include the ".js" extension
+const legacyRunRef = "scheduled_ai.js:executeTask" as unknown as FunctionRef;
 
 async function seedTask(fake: Fake, fields: Record<string, unknown> = {}) {
   return await fake.ctx.db.insert("scheduled_tasks", {
@@ -182,8 +192,12 @@ async function seedTask(fake: Fake, fields: Record<string, unknown> = {}) {
 }
 
 /** Seeds a task whose scheduled job for this morning is currently executing. */
-async function seedDueTask(fake: Fake, fields: Record<string, unknown> = {}) {
-  const jobId = fake.addJob(NOW, executeTaskRef, {}, "inProgress");
+async function seedDueTask(
+  fake: Fake,
+  fields: Record<string, unknown> = {},
+  jobState: Job["state"]["kind"] = "inProgress",
+) {
+  const jobId = fake.addJob(NOW, runRef, {}, jobState);
   const taskId = await seedTask(fake, {
     scheduledFunctionId: jobId,
     nextExecution: NOW,
@@ -204,39 +218,68 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("claimTaskExecution", () => {
-  it("books the next local occurrence, marks the task running, and records history", async () => {
+/** The run claimed for a task: its history row's executionId and the action job it scheduled. */
+const claimedRun = (fake: Fake, taskId: string) => {
+  const row = fake.rows("task_history").find((r) => r.taskId === taskId && r.status === "running");
+  const executionId = row?.executionId;
+  const action = pendingJobs(fake, ACTION).find(
+    (job) => (job.args as { executionId?: unknown }).executionId === executionId,
+  );
+  return { row, executionId, action };
+};
+
+describe("startScheduledRun", () => {
+  it("books the next local occurrence, claims the run, and starts the action", async () => {
     const fake = createFakeCtx();
     const { taskId } = await seedDueTask(fake);
 
-    const claimed = await call(claimTaskExecution, fake.ctx, { taskId, executionId: "exec_1" });
+    await call(startScheduledRun, fake.ctx, { taskId });
 
-    expect(claimed).toMatchObject({ status: "running", lastExecuted: NOW });
-    const [nextRun] = pendingJobs(fake, "scheduled_ai:executeTask");
+    const [nextRun] = pendingJobs(fake, RUN);
     expect(nextRun).toMatchObject({ scheduledTime: NEXT_DAY_9AM_NY, args: { taskId } });
-    expect(fake.find(taskId)).toMatchObject({
+    const task = fake.find(taskId);
+    expect(task).toMatchObject({
+      status: "running",
+      lastExecuted: NOW,
       nextExecution: NEXT_DAY_9AM_NY,
       scheduledFunctionId: nextRun._id,
     });
-    expect(fake.rows("task_history")).toEqual([
-      expect.objectContaining({ taskId, executionId: "exec_1", status: "running", startTime: NOW }),
-    ]);
-    expect(pendingJobs(fake, "scheduled_tasks:expireTaskExecution")).toEqual([
-      expect.objectContaining({ scheduledTime: NOW + 15 * MINUTE }),
+    const { row, executionId, action } = claimedRun(fake, taskId);
+    expect(row).toMatchObject({ status: "running", startTime: NOW, isManualTrigger: false });
+    expect(executionId).toEqual(expect.any(String));
+    // The action gets the task as stored after the claim
+    expect(action).toMatchObject({ scheduledTime: NOW, args: { task, executionId } });
+    expect(pendingJobs(fake, EXPIRE)).toEqual([
+      expect.objectContaining({ scheduledTime: NOW + 15 * MINUTE, args: { taskId, executionId } }),
     ]);
   });
 
-  it("skips a scheduled run during a live manual run but keeps the chain going", async () => {
+  it("claims while its own job still reads as pending", async () => {
+    const fake = createFakeCtx();
+    const { taskId } = await seedDueTask(fake, {}, "pending");
+
+    await call(startScheduledRun, fake.ctx, { taskId });
+
+    expect(fake.find(taskId)).toMatchObject({ status: "running", lastExecuted: NOW });
+    expect(pendingJobs(fake, ACTION)).toHaveLength(1);
+  });
+
+  it("skips a timed run during a live manual run but keeps the chain going", async () => {
     const fake = createFakeCtx();
     const { taskId } = await seedDueTask(fake, {
       status: "running",
       lastExecuted: NOW - 2 * MINUTE,
     });
 
-    expect(await call(claimTaskExecution, fake.ctx, { taskId, executionId: "exec_2" })).toBeNull();
+    await call(startScheduledRun, fake.ctx, { taskId });
 
-    expect(fake.find(taskId)).toMatchObject({ status: "running", nextExecution: NEXT_DAY_9AM_NY });
-    expect(pendingJobs(fake, "scheduled_ai:executeTask")).toHaveLength(1);
+    expect(fake.find(taskId)).toMatchObject({
+      status: "running",
+      lastExecuted: NOW - 2 * MINUTE,
+      nextExecution: NEXT_DAY_9AM_NY,
+    });
+    expect(pendingJobs(fake, RUN)).toHaveLength(1);
+    expect(pendingJobs(fake, ACTION)).toHaveLength(0);
     expect(fake.rows("task_history")).toHaveLength(0);
   });
 
@@ -247,66 +290,92 @@ describe("claimTaskExecution", () => {
       lastExecuted: NOW - 20 * MINUTE,
     });
 
-    const claimed = await call(claimTaskExecution, fake.ctx, { taskId, executionId: "exec_3" });
+    await call(startScheduledRun, fake.ctx, { taskId });
 
-    expect(claimed).toMatchObject({ status: "running", lastExecuted: NOW });
+    expect(fake.find(taskId)).toMatchObject({ status: "running", lastExecuted: NOW });
+    expect(pendingJobs(fake, ACTION)).toHaveLength(1);
   });
 
-  it("drops a stray scheduled run when the task's chain is pending in the future", async () => {
+  it("drops a stray timed run when the task's chain is pending in the future", async () => {
     const fake = createFakeCtx();
-    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, executeTaskRef, {});
+    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, runRef, {});
     const taskId = await seedTask(fake, { scheduledFunctionId: futureJob });
 
-    expect(await call(claimTaskExecution, fake.ctx, { taskId, executionId: "exec_4" })).toBeNull();
+    await call(startScheduledRun, fake.ctx, { taskId });
 
     expect(fake.find(taskId)).toMatchObject({ status: "active", scheduledFunctionId: futureJob });
     expect(fake.jobs).toHaveLength(1);
+    expect(fake.rows("task_history")).toHaveLength(0);
   });
 
-  it("does not reschedule for a manual run", async () => {
-    const fake = createFakeCtx();
-    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, executeTaskRef, {});
-    const taskId = await seedTask(fake, { scheduledFunctionId: futureJob });
-
-    const claimed = await call(claimTaskExecution, fake.ctx, {
-      taskId,
-      executionId: "exec_5",
-      isManualTrigger: true,
-    });
-
-    expect(claimed).toMatchObject({ status: "running", scheduledFunctionId: futureJob });
-    expect(pendingJobs(fake, "scheduled_ai:executeTask")).toHaveLength(1);
-  });
-
-  it("ignores paused tasks", async () => {
+  it("ignores paused and deleted tasks", async () => {
     const fake = createFakeCtx();
     const taskId = await seedTask(fake, { status: "paused" });
 
-    expect(await call(claimTaskExecution, fake.ctx, { taskId, executionId: "exec_6" })).toBeNull();
+    await call(startScheduledRun, fake.ctx, { taskId });
+    await call(startScheduledRun, fake.ctx, { taskId: "scheduled_tasks:deleted" });
+
     expect(fake.jobs).toHaveLength(0);
+    expect(fake.rows("task_history")).toHaveLength(0);
+  });
+});
+
+describe("triggerScheduledTask", () => {
+  it("claims a manual run and starts the action without touching the schedule", async () => {
+    const fake = createFakeCtx();
+    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, runRef, {});
+    const taskId = await seedTask(fake, {
+      scheduledFunctionId: futureJob,
+      nextExecution: NEXT_DAY_9AM_NY,
+    });
+
+    await call(triggerScheduledTask, fake.ctx, { taskId });
+
+    expect(fake.find(taskId)).toMatchObject({
+      status: "running",
+      lastExecuted: NOW,
+      nextExecution: NEXT_DAY_9AM_NY,
+      scheduledFunctionId: futureJob,
+    });
+    expect(pendingJobs(fake, RUN)).toHaveLength(1);
+    const { row, action } = claimedRun(fake, taskId);
+    expect(row).toMatchObject({ isManualTrigger: true });
+    expect(action).toBeDefined();
+  });
+
+  it("rejects a second trigger while the first run holds the task", async () => {
+    const fake = createFakeCtx();
+    const taskId = await seedTask(fake);
+    await call(triggerScheduledTask, fake.ctx, { taskId });
+
+    const second = call(triggerScheduledTask, fake.ctx, { taskId });
+
+    await expect(second).rejects.toMatchObject({ data: ERROR_CODES.UNSUPPORTED_OPERATION });
+    expect(pendingJobs(fake, ACTION)).toHaveLength(1);
   });
 });
 
 describe("finishTaskExecution / expireTaskExecution", () => {
-  async function claim(fake: Fake, fields: Record<string, unknown> = {}, isManualTrigger = false) {
+  /** Claims this morning's timed run and returns the task and the run's executionId. */
+  async function claim(fake: Fake, fields: Record<string, unknown> = {}) {
     const { taskId } = await seedDueTask(fake, fields);
-    await call(claimTaskExecution, fake.ctx, { taskId, executionId: "exec_1", isManualTrigger });
-    return taskId;
+    await call(startScheduledRun, fake.ctx, { taskId });
+    return { taskId, executionId: claimedRun(fake, taskId).executionId };
   }
 
   it("returns a recurring task to active after a failure with its next run still booked", async () => {
     const fake = createFakeCtx();
-    const taskId = await claim(fake);
+    const { taskId, executionId } = await claim(fake);
 
     await call(finishTaskExecution, fake.ctx, {
       taskId,
-      executionId: "exec_1",
+      executionId,
       outcome: "failure",
       errorMessage: "provider down",
     });
 
     expect(fake.find(taskId)).toMatchObject({ status: "active", nextExecution: NEXT_DAY_9AM_NY });
-    expect(pendingJobs(fake, "scheduled_ai:executeTask")).toHaveLength(1);
+    expect(pendingJobs(fake, RUN)).toHaveLength(1);
     expect(fake.rows("task_history")[0]).toMatchObject({
       status: "failure",
       errorMessage: "provider down",
@@ -315,21 +384,17 @@ describe("finishTaskExecution / expireTaskExecution", () => {
 
   it("archives a one-time task after a failed manual run and cancels its scheduled run", async () => {
     const fake = createFakeCtx();
-    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, executeTaskRef, {});
+    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, runRef, {});
     const taskId = await seedTask(fake, {
       scheduleType: "onetime",
       scheduledDate: "2026-11-01",
       scheduledFunctionId: futureJob,
     });
-    await call(claimTaskExecution, fake.ctx, {
-      taskId,
-      executionId: "exec_1",
-      isManualTrigger: true,
-    });
+    await call(triggerScheduledTask, fake.ctx, { taskId });
 
     await call(finishTaskExecution, fake.ctx, {
       taskId,
-      executionId: "exec_1",
+      executionId: claimedRun(fake, taskId).executionId,
       outcome: "failure",
     });
 
@@ -341,37 +406,33 @@ describe("finishTaskExecution / expireTaskExecution", () => {
 
   it("pauses the task and cancels the booked run when a usage limit stops the run", async () => {
     const fake = createFakeCtx();
-    const taskId = await claim(fake);
+    const { taskId, executionId } = await claim(fake);
 
-    await call(finishTaskExecution, fake.ctx, { taskId, executionId: "exec_1", outcome: "paused" });
+    await call(finishTaskExecution, fake.ctx, { taskId, executionId, outcome: "paused" });
 
     expect(fake.find(taskId)).toMatchObject({ status: "paused" });
-    expect(pendingJobs(fake, "scheduled_ai:executeTask")).toHaveLength(0);
+    expect(pendingJobs(fake, RUN)).toHaveLength(0);
     expect(fake.rows("task_history")[0]).toMatchObject({ status: "cancelled" });
   });
 
   it("expires a run that never finished, and a late finish is then a no-op", async () => {
     const fake = createFakeCtx();
-    const taskId = await claim(fake);
+    const { taskId, executionId } = await claim(fake);
 
-    await call(expireTaskExecution, fake.ctx, { taskId, executionId: "exec_1" });
+    await call(expireTaskExecution, fake.ctx, { taskId, executionId });
     expect(fake.find(taskId)).toMatchObject({ status: "active" });
     expect(fake.rows("task_history")[0]).toMatchObject({ status: "timeout" });
 
-    await call(finishTaskExecution, fake.ctx, {
-      taskId,
-      executionId: "exec_1",
-      outcome: "success",
-    });
+    await call(finishTaskExecution, fake.ctx, { taskId, executionId, outcome: "success" });
     expect(fake.rows("task_history")[0]).toMatchObject({ status: "timeout" });
   });
 
   it("leaves a task alone once a later claim has taken it over", async () => {
     const fake = createFakeCtx();
-    const taskId = await claim(fake);
+    const { taskId, executionId } = await claim(fake);
     await fake.ctx.db.patch("scheduled_tasks", taskId, { lastExecuted: NOW + 16 * MINUTE });
 
-    await call(expireTaskExecution, fake.ctx, { taskId, executionId: "exec_1" });
+    await call(expireTaskExecution, fake.ctx, { taskId, executionId });
 
     expect(fake.find(taskId)).toMatchObject({ status: "running" });
   });
@@ -389,13 +450,13 @@ describe("finishTaskExecution / expireTaskExecution", () => {
       });
     }
     await fake.ctx.db.patch("scheduled_tasks", taskId, {
-      scheduledFunctionId: fake.addJob(NOW, executeTaskRef, {}, "inProgress"),
+      scheduledFunctionId: fake.addJob(NOW, runRef, {}, "inProgress"),
     });
-    await call(claimTaskExecution, fake.ctx, { taskId, executionId: "exec_1" });
+    await call(startScheduledRun, fake.ctx, { taskId });
 
     await call(finishTaskExecution, fake.ctx, {
       taskId,
-      executionId: "exec_1",
+      executionId: claimedRun(fake, taskId).executionId,
       outcome: "success",
     });
 
@@ -452,7 +513,7 @@ describe("updateScheduledTask", () => {
 
     await call(updateScheduledTask, fake.ctx, { taskId, status: "active" });
 
-    const [run] = pendingJobs(fake, "scheduled_ai:executeTask");
+    const [run] = pendingJobs(fake, RUN);
     expect(run.scheduledTime).toBe(Date.parse("2026-10-31T14:00:00Z"));
     expect(fake.find(taskId)).toMatchObject({ status: "active", scheduledFunctionId: run._id });
   });
@@ -471,7 +532,7 @@ describe("updateScheduledTask", () => {
 describe("deleteScheduledTask", () => {
   it("cancels the pending run and deletes the task's history", async () => {
     const fake = createFakeCtx();
-    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, executeTaskRef, {});
+    const futureJob = fake.addJob(NEXT_DAY_9AM_NY, runRef, {});
     const taskId = await seedTask(fake, { scheduledFunctionId: futureJob });
     const otherTaskId = await seedTask(fake);
     for (const id of [taskId, taskId, otherTaskId]) {
@@ -486,27 +547,111 @@ describe("deleteScheduledTask", () => {
   });
 });
 
-describe("pauseDeadTasks", () => {
+describe("migrateScheduledRuns", () => {
+  it("re-points pending runs of the old action at startScheduledRun at the same time", async () => {
+    const fake = createFakeCtx();
+    const legacyJob = fake.addJob(NEXT_DAY_9AM_NY, legacyRunRef, { taskId: "x" });
+    const active = await seedTask(fake, { scheduledFunctionId: legacyJob });
+    // A live run whose next run the old code booked
+    const legacyBooked = fake.addJob(NEXT_DAY_9AM_NY, legacyRunRef, { taskId: "y" });
+    const running = await seedTask(fake, {
+      status: "running",
+      lastExecuted: NOW - 5 * MINUTE,
+      scheduledFunctionId: legacyBooked,
+    });
+    const currentJob = fake.addJob(NEXT_DAY_9AM_NY, runRef, {});
+    const current = await seedTask(fake, { scheduledFunctionId: currentJob });
+
+    const result = await call(migrateScheduledRuns, fake.ctx, {});
+
+    expect(result).toEqual({ scanned: 3, migrated: 2, paused: 0, isDone: true });
+    for (const [taskId, oldJob] of [
+      [active, legacyJob],
+      [running, legacyBooked],
+    ]) {
+      const newJob = fake.jobs.find((job) => job._id === fake.find(taskId)?.scheduledFunctionId);
+      expect(newJob).toMatchObject({
+        name: RUN,
+        args: { taskId },
+        scheduledTime: NEXT_DAY_9AM_NY,
+        state: { kind: "pending" },
+      });
+      expect(fake.jobs.find((job) => job._id === oldJob)?.state.kind).toBe("canceled");
+    }
+    expect(fake.find(active)).toMatchObject({ status: "active" });
+    expect(fake.find(running)).toMatchObject({ status: "running" });
+    expect(fake.find(current)).toMatchObject({ status: "active", scheduledFunctionId: currentJob });
+  });
+
   it("pauses active tasks without a pending run and stale running tasks only", async () => {
     const fake = createFakeCtx();
     const healthy = await seedTask(fake, {
-      scheduledFunctionId: fake.addJob(NEXT_DAY_9AM_NY, executeTaskRef, {}),
+      scheduledFunctionId: fake.addJob(NEXT_DAY_9AM_NY, runRef, {}),
     });
     const dead = await seedTask(fake, {
-      scheduledFunctionId: fake.addJob(NOW - 60 * MINUTE, executeTaskRef, {}, "success"),
+      scheduledFunctionId: fake.addJob(NOW - 60 * MINUTE, runRef, {}, "success"),
+    });
+    // An old job that came due between the deploy and the migration and failed validation
+    const failedLegacy = await seedTask(fake, {
+      scheduledFunctionId: fake.addJob(NOW - MINUTE, legacyRunRef, {}, "failed"),
     });
     const live = await seedTask(fake, { status: "running", lastExecuted: NOW - 5 * MINUTE });
-    const stuck = await seedTask(fake, { status: "running", lastExecuted: NOW - 60 * MINUTE });
+    const stuckBooking = fake.addJob(NEXT_DAY_9AM_NY, runRef, {});
+    const stuck = await seedTask(fake, {
+      status: "running",
+      lastExecuted: NOW - 60 * MINUTE,
+      scheduledFunctionId: stuckBooking,
+    });
     await fake.ctx.db.insert("task_history", { taskId: stuck, status: "running", startTime: NOW });
 
-    const result = await call(pauseDeadTasks, fake.ctx, {});
+    const result = await call(migrateScheduledRuns, fake.ctx, {});
 
-    expect(result).toEqual({ scanned: 4, paused: 2, isDone: true });
+    expect(result).toEqual({ scanned: 5, migrated: 0, paused: 3, isDone: true });
     expect(fake.find(healthy)).toMatchObject({ status: "active" });
     expect(fake.find(dead)).toMatchObject({ status: "paused" });
     expect(fake.find(dead)).not.toHaveProperty("scheduledFunctionId");
+    expect(fake.find(failedLegacy)).toMatchObject({ status: "paused" });
     expect(fake.find(live)).toMatchObject({ status: "running" });
     expect(fake.find(stuck)).toMatchObject({ status: "paused" });
+    expect(fake.jobs.find((job) => job._id === stuckBooking)?.state.kind).toBe("canceled");
     expect(fake.rows("task_history")[0]).toMatchObject({ status: "timeout" });
+  });
+
+  it("pauses every task with pauseAll, letting a live run finish and record its outcome", async () => {
+    const fake = createFakeCtx();
+    const activeJob = fake.addJob(NEXT_DAY_9AM_NY, legacyRunRef, {});
+    const active = await seedTask(fake, { scheduledFunctionId: activeJob });
+    const { taskId: live } = await seedDueTask(fake);
+    await call(startScheduledRun, fake.ctx, { taskId: live });
+    const liveRun = claimedRun(fake, live);
+    const stuck = await seedTask(fake, { status: "running", lastExecuted: NOW - 60 * MINUTE });
+    await fake.ctx.db.insert("task_history", { taskId: stuck, status: "running", startTime: NOW });
+    const paused = await seedTask(fake, { status: "paused" });
+    const archived = await seedTask(fake, { status: "archived" });
+
+    const result = await call(migrateScheduledRuns, fake.ctx, { pauseAll: true });
+
+    expect(result).toEqual({ scanned: 5, migrated: 0, paused: 3, isDone: true });
+    for (const taskId of [active, live, stuck, paused]) {
+      expect(fake.find(taskId)).toMatchObject({ status: "paused" });
+      expect(fake.find(taskId)).not.toHaveProperty("scheduledFunctionId");
+      expect(fake.find(taskId)).not.toHaveProperty("nextExecution");
+    }
+    expect(fake.find(archived)).toMatchObject({ status: "archived" });
+    expect(pendingJobs(fake, RUN)).toHaveLength(0);
+    expect(fake.jobs.find((job) => job._id === activeJob)?.state.kind).toBe("canceled");
+    const historyOf = (taskId: string) =>
+      fake.rows("task_history").find((row) => row.taskId === taskId);
+    expect(historyOf(stuck)).toMatchObject({ status: "timeout" });
+    expect(historyOf(live)).toMatchObject({ status: "running" });
+
+    await call(finishTaskExecution, fake.ctx, {
+      taskId: live,
+      executionId: liveRun.executionId,
+      outcome: "success",
+    });
+
+    expect(historyOf(live)).toMatchObject({ status: "success" });
+    expect(fake.find(live)).toMatchObject({ status: "paused" });
   });
 });

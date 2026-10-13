@@ -7,7 +7,7 @@ import { ensureAuthenticated } from "./lib/auth_helper";
 import { TaskHistory } from "./schema/task_history";
 
 // Execution history rows are written by the run lifecycle in scheduled_tasks.ts
-// (claimTaskExecution / finishTaskExecution / expireTaskExecution).
+// (claimRun / finishTaskExecution / expireTaskExecution).
 
 const taskHistoryEntityValidator = v.object({
   _id: v.id("task_history"),
