@@ -98,8 +98,8 @@ export async function searchWithFallback(
       const adapter = getProvider(provider);
       return await adapter.search(query, options);
     } catch (error) {
-      // If this is the last provider, throw the error
-      if (providerIndex === providersToTry.length - 1) {
+      // If this is the last provider or the search was aborted, throw the error
+      if (providerIndex === providersToTry.length - 1 || options?.signal?.aborted) {
         const classified = classifyError(error);
         throw new Error(
           `All search providers failed. Last error: ${classified.userFriendlyMessage}`,

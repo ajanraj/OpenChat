@@ -1,19 +1,28 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { ConvexError, v } from "convex/values";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
+import { ConvexError, v, type Infer } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { detectRedactedContent } from "../src/lib/redacted-content-detector";
-import type { Id } from "./_generated/dataModel";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
 // Import helper functions
-import {
-  ensureAuthenticated,
-  ensureChatAccess,
-  tryEnsureChatAccess,
-  validateChatOwnership,
-} from "./lib/auth_helper";
-import { deleteChatCompletely, deleteMultipleChats } from "./lib/cleanup_helper";
+import { ensureAuthenticated, ensureChatAccess, tryEnsureChatAccess } from "./lib/auth_helper";
+import { deleteChatCompletely, purgeChatsBatch } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
+import { getOrCreateDefaultProfileId, resolveChatProfileId } from "./profiles";
 import { Chat } from "./schema/chat";
+
+const chatDoc = v.object({
+  _id: v.id("chats"),
+  _creationTime: v.number(),
+  ...Chat.fields,
+});
+
+// Caps for the separately listed pinned chats (shown even when their page isn't
+// loaded) and for title-search results
+const PINNED_CHATS_LIMIT = 100;
+const CHAT_SEARCH_LIMIT = 50;
 
 // New: Publish a chat and set share policy
 export const publishChat = mutation({
@@ -25,7 +34,7 @@ export const publishChat = mutation({
       return null;
     }
 
-    await ctx.db.patch(chatId, {
+    await ctx.db.patch("chats", chatId, {
       public: true,
       shareAttachments: hideImages === false,
       updatedAt: Date.now(),
@@ -43,7 +52,7 @@ export const unpublishChat = mutation({
     if (!result) {
       return null;
     }
-    await ctx.db.patch(chatId, {
+    await ctx.db.patch("chats", chatId, {
       public: false,
       shareAttachments: false,
       updatedAt: Date.now(),
@@ -68,7 +77,7 @@ export const getPublicChat = query({
     }),
   ),
   handler: async (ctx, { chatId }) => {
-    const chat = await ctx.db.get(chatId);
+    const chat = await ctx.db.get("chats", chatId);
     if (!(chat && (chat.public ?? false))) {
       return null;
     }
@@ -94,26 +103,19 @@ export const forkFromShared = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const source = await ctx.db.get(sourceChatId);
+    const source = await ctx.db.get("chats", sourceChatId);
     if (!(source && (source.public ?? false))) {
       throw new ConvexError(ERROR_CODES.CHAT_NOT_FOUND);
     }
 
     const now = Date.now();
-    const user = await ctx.db.get(userId);
-    let profileId = user?.activeProfileId;
-    if (profileId) {
-      const profile = await ctx.db.get(profileId);
-      if (!profile || profile.userId !== userId) {
-        profileId = undefined;
-      }
-    }
     const newChatId = await ctx.db.insert("chats", {
       userId,
       title: source.title || "Forked Chat",
       model: source.model,
       personaId: source.personaId,
-      profileId,
+      // The user's active profile
+      profileId: await resolveChatProfileId(ctx, userId, undefined),
       createdAt: now,
       updatedAt: now,
       // Do not mark fork as public by default
@@ -181,28 +183,14 @@ export const createChat = mutation({
   handler: async (ctx, args) => {
     const userId = await ensureAuthenticated(ctx);
 
-    // Use provided profileId, or fall back to user's activeProfileId
-    let resolvedProfileId = args.profileId;
-    if (!resolvedProfileId) {
-      const user = await ctx.db.get(userId);
-      resolvedProfileId = user?.activeProfileId ?? undefined;
-    }
-
-    // Validate profile belongs to this user
-    if (resolvedProfileId) {
-      const profile = await ctx.db.get(resolvedProfileId);
-      if (!profile || profile.userId !== userId) {
-        resolvedProfileId = undefined;
-      }
-    }
-
     const now = Date.now();
     const chatId = await ctx.db.insert("chats", {
       userId,
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
-      profileId: resolvedProfileId,
+      // The given profile if it's the user's, else their active one
+      profileId: await resolveChatProfileId(ctx, userId, args.profileId),
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -213,38 +201,74 @@ export const createChat = mutation({
   },
 });
 
+/**
+ * Pages through the user's chats in a profile, or in every profile when `profileId` is null (the
+ * settings history page), most recently active first. Includes pinned chats; the chat lists also
+ * load listPinnedChatsForUser so pinned chats show before their page is loaded.
+ */
 export const listChatsForUser = query({
-  args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("chats"),
-      _creationTime: v.number(),
-      ...Chat.fields,
-    }),
-  ),
-  handler: async (ctx) => {
+  args: {
+    profileId: v.union(v.id("profiles"), v.null()),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(chatDoc),
+  handler: async (ctx, { profileId, paginationOpts }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
+    const chats = profileId
+      ? ctx.db
+          .query("chats")
+          .withIndex("by_user_and_profile_and_updated", (q) =>
+            q.eq("userId", userId).eq("profileId", profileId),
+          )
+      : ctx.db.query("chats").withIndex("by_user_and_updated", (q) => q.eq("userId", userId));
+    return await chats.order("desc").paginate(paginationOpts);
+  },
+});
+
+/** The user's pinned chats in a profile, newest first. */
+export const listPinnedChatsForUser = query({
+  args: { profileId: v.id("profiles") },
+  returns: v.array(chatDoc),
+  handler: async (ctx, { profileId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return [];
     }
     return await ctx.db
       .query("chats")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_and_profile_and_pinned", (q) =>
+        q.eq("userId", userId).eq("profileId", profileId).eq("isPinned", true),
+      )
       .order("desc")
-      .collect();
+      .take(PINNED_CHATS_LIMIT);
+  },
+});
+
+/** Full-text search over the titles of the user's chats in a profile, best matches first. */
+export const searchChats = query({
+  args: { query: v.string(), profileId: v.id("profiles") },
+  returns: v.array(chatDoc),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const search = args.query.trim();
+    if (!(userId && search)) {
+      return [];
+    }
+    return await ctx.db
+      .query("chats")
+      .withSearchIndex("search_title", (q) =>
+        q.search("title", search).eq("userId", userId).eq("profileId", args.profileId),
+      )
+      .take(CHAT_SEARCH_LIMIT);
   },
 });
 
 export const getChat = query({
   args: { chatId: v.id("chats") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      _id: v.id("chats"),
-      _creationTime: v.number(),
-      ...Chat.fields,
-    }),
-  ),
+  returns: v.union(v.null(), chatDoc),
   handler: async (ctx, { chatId }) => {
     const result = await tryEnsureChatAccess(ctx, chatId);
     return result?.chat ?? null;
@@ -259,7 +283,7 @@ export const updateChatModel = mutation({
     if (!result) {
       return null;
     }
-    await ctx.db.patch(chatId, { model, updatedAt: Date.now() });
+    await ctx.db.patch("chats", chatId, { model, updatedAt: Date.now() });
     return null;
   },
 });
@@ -272,7 +296,7 @@ export const updateChatTitle = mutation({
     if (!result) {
       return null;
     }
-    await ctx.db.patch(chatId, { title, updatedAt: Date.now() });
+    await ctx.db.patch("chats", chatId, { title, updatedAt: Date.now() });
     return null;
   },
 });
@@ -291,6 +315,72 @@ export const deleteChat = mutation({
   },
 });
 
+// Which chats a purge deletes: every chat created up to a time, or the listed chats
+const chatPurgeScope = v.union(
+  v.object({ createdBefore: v.number() }),
+  v.object({ chatIds: v.array(v.id("chats")) }),
+);
+
+/**
+ * Deletes one budget-bounded batch of the user's chats in `scope` and schedules purgeChats for
+ * the rest, so deleting many or large chats never exceeds a transaction's limits.
+ */
+async function purgeChatsInScope(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  scope: Infer<typeof chatPurgeScope>,
+): Promise<void> {
+  if ("createdBefore" in scope) {
+    // Chats created after the request (e.g. while the purge runs) are kept
+    const { createdBefore } = scope;
+    const done = await purgeChatsBatch(
+      ctx,
+      userId,
+      ctx.db
+        .query("chats")
+        .withIndex("by_user", (q) => q.eq("userId", userId).lte("_creationTime", createdBefore)),
+      true,
+    );
+    if (!done) {
+      await ctx.scheduler.runAfter(0, internal.chats.purgeChats, { userId, scope });
+    }
+    return;
+  }
+
+  const { chatIds } = scope;
+  // Listed chats before `next` are deleted (or not the user's); a stopped run passes on the rest
+  let next = 0;
+  async function* listedChats(): AsyncGenerator<Doc<"chats">> {
+    for (; next < chatIds.length; next += 1) {
+      const chat = await ctx.db.get("chats", chatIds[next]);
+      if (chat?.userId === userId) {
+        yield chat;
+      }
+    }
+  }
+  const done = await purgeChatsBatch(ctx, userId, listedChats(), true);
+  if (!done) {
+    await ctx.scheduler.runAfter(0, internal.chats.purgeChats, {
+      userId,
+      scope: { chatIds: chatIds.slice(next) },
+    });
+  }
+}
+
+/** Continues a bulk chat deletion started by deleteAllChatsForUser or deleteBulkChats. */
+export const purgeChats = internalMutation({
+  args: { userId: v.id("users"), scope: chatPurgeScope },
+  returns: v.null(),
+  handler: async (ctx, { userId, scope }) => {
+    await purgeChatsInScope(ctx, userId, scope);
+    return null;
+  },
+});
+
+/**
+ * Deletes every chat the user has now. Most users' chats go in this call; the rest are deleted in
+ * the background, and the chat list updates as they go.
+ */
 export const deleteAllChatsForUser = mutation({
   args: {},
   returns: v.null(),
@@ -299,17 +389,12 @@ export const deleteAllChatsForUser = mutation({
     if (!userId) {
       return null;
     }
-
-    const chats = await ctx.db
-      .query("chats")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    await deleteMultipleChats(ctx, chats, userId);
+    await purgeChatsInScope(ctx, userId, { createdBefore: Date.now() });
     return null;
   },
 });
 
+/** Deletes the listed chats the user owns (others are ignored), like deleteAllChatsForUser. */
 export const deleteBulkChats = mutation({
   args: { chatIds: v.array(v.id("chats")) },
   returns: v.null(),
@@ -317,16 +402,8 @@ export const deleteBulkChats = mutation({
     if (chatIds.length === 0) {
       return null;
     }
-
-    // Validate all chats belong to the user
-    const validChats = await validateChatOwnership(ctx, chatIds);
-    if (validChats.length === 0) {
-      return null;
-    }
-
-    // Get userId from the first valid chat (all have same owner)
-    const userId = validChats[0].userId;
-    await deleteMultipleChats(ctx, validChats, userId);
+    const userId = await ensureAuthenticated(ctx);
+    await purgeChatsInScope(ctx, userId, { chatIds });
     return null;
   },
 });
@@ -342,7 +419,7 @@ export const branchChat = mutation({
     const { chat: originalChat, userId } = await ensureChatAccess(ctx, args.originalChatId);
 
     // Verify the branch message exists and belongs to the chat
-    const branchMessage = await ctx.db.get(args.branchFromMessageId);
+    const branchMessage = await ctx.db.get("messages", args.branchFromMessageId);
     if (!branchMessage || branchMessage.chatId !== args.originalChatId) {
       throw new ConvexError(ERROR_CODES.MESSAGE_NOT_FOUND);
     }
@@ -362,7 +439,8 @@ export const branchChat = mutation({
       title: originalChat.title || "New Chat",
       model: originalChat.model,
       personaId: originalChat.personaId,
-      profileId: originalChat.profileId,
+      // The original's profile (legacy chats without one get the user's active profile)
+      profileId: await resolveChatProfileId(ctx, userId, originalChat.profileId),
       originalChatId: args.originalChatId,
       createdAt: now,
       updatedAt: now,
@@ -371,42 +449,31 @@ export const branchChat = mutation({
       shareAttachments: false,
     });
 
-    // Get all messages up to and including the branch point
-    const messagesToCopy = await ctx.db
+    // Copy messages up to and including the branch message, in order, remapping parent links to
+    // the copies. Iterating lazily stops reading at the branch point.
+    const idMap = new Map<Id<"messages">, Id<"messages">>();
+    for await (const message of ctx.db
       .query("messages")
       .withIndex("by_chat_and_created", (q) => q.eq("chatId", args.originalChatId))
-      .order("asc")
-      .collect();
-
-    // Copy messages up to and including the branch message in parallel
-    const messageInsertPromises: Promise<Id<"messages">>[] = [];
-    for (const message of messagesToCopy) {
-      const messageTimestamp = message.createdAt ?? message._creationTime;
-
-      // Include messages up to and including the branch message
-      if (messageTimestamp <= branchTimestamp) {
-        messageInsertPromises.push(
-          ctx.db.insert("messages", {
-            chatId: newChatId,
-            userId: message.userId,
-            role: message.role,
-            content: message.content,
-            createdAt: message.createdAt,
-            parentMessageId: message.parentMessageId,
-            parts: message.parts,
-            metadata: message.metadata,
-          }),
-        );
+      .order("asc")) {
+      if ((message.createdAt ?? message._creationTime) <= branchTimestamp) {
+        const newMessageId = await ctx.db.insert("messages", {
+          chatId: newChatId,
+          userId: message.userId,
+          role: message.role,
+          content: message.content,
+          createdAt: message.createdAt,
+          parentMessageId: message.parentMessageId ? idMap.get(message.parentMessageId) : undefined,
+          parts: message.parts,
+          metadata: message.metadata,
+        });
+        idMap.set(message._id, newMessageId);
       }
 
-      // Stop after we've processed the branch message
       if (message._id === args.branchFromMessageId) {
         break;
       }
     }
-
-    // Execute all message insertions in parallel
-    await Promise.all(messageInsertPromises);
 
     return { chatId: newChatId };
   },
@@ -426,7 +493,7 @@ export const pinChatToggle = mutation({
     // Toggle the isPinned status
     const newPinnedStatus = !chat.isPinned;
 
-    await ctx.db.patch(chatId, {
+    await ctx.db.patch("chats", chatId, {
       isPinned: newPinnedStatus,
     });
 
@@ -451,7 +518,8 @@ export const createChatInternal = internalMutation({
       title: args.title ?? "New Chat",
       model: args.model,
       personaId: args.personaId,
-      profileId: args.profileId,
+      // The task's profile if it's the user's, else their active one
+      profileId: await resolveChatProfileId(ctx, args.userId, args.profileId),
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -459,5 +527,57 @@ export const createChatInternal = internalMutation({
       shareAttachments: false,
     });
     return { chatId };
+  },
+});
+
+/**
+ * One-off backfill that files every chat under a profile, since the chat list and title search
+ * only show a profile's own chats. Run it right after deploying the profile-scoped chat indexes
+ * (until it finishes, legacy chats are missing from the chat lists):
+ * `npx convex run chats:backfillChatProfiles --prod`. Chats without a profile, or whose profile
+ * was deleted or isn't the owner's, move to the owner's default profile (created if missing);
+ * chats of deleted users are skipped. Handles 100 chats per batch and schedules itself until the
+ * table is exhausted; safe to run again.
+ */
+export const backfillChatProfiles = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    skipped: v.number(),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("chats")
+      .paginate({ numItems: 100, cursor: args.cursor ?? null });
+
+    let updated = 0;
+    let skipped = 0;
+    for (const chat of page.page) {
+      const profile = chat.profileId ? await ctx.db.get("profiles", chat.profileId) : null;
+      if (profile?.userId === chat.userId) {
+        continue;
+      }
+      const user = await ctx.db.get("users", chat.userId);
+      if (!user) {
+        skipped += 1;
+        continue;
+      }
+      await ctx.db.patch("chats", chat._id, {
+        profileId: await getOrCreateDefaultProfileId(ctx, user),
+      });
+      updated += 1;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.chats.backfillChatProfiles, {
+        cursor: page.continueCursor,
+      });
+    }
+    console.log(
+      `backfillChatProfiles: scanned ${page.page.length}, updated ${updated}, skipped ${skipped}`,
+    );
+    return { scanned: page.page.length, updated, skipped, isDone: page.isDone };
   },
 });

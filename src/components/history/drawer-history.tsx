@@ -1,4 +1,3 @@
-import { convexQuery } from "@convex-dev/react-query";
 import {
 	Check,
 	MagnifyingGlass,
@@ -8,11 +7,10 @@ import {
 	TrashSimple,
 	X,
 } from "@phosphor-icons/react";
-import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { PhosphorIcon } from "@/components/profile/phosphor-icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +28,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useChatList, useLoadMoreRef } from "@/hooks/use-chat-list";
 import {
 	getOrderedGroupKeys,
 	groupChatsByTime,
@@ -262,18 +261,22 @@ export function DrawerHistory({
 	const {
 		profiles,
 		activeProfile,
-		isProfilesLoading,
+		chatListProfileId,
 		setActiveProfile,
 		slideDirection,
 	} = useProfile();
-	const { data: chatHistory } = useTanStackQuery({
-		...convexQuery(api.chats.listChatsForUser, {}),
-	});
 	const deleteChat = useMutation(api.chats.deleteChat);
 	const updateChatTitle = useMutation(api.chats.updateChatTitle);
 	const pinChatToggle = useMutation(api.chats.pinChatToggle);
 
 	const [searchQuery, setSearchQuery] = useState("");
+	const {
+		pinnedChats,
+		otherChats: unpinnedChats,
+		canLoadMore,
+		loadMore,
+	} = useChatList(searchQuery, chatListProfileId);
+	const loadMoreRef = useLoadMoreRef(canLoadMore, loadMore);
 	const [editingId, setEditingId] = useState<Id<"chats"> | null>(null);
 	const [editTitle, setEditTitle] = useState("");
 	const [deletingId, setDeletingId] = useState<Id<"chats"> | null>(null);
@@ -327,33 +330,6 @@ export function DrawerHistory({
 	};
 
 	const isAnonymous = !user || user.isAnonymous;
-
-	const profileScopedChats = useMemo(() => {
-		if (!chatHistory?.length) return [];
-
-		if (!isAnonymous && (isProfilesLoading || !activeProfile)) {
-			return [];
-		}
-
-		return chatHistory.filter((chat) => {
-			if (!isAnonymous && activeProfile) {
-				if (activeProfile.isDefault) {
-					if (chat.profileId && chat.profileId !== activeProfile._id) return false;
-				} else {
-					if (chat.profileId !== activeProfile._id) return false;
-				}
-			}
-			return true;
-		});
-	}, [chatHistory, isAnonymous, isProfilesLoading, activeProfile]);
-
-	const filteredChat = profileScopedChats.filter((chat) =>
-		(chat.title || "").toLowerCase().includes(searchQuery.toLowerCase()),
-	);
-
-	// Separate pinned and unpinned chats
-	const pinnedChats = filteredChat.filter((chat) => chat.isPinned);
-	const unpinnedChats = filteredChat.filter((chat) => !chat.isPinned);
 
 	// Group unpinned chats by time
 	const groupedChats = groupChatsByTime(unpinnedChats);
@@ -499,13 +475,16 @@ export function DrawerHistory({
 														handleSaveEdit={handleSaveEdit}
 														handleTogglePin={handleTogglePin}
 														key={chat._id}
-														pinned={false}
+														// Pinned chats past the pinned list's cap show here too
+														pinned={chat.isPinned === true}
 														setEditTitle={setEditTitle}
 													/>
 												))}
 											</div>
 										),
 								)}
+								{/* Loads the next page of chats when scrolled into view */}
+								<div aria-hidden="true" className="h-px" ref={loadMoreRef} />
 							</m.div>
 						</AnimatePresence>
 					</ScrollArea>

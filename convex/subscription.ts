@@ -31,7 +31,7 @@ export const reserveSubscriptionSync = internalMutation({
       return 1;
     }
     const revision = sync.reservedRevision + 1;
-    await ctx.db.patch(sync._id, { reservedRevision: revision });
+    await ctx.db.patch("stripe_subscription_syncs", sync._id, { reservedRevision: revision });
     return revision;
   },
 });
@@ -65,7 +65,7 @@ export const applySubscriptionSnapshot = internalMutation({
     if (revision <= sync.appliedRevision) {
       return false;
     }
-    await ctx.db.patch(sync._id, { appliedRevision: revision });
+    await ctx.db.patch("stripe_subscription_syncs", sync._id, { appliedRevision: revision });
     await ctx.runMutation(components.stripe.private.handleSubscriptionUpdated, snapshot);
     return true;
   },
@@ -83,7 +83,7 @@ export const onInvoicePaid = internalMutation({
   returns: v.null(),
   handler: async (ctx, { userId, stripeInvoiceId }) => {
     const normalizedUserId = ctx.db.normalizeId("users", userId);
-    const user = normalizedUserId ? await ctx.db.get(normalizedUserId) : null;
+    const user = normalizedUserId ? await ctx.db.get("users", normalizedUserId) : null;
     if (!user) {
       return null;
     }

@@ -8,20 +8,23 @@
  * @module
  */
 
+import type * as account_deletion from "../account_deletion.js";
 import type * as api_keys from "../api_keys.js";
 import type * as auth from "../auth.js";
 import type * as chats from "../chats.js";
 import type * as connectors from "../connectors.js";
+import type * as crons from "../crons.js";
 import type * as email from "../email.js";
-import type * as feedback from "../feedback.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as import_export from "../import_export.js";
 import type * as lib_auth_helper from "../lib/auth_helper.js";
 import type * as lib_cleanup_helper from "../lib/cleanup_helper.js";
+import type * as lib_credits from "../lib/credits.js";
 import type * as lib_fileUploadModels from "../lib/fileUploadModels.js";
 import type * as lib_rateLimitConstants from "../lib/rateLimitConstants.js";
 import type * as lib_sanitization_helper from "../lib/sanitization_helper.js";
+import type * as lib_schedule_helper from "../lib/schedule_helper.js";
 import type * as messages from "../messages.js";
 import type * as profiles from "../profiles.js";
 import type * as rateLimiter from "../rateLimiter.js";
@@ -36,7 +39,6 @@ import type * as schema_message from "../schema/message.js";
 import type * as schema_profile from "../schema/profile.js";
 import type * as schema_scheduled_task from "../schema/scheduled_task.js";
 import type * as schema_task_history from "../schema/task_history.js";
-import type * as schema_usage_history from "../schema/usage_history.js";
 import type * as schema_user from "../schema/user.js";
 import type * as schema_user_api_key from "../schema/user_api_key.js";
 import type * as stripe from "../stripe.js";
@@ -51,20 +53,23 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account_deletion: typeof account_deletion;
   api_keys: typeof api_keys;
   auth: typeof auth;
   chats: typeof chats;
   connectors: typeof connectors;
+  crons: typeof crons;
   email: typeof email;
-  feedback: typeof feedback;
   files: typeof files;
   http: typeof http;
   import_export: typeof import_export;
   "lib/auth_helper": typeof lib_auth_helper;
   "lib/cleanup_helper": typeof lib_cleanup_helper;
+  "lib/credits": typeof lib_credits;
   "lib/fileUploadModels": typeof lib_fileUploadModels;
   "lib/rateLimitConstants": typeof lib_rateLimitConstants;
   "lib/sanitization_helper": typeof lib_sanitization_helper;
+  "lib/schedule_helper": typeof lib_schedule_helper;
   messages: typeof messages;
   profiles: typeof profiles;
   rateLimiter: typeof rateLimiter;
@@ -79,7 +84,6 @@ declare const fullApi: ApiFromModules<{
   "schema/profile": typeof schema_profile;
   "schema/scheduled_task": typeof schema_scheduled_task;
   "schema/task_history": typeof schema_task_history;
-  "schema/usage_history": typeof schema_usage_history;
   "schema/user": typeof schema_user;
   "schema/user_api_key": typeof schema_user_api_key;
   stripe: typeof stripe;

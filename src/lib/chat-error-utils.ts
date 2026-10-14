@@ -3,28 +3,34 @@
  * Handles error classification and user-friendly error messages for chat operations
  */
 
+import { isRateLimitError } from "@convex-dev/rate-limiter";
+import { ConvexError } from "convex/values";
 import { toast } from "@/components/ui/toast";
 import { getAllowedLabel, UPLOAD_ALLOWED_MIME, UPLOAD_MAX_LABEL } from "@/lib/config/upload";
+import { ERROR_CODES } from "@/lib/error-codes";
 import { classifyError, shouldShowAsToast } from "@/lib/error-utils";
 
 /**
  * Maps backend upload error codes to user-friendly messages
  */
 export function humaniseUploadError(err: unknown): string {
-  if (!(err instanceof Error)) {
-    return "Error uploading file";
+  // files:generateUploadUrl throws the rate limiter's own error for the fileUpload bucket
+  if (isRateLimitError(err)) {
+    return "Upload limit reached. Please wait a few minutes before uploading more files.";
   }
-  const msg = err.message;
-  if (msg.includes("ERR_UNSUPPORTED_MODEL")) {
-    return "File uploads are not supported for the selected model.";
+  const code = err instanceof ConvexError && typeof err.data === "string" ? err.data : null;
+  switch (code) {
+    case ERROR_CODES.UNSUPPORTED_MODEL:
+      return "File uploads are not supported for the selected model.";
+    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
+      return `File not supported. Allowed: ${getAllowedLabel(UPLOAD_ALLOWED_MIME)}`;
+    case ERROR_CODES.FILE_TOO_LARGE:
+      return `File too large. Max ${UPLOAD_MAX_LABEL} per file`;
+    case ERROR_CODES.NOT_AUTHENTICATED:
+      return "Sign in with Google to upload files.";
+    default:
+      return "Error uploading file";
   }
-  if (msg.includes("ERR_BAD_MIME")) {
-    return `File not supported. Allowed: ${getAllowedLabel(UPLOAD_ALLOWED_MIME)}`;
-  }
-  if (msg.includes("ERR_FILE_TOO_LARGE")) {
-    return `File too large. Max ${UPLOAD_MAX_LABEL} per file`;
-  }
-  return "Error uploading file";
 }
 
 /**

@@ -11,7 +11,6 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { PREMIUM_CREDITS } from "@/lib/config";
 import { useUser } from "@/providers/user-provider";
 
 dayjs.extend(calendar);
@@ -19,7 +18,7 @@ dayjs.extend(isToday);
 dayjs.extend(isTomorrow);
 
 function MessageUsageCardComponent() {
-	const { user, rateLimitStatus, hasPremium } = useUser();
+	const { user, rateLimitStatus } = useUser();
 
 	const formatResetDate = useCallback(
 		(timestamp: number | null | undefined) => {
@@ -57,24 +56,25 @@ function MessageUsageCardComponent() {
 		return null;
 	}
 
-	const resetTimestamp = hasPremium
+	// The status only carries the buckets of its own tier (no daily bucket for premium, no
+	// premium bucket otherwise), so the tier comes from it rather than the separate premium query
+	const { isPremium, premiumCount, premiumLimit, premiumRemaining } =
+		rateLimitStatus;
+
+	const resetTimestamp = isPremium
 		? rateLimitStatus.monthlyReset
 		: rateLimitStatus.dailyReset;
 	const nextResetDateStr = formatResetDate(resetTimestamp);
 
-	const standardLimit = hasPremium
+	const standardLimit = isPremium
 		? rateLimitStatus.monthlyLimit
 		: rateLimitStatus.dailyLimit;
-	const standardCount = hasPremium
+	const standardCount = isPremium
 		? rateLimitStatus.monthlyCount
 		: rateLimitStatus.dailyCount;
-	const standardRemaining = hasPremium
+	const standardRemaining = isPremium
 		? rateLimitStatus.monthlyRemaining
 		: rateLimitStatus.dailyRemaining;
-
-	const premiumLimit = PREMIUM_CREDITS;
-	const premiumCount = rateLimitStatus.premiumCount || 0;
-	const premiumRemaining = rateLimitStatus.premiumRemaining || premiumLimit;
 
 	return (
 		<div className="rounded-xl border bg-card p-4">
@@ -116,7 +116,7 @@ function MessageUsageCardComponent() {
 				</div>
 
 				{/* Premium Credits */}
-				{Boolean(hasPremium) && (
+				{isPremium && (
 					<div className="space-y-2">
 						<div className="flex items-center justify-between text-xs">
 							<span className="flex items-center gap-1 text-muted-foreground">

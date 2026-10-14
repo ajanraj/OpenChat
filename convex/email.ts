@@ -8,10 +8,13 @@ import { internalMutation } from "./_generated/server";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_CONTENT_LENGTH = 5000;
 
-// Initialize Resend with the component
+// Initialize Resend with the component.
+// testMode is off: emails go to real recipients. Convex bundles hardcode NODE_ENV to
+// "production", so a NODE_ENV check never enabled test mode anyway. Deployments that
+// must not send email (e.g. dev) simply leave RESEND_API_KEY unset; sends then throw
+// "API key is not set", which sendTaskSummaryEmail catches and returns as a failure.
 export const resend: Resend = new Resend(components.resend, {
-  // Enable test mode in development (set to false in production via env var)
-  testMode: process.env.NODE_ENV !== "production",
+  testMode: false,
 });
 
 /**
@@ -84,7 +87,7 @@ export const sendTaskSummaryEmail = internalMutation({
   handler: async (ctx, args) => {
     try {
       // Get user details to check for email address
-      const user = await ctx.db.get(args.userId);
+      const user = await ctx.db.get("users", args.userId);
 
       if (!user) {
         return { success: false, error: "User not found" };

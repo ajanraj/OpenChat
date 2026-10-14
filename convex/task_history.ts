@@ -1,110 +1,41 @@
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
-import { internalMutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+import { query } from "./_generated/server";
 import { ensureAuthenticated } from "./lib/auth_helper";
+import { TaskHistory } from "./schema/task_history";
 
-// Shared validator for task_history entity metadata
-const taskHistoryMetadataValidator = v.optional(
-  v.object({
-    modelId: v.optional(v.string()),
-    modelName: v.optional(v.string()),
-    inputTokens: v.optional(v.number()),
-    outputTokens: v.optional(v.number()),
-    totalTokens: v.optional(v.number()),
-    reasoningTokens: v.optional(v.number()),
-    cachedInputTokens: v.optional(v.number()),
-    serverDurationMs: v.optional(v.number()),
-    includeSearch: v.optional(v.boolean()),
-    toolkitSlugs: v.optional(v.array(v.string())),
-  }),
-);
+// Execution history rows are written by the run lifecycle in scheduled_tasks.ts
+// (claimRun / finishTaskExecution / expireTaskExecution).
 
-// Shared validator for task_history entity status
-const taskHistoryStatusValidator = v.union(
-  v.literal("pending"),
-  v.literal("running"),
-  v.literal("success"),
-  v.literal("failure"),
-  v.literal("cancelled"),
-  v.literal("timeout"),
-);
-
-// Shared validator for complete task_history entity
 const taskHistoryEntityValidator = v.object({
   _id: v.id("task_history"),
   _creationTime: v.number(),
-  taskId: v.id("scheduled_tasks"),
-  executionId: v.string(),
-  status: taskHistoryStatusValidator,
-  startTime: v.number(),
-  endTime: v.optional(v.number()),
-  chatId: v.optional(v.id("chats")),
-  errorMessage: v.optional(v.string()),
-  metadata: taskHistoryMetadataValidator,
-  isManualTrigger: v.optional(v.boolean()),
-  createdAt: v.number(),
+  ...TaskHistory.fields,
 });
 
-// Create a new task execution history record
-export const createExecutionHistory = internalMutation({
-  args: {
-    taskId: v.id("scheduled_tasks"),
-    executionId: v.string(),
-    startTime: v.number(),
-    isManualTrigger: v.optional(v.boolean()),
-  },
-  returns: v.id("task_history"),
-  handler: async (ctx, args) => {
-    const historyId = await ctx.db.insert("task_history", {
-      taskId: args.taskId,
-      executionId: args.executionId,
-      status: "running", // Task is now running, will be updated on completion/failure
-      startTime: args.startTime,
-      isManualTrigger: args.isManualTrigger,
-      createdAt: Date.now(),
-    });
+/** Keeps the newest `keepCount` execution rows of a task and deletes the rest. */
+export async function pruneExecutionHistory(
+  ctx: MutationCtx,
+  taskId: Id<"scheduled_tasks">,
+  keepCount = 30,
+): Promise<void> {
+  const rows = await ctx.db
+    .query("task_history")
+    .withIndex("by_task_and_time", (q) => q.eq("taskId", taskId))
+    .order("desc")
+    .collect();
+  await Promise.all(rows.slice(keepCount).map((row) => ctx.db.delete("task_history", row._id)));
+}
 
-    return historyId;
-  },
-});
-
-// Update execution history with results
-export const updateExecutionHistory = internalMutation({
-  args: {
-    executionId: v.string(),
-    status: taskHistoryStatusValidator,
-    endTime: v.number(),
-    chatId: v.optional(v.id("chats")),
-    errorMessage: v.optional(v.string()),
-    metadata: taskHistoryMetadataValidator,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // Find the history record by executionId
-    const historyRecord = await ctx.db
-      .query("task_history")
-      .withIndex("by_execution_id", (q) => q.eq("executionId", args.executionId))
-      .unique();
-
-    if (!historyRecord) {
-      throw new ConvexError({
-        message: "Execution history record not found",
-        code: ERROR_CODES.INVALID_INPUT,
-      });
-    }
-
-    // Update the record
-    await ctx.db.patch(historyRecord._id, {
-      status: args.status,
-      endTime: args.endTime,
-      chatId: args.chatId,
-      errorMessage: args.errorMessage,
-      metadata: args.metadata,
-    });
-
-    return null;
-  },
-});
+/** Deletes every execution row of a task; call before deleting the task itself. */
+export async function deleteExecutionHistory(
+  ctx: MutationCtx,
+  taskId: Id<"scheduled_tasks">,
+): Promise<void> {
+  await pruneExecutionHistory(ctx, taskId, 0);
+}
 
 // Get execution history for a specific task
 export const getTaskExecutionHistory = query({
@@ -117,12 +48,9 @@ export const getTaskExecutionHistory = query({
     const userId = await ensureAuthenticated(ctx);
 
     // First verify the user owns this task
-    const task = await ctx.db.get(args.taskId);
+    const task = await ctx.db.get("scheduled_tasks", args.taskId);
     if (!task || task.userId !== userId) {
-      throw new ConvexError({
-        message: "Task not found or access denied",
-        code: ERROR_CODES.INVALID_INPUT,
-      });
+      throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }
 
     // Get execution history for this task, ordered by most recent first
@@ -153,7 +81,7 @@ export const getTaskExecutionStats = query({
     lastExecution: v.optional(
       v.object({
         _id: v.id("task_history"),
-        status: taskHistoryStatusValidator,
+        status: TaskHistory.fields.status,
         startTime: v.number(),
         endTime: v.optional(v.number()),
         chatId: v.optional(v.id("chats")),
@@ -165,12 +93,9 @@ export const getTaskExecutionStats = query({
     const userId = await ensureAuthenticated(ctx);
 
     // First verify the user owns this task
-    const task = await ctx.db.get(args.taskId);
+    const task = await ctx.db.get("scheduled_tasks", args.taskId);
     if (!task || task.userId !== userId) {
-      throw new ConvexError({
-        message: "Task not found or access denied",
-        code: ERROR_CODES.INVALID_INPUT,
-      });
+      throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }
 
     // Get all execution history for this task
@@ -228,80 +153,5 @@ export const getTaskExecutionStats = query({
           }
         : undefined,
     };
-  },
-});
-
-// Get detailed execution information
-export const getExecutionDetails = query({
-  args: {
-    executionId: v.string(),
-  },
-  returns: v.union(
-    v.null(),
-    v.object({
-      ...taskHistoryEntityValidator.fields,
-      taskTitle: v.string(), // Include task title for context
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
-
-    // Find the execution record
-    const execution = await ctx.db
-      .query("task_history")
-      .withIndex("by_execution_id", (q) => q.eq("executionId", args.executionId))
-      .unique();
-
-    if (!execution) {
-      return null;
-    }
-
-    // Verify the user owns the task
-    const task = await ctx.db.get(execution.taskId);
-    if (!task || task.userId !== userId) {
-      throw new ConvexError({
-        message: "Task not found or access denied",
-        code: ERROR_CODES.INVALID_INPUT,
-      });
-    }
-
-    return {
-      ...execution,
-      taskTitle: task.title,
-    };
-  },
-});
-
-// Clean up old execution history (retention policy)
-export const cleanupOldExecutions = internalMutation({
-  args: {
-    taskId: v.id("scheduled_tasks"),
-    keepCount: v.optional(v.number()), // Default to 30
-  },
-  returns: v.object({
-    deletedCount: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    const keepCount = args.keepCount || 30;
-
-    // Get all executions for this task, ordered by most recent first
-    const allExecutions = await ctx.db
-      .query("task_history")
-      .withIndex("by_task_and_time", (q) => q.eq("taskId", args.taskId))
-      .order("desc")
-      .collect();
-
-    // If we have more than keepCount, delete the oldest ones
-    if (allExecutions.length > keepCount) {
-      const executionsToDelete = allExecutions.slice(keepCount);
-
-      // Delete executions in parallel for better performance
-      await Promise.all(executionsToDelete.map((execution) => ctx.db.delete(execution._id)));
-      const deletedCount = executionsToDelete.length;
-
-      return { deletedCount };
-    }
-
-    return { deletedCount: 0 };
   },
 });

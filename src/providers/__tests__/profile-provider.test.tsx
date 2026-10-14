@@ -22,9 +22,9 @@ interface MockQueryResult {
 interface MockUserResult {
   user: {
     _id: string;
-    activeProfileId: string;
+    activeProfileId?: string;
     isAnonymous: boolean;
-  };
+  } | null;
 }
 
 type MutationValue = boolean | null | number | string | undefined;
@@ -196,5 +196,70 @@ describe("ProfileProvider profile switching", () => {
     await waitFor(() => {
       expect(getByTestId("active-profile-id").textContent).toBe("profiles:p1");
     });
+  });
+});
+
+describe("ProfileProvider chatListProfileId", () => {
+  const profiles: MockProfile[] = [
+    {
+      _id: "profiles:default",
+      _creationTime: 1,
+      userId: "users:u1",
+      name: "Default",
+      icon: "ChatCircle",
+      isDefault: true,
+      order: 0,
+    },
+  ];
+
+  function ChatListProfileHarness() {
+    const { chatListProfileId } = useProfile();
+    return <div data-testid="chat-list-profile-id">{String(chatListProfileId)}</div>;
+  }
+
+  function renderChatListProfileId(user: MockUserResult["user"], query: MockQueryResult) {
+    useUserMock.mockReturnValue({ user });
+    useTanStackQueryMock.mockReturnValue(query);
+    const { getByTestId, unmount } = renderWithProvider(<ChatListProfileHarness />);
+    const value = getByTestId("chat-list-profile-id").textContent;
+    unmount();
+    return value;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useMutationMock.mockReturnValue(vi.fn<MutationMock>(async () => null));
+  });
+
+  it("uses the stored active profile until profiles load, then the resolved one", () => {
+    const user = { _id: "users:u1", activeProfileId: "profiles:deleted", isAnonymous: false };
+
+    expect(renderChatListProfileId(user, { data: [], isLoading: true })).toBe("profiles:deleted");
+    // The stored profile no longer exists, so the active profile falls back to the default
+    expect(renderChatListProfileId(user, { data: profiles, isLoading: false })).toBe(
+      "profiles:default",
+    );
+  });
+
+  it("is unknown until a signed-in user's profile is known", () => {
+    expect(renderChatListProfileId(null, { data: [], isLoading: false })).toBe("undefined");
+    expect(
+      renderChatListProfileId(
+        { _id: "users:u1", isAnonymous: false },
+        { data: [], isLoading: true },
+      ),
+    ).toBe("undefined");
+  });
+
+  it("uses an anonymous user's active profile, or null before their first chat", () => {
+    const anonymous = { _id: "users:anon", isAnonymous: true };
+
+    expect(
+      renderChatListProfileId(
+        { ...anonymous, activeProfileId: "profiles:anon" },
+        { data: [], isLoading: false },
+      ),
+    ).toBe("profiles:anon");
+    expect(renderChatListProfileId(anonymous, { data: [], isLoading: false })).toBe("null");
   });
 });

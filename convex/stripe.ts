@@ -81,6 +81,86 @@ export async function syncSubscriptionFromStripe(
   });
 }
 
+// Statuses after which a subscription can never bill again
+const ENDED_STATUSES = new Set(["canceled", "incomplete_expired"]);
+
+/**
+ * Immediately cancels every subscription of the user that can still bill, and stores the new
+ * state. Used on account deletion; the Stripe and billing records themselves are kept.
+ *
+ * Subscriptions are read from Stripe through the user's customer (its row survives deletion), so
+ * one whose webhook hasn't been synced yet is canceled too. The customer's open checkouts are
+ * expired first, so none can be paid into a new subscription afterwards. Subscriptions synced
+ * for the user without a customer row come from the component's table. Safe to retry; every
+ * step is attempted, then an AggregateError is thrown if any failed.
+ */
+export async function cancelBillableSubscriptions(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  userId: Id<"users">,
+): Promise<void> {
+  const [customer, synced] = await Promise.all([
+    ctx.runQuery(components.stripe.public.getCustomerByUserId, { userId }),
+    ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, { userId }),
+  ]);
+  const billable = new Set(
+    synced
+      .filter((subscription) => !ENDED_STATUSES.has(subscription.status))
+      .map((subscription) => subscription.stripeSubscriptionId),
+  );
+  if (!customer && billable.size === 0) {
+    return;
+  }
+  const stripe = stripeApi();
+  const failures: unknown[] = [];
+  const attempt = async (step: () => Promise<void>) => {
+    try {
+      await step();
+    } catch (error) {
+      failures.push(error);
+    }
+  };
+
+  if (customer) {
+    const { stripeCustomerId } = customer;
+    // Expired before subscriptions are listed: a checkout paid before its expiry shows up in the
+    // list, and none can be paid after it
+    await attempt(async () => {
+      for await (const session of stripe.checkout.sessions.list({
+        customer: stripeCustomerId,
+        status: "open",
+      })) {
+        await stripe.checkout.sessions.expire(session.id);
+      }
+    });
+    await attempt(async () => {
+      for await (const subscription of stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: "all",
+      })) {
+        if (!ENDED_STATUSES.has(subscription.status)) {
+          billable.add(subscription.id);
+        }
+      }
+    });
+  }
+
+  // Stripe's live status decides whether to cancel, so a retry after a failed sync doesn't
+  // re-cancel an already canceled subscription (cancel is a DELETE, which ignores idempotency
+  // keys).
+  for (const stripeSubscriptionId of billable) {
+    await attempt(async () => {
+      const live = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+      if (!ENDED_STATUSES.has(live.status)) {
+        await stripe.subscriptions.cancel(stripeSubscriptionId);
+      }
+      await syncSubscriptionFromStripe(ctx, stripe, stripeSubscriptionId);
+    });
+  }
+  if (failures.length > 0) {
+    throw new AggregateError(failures, `${failures.length} billing step(s) failed`);
+  }
+}
+
 // Invoice reasons that start a new billing period (not proration or manual invoices)
 const NEW_PERIOD_BILLING_REASONS = new Set<Stripe.Invoice.BillingReason>([
   "subscription_create",

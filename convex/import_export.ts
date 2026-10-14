@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
+import { resolveChatProfileId } from "./profiles";
 
 export const bulkImportChat = mutation({
   args: {
@@ -52,6 +53,8 @@ export const bulkImportChat = mutation({
       title: args.chat.title ?? "Imported Chat",
       model: args.chat.model,
       personaId: args.chat.personaId,
+      // Imports go to the user's active profile
+      profileId: await resolveChatProfileId(ctx, userId, undefined),
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -83,7 +86,7 @@ export const bulkImportChat = mutation({
     }
 
     // Update chat timestamp to reflect last message
-    await ctx.db.patch(chatId, { updatedAt: now });
+    await ctx.db.patch("chats", chatId, { updatedAt: now });
 
     return { chatId, messageCount: args.messages.length };
   },

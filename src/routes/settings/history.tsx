@@ -1,4 +1,3 @@
-import { convexQuery } from "@convex-dev/react-query";
 import {
   Copy,
   DownloadSimple,
@@ -7,10 +6,9 @@ import {
   UploadSimple,
   XCircle,
 } from "@phosphor-icons/react";
-import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useConvex, useMutation } from "convex/react";
-import { useRef, useReducer } from "react";
+import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
+import { useCallback, useRef, useReducer } from "react";
 import superjson from "superjson";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -28,6 +26,7 @@ import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { CHAT_LIST_PAGE_SIZE, useLoadMoreRef } from "@/hooks/use-chat-list";
 import { APP_BASE_URL, MESSAGE_MAX_LENGTH } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
@@ -106,9 +105,21 @@ export function HistorySettingsPage() {
 }
 
 function useHistorySettingsPageView() {
-  const { data: chats } = useTanStackQuery({
-    ...convexQuery(api.chats.listChatsForUser, {}),
-  });
+  // Every profile's chats, like "Delete All". Chats load a page at a time, so counts and
+  // "Select All" cover the loaded chats
+  const {
+    results: chats,
+    status: chatsStatus,
+    loadMore,
+  } = usePaginatedQuery(
+    api.chats.listChatsForUser,
+    { profileId: null },
+    { initialNumItems: CHAT_LIST_PAGE_SIZE },
+  );
+  const isChatsLoading = chatsStatus === "LoadingFirstPage";
+  const hasMoreChats = chatsStatus === "CanLoadMore" || chatsStatus === "LoadingMore";
+  const loadMoreChats = useCallback(() => loadMore(CHAT_LIST_PAGE_SIZE), [loadMore]);
+  const loadMoreRef = useLoadMoreRef(chatsStatus === "CanLoadMore", loadMoreChats);
   const deleteChat = useMutation(api.chats.deleteChat);
   const deleteBulkChats = useMutation(api.chats.deleteBulkChats);
   const unpublishChat = useMutation(api.chats.unpublishChat);
@@ -226,7 +237,6 @@ function useHistorySettingsPageView() {
   const isSelected = (id: Id<"chats">) => selectedIds.has(id);
   const toggleSelect = (id: Id<"chats">) => dispatch({ type: "TOGGLE_SELECT", id });
   const selectAll = () => {
-    if (!chats) return;
     dispatch({ type: "SELECT_ALL", ids: chats.map((c) => c._id) });
   };
   const clearSelection = () => dispatch({ type: "CLEAR_SELECTION" });
@@ -270,7 +280,7 @@ function useHistorySettingsPageView() {
 
       await Promise.all(
         Array.from(selectedIds).map(async (id) => {
-          const chat = chats?.find((c) => c._id === id);
+          const chat = chats.find((c) => c._id === id);
           if (!chat) {
             return;
           }
@@ -445,7 +455,7 @@ function useHistorySettingsPageView() {
   };
 
   const renderChatsList = () => {
-    if (!chats) {
+    if (isChatsLoading) {
       return (
         <div className="flex max-h-[320px] flex-col overflow-y-auto rounded-xl border bg-card">
           {Array.from({ length: 5 }).map((_, i) => {
@@ -578,12 +588,16 @@ function useHistorySettingsPageView() {
             </div>
           );
         })}
+        {/* Loads the next page of chats when scrolled into view */}
+        <div aria-hidden="true" className="h-px shrink-0" ref={loadMoreRef} />
       </div>
     );
   };
 
-  const totalChats = chats?.length ?? 0;
-  const sharedCount = chats?.filter((c) => c.public).length ?? 0;
+  // Counts of loaded chats; "+" marks that more pages exist
+  const totalChats = chats.length;
+  const sharedCount = chats.filter((c) => c.public).length;
+  const moreSuffix = hasMoreChats ? "+" : "";
   const chatsList = renderChatsList();
 
   return (
@@ -591,16 +605,18 @@ function useHistorySettingsPageView() {
       <div className="space-y-6">
         <div className="flex items-baseline justify-between">
           <h1 className="font-semibold text-2xl tracking-tight">History</h1>
-          {chats && totalChats > 0 && (
+          {totalChats > 0 && (
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
-                {totalChats} chat{totalChats === 1 ? "" : "s"}
+                {totalChats}
+                {moreSuffix} chat{totalChats === 1 && !hasMoreChats ? "" : "s"}
               </span>
               {sharedCount > 0 && (
                 <>
                   <span className="text-muted-foreground/40">·</span>
                   <span className="rounded-full bg-blue-500/10 px-2.5 py-1 font-medium text-blue-600 text-xs dark:text-blue-400">
-                    {sharedCount} shared
+                    {sharedCount}
+                    {moreSuffix} shared
                   </span>
                 </>
               )}
@@ -617,14 +633,12 @@ function useHistorySettingsPageView() {
             <div className="flex items-center gap-2">
               <Label className="flex items-center gap-3 rounded-lg border px-4 py-1.5 hover:bg-accent/25 has-aria-checked:border-blue-600 has-aria-checked:bg-blue-50 dark:has-aria-checked:border-blue-900 dark:has-aria-checked:bg-blue-950">
                 <Checkbox
-                  checked={Boolean(
-                    !!chats && chats.length > 0 && selectedIds.size === chats.length,
-                  )}
+                  checked={chats.length > 0 && selectedIds.size === chats.length}
                   className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
-                  disabled={!chats}
+                  disabled={isChatsLoading}
                   id="select-all"
                   onCheckedChange={() => {
-                    if (!!chats && chats.length > 0 && selectedIds.size === chats.length) {
+                    if (chats.length > 0 && selectedIds.size === chats.length) {
                       clearSelection();
                     } else {
                       selectAll();
@@ -642,7 +656,7 @@ function useHistorySettingsPageView() {
             <div className="flex items-center gap-2">
               <Button
                 className="flex items-center gap-2"
-                disabled={!chats || selectedIds.size === 0}
+                disabled={selectedIds.size === 0}
                 onClick={handleExport}
                 size="sm"
                 variant="secondary"
@@ -653,7 +667,7 @@ function useHistorySettingsPageView() {
               </Button>
               <Button
                 className="flex items-center gap-2"
-                disabled={!chats || selectedIds.size === 0}
+                disabled={selectedIds.size === 0}
                 onClick={handleDeleteSelected}
                 size="sm"
                 variant="destructive"

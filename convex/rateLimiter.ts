@@ -1,4 +1,4 @@
-import { RateLimiter } from "@convex-dev/rate-limiter";
+import { HOUR, RateLimiter } from "@convex-dev/rate-limiter";
 import { components } from "./_generated/api";
 import { PERIODS, RATE_LIMITS } from "./lib/rateLimitConstants";
 
@@ -37,5 +37,13 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: PERIODS.MONTHLY,
     capacity: RATE_LIMITS.PREMIUM_MONTHLY,
     start: Date.now(),
+  },
+
+  // Per-user upload URLs (files.generateUploadUrl): refills 60/hour, bursts up to 20
+  fileUpload: {
+    kind: "token bucket",
+    rate: 60,
+    period: HOUR,
+    capacity: 20,
   },
 });

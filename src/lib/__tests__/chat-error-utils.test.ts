@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vitest";
 import type { toast } from "@/components/ui/toast";
 import type { classifyError, shouldShowAsToast } from "@/lib/error-utils";
@@ -38,30 +39,32 @@ describe("humaniseUploadError", () => {
     expect(humaniseUploadError({ message: "test" })).toBe("Error uploading file");
   });
 
-  it("handles ERR_UNSUPPORTED_MODEL error", () => {
-    const error = new Error("ERR_UNSUPPORTED_MODEL: vision not supported");
-
-    expect(humaniseUploadError(error)).toBe(
+  it("maps server upload error codes", () => {
+    expect(humaniseUploadError(new ConvexError("UNSUPPORTED_MODEL"))).toBe(
       "File uploads are not supported for the selected model.",
+    );
+    expect(humaniseUploadError(new ConvexError("UNSUPPORTED_FILE_TYPE"))).toBe(
+      "File not supported. Allowed: images, PDFs",
+    );
+    expect(humaniseUploadError(new ConvexError("FILE_TOO_LARGE"))).toBe(
+      "File too large. Max 10MB per file",
+    );
+    expect(humaniseUploadError(new ConvexError("NOT_AUTHENTICATED"))).toBe(
+      "Sign in with Google to upload files.",
     );
   });
 
-  it("handles ERR_BAD_MIME error", () => {
-    const error = new Error("ERR_BAD_MIME: file type not allowed");
+  it("maps the upload rate limit error", () => {
+    const error = new ConvexError({ kind: "RateLimited", name: "fileUpload", retryAfter: 1000 });
 
-    expect(humaniseUploadError(error)).toBe("File not supported. Allowed: images, PDFs");
+    expect(humaniseUploadError(error)).toBe(
+      "Upload limit reached. Please wait a few minutes before uploading more files.",
+    );
   });
 
-  it("handles ERR_FILE_TOO_LARGE error", () => {
-    const error = new Error("ERR_FILE_TOO_LARGE: file exceeds limit");
-
-    expect(humaniseUploadError(error)).toBe("File too large. Max 10MB per file");
-  });
-
-  it("returns generic message for unknown Error types", () => {
-    const error = new Error("Unknown error happened");
-
-    expect(humaniseUploadError(error)).toBe("Error uploading file");
+  it("returns generic message for unknown errors", () => {
+    expect(humaniseUploadError(new ConvexError("UPLOAD_FAILED"))).toBe("Error uploading file");
+    expect(humaniseUploadError(new Error("ERR_FILE_TOO_LARGE"))).toBe("Error uploading file");
   });
 });
 

@@ -7,9 +7,15 @@ import { DrawerHistory } from "../drawer-history";
 
 const useQueryMock = vi.hoisted(() => vi.fn());
 const useMutationMock = vi.hoisted(() => vi.fn());
+const usePaginatedQueryMock = vi.hoisted(() => vi.fn());
 const useParamsMock = vi.hoisted(() => vi.fn());
 const useRouterMock = vi.hoisted(() => vi.fn());
-const convexQueryMock = vi.hoisted(() => vi.fn(() => ({})));
+// Keys each query by function name so useQueryMock can answer per query
+const convexQueryMock = vi.hoisted(() =>
+	vi.fn((query: Parameters<typeof getFunctionName>[0], args: unknown) => ({
+		queryKey: [getFunctionName(query), args],
+	})),
+);
 const useUserMock = vi.hoisted(() => vi.fn());
 const useProfileMock = vi.hoisted(() => vi.fn());
 const useChatSessionMock = vi.hoisted(() => vi.fn());
@@ -46,11 +52,13 @@ type LinkProps = ChildrenProps & {
 };
 
 vi.mock("@tanstack/react-query", () => ({
+	keepPreviousData: vi.fn(),
 	useQuery: useQueryMock,
 }));
 
 vi.mock("convex/react", () => ({
 	useMutation: useMutationMock,
+	usePaginatedQuery: usePaginatedQueryMock,
 }));
 
 vi.mock("@convex-dev/react-query", () => ({
@@ -162,12 +170,19 @@ function buildChatWithOverrides(overrides: {
 }
 
 function primeQueryMocks(chats = [buildChat()]) {
-	useQueryMock.mockImplementation((options: { enabled?: boolean }) => {
-		if (options.enabled !== undefined) {
-			return { data: [] };
+	usePaginatedQueryMock.mockReturnValue({
+		results: chats,
+		status: "Exhausted",
+		isLoading: false,
+		loadMore: vi.fn(),
+	});
+	useQueryMock.mockImplementation((options: { queryKey: [string, unknown] }) => {
+		if (options.queryKey[0] === "chats:listPinnedChatsForUser") {
+			return { data: chats.filter((chat) => chat.isPinned) };
 		}
 
-		return { data: chats };
+		// Title and message searches
+		return { data: [] };
 	});
 }
 
@@ -206,7 +221,6 @@ function getDeleteShortcutInput(container: HTMLElement, errorMessage: string) {
 describe("history delete keyboard flow", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		convexQueryMock.mockReturnValue({});
 		useParamsMock.mockReturnValue({ chatId: "chat-current" });
 		useUserMock.mockReturnValue({
 			user: { isAnonymous: false },
@@ -229,6 +243,7 @@ describe("history delete keyboard flow", () => {
 				icon: "ChatCircle",
 				isDefault: true,
 			},
+			chatListProfileId: "profile-default",
 			setActiveProfile: vi.fn(),
 			isProfilesLoading: false,
 			slideDirection: 0,
@@ -330,7 +345,7 @@ describe("history delete keyboard flow", () => {
 		});
 	});
 
-	it("scopes drawer history to active non-default profile chats", () => {
+	it("lists the active profile's chats in drawer and command history", () => {
 		useProfileMock.mockReturnValue({
 			profiles: [
 				{
@@ -352,20 +367,12 @@ describe("history delete keyboard flow", () => {
 				icon: "Briefcase",
 				isDefault: false,
 			},
+			chatListProfileId: "profile-p2",
 			setActiveProfile: vi.fn(),
 			isProfilesLoading: false,
 			slideDirection: 1,
 		});
 		primeQueryMocks([
-			buildChatWithOverrides({
-				_id: "chat-default",
-				title: "Default profile chat",
-			}),
-			buildChatWithOverrides({
-				_id: "chat-p1",
-				title: "Profile one chat",
-				profileId: "profile-p1",
-			}),
 			buildChatWithOverrides({
 				_id: "chat-p2",
 				title: "Profile two chat",
@@ -374,7 +381,45 @@ describe("history delete keyboard flow", () => {
 		]);
 		primeMutationMocks(vi.fn(async () => {}));
 
-		const { getByText, queryByText } = render(
+		const { getByText } = render(
+			<DrawerHistory
+				isOpen
+				setIsOpen={vi.fn()}
+				trigger={<span>history</span>}
+			/>,
+		);
+		render(<CommandHistory />);
+
+		expect(getByText("Profile two chat")).toBeTruthy();
+		// The server scopes the lists, so every chat query asks for the active profile
+		const listArgs = usePaginatedQueryMock.mock.calls.map(([, args]) => args);
+		const pinnedArgs = convexQueryMock.mock.calls
+			.filter(([query]) => getFunctionName(query) === "chats:listPinnedChatsForUser")
+			.map(([, args]) => args);
+		expect(listArgs).not.toHaveLength(0);
+		expect(pinnedArgs).not.toHaveLength(0);
+		for (const args of [...listArgs, ...pinnedArgs]) {
+			expect(args).toEqual({ profileId: "profile-p2" });
+		}
+	});
+
+	it("offers to unpin a pinned chat shown past the pinned list's cap", () => {
+		const overflow = buildChatWithOverrides({
+			_id: "chat-overflow",
+			title: "Overflow pinned chat",
+			isPinned: true,
+		});
+		usePaginatedQueryMock.mockReturnValue({
+			results: [overflow],
+			status: "Exhausted",
+			isLoading: false,
+			loadMore: vi.fn(),
+		});
+		// The pinned list is loaded but capped before this chat
+		useQueryMock.mockImplementation(() => ({ data: [] }));
+		primeMutationMocks(vi.fn(async () => {}));
+
+		const { getByText, getByLabelText } = render(
 			<DrawerHistory
 				isOpen
 				setIsOpen={vi.fn()}
@@ -382,9 +427,8 @@ describe("history delete keyboard flow", () => {
 			/>,
 		);
 
-		expect(getByText("Profile two chat")).toBeTruthy();
-		expect(queryByText("Default profile chat")).toBeNull();
-		expect(queryByText("Profile one chat")).toBeNull();
+		expect(getByText("Overflow pinned chat")).toBeTruthy();
+		expect(getByLabelText("Unpin chat")).toBeTruthy();
 	});
 
 	it("switches profile from drawer header icon buttons", () => {

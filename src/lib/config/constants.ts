@@ -1,4 +1,3 @@
-export const PREMIUM_CREDITS = 100;
 export const REMAINING_QUERY_ALERT_THRESHOLD = 2;
 export const DAILY_FILE_UPLOAD_LIMIT = 5;
 

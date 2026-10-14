@@ -9,7 +9,6 @@ import {
   MESSAGE_MAX_LENGTH,
   META_TITLE,
   MODEL_DEFAULT,
-  PREMIUM_CREDITS,
   RECOMMENDED_MODELS,
   REMAINING_QUERY_ALERT_THRESHOLD,
 } from "../constants";
@@ -19,11 +18,6 @@ const GITHUB_URL_PATTERN = /^https:\/\/github\.com\//;
 
 describe("App Constants", () => {
   describe("Credits and Limits", () => {
-    it("PREMIUM_CREDITS is a positive number", () => {
-      expect(PREMIUM_CREDITS).toBeGreaterThan(0);
-      expect(Number.isInteger(PREMIUM_CREDITS)).toBe(true);
-    });
-
     it("REMAINING_QUERY_ALERT_THRESHOLD is a positive number", () => {
       expect(REMAINING_QUERY_ALERT_THRESHOLD).toBeGreaterThan(0);
       expect(Number.isInteger(REMAINING_QUERY_ALERT_THRESHOLD)).toBe(true);

@@ -32,7 +32,7 @@ export async function ensureChatAccess(
   chatId: Id<"chats">,
 ): Promise<{ chat: Doc<"chats">; userId: Id<"users"> }> {
   const userId = await ensureAuthenticated(ctx);
-  const chat = await ctx.db.get(chatId);
+  const chat = await ctx.db.get("chats", chatId);
 
   if (!chat || chat.userId !== userId) {
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
@@ -79,13 +79,13 @@ export async function ensureMessageAccess(
   userId: Id<"users">;
 }> {
   const userId = await ensureAuthenticated(ctx);
-  const message = await ctx.db.get(messageId);
+  const message = await ctx.db.get("messages", messageId);
 
   if (!message) {
     throw new ConvexError(ERROR_CODES.MESSAGE_NOT_FOUND);
   }
 
-  const chat = await ctx.db.get(message.chatId);
+  const chat = await ctx.db.get("chats", message.chatId);
   if (!chat || chat.userId !== userId) {
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
   }
@@ -109,7 +109,7 @@ export async function getCurrentUserOrNull(
   if (!userId) {
     return null;
   }
-  return await ctx.db.get(userId);
+  return await ctx.db.get("users", userId);
 }
 
 /**
@@ -121,7 +121,7 @@ export async function getCurrentUserOrNull(
  */
 export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const userId = await ensureAuthenticated(ctx);
-  const user = await ctx.db.get(userId);
+  const user = await ctx.db.get("users", userId);
 
   if (!user) {
     throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
@@ -131,27 +131,32 @@ export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx): Promis
 }
 
 /**
- * Validates that multiple chats belong to the authenticated user.
- * Returns only the valid chats that the user owns.
+ * Compares two strings in time that depends only on the expected length,
+ * so response timing does not reveal how many leading characters matched.
+ */
+function constantTimeEqual(provided: string, expected: string): boolean {
+  const encoder = new TextEncoder();
+  const providedBytes = encoder.encode(provided);
+  const expectedBytes = encoder.encode(expected);
+  let diff = providedBytes.length ^ expectedBytes.length;
+  for (const [index, byte] of expectedBytes.entries()) {
+    diff |= (providedBytes[index] ?? 0) ^ byte;
+  }
+  return diff === 0;
+}
+
+/**
+ * Ensures a call comes from the app's own server routes rather than a browser.
+ * Server routes forward the user's session token, so user auth alone cannot tell
+ * them apart; they also pass SERVER_ROUTE_SECRET, which only the web server and
+ * this deployment know. Refuses every call while the secret is not configured.
  *
  * @example
- * const validChats = await validateChatOwnership(ctx, chatIds);
+ * assertServerSecret(args.serverSecret);
  */
-export async function validateChatOwnership(
-  ctx: QueryCtx | MutationCtx,
-  chatIds: Id<"chats">[],
-): Promise<Doc<"chats">[]> {
-  if (chatIds.length === 0) {
-    return [];
+export function assertServerSecret(provided: string): void {
+  const expected = process.env.SERVER_ROUTE_SECRET;
+  if (!(expected && constantTimeEqual(provided, expected))) {
+    throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
   }
-
-  const userId = await ensureAuthenticated(ctx);
-
-  // Get all chats in parallel
-  const chatResults = await Promise.all(chatIds.map((chatId) => ctx.db.get(chatId)));
-
-  // Filter to only valid chats owned by the user
-  return chatResults.filter(
-    (chat): chat is Doc<"chats"> => chat !== null && chat.userId === userId,
-  );
 }

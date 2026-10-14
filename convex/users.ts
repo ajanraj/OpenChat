@@ -1,13 +1,18 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { R2 } from "@convex-dev/r2";
-import { calculateRateLimit } from "@convex-dev/rate-limiter";
-import { ConvexError, v } from "convex/values";
-import { MODEL_DEFAULT } from "../src/lib/config";
+import { ConvexError, v, type Infer } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
-import { components } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { RATE_LIMITS } from "./lib/rateLimitConstants";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type QueryCtx,
+} from "./_generated/server";
+import { assertServerSecret, ensureAuthenticated, getCurrentUserOrNull } from "./lib/auth_helper";
+import { deleteAuthAccounts, purgeUserDataBatch } from "./lib/cleanup_helper";
+import * as credits from "./lib/credits";
 import { hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
 import { User } from "./schema/user";
@@ -27,7 +32,7 @@ export const getCurrentUser = query({
     if (!userId) {
       return null;
     }
-    return await ctx.db.get(userId);
+    return await ctx.db.get("users", userId);
   },
 });
 
@@ -73,245 +78,13 @@ export const updateUserProfile = mutation({
     if (!userId) {
       return null;
     }
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) {
       return null;
     }
 
     // Apply the updates
-    await ctx.db.patch(userId, { ...updates });
-
-    return null;
-  },
-});
-
-export const toggleFavoriteModel = mutation({
-  args: { modelId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, { modelId }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const currentFavorites = user.favoriteModels ?? [];
-    const currentDisabled = user.disabledModels ?? [];
-    const isFavorite = currentFavorites.includes(modelId);
-
-    let newFavorites: string[];
-    let newDisabled: string[];
-
-    if (isFavorite) {
-      // Removing from favorites - ensure at least one remains
-      if (currentFavorites.length <= 1) {
-        return null; // Cannot remove last favorite
-      }
-      newFavorites = currentFavorites.filter((id) => id !== modelId);
-      newDisabled = currentDisabled; // Don't auto-disable when unfavoriting
-    } else {
-      // Adding to favorites - remove from disabled if present (auto-enable)
-      newFavorites = [...new Set([...currentFavorites, modelId])];
-      newDisabled = currentDisabled.filter((id) => id !== modelId);
-    }
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
-
-    return null;
-  },
-});
-
-export const setModelEnabled = mutation({
-  args: { modelId: v.string(), enabled: v.boolean() },
-  returns: v.null(),
-  handler: async (ctx, { modelId, enabled }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    // Cannot disable MODEL_DEFAULT
-    if (!enabled && modelId === MODEL_DEFAULT) {
-      return null;
-    }
-
-    const currentFavorites = user.favoriteModels ?? [];
-    const currentDisabled = user.disabledModels ?? [];
-    const isCurrentlyDisabled = currentDisabled.includes(modelId);
-
-    let newFavorites = currentFavorites;
-    let newDisabled: string[];
-
-    if (enabled) {
-      // Enabling model - remove from disabled list
-      newDisabled = currentDisabled.filter((id) => id !== modelId);
-    } else {
-      // Disabling model - add to disabled list and remove from favorites
-      newDisabled = isCurrentlyDisabled
-        ? currentDisabled
-        : [...new Set([...currentDisabled, modelId])];
-      newFavorites = currentFavorites.filter((id) => id !== modelId);
-
-      // Ensure at least one favorite remains
-      if (newFavorites.length === 0 && currentFavorites.length > 0) {
-        // Keep the first favorite and remove it from disabled list
-        const firstFavorite = currentFavorites[0];
-        newFavorites = [firstFavorite];
-        newDisabled = newDisabled.filter((id) => id !== firstFavorite);
-      }
-    }
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
-
-    return null;
-  },
-});
-
-export const bulkSetModelsDisabled = mutation({
-  args: { modelIds: v.array(v.string()) },
-  returns: v.null(),
-  handler: async (ctx, { modelIds }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const currentFavorites = user.favoriteModels ?? [];
-    const currentDisabled = user.disabledModels ?? [];
-
-    // Filter out MODEL_DEFAULT from the models to disable
-    const modelsToDisable = modelIds.filter((id) => id !== MODEL_DEFAULT);
-
-    let newFavorites: string[];
-    let newDisabled: string[];
-
-    if (modelsToDisable.length === 0) {
-      // Unselect all: enable all models
-      newDisabled = [];
-      newFavorites = currentFavorites;
-    } else {
-      // Remove disabled models from favorites
-      newFavorites = currentFavorites.filter((id) => !modelsToDisable.includes(id));
-      // Merge with existing disabled models (fix critical bug)
-      newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
-
-      // Ensure at least one favorite remains
-      if (newFavorites.length === 0 && currentFavorites.length > 0) {
-        // Keep the first favorite and remove it from disabled list
-        const firstFavorite = currentFavorites[0];
-        newFavorites = [firstFavorite];
-        newDisabled = newDisabled.filter((id) => id !== firstFavorite);
-      }
-    }
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
-
-    return null;
-  },
-});
-
-export const bulkSetFavoriteModels = mutation({
-  args: { modelIds: v.array(v.string()) },
-  returns: v.null(),
-  handler: async (ctx, { modelIds }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    // Ensure at least one favorite model is provided
-    if (modelIds.length === 0) {
-      throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
-    }
-
-    const currentDisabled = user.disabledModels ?? [];
-
-    // Set new favorites to the provided model IDs
-    const newFavorites = [...new Set(modelIds)]; // Remove duplicates
-
-    // Remove favorite models from disabled list (auto-enable favorites)
-    const newDisabled = currentDisabled.filter((id) => !newFavorites.includes(id));
-
-    await ctx.db.patch(userId, {
-      favoriteModels: newFavorites,
-      disabledModels: newDisabled,
-    });
-
-    return null;
-  },
-});
-
-export const incrementMessageCount = mutation({
-  args: {
-    usesPremiumCredits: v.optional(v.boolean()),
-  },
-  returns: v.null(),
-  handler: async (ctx, { usesPremiumCredits }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, deduct from premium credits
-    if (isPremium && usesPremiumCredits) {
-      await rateLimiter.limit(ctx, "premiumMonthly", {
-        key: userId,
-        throws: true,
-      });
-    } else {
-      // For non-premium models or non-premium users, use standard credits
-
-      // CONSUME daily limits for non-premium users
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        await rateLimiter.limit(ctx, dailyLimitName, {
-          key: userId,
-          throws: true,
-        });
-      }
-
-      // CONSUME monthly limits for all users
-      await rateLimiter.limit(ctx, "standardMonthly", {
-        key: userId,
-        throws: true,
-      });
-    }
+    await ctx.db.patch("users", userId, { ...updates });
 
     return null;
   },
@@ -334,7 +107,7 @@ export const incrementStandardCredits = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
@@ -361,232 +134,115 @@ export const incrementStandardCredits = mutation({
   },
 });
 
+// Pre-flight check used before creating a chat; charges nothing.
 export const assertNotOverLimit = mutation({
   args: {
     usesPremiumCredits: v.optional(v.boolean()),
   },
+  returns: v.null(),
   handler: async (ctx, { usesPremiumCredits }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, check premium credits
-    if (isPremium && usesPremiumCredits) {
-      const premiumStatus = await rateLimiter.check(ctx, "premiumMonthly", {
-        key: userId,
-      });
-      if (!premiumStatus.ok) {
-        throw new ConvexError(ERROR_CODES.PREMIUM_LIMIT_REACHED);
-      }
-    } else {
-      // For non-premium models or non-premium users, check standard credits
-
-      const checkPromises: Promise<unknown>[] = [];
-
-      // CHECK daily limits for non-premium users (don't consume yet)
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        checkPromises.push(
-          rateLimiter.check(ctx, dailyLimitName, {
-            key: userId,
-          }),
-        );
-      }
-
-      // CHECK monthly limits for all users (don't consume yet)
-      checkPromises.push(
-        rateLimiter.check(ctx, "standardMonthly", {
-          key: userId,
-        }),
-      );
-
-      const results = await Promise.all(checkPromises);
-
-      // Check daily limit result (if applicable)
-      if (!isPremium && results.length > 1) {
-        const dailyStatus = results[0] as { ok: boolean };
-        if (!dailyStatus.ok) {
-          throw new ConvexError(ERROR_CODES.DAILY_LIMIT_REACHED);
-        }
-      }
-
-      // Check monthly limit result (always the last promise)
-      const monthlyStatus = results[results.length - 1] as { ok: boolean };
-      if (!monthlyStatus.ok) {
-        throw new ConvexError(ERROR_CODES.MONTHLY_LIMIT_REACHED);
-      }
-    }
+    const userId = await ensureAuthenticated(ctx);
+    await credits.assertMessageCreditAvailable(ctx, userId, { usesPremiumCredits });
+    return null;
   },
 });
 
+// Charges one message credit when /api/chat starts a platform-key generation and returns
+// the receipt for a refund. Throws DAILY/MONTHLY/PREMIUM_LIMIT_REACHED when the user is out
+// of credits.
+export const consumeMessageCredit = mutation({
+  args: {
+    usesPremiumCredits: v.optional(v.boolean()),
+  },
+  returns: credits.creditReceiptValidator,
+  handler: async (ctx, { usesPremiumCredits }) => {
+    const userId = await ensureAuthenticated(ctx);
+    return await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
+  },
+});
+
+// Refunds a consumeMessageCredit charge (the receipt it returned) when the generation itself
+// failed. Server routes only: without SERVER_ROUTE_SECRET a user could mint credits for
+// themselves.
+export const refundMessageCredit = mutation({
+  args: {
+    serverSecret: v.string(),
+    receipt: credits.creditReceiptValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, { serverSecret, receipt }) => {
+    assertServerSecret(serverSecret);
+    const userId = await ensureAuthenticated(ctx);
+    await credits.refundMessageCredit(ctx, userId, receipt);
+    return null;
+  },
+});
+
+// The server's clock, so clients project credit windows (getRateLimitStatus) on server time
+// rather than a device clock that may run behind. A mutation, so it is never a cached result.
+export const getServerTime = mutation({
+  args: {},
+  returns: v.number(),
+  handler: async () => Date.now(),
+});
+
+/**
+ * Stored state of one fixed-window credit bucket. `ts` is the start of the window the
+ * value was last written in (0 when the user never used the bucket). Clients project it
+ * to the current time with calculateRateLimit (see src/lib/rate-limit-status.ts).
+ */
+const rateLimitBucket = v.object({
+  value: v.number(),
+  ts: v.number(),
+  rate: v.number(),
+  period: v.number(),
+  capacity: v.number(),
+});
+
+async function getRateLimitBucket(
+  ctx: QueryCtx,
+  name: credits.CreditBucketName,
+  userId: Id<"users">,
+): Promise<Infer<typeof rateLimitBucket>> {
+  const { value, ts, config } = await rateLimiter.getValue(ctx, name, { key: userId });
+  return {
+    value,
+    ts,
+    rate: config.rate,
+    period: config.period,
+    capacity: config.capacity ?? config.rate,
+  };
+}
+
+// Raw credit buckets for the current user. Deliberately time-independent: remaining
+// credits and reset times depend on "now", so clients derive them (a query reading
+// the clock would serve stale values after a window rolls over).
 export const getRateLimitStatus = query({
   args: {},
-  returns: v.object({
-    isPremium: v.boolean(),
-    dailyCount: v.number(),
-    dailyLimit: v.number(),
-    dailyRemaining: v.number(),
-    monthlyCount: v.number(),
-    monthlyLimit: v.number(),
-    monthlyRemaining: v.number(),
-    premiumCount: v.number(),
-    premiumLimit: v.number(),
-    premiumRemaining: v.number(),
-    effectiveRemaining: v.number(),
-    dailyReset: v.optional(v.number()),
-    monthlyReset: v.optional(v.number()),
-    premiumReset: v.optional(v.number()),
-  }),
+  returns: v.union(
+    v.null(),
+    v.object({
+      isPremium: v.boolean(),
+      daily: v.union(v.null(), rateLimitBucket),
+      monthly: rateLimitBucket,
+      premium: v.union(v.null(), rateLimitBucket),
+    }),
+  ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    // console.log('getRateLimitStatus called for userId:', userId);
-    if (!userId) {
-      // Return safe defaults for unauthenticated users
-      return {
-        isPremium: false,
-        dailyCount: 0,
-        dailyLimit: 0,
-        dailyRemaining: 0,
-        monthlyCount: 0,
-        monthlyLimit: 0,
-        monthlyRemaining: 0,
-        premiumCount: 0,
-        premiumLimit: 0,
-        premiumRemaining: 0,
-        effectiveRemaining: 0,
-      };
-    }
-
-    const user = await ctx.db.get(userId);
+    const user = await getCurrentUserOrNull(ctx);
     if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
+      return null;
     }
 
     const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-    const now = Date.now();
+    const dailyName = user.isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+    const [daily, monthly, premium] = await Promise.all([
+      isPremium ? null : getRateLimitBucket(ctx, dailyName, user._id),
+      getRateLimitBucket(ctx, "standardMonthly", user._id),
+      isPremium ? getRateLimitBucket(ctx, "premiumMonthly", user._id) : null,
+    ]);
 
-    // Determine daily limit name for non-premium users
-    const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-
-    // Parallel fetching of all rate limit data
-    const [dailyStatus, dailyConfig, monthlyStatus, monthlyConfig, premiumStatus, premiumConfig] =
-      await Promise.all([
-        isPremium ? Promise.resolve(null) : rateLimiter.check(ctx, dailyLimitName, { key: userId }),
-        isPremium
-          ? Promise.resolve(null)
-          : rateLimiter.getValue(ctx, dailyLimitName, { key: userId }),
-        rateLimiter.check(ctx, "standardMonthly", { key: userId }),
-        rateLimiter.getValue(ctx, "standardMonthly", { key: userId }),
-        isPremium
-          ? rateLimiter.check(ctx, "premiumMonthly", { key: userId })
-          : Promise.resolve(null),
-        isPremium
-          ? rateLimiter.getValue(ctx, "premiumMonthly", { key: userId })
-          : Promise.resolve(null),
-      ]);
-
-    // Process daily limits
-    let dailyLimit = 0;
-    let dailyCount = 0;
-    let dailyRemaining = 0;
-    let dailyReset: number | undefined;
-
-    if (!isPremium && dailyStatus && dailyConfig) {
-      dailyLimit = isAnonymous ? RATE_LIMITS.ANONYMOUS_DAILY : RATE_LIMITS.AUTHENTICATED_DAILY;
-      dailyCount = dailyLimit - (dailyStatus.ok ? dailyConfig.value : 0);
-      dailyRemaining = dailyStatus.ok ? dailyConfig.value : 0;
-
-      // Use the rate limiter component's own logic for accurate reset time
-      const dailyRateLimit = calculateRateLimit(
-        { value: dailyConfig.value, ts: dailyConfig.ts },
-        dailyConfig.config,
-        now,
-        0, // Don't consume tokens, just calculate
-      );
-
-      // For fixed windows, the next reset is the end of the current window
-      if (dailyRateLimit.windowStart !== undefined) {
-        const config = dailyConfig.config;
-        dailyReset = dailyRateLimit.windowStart + config.period;
-      }
-    }
-
-    // Process monthly limits (standard for all users)
-    const monthlyLimit = RATE_LIMITS.STANDARD_MONTHLY;
-    const monthlyCount = monthlyLimit - (monthlyStatus.ok ? monthlyConfig.value : 0);
-    const monthlyRemaining = monthlyStatus.ok ? monthlyConfig.value : 0;
-
-    // Use the rate limiter component's own logic for accurate reset time
-    const monthlyRateLimit = calculateRateLimit(
-      { value: monthlyConfig.value, ts: monthlyConfig.ts },
-      monthlyConfig.config,
-      now,
-      0, // Don't consume tokens, just calculate
-    );
-
-    // For fixed windows, the next reset is the end of the current window
-    let monthlyReset: number | undefined;
-    if (monthlyRateLimit.windowStart !== undefined) {
-      const config = monthlyConfig.config;
-      monthlyReset = monthlyRateLimit.windowStart + config.period;
-    }
-
-    // Process premium credits (for premium users)
-    let premiumLimit = 0;
-    let premiumCount = 0;
-    let premiumRemaining = 0;
-    let premiumReset: number | undefined;
-
-    if (isPremium && premiumStatus && premiumConfig) {
-      premiumLimit = RATE_LIMITS.PREMIUM_MONTHLY;
-      premiumCount = premiumLimit - (premiumStatus.ok ? premiumConfig.value : 0);
-      premiumRemaining = premiumStatus.ok ? premiumConfig.value : 0;
-
-      // Use the rate limiter component's own logic for accurate reset time
-      const premiumRateLimit = calculateRateLimit(
-        { value: premiumConfig.value, ts: premiumConfig.ts },
-        premiumConfig.config,
-        now,
-        0, // Don't consume tokens, just calculate
-      );
-
-      // For fixed windows, the next reset is the end of the current window
-      if (premiumRateLimit.windowStart !== undefined) {
-        const config = premiumConfig.config;
-        premiumReset = premiumRateLimit.windowStart + config.period;
-      }
-    }
-
-    const effectiveRemaining = isPremium
-      ? monthlyRemaining
-      : Math.min(dailyRemaining, monthlyRemaining);
-
-    return {
-      isPremium,
-      dailyCount,
-      dailyLimit,
-      dailyRemaining,
-      monthlyCount,
-      monthlyLimit,
-      monthlyRemaining,
-      premiumCount,
-      premiumLimit,
-      premiumRemaining,
-      effectiveRemaining,
-      dailyReset,
-      monthlyReset,
-      premiumReset,
-    };
+    return { isPremium, daily, monthly, premium };
   },
 });
 
@@ -594,165 +250,62 @@ export const getRateLimitStatus = query({
 // The application no longer automatically merges anonymous accounts with Google accounts
 // for security and simplicity. Users who sign in with Google will start with fresh accounts.
 
-// Delete account and all associated data
+/**
+ * Deletes the signed-in account. Auth accounts and the user record go right away, so nobody can
+ * sign back in to it; everything else is purged in the background (purgeDeletedUserData), whose
+ * first batch deletes the sessions so no device can refresh its token. Open checkouts,
+ * subscriptions that can still bill and Composio connected accounts are revoked
+ * (account_deletion.revokeDeletedUserAccess). Stripe billing records are kept. Calling it again
+ * after the user is gone is a no-op.
+ */
 export const deleteAccount = mutation({
   args: {},
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<null> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-
-    // --- Step 1: Fetch all documents that need to be deleted in parallel ---
-    const [
-      attachments,
-      messages,
-      chats,
-      feedback,
-      usage,
-      authAccounts,
-      authSessions,
-      profiles,
-      scheduledTasks,
-      connectors,
-      apiKeys,
-    ] = await Promise.all([
-      ctx.db
-        .query("chat_attachments")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("messages")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("chats")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("feedback")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("usage_history")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("authAccounts")
-        .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("authSessions")
-        .withIndex("userId", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("profiles")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("scheduled_tasks")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("connectors")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
-      ctx.db
-        .query("user_api_keys")
-        .withIndex("by_user_provider", (q) => q.eq("userId", userId))
-        .collect(),
-    ]);
-
-    // Fetch task history for each scheduled task (no userId index on task_history)
-    const taskHistoryEntries = (
-      await Promise.all(
-        scheduledTasks.map((task) =>
-          ctx.db
-            .query("task_history")
-            .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
-            .collect(),
-        ),
-      )
-    ).flat();
-
-    // --- Step 2: Collect all deletion promises and execute them concurrently ---
-    const deletionPromises: Promise<unknown>[] = [];
-
-    // Delete attachments and their files
-    const r2 = new R2(components.r2);
-    for (const att of attachments) {
-      deletionPromises.push(
-        r2.deleteObject(ctx, att.key).catch(() => {
-          // Silently handle storage deletion errors
-        }),
-      );
-      deletionPromises.push(
-        ctx.db.delete(att._id).catch(() => {
-          // Silently handle database deletion errors
-        }),
-      );
+    if (!(await ctx.db.get("users", userId))) {
+      return null;
     }
 
-    // Delete messages
-    deletionPromises.push(...messages.map((msg) => ctx.db.delete(msg._id)));
-
-    // Delete chats
-    deletionPromises.push(...chats.map((chat) => ctx.db.delete(chat._id)));
-
-    // Delete feedback
-    deletionPromises.push(...feedback.map((f) => ctx.db.delete(f._id)));
-
-    // Delete usage history
-    deletionPromises.push(...usage.map((u) => ctx.db.delete(u._id)));
-
-    // Delete auth accounts
-    deletionPromises.push(...authAccounts.map((acc) => ctx.db.delete(acc._id)));
-
-    // Delete auth sessions
-    deletionPromises.push(...authSessions.map((sess) => ctx.db.delete(sess._id)));
-
-    // Delete profiles
-    deletionPromises.push(...profiles.map((p) => ctx.db.delete(p._id)));
-
-    // Cancel active scheduled functions, then delete tasks + history
-    for (const task of scheduledTasks) {
-      if (task.scheduledFunctionId) {
-        deletionPromises.push(
-          ctx.scheduler
-            .cancel(task.scheduledFunctionId as Id<"_scheduled_functions">)
-            .catch(() => {}),
-        );
-      }
-    }
-    deletionPromises.push(...scheduledTasks.map((t) => ctx.db.delete(t._id)));
-    deletionPromises.push(...taskHistoryEntries.map((h) => ctx.db.delete(h._id)));
-
-    // Delete connectors
-    deletionPromises.push(...connectors.map((c) => ctx.db.delete(c._id)));
-
-    // Delete API keys
-    deletionPromises.push(...apiKeys.map((k) => ctx.db.delete(k._id)));
-
-    // Execute all deletions concurrently
-    await Promise.allSettled(deletionPromises);
-
-    // Finally delete user record
-    await ctx.db.delete(userId);
+    await deleteAuthAccounts(ctx, userId);
+    await ctx.db.delete("users", userId);
+    await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
+    await ctx.scheduler.runAfter(0, internal.account_deletion.revokeDeletedUserAccess, { userId });
     return null;
   },
 });
 
-// React hook API functions for rate limiting
-export const { getRateLimit: getRateLimitHook, getServerTime } = rateLimiter.hookAPI(
-  "authenticatedDaily", // Default rate limit
-  {
-    key: async (ctx) => {
-      const userId = await getAuthUserId(ctx);
-      return userId || "anonymous";
-    },
+// A session token issued before the deletion stays valid for Convex Auth's default JWT lifetime
+// (1 hour) and can still write rows, so the purge runs once more after it expires.
+const FINAL_PURGE_DELAY_MS = 65 * 60 * 1000;
+
+/**
+ * Purges a deleted user's data one budget-bounded batch per run, sessions first (see
+ * purgeUserDataBatch), rescheduling itself until nothing is left, then once more (`final`) after
+ * the last session token expired. If a run throws, re-run it with the same args; it resumes where
+ * it stopped.
+ */
+export const purgeDeletedUserData = internalMutation({
+  args: {
+    userId: v.id("users"),
+    final: v.optional(v.boolean()),
   },
-);
+  returns: v.null(),
+  handler: async (ctx, { userId, final }): Promise<null> => {
+    if (!(await purgeUserDataBatch(ctx, userId))) {
+      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId, final });
+    } else if (!final) {
+      await ctx.scheduler.runAfter(FINAL_PURGE_DELAY_MS, internal.users.purgeDeletedUserData, {
+        userId,
+        final: true,
+      });
+    }
+    return null;
+  },
+});
 
 // Internal query to get user by ID
 export const getUser = internalQuery({
@@ -765,116 +318,48 @@ export const getUser = internalQuery({
       ...User.fields,
     }),
   ),
-  handler: async (ctx, args) => await ctx.db.get(args.userId),
+  handler: async (ctx, args) => await ctx.db.get("users", args.userId),
 });
 
-// Internal mutation to check rate limits for scheduled tasks
+// Charges one message credit for a scheduled run before it generates (internal variant of
+// consumeMessageCredit) and returns the receipt for a refund. Also enforces subscription
+// access with requiresPremium.
+export const consumeMessageCreditInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    usesPremiumCredits: v.optional(v.boolean()),
+    requiresPremium: v.optional(v.boolean()),
+  },
+  returns: credits.creditReceiptValidator,
+  handler: async (ctx, { userId, ...options }) =>
+    await credits.consumeMessageCredit(ctx, userId, options),
+});
+
+// Refunds a consumeMessageCreditInternal charge (the receipt it returned) when the scheduled
+// generation failed.
+export const refundMessageCreditInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    receipt: credits.creditReceiptValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, { userId, receipt }) => {
+    await credits.refundMessageCredit(ctx, userId, receipt);
+    return null;
+  },
+});
+
+// Check-only access/limit gate for scheduled runs of models that skip rate limiting (charges
+// nothing). Runs that use credits call consumeMessageCreditInternal instead.
 export const assertNotOverLimitInternal = internalMutation({
   args: {
     userId: v.id("users"),
     requiresPremium: v.boolean(),
     usesPremiumCredits: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, requiresPremium, usesPremiumCredits }) => {
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const isPremium = await hasActivePremium(ctx, user._id);
-    if (requiresPremium && !isPremium) {
-      throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
-    }
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, check premium credits
-    if (isPremium && usesPremiumCredits) {
-      const premiumStatus = await rateLimiter.check(ctx, "premiumMonthly", {
-        key: userId,
-      });
-      if (!premiumStatus.ok) {
-        throw new ConvexError(ERROR_CODES.PREMIUM_LIMIT_REACHED);
-      }
-    } else {
-      // For non-premium models or non-premium users, check standard credits
-      const checkPromises: Promise<unknown>[] = [];
-
-      // CHECK daily limits for non-premium users (don't consume yet)
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        checkPromises.push(
-          rateLimiter.check(ctx, dailyLimitName, {
-            key: userId,
-          }),
-        );
-      }
-
-      // CHECK monthly limits for all users (don't consume yet)
-      checkPromises.push(
-        rateLimiter.check(ctx, "standardMonthly", {
-          key: userId,
-        }),
-      );
-
-      const results = await Promise.all(checkPromises);
-
-      // Check results and throw appropriate errors
-      for (const [index, result] of results.entries()) {
-        const limitResult = result as { ok: boolean };
-        if (!limitResult.ok) {
-          if (index === 0 && !isPremium) {
-            // Daily limit exceeded
-            throw new ConvexError(ERROR_CODES.DAILY_LIMIT_REACHED);
-          }
-          // Monthly limit exceeded (or only monthly was checked)
-          throw new ConvexError(ERROR_CODES.MONTHLY_LIMIT_REACHED);
-        }
-      }
-    }
-  },
-});
-
-// Internal mutation to increment message count for scheduled tasks
-export const incrementMessageCountInternal = internalMutation({
-  args: {
-    userId: v.id("users"),
-    usesPremiumCredits: v.optional(v.boolean()),
-  },
   returns: v.null(),
-  handler: async (ctx, { userId, usesPremiumCredits }) => {
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    const isPremium = await hasActivePremium(ctx, user._id);
-    const isAnonymous = user.isAnonymous ?? false;
-
-    // For premium users using premium models, deduct from premium credits
-    if (isPremium && usesPremiumCredits) {
-      await rateLimiter.limit(ctx, "premiumMonthly", {
-        key: userId,
-        throws: true,
-      });
-    } else {
-      // For non-premium models or non-premium users, use standard credits
-
-      // CONSUME daily limits for non-premium users
-      if (!isPremium) {
-        const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
-        await rateLimiter.limit(ctx, dailyLimitName, {
-          key: userId,
-          throws: true,
-        });
-      }
-
-      // CONSUME monthly limits for all users
-      await rateLimiter.limit(ctx, "standardMonthly", {
-        key: userId,
-        throws: true,
-      });
-    }
-
+  handler: async (ctx, { userId, ...options }) => {
+    await credits.assertMessageCreditAvailable(ctx, userId, options);
     return null;
   },
 });
@@ -892,7 +377,7 @@ export const incrementStandardCreditsInternal = internalMutation({
       throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }
 
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) {
       throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
     }
@@ -916,37 +401,5 @@ export const incrementStandardCreditsInternal = internalMutation({
     });
 
     return null;
-  },
-});
-
-// Update all users' preferred model to a new value
-export const updateAllUsersPreferredModel = internalMutation({
-  args: {
-    newPreferredModel: v.string(),
-  },
-  returns: v.object({
-    updatedCount: v.number(),
-    totalCount: v.number(),
-  }),
-  handler: async (ctx, { newPreferredModel }) => {
-    // Get all users from the database
-    const allUsers = await ctx.db.query("users").collect();
-    const totalCount = allUsers.length;
-
-    // Update each user's preferredModel in parallel
-    const updatePromises = allUsers.map(async (user) => {
-      await ctx.db.patch(user._id, {
-        preferredModel: newPreferredModel,
-      });
-    });
-
-    // Wait for all updates to complete and count successes
-    const results = await Promise.allSettled(updatePromises);
-    const updatedCount = results.filter((result) => result.status === "fulfilled").length;
-
-    return {
-      updatedCount,
-      totalCount,
-    };
   },
 });

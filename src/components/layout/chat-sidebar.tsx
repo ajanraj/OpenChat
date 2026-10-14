@@ -1,12 +1,11 @@
-import { convexQuery } from "@convex-dev/react-query";
 import { MagnifyingGlass, Plus, SidebarSimple } from "@phosphor-icons/react";
-import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModifierKey } from "@/lib/hooks/use-modifier-key";
 import { useTheme } from "@/components/theme-provider";
+import { useChatList, useLoadMoreRef } from "@/hooks/use-chat-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -26,7 +25,7 @@ import { useProfile } from "@/providers/profile-provider";
 import { useSidebar } from "@/providers/sidebar-provider";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { SidebarProfileSection } from "../profile/sidebar-profile-section";
 import { ChatList } from "./chat-list";
 
@@ -36,11 +35,6 @@ const ChatSidebar = memo(function SidebarComponent() {
 	const { theme } = useTheme();
 	const prefersReducedMotion = useReducedMotion();
 	const profileSwitchDuration = prefersReducedMotion ? 0 : 0.16;
-	const { data: chatsQuery = [], isLoading: chatsLoading } = useTanStackQuery({
-		...convexQuery(api.chats.listChatsForUser, {}),
-		// Extended cache for chat list to prevent flickering
-		gcTime: 20 * 60 * 1000, // 20 minutes
-	});
 	const updateChatTitle = useMutation(api.chats.updateChatTitle);
 	const deleteChat = useMutation(api.chats.deleteChat);
 	const pinChatToggle = useMutation(api.chats.pinChatToggle);
@@ -52,7 +46,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 		activeChatIdRef.current = activeChatId;
 	}, [activeChatId]);
 	const { user } = useUser();
-	const { activeProfile, isProfilesLoading, slideDirection, getLastChatForProfile } = useProfile();
+	const { activeProfile, chatListProfileId, slideDirection, getLastChatForProfile } = useProfile();
 
 	const router = useRouter();
 	const location = useLocation();
@@ -82,6 +76,15 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 	// State for search and edit/delete in the main sidebar list
 	const [searchQuery, setSearchQuery] = useState("");
+	const {
+		pinnedChats,
+		otherChats: unpinnedChats,
+		isLoading: chatsLoading,
+		hasMore,
+		canLoadMore,
+		loadMore,
+	} = useChatList(searchQuery, chatListProfileId);
+	const loadMoreRef = useLoadMoreRef(canLoadMore, loadMore);
 
 	// Memoize search input handler
 	const handleSearchChange = useCallback(
@@ -121,9 +124,6 @@ const ChatSidebar = memo(function SidebarComponent() {
 			router.navigate({ to: "/tasks" });
 		}
 	}, [pathname, router, user]);
-
-	// Use chats directly from query (already memoized by TanStack Query)
-	const chats = chatsQuery;
 
 	// --- Handlers for main sidebar list ---
 	const handleSaveEdit = useCallback(
@@ -173,55 +173,11 @@ const ChatSidebar = memo(function SidebarComponent() {
 		[pinChatToggle],
 	);
 
-	// Memoize filtered chats with single-pass profile + search filtering
-	const filteredChats = useMemo(() => {
-		if (!chats?.length) return [];
-
-		const isAnonymous = !user || user.isAnonymous;
-		// Block renders until profile is resolved to enforce isolation (signed-in only)
-		if (!isAnonymous && (isProfilesLoading || !activeProfile)) {
-			return [];
-		}
-
-		const lowerQuery = searchQuery.trim().toLowerCase();
-
-		return chats.filter((chat) => {
-			// Profile filter (skipped for anonymous users who have no profiles)
-			if (!isAnonymous && activeProfile) {
-				if (activeProfile.isDefault) {
-					if (chat.profileId && chat.profileId !== activeProfile._id) return false;
-				} else {
-					if (chat.profileId !== activeProfile._id) return false;
-				}
-			}
-			// Search filter
-			if (lowerQuery) {
-				if (!(chat.title || "").toLowerCase().includes(lowerQuery)) return false;
-			}
-			return true;
-		});
-	}, [chats, searchQuery, activeProfile, isProfilesLoading, user]);
-
-	// Memoize pinned and unpinned chats with optimized single-pass separation
-	const { pinnedChats, unpinnedChats } = useMemo(() => {
-		if (!filteredChats.length) {
-			return { pinnedChats: [], unpinnedChats: [] };
-		}
-
-		const pinned: Doc<"chats">[] = [];
-		const unpinned: Doc<"chats">[] = [];
-
-		// Single pass through the array instead of two filter operations
-		for (const chat of filteredChats) {
-			if (chat.isPinned) {
-				pinned.push(chat);
-			} else {
-				unpinned.push(chat);
-			}
-		}
-
-		return { pinnedChats: pinned, unpinnedChats: unpinned };
-	}, [filteredChats]);
+	// Keep the skeleton while the view is still empty but more pages can fill it (e.g. a first
+	// page of pinned chats while the pinned list loads)
+	const showSkeleton =
+		chatsLoading ||
+		(hasMore && pinnedChats.length === 0 && unpinnedChats.length === 0);
 
 	// Memoize grouped chats and ordered group keys
 	const { groupedChats, orderedGroupKeys } = useMemo(() => {
@@ -449,7 +405,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 									exit: (dir: number) => ({ transform: `translateX(${dir * -100}%)`, opacity: 0 }),
 								}}
 							>
-								{Boolean(chatsLoading) && chats.length === 0 ? (
+								{showSkeleton ? (
 									<div className="space-y-2">
 										{["0", "1", "2", "3", "4"].map((skeletonId) => (
 											<div
@@ -470,6 +426,8 @@ const ChatSidebar = memo(function SidebarComponent() {
 										pinnedChats={pinnedChats}
 									/>
 								)}
+								{/* Loads the next page of chats when scrolled into view */}
+								<div aria-hidden="true" className="h-px" ref={loadMoreRef} />
 							</m.div>
 						</AnimatePresence>
 					</div>

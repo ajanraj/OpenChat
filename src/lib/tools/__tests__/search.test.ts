@@ -324,4 +324,25 @@ describe("createSearchTool", () => {
     expect(result.success).toBe(false);
     expect(onSearchSuccess).toHaveBeenCalledTimes(1);
   });
+
+  it("passes the caller's abort signal to the search", async () => {
+    const mockedSearchWithFallback = vi.mocked(searchWithFallback);
+    mockedSearchWithFallback.mockResolvedValueOnce([]);
+    const tool = createSearchTool();
+
+    if (!tool.execute) {
+      throw new Error("Search tool execute handler is not defined");
+    }
+
+    const { signal } = new AbortController();
+    await tool.execute(
+      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
+      { ...executionOptions, abortSignal: signal },
+    );
+
+    expect(mockedSearchWithFallback).toHaveBeenCalledWith(
+      "test query",
+      expect.objectContaining({ signal }),
+    );
+  });
 });

@@ -226,7 +226,9 @@ export const createAgentTool = ({
         };
       }
     },
-    async execute(input) {
+    // abortSignal carries the caller's deadline/cancel; the AI SDK awaits a running tool even after
+    // aborting, so the nested agent must stop on it too.
+    async execute(input, { abortSignal }) {
       const toolValues = Array.isArray(input.tool) ? input.tool : [input.tool];
 
       const requestedToolkits = Array.from(
@@ -255,7 +257,7 @@ export const createAgentTool = ({
         );
       }
 
-      const composioSession = await getComposioTools(userId, requestedToolkits);
+      const composioSession = await getComposioTools(userId, requestedToolkits, abortSignal);
 
       if (!composioSession) {
         throw new Error("No connector tools available for the requested selection.");
@@ -313,6 +315,7 @@ export const createAgentTool = ({
           stopWhen: isStepCount(maxSteps),
           reasoning,
           providerOptions,
+          abortSignal,
           // toolChoice: "required",
           onError: ({ error }) => {
             subAgentError = error instanceof Error ? error : new Error(String(error));

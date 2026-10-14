@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolRouterCreateSessionConfig } from "@composio/core";
-import { getComposioTools } from "../composio-server";
+import {
+  ComposioConnectedAccountNotRevokableError,
+  ComposioConnectedAccountRevocationNotSupportedError,
+  type ToolRouterCreateSessionConfig,
+} from "@composio/core";
+import {
+  disconnectAccount,
+  getComposioTools,
+  initiateConnection,
+  revokeUserConnections,
+  waitForConnection,
+} from "../composio-server";
 
 interface MockTool {
   description: string;
@@ -9,17 +19,63 @@ interface MockTool {
 interface MockSession {
   sessionId: string;
   tools: () => Promise<Record<string, MockTool>>;
-  delete: () => Promise<{ sessionId: string; deleted: boolean }>;
+  delete: (options?: { signal?: AbortSignal }) => Promise<{ sessionId: string; deleted: boolean }>;
 }
 
-const { mockCreate, mockSessionDelete, mockSessionTools } = vi.hoisted(() => {
+interface MockAccount {
+  id: string;
+  status: string;
+  toolkit: { slug: string };
+  authConfig: { isComposioManaged: boolean };
+  createdAt: string;
+}
+
+interface MockListPage {
+  items: MockAccount[];
+  nextCursor?: string | null;
+}
+
+const {
+  mockCreate,
+  mockSessionDelete,
+  mockSessionTools,
+  mockAccountDelete,
+  mockAccountRevoke,
+  mockLink,
+  mockList,
+  mockWaitForConnection,
+} = vi.hoisted(() => {
   process.env.COMPOSIO_API_KEY ||= "test-composio-key";
 
   return {
     mockCreate:
-      vi.fn<(userId: string, config: ToolRouterCreateSessionConfig) => Promise<MockSession>>(),
-    mockSessionDelete: vi.fn<() => Promise<{ sessionId: string; deleted: boolean }>>(),
+      vi.fn<
+        (
+          userId: string,
+          config: ToolRouterCreateSessionConfig,
+          options?: { signal?: AbortSignal },
+        ) => Promise<MockSession>
+      >(),
+    mockSessionDelete:
+      vi.fn<
+        (options?: { signal?: AbortSignal }) => Promise<{ sessionId: string; deleted: boolean }>
+      >(),
     mockSessionTools: vi.fn<() => Promise<Record<string, MockTool>>>(),
+    mockAccountDelete: vi.fn<(connectionId: string) => Promise<void>>(),
+    mockAccountRevoke: vi.fn<(connectionId: string) => Promise<{ revokedTokens: string[] }>>(),
+    mockLink:
+      vi.fn<
+        (
+          userId: string,
+          authConfigId: string,
+          options?: { allowMultiple?: boolean; callbackUrl?: string },
+        ) => Promise<{ id: string; redirectUrl: string }>
+      >(),
+    mockList: vi.fn<(options: { userIds: string[]; cursor?: string }) => Promise<MockListPage>>(),
+    mockWaitForConnection:
+      vi.fn<
+        (connectionRequestId: string, timeoutMs: number) => Promise<{ id: string; status: string }>
+      >(),
   };
 });
 
@@ -27,30 +83,33 @@ vi.mock("@composio/core", () => ({
   Composio: class MockComposio {
     create = mockCreate;
     connectedAccounts = {
-      delete: vi.fn<(connectionId: string) => Promise<void>>(),
-      initiate:
-        vi.fn<
-          (
-            userId: string,
-            authConfigId: string,
-            options?: { callbackUrl: string },
-          ) => Promise<{ id: string; redirectUrl: string }>
-        >(),
-      list: vi.fn<(options: { userIds: string[] }) => Promise<{ items: never[] }>>(),
-      waitForConnection:
-        vi.fn<
-          (
-            connectionRequestId: string,
-            timeoutMs: number,
-          ) => Promise<{ id: string; status: string }>
-        >(),
+      delete: mockAccountDelete,
+      link: mockLink,
+      list: mockList,
+      revoke: mockAccountRevoke,
+      waitForConnection: mockWaitForConnection,
     };
   },
+  ComposioConnectedAccountRevocationNotSupportedError: class extends Error {},
+  ComposioConnectedAccountNotRevokableError: class extends Error {},
 }));
 
 vi.mock("@composio/vercel", () => ({
   VercelProvider: class MockVercelProvider {},
 }));
+
+const account = (
+  id: string,
+  slug: string,
+  status = "ACTIVE",
+  createdAt = "2026-10-01T00:00:00.000Z",
+): MockAccount => ({
+  id,
+  status,
+  toolkit: { slug },
+  authConfig: { isComposioManaged: false },
+  createdAt,
+});
 
 describe("composio-server", () => {
   beforeEach(() => {
@@ -69,20 +128,66 @@ describe("composio-server", () => {
       COMPOSIO_SEARCH_TOOLS: { description: "Search tools" },
     };
     mockSessionTools.mockResolvedValue(routerTools);
+    const { signal } = new AbortController();
 
-    const result = await getComposioTools("user-123", [" GMAIL ", "gmail", "NOTION", " "]);
+    const result = await getComposioTools("user-123", [" GMAIL ", "gmail", "NOTION", " "], signal);
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    expect(mockCreate).toHaveBeenCalledWith("user-123", {
-      toolkits: ["gmail", "notion"],
-      manageConnections: false,
-      sandbox: { enable: false },
-    });
+    expect(mockCreate).toHaveBeenCalledWith(
+      "user-123",
+      { toolkits: ["gmail", "notion"], manageConnections: false, sandbox: { enable: false } },
+      { signal },
+    );
     expect(result?.tools).toBe(routerTools);
 
     await result?.close();
 
+    // Cleanup has its own deadline, independent of the caller's signal
+    expect(mockSessionDelete).toHaveBeenCalledExactlyOnceWith({ signal: expect.any(AbortSignal) });
+  });
+
+  it("stops waiting for the tools once the signal aborts, and deletes the session", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockSessionTools.mockReturnValue(new Promise(() => undefined));
+    const controller = new AbortController();
+
+    const pending = getComposioTools("user-123", ["GMAIL"], controller.signal);
+    // Let the session be created and tool loading start before aborting
+    await vi.waitFor(() => expect(mockSessionTools).toHaveBeenCalledOnce());
+    controller.abort();
+
+    await expect(pending).resolves.toBeNull();
     expect(mockSessionDelete).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
+  });
+
+  it("still handles a tools request that fails after the signal had already aborted", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const unhandled = vi.fn<(reason: unknown) => void>();
+    process.on("unhandledRejection", unhandled);
+    let failTools: (error: Error) => void = () => undefined;
+    const toolsRequest = new Promise<Record<string, MockTool>>((_resolve, reject) => {
+      failTools = reject;
+    });
+    // A plain function: vi.fn would itself attach handlers to the promise it returns
+    mockCreate.mockResolvedValueOnce({
+      sessionId: "session-123",
+      tools: () => toolsRequest,
+      delete: mockSessionDelete,
+    });
+    const controller = new AbortController();
+    controller.abort();
+
+    try {
+      await expect(getComposioTools("user-123", ["GMAIL"], controller.signal)).resolves.toBeNull();
+      failTools(new Error("Tool loading failed"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      // Process-wide, so removed even when the test fails
+      process.off("unhandledRejection", unhandled);
+      consoleError.mockRestore();
+    }
   });
 
   it("creates a fresh router session for each agent run", async () => {
@@ -130,5 +235,189 @@ describe("composio-server", () => {
     expect(result).toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
     expect(mockSessionTools).not.toHaveBeenCalled();
+  });
+
+  describe("connected account ownership", () => {
+    it("disconnects every account the user has for the toolkit, across pages", async () => {
+      mockList
+        .mockResolvedValueOnce({
+          items: [account("ca_gmail_1", "gmail"), account("ca_notion", "notion")],
+          nextCursor: "page-2",
+        })
+        .mockResolvedValueOnce({
+          items: [account("ca_gmail_2", "GMAIL", "INITIATED")],
+          nextCursor: null,
+        });
+
+      await disconnectAccount("user-123", "gmail");
+
+      expect(mockList).toHaveBeenNthCalledWith(1, { userIds: ["user-123"], cursor: undefined });
+      expect(mockList).toHaveBeenNthCalledWith(2, { userIds: ["user-123"], cursor: "page-2" });
+      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_gmail_1", "ca_gmail_2"]);
+      // Revoking one Google toolkit's grant would cut the user's other Google toolkits
+      expect(mockAccountRevoke).not.toHaveBeenCalled();
+    });
+
+    it("deletes nothing when the user has no account for the toolkit", async () => {
+      mockList.mockResolvedValue({ items: [account("ca_notion", "notion")] });
+
+      await disconnectAccount("user-123", "gmail");
+
+      expect(mockAccountDelete).not.toHaveBeenCalled();
+    });
+
+    it("refuses to wait on a connection request the user does not own", async () => {
+      mockList.mockResolvedValue({ items: [account("ca_mine", "gmail", "INITIATED")] });
+
+      const result = await waitForConnection("user-123", "ca_someone_else", 60);
+
+      expect(result).toBeNull();
+      expect(mockWaitForConnection).not.toHaveBeenCalled();
+    });
+
+    it("waits on the user's own connection request", async () => {
+      mockList.mockResolvedValue({ items: [account("ca_mine", "gmail", "INITIATED")] });
+      mockWaitForConnection.mockResolvedValue({ id: "ca_mine", status: "ACTIVE" });
+
+      const result = await waitForConnection("user-123", "ca_mine", 60);
+
+      expect(mockWaitForConnection).toHaveBeenCalledWith("ca_mine", 60_000);
+      expect(result).toEqual({ connectionId: "ca_mine", isConnected: true });
+    });
+
+    it("cleans up only the user's non-active attempts for the toolkit before connecting", async () => {
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_active", "gmail"),
+          account("ca_stale", "gmail", "INITIATED"),
+          account("ca_other_toolkit", "notion", "FAILED"),
+        ],
+      });
+      mockLink.mockResolvedValue({ id: "ca_new", redirectUrl: "https://example.com/oauth" });
+
+      const result = await initiateConnection("user-123", "gmail", "https://app/callback");
+
+      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_stale"]);
+      // A still-active account must not make link throw
+      expect(mockLink).toHaveBeenCalledWith("user-123", expect.any(String), {
+        allowMultiple: true,
+        callbackUrl: "https://app/callback",
+      });
+      expect(result).toEqual({
+        redirectUrl: "https://example.com/oauth",
+        connectionRequestId: "ca_new",
+      });
+    });
+
+    it("replaces the user's older accounts for the toolkit once the new one is active", async () => {
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_old", "gmail", "ACTIVE", "2026-10-01T00:00:00.000Z"),
+          account("ca_new", "GMAIL", "INITIATED", "2026-10-02T00:00:00.000Z"),
+          account("ca_notion", "notion", "ACTIVE", "2026-09-01T00:00:00.000Z"),
+        ],
+      });
+      mockWaitForConnection.mockResolvedValue({ id: "ca_new", status: "ACTIVE" });
+
+      await waitForConnection("user-123", "ca_new", 60);
+
+      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_old"]);
+      // Revoking the old Google grant would revoke the one just authorized
+      expect(mockAccountRevoke).not.toHaveBeenCalled();
+    });
+
+    it("completing an older request leaves newer and same-time accounts alone", async () => {
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_oldest", "gmail", "ACTIVE", "2026-10-01T00:00:00.000Z"),
+          account("ca_late", "gmail", "INITIATED", "2026-10-02T00:00:00.000Z"),
+          account("ca_tie", "gmail", "ACTIVE", "2026-10-02T00:00:00.000Z"),
+          account("ca_newer", "gmail", "ACTIVE", "2026-10-03T00:00:00.000Z"),
+        ],
+      });
+      mockWaitForConnection.mockResolvedValue({ id: "ca_late", status: "ACTIVE" });
+
+      const result = await waitForConnection("user-123", "ca_late", 60);
+
+      expect(result).toEqual({ connectionId: "ca_late", isConnected: true });
+      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_oldest"]);
+    });
+
+    it("keeps the older accounts when the new connection did not become active", async () => {
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_old", "gmail", "ACTIVE", "2026-10-01T00:00:00.000Z"),
+          account("ca_new", "gmail", "INITIATED", "2026-10-02T00:00:00.000Z"),
+        ],
+      });
+      mockWaitForConnection.mockResolvedValue({ id: "ca_new", status: "FAILED" });
+
+      const result = await waitForConnection("user-123", "ca_new", 60);
+
+      expect(result).toEqual({ connectionId: "ca_new", isConnected: false });
+      expect(mockAccountDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("revokeUserConnections (account deletion)", () => {
+    it("revokes each account upstream before deleting it, except on Composio-managed configs", async () => {
+      const order: string[] = [];
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_gmail", "gmail"),
+          { ...account("ca_managed", "notion"), authConfig: { isComposioManaged: true } },
+        ],
+      });
+      mockAccountRevoke.mockImplementation(async (id) => {
+        order.push(`revoke:${id}`);
+        return { revokedTokens: ["access_token", "refresh_token"] };
+      });
+      mockAccountDelete.mockImplementation(async (id) => {
+        order.push(`delete:${id}`);
+      });
+
+      await revokeUserConnections("user-123");
+
+      expect(mockList).toHaveBeenCalledWith({ userIds: ["user-123"], cursor: undefined });
+      expect(order).toEqual(["revoke:ca_gmail", "delete:ca_managed", "delete:ca_gmail"]);
+    });
+
+    it("still deletes every account when revoking fails, warning only for unexpected failures", async () => {
+      const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_api_key", "linear"),
+          account("ca_pending", "gmail", "INITIATED"),
+          account("ca_calendar", "googlecalendar"),
+        ],
+      });
+      mockAccountRevoke
+        .mockRejectedValueOnce(new ComposioConnectedAccountRevocationNotSupportedError("400"))
+        .mockRejectedValueOnce(new ComposioConnectedAccountNotRevokableError("409"))
+        // e.g. the grant was already revoked through a sibling Google toolkit
+        .mockRejectedValueOnce(new Error("every upstream dispatch failed"));
+      mockAccountDelete.mockResolvedValue(undefined);
+
+      try {
+        await revokeUserConnections("user-123");
+
+        expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual([
+          "ca_api_key",
+          "ca_pending",
+          "ca_calendar",
+        ]);
+        expect(consoleWarn).toHaveBeenCalledOnce();
+      } finally {
+        consoleWarn.mockRestore();
+      }
+    });
+
+    it("rejects when deleting fails, so account deletion retries", async () => {
+      mockList.mockResolvedValue({ items: [account("ca_gmail", "gmail")] });
+      mockAccountRevoke.mockResolvedValue({ revokedTokens: [] });
+      mockAccountDelete.mockRejectedValueOnce(new Error("Composio down"));
+
+      await expect(revokeUserConnections("user-123")).rejects.toThrow("Composio down");
+    });
   });
 });

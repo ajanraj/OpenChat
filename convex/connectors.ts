@@ -1,8 +1,15 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { ERROR_CODES } from "../src/lib/error-codes";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { ensureAuthenticated } from "./lib/auth_helper";
+import type { Id } from "./_generated/dataModel";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  mutation,
+  query,
+} from "./_generated/server";
+import { getCurrentUserOrThrow } from "./lib/auth_helper";
 
 // Type for connector types
 const CONNECTOR_TYPES = v.union(
@@ -50,41 +57,21 @@ export const listUserConnectors = query({
 });
 
 /**
- * Get a specific connector by type for the authenticated user
+ * Resolve the caller for connector mutations. Anonymous (guest) users cannot link
+ * external accounts, so they are rejected here as well as in the UI.
  */
-export const getConnectorByType = query({
-  args: {
-    type: CONNECTOR_TYPES,
-  },
-  returns: v.union(
-    v.object({
-      _id: v.id("connectors"),
-      _creationTime: v.number(),
-      userId: v.id("users"),
-      type: CONNECTOR_TYPES,
-      connectionId: v.string(),
-      isConnected: v.boolean(),
-      enabled: v.optional(v.boolean()),
-      displayName: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return null;
-    }
-    const connector = await ctx.db
-      .query("connectors")
-      .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
-      .unique();
-
-    return connector ?? null;
-  },
-});
+async function ensureConnectorUser(ctx: MutationCtx): Promise<Id<"users">> {
+  const user = await getCurrentUserOrThrow(ctx);
+  if (user.isAnonymous) {
+    throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
+  }
+  return user._id;
+}
 
 /**
- * Save a new connection for the authenticated user
+ * Save a new connection for the authenticated user.
+ * `connectionId` is display metadata only: Composio operations resolve the user's
+ * accounts by Composio user id, never by this client-supplied value.
  */
 export const saveConnection = mutation({
   args: {
@@ -94,7 +81,7 @@ export const saveConnection = mutation({
   },
   returns: v.id("connectors"),
   handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
+    const userId = await ensureConnectorUser(ctx);
 
     // Check if connector already exists
     const existingConnector = await ctx.db
@@ -104,7 +91,7 @@ export const saveConnection = mutation({
 
     if (existingConnector) {
       // Update existing connector
-      await ctx.db.patch(existingConnector._id, {
+      await ctx.db.patch("connectors", existingConnector._id, {
         connectionId: args.connectionId,
         isConnected: true,
         // Ensure connector is enabled when (re)connecting
@@ -137,7 +124,7 @@ export const removeConnection = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
+    const userId = await ensureConnectorUser(ctx);
     const connector = await ctx.db
       .query("connectors")
       .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
@@ -147,34 +134,7 @@ export const removeConnection = mutation({
       throw new ConvexError(ERROR_CODES.CONNECTOR_NOT_FOUND);
     }
 
-    await ctx.db.delete(connector._id);
-    return null;
-  },
-});
-
-/**
- * Update connection status for the authenticated user
- */
-export const updateConnectionStatus = mutation({
-  args: {
-    type: CONNECTOR_TYPES,
-    isConnected: v.boolean(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
-    const connector = await ctx.db
-      .query("connectors")
-      .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
-      .unique();
-
-    if (!connector) {
-      throw new ConvexError(ERROR_CODES.CONNECTOR_NOT_FOUND);
-    }
-
-    await ctx.db.patch(connector._id, {
-      isConnected: args.isConnected,
-    });
+    await ctx.db.delete("connectors", connector._id);
     return null;
   },
 });
@@ -189,7 +149,7 @@ export const setConnectorEnabled = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await ensureAuthenticated(ctx);
+    const userId = await ensureConnectorUser(ctx);
 
     const connector = await ctx.db
       .query("connectors")
@@ -200,7 +160,7 @@ export const setConnectorEnabled = mutation({
       throw new ConvexError(ERROR_CODES.CONNECTOR_NOT_FOUND);
     }
 
-    await ctx.db.patch(connector._id, { enabled: args.enabled });
+    await ctx.db.patch("connectors", connector._id, { enabled: args.enabled });
     return null;
   },
 });
@@ -250,7 +210,7 @@ export const syncConnectionStatus = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.connectorId, {
+    await ctx.db.patch("connectors", args.connectorId, {
       isConnected: args.isConnected,
     });
 

@@ -13,6 +13,7 @@ describe("search-provider-factory", () => {
   afterEach(() => {
     process.env = originalEnv;
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   describe("getProvider", () => {
@@ -110,6 +111,24 @@ describe("search-provider-factory", () => {
       await expect(module.searchWithFallback("test query")).rejects.toThrow(
         "All search providers failed",
       );
+    });
+
+    it("passes the abort signal to the provider request and stops falling back once aborted", async () => {
+      process.env.BRAVE_API_KEY = "brave-key";
+      process.env.TAVILY_API_KEY = "tavily-key";
+      const controller = new AbortController();
+      const fetchMock = vi.fn<typeof fetch>(async () => {
+        controller.abort();
+        throw new DOMException("This operation was aborted", "AbortError");
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const module = await import("../search-provider-factory");
+
+      await expect(
+        module.searchWithFallback("test query", { signal: controller.signal }, ["brave", "tavily"]),
+      ).rejects.toThrow("All search providers failed");
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal: controller.signal });
     });
 
     it("accepts query parameter", async () => {

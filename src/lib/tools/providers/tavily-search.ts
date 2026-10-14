@@ -27,6 +27,7 @@ export class TavilySearchProvider implements SearchAdapter {
       excludeDomains,
       startPublishedDate,
       endPublishedDate,
+      signal,
     } = options;
 
     const limit = Math.min(maxResults, PROVIDER_LIMITS.tavily.maxResults);
@@ -52,6 +53,7 @@ export class TavilySearchProvider implements SearchAdapter {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
+        signal,
       });
 
       if (!response.ok) {

@@ -53,6 +53,7 @@ Add the additional variables to your `.env` file:
 - Search provider keys (Exa, Brave, Tavily)
 - Composio API key and auth config IDs
 - Upstash Redis credentials (for Composio caching)
+- `SERVER_ROUTE_SECRET`, a shared secret for server-only Convex calls (generate with `openssl rand -hex 32`; Convex needs the same value, see below)
 
 > **Note:** Environment variables are validated at runtime using [t3-env](https://env.t3.gg) with Zod schemas. Client-side variables must be prefixed with `VITE_`.
 
@@ -84,6 +85,9 @@ OS Chat uses Convex Auth for authentication with Google OAuth.
    ```bash
    # Generate and set API key encryption secret in Convex (REQUIRED)
    bunx convex env set API_KEY_SECRET $(openssl rand -hex 64)
+
+   # Shared server-route secret (REQUIRED): paste the exact SERVER_ROUTE_SECRET value from .env
+   bunx convex env set SERVER_ROUTE_SECRET paste-the-value-from-env
 
    # Set site URL for development
    bunx convex env set SITE_URL http://localhost:3000
@@ -119,9 +123,9 @@ OS Chat uses Cloudflare R2 for file attachments and image storage.
    bunx convex env set R2_PUBLIC_URL_BASE https://your-bucket.your-domain.com/
    ```
 
-### C. Composio Integration (Optional - for service connectors)
+### C. Composio Integration (API key required; connectors optional)
 
-Set up [Composio](https://composio.dev) to enable Gmail, Calendar, Notion, GitHub, and other integrations.
+Set up [Composio](https://composio.dev) to enable Gmail, Calendar, Notion, GitHub, and other integrations. The chat route, scheduled tasks and account deletion load the Composio client, so `COMPOSIO_API_KEY` is required in `.env` and on Convex; only the per-service auth config IDs are optional.
 
 1. **Get your Composio API key** from the Composio dashboard
 2. **Configure auth config IDs** for each service you want to enable
@@ -139,6 +143,8 @@ VITE_CALENDAR_AUTH_CONFIG_ID=your_calendar_auth_config_id
 # ... add more as needed
 ```
 
+Scheduled tasks and account deletion call Composio from Convex too, so also set the key there: `bunx convex env set COMPOSIO_API_KEY your_composio_api_key`.
+
 ### D. Stripe Payments (Optional)
 
 ```bash
@@ -152,6 +158,7 @@ In the Stripe Dashboard:
 - Create a webhook endpoint (API version `2025-03-31.basil` or later; older payloads lack `invoice.parent`, so credit resets would be skipped) at `https://<your-deployment>.convex.site/stripe/webhook` with these events: `checkout.session.completed`, `customer.created`, `customer.updated`, `customer.deleted`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.created`, `invoice.finalized`, `invoice.updated`, `invoice.paid`, `invoice.payment_failed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
 - Enable [Managed Payments](https://docs.stripe.com/payments/managed-payments) (checkout uses Stripe as merchant of record, which handles tax) and accept its terms; give the product an eligible tax code (e.g. `txcd_10105001`) and an exclusive price
 - Enable the Customer Portal
+- If `STRIPE_SECRET_KEY` is a restricted key, give it write access to Checkout Sessions and Subscriptions: account deletion lists and expires the customer's open Checkout Sessions and lists and cancels their subscriptions
 
 **Reference Documentation:**
 
@@ -184,15 +191,34 @@ Visit [http://localhost:3000](http://localhost:3000) to see OS Chat running loca
 
 ## 7. Production Deployment
 
-For production deployment:
+For production deployment, set the environment variables before deploying either side: the web app and the Convex functions authenticate to each other with `SERVER_ROUTE_SECRET`.
 
-1. **Deploy Convex**:
+1. **Set Environment Variables**:
+   - Add your production API keys to Vercel
+   - Set every Convex variable from [step 4](#4-set-up-convex-configuration) (`AUTH_GOOGLE_*`, `API_KEY_SECRET`, `R2_*`, `COMPOSIO_API_KEY`, ...) on the Convex production deployment too: `bunx convex env set NAME value --prod`
+   - Set `SERVER_ROUTE_SECRET` in Vercel and the same value on the Convex production deployment (`bunx convex env set SERVER_ROUTE_SECRET ... --prod`)
+   - Update `SITE_URL` in Convex production dashboard to your production URL
+   - Set the live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PREMIUM_PRICE_ID` on the Convex production deployment (`bunx convex env set ... --prod`), with a live-mode webhook pointing at `https://<your-prod-deployment>.convex.site/stripe/webhook` using the same API version and events as in [Stripe Payments](#d-stripe-payments-optional)
+
+2. **Deploy Convex** (run locally, `convex deploy` targets the production deployment):
 
    ```bash
-   bunx convex deploy --prod
+   bunx convex deploy
    ```
 
-2. **Deploy Frontend** (Vercel recommended):
+   **Upgrading an existing deployment:** right after the Convex deploy, run the one-off migrations. Both are safe to run again.
+
+   ```bash
+   # Files chats created before profiles under their owner's default profile. Until it finishes,
+   # those chats are missing from the sidebar (Settings > History still lists them).
+   bunx convex run chats:backfillChatProfiles --prod
+
+   # Moves pending scheduled-task runs to the new scheduler entry point and pauses tasks left
+   # without a working schedule. Run it again 20 minutes later; resume paused tasks from their card.
+   bunx convex run scheduled_tasks:migrateScheduledRuns --prod
+   ```
+
+3. **Deploy Frontend** (Vercel recommended) right after Convex:
 
    ```bash
    # Install Vercel CLI
@@ -202,10 +228,7 @@ For production deployment:
    vercel --prod
    ```
 
-3. **Update Environment Variables**:
-   - Add your production API keys to Vercel
-   - Update `SITE_URL` in Convex production dashboard to your production URL
-   - Set the live `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_PREMIUM_PRICE_ID` on the Convex production deployment (`bunx convex env set ... --prod`), with a live-mode webhook pointing at `https://<your-prod-deployment>.convex.site/stripe/webhook` using the same API version and events as in [Stripe Payments](#d-stripe-payments-optional)
+   Releases can change Convex function arguments, so a frontend deployed ahead of its Convex functions breaks, and tabs still running the old frontend need a reload. If Vercel deploys automatically from git, merge only after the Convex deploy.
 
 ## Development Commands
 

@@ -1,11 +1,12 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
-import { v } from "convex/values";
+import { getDocumentSize, v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
 // Import helper functions
 import { ensureChatAccess, ensureMessageAccess } from "./lib/auth_helper";
+import { deleteChatCompletely, scheduleDeletedUploadCheck } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
 
 // Keep reusable regex at top-level per lint rule
@@ -36,7 +37,7 @@ export const getPublicChatMessages = query({
     }),
   ),
   handler: async (ctx, { chatId }) => {
-    const chat = await ctx.db.get(chatId);
+    const chat = await ctx.db.get("chats", chatId);
     if (!(chat && (chat.public ?? false))) {
       return [];
     }
@@ -119,55 +120,12 @@ async function cleanupSingleAttachment(
       .first();
     if (attByKey && attByKey.userId === userId && attByKey.chatId === chatId) {
       await r2.deleteObject(ctx, attByKey.key);
-      await ctx.db.delete(attByKey._id);
+      await ctx.db.delete("chat_attachments", attByKey._id);
+      await scheduleDeletedUploadCheck(ctx, attByKey);
     }
   } catch (error) {
     console.error("Failed to clean up attachment:", error);
   }
-}
-
-/**
- * Helper function to clean up branched chats
- */
-async function cleanupBranchedChats(ctx: MutationCtx, chatId: Id<"chats">, userId: Id<"users">) {
-  // This uses .filter() correctly - first narrows by index (by_user), then filters by originalChatId
-  // See: https://docs.convex.dev/database/indexes/ - "For all other filtering you can use the .filter method"
-  const branchedChats = await ctx.db
-    .query("chats")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .filter((q) => q.eq(q.field("originalChatId"), chatId))
-    .collect();
-
-  const updatePromises = branchedChats.map((branchedChat: Doc<"chats">) =>
-    ctx.db.patch(branchedChat._id, {
-      originalChatId: undefined,
-      updatedAt: Date.now(),
-    }),
-  );
-
-  await Promise.all(updatePromises);
-}
-
-/**
- * Helper function to clean up orphaned attachments
- */
-async function cleanupOrphanedAttachments(ctx: MutationCtx, chatId: Id<"chats">) {
-  const r2 = new R2(components.r2);
-  const orphanedAttachments = await ctx.db
-    .query("chat_attachments")
-    .withIndex("by_chatId", (q) => q.eq("chatId", chatId))
-    .collect();
-
-  const cleanupPromises = orphanedAttachments.map(async (attachment: Doc<"chat_attachments">) => {
-    try {
-      await r2.deleteObject(ctx, attachment.key);
-      await ctx.db.delete(attachment._id);
-    } catch (error) {
-      console.error("Failed to clean up orphaned attachment:", error);
-    }
-  });
-
-  await Promise.allSettled(cleanupPromises);
 }
 
 /**
@@ -208,7 +166,7 @@ async function insertMessageToChat(
     createdAt: Date.now(),
   });
 
-  await ctx.db.patch(args.chatId, { updatedAt: Date.now() });
+  await ctx.db.patch("chats", args.chatId, { updatedAt: Date.now() });
   return { messageId };
 }
 
@@ -351,11 +309,11 @@ export const deleteMessageAndDescendants = mutation({
     if (!userId) {
       return { chatDeleted: false };
     }
-    const message = await ctx.db.get(messageId);
+    const message = await ctx.db.get("messages", messageId);
     if (!message) {
       return { chatDeleted: false };
     }
-    const chat = await ctx.db.get(message.chatId);
+    const chat = await ctx.db.get("chats", message.chatId);
     if (!chat || chat.userId !== userId) {
       return { chatDeleted: false };
     }
@@ -380,11 +338,11 @@ export const deleteMessageAndDescendants = mutation({
     await cleanupMessageAttachments(ctx, messagesToDelete, userId);
 
     // Delete messages in batch
-    const deletePromises = ids.map((id) => ctx.db.delete(id));
+    const deletePromises = ids.map((id) => ctx.db.delete("messages", id));
     await Promise.all(deletePromises);
 
     // Update chat timestamp
-    await ctx.db.patch(chat._id, { updatedAt: Date.now() });
+    await ctx.db.patch("chats", chat._id, { updatedAt: Date.now() });
 
     const remaining = await ctx.db
       .query("messages")
@@ -392,13 +350,8 @@ export const deleteMessageAndDescendants = mutation({
       .first();
 
     if (!remaining) {
-      // Clean up branched chats
-      await cleanupBranchedChats(ctx, chat._id, userId);
-
-      // Clean up any remaining orphaned attachments for this chat
-      await cleanupOrphanedAttachments(ctx, chat._id);
-
-      await ctx.db.delete(chat._id);
+      // The chat is empty: delete it with its remaining attachments and branch links
+      await deleteChatCompletely(ctx, chat._id, userId);
       return { chatDeleted: true };
     }
     return { chatDeleted: false };
@@ -454,40 +407,80 @@ export const patchMessageContent = mutation({
     if (typeof newParts !== "undefined") {
       patch.parts = newParts;
     }
-    await ctx.db.patch(messageId, patch);
+    await ctx.db.patch("messages", messageId, patch);
     // Update chat timestamp
-    await ctx.db.patch(message.chatId, { updatedAt: Date.now() });
+    await ctx.db.patch("chats", message.chatId, { updatedAt: Date.now() });
   },
 });
 
+// At most this many search hits are read to fill one profile's results: messages don't store a
+// profile, so hits from the user's other profiles are read and skipped
+const MESSAGE_SEARCH_CANDIDATES = 100;
+// Bytes of messages and chats read before a search stops: half of Convex's 16 MiB read limit,
+// leaving room for the hit that crosses it and its chat (up to 1 MiB each)
+const MESSAGE_SEARCH_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Full-text search over the user's messages in chats of one profile, best matches first. Hits are
+ * read in relevance order until `limit` are in the profile, MESSAGE_SEARCH_CANDIDATES were read, or
+ * they and their chats add up to MESSAGE_SEARCH_BYTES, so a profile's matches ranked below those
+ * are missed. Chats without a profile (before chats:backfillChatProfiles) are left out, as in
+ * chats:searchChats.
+ */
 export const searchMessages = query({
-  args: { query: v.string(), limit: v.optional(v.number()) },
+  args: { query: v.string(), profileId: v.id("profiles"), limit: v.optional(v.number()) },
   returns: v.array(
     v.object({
       _id: v.id("messages"),
       chatId: v.id("chats"),
       content: v.string(),
       createdAt: v.optional(v.number()),
+      // Title of the message's chat, which may not be among the client's loaded chat pages
+      chatTitle: v.optional(v.string()),
     }),
   ),
-  handler: async (ctx, { query: search, limit = 20 }) => {
-    const safeLimit = Math.min(Math.max(1, limit), 100); // Cap between 1-100
+  handler: async (ctx, { query: search, profileId, limit = 20 }) => {
+    const safeLimit = Math.min(Math.max(1, limit), MESSAGE_SEARCH_CANDIDATES);
     const userId = await getAuthUserId(ctx);
     if (!userId || search.trim() === "") {
       return [];
     }
 
-    const results = await ctx.db
+    const hits = ctx.db
       .query("messages")
-      .withSearchIndex("by_user_content", (q) => q.search("content", search).eq("userId", userId))
-      .take(safeLimit);
-
-    return results.map((msg) => ({
-      _id: msg._id,
-      chatId: msg.chatId,
-      content: msg.content,
-      createdAt: msg.createdAt,
-    }));
+      .withSearchIndex("by_user_content", (q) => q.search("content", search).eq("userId", userId));
+    const chatById = new Map<Id<"chats">, Doc<"chats"> | null>();
+    const results = [];
+    let read = 0;
+    let bytesRead = 0;
+    // Read lazily, so a search filled by its first hits reads no more of them
+    for await (const msg of hits) {
+      if (!chatById.has(msg.chatId)) {
+        const chat = await ctx.db.get("chats", msg.chatId);
+        chatById.set(msg.chatId, chat);
+        bytesRead += chat ? getDocumentSize(chat) : 0;
+      }
+      const chat = chatById.get(msg.chatId);
+      if (chat?.profileId === profileId) {
+        results.push({
+          _id: msg._id,
+          chatId: msg.chatId,
+          content: msg.content,
+          createdAt: msg.createdAt,
+          chatTitle: chat.title,
+        });
+      }
+      read += 1;
+      bytesRead += getDocumentSize(msg);
+      if (
+        results.length >= safeLimit ||
+        read === MESSAGE_SEARCH_CANDIDATES ||
+        bytesRead >= MESSAGE_SEARCH_BYTES
+      ) {
+        break;
+      }
+    }
+    return results;
   },
 });
 
@@ -515,7 +508,7 @@ export const sendUserMessageToChatInternal = internalMutation({
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Get the chat to find the userId (no auth in scheduled functions)
-    const chat = await ctx.db.get(args.chatId);
+    const chat = await ctx.db.get("chats", args.chatId);
     if (!chat) {
       throw new Error("Chat not found");
     }
@@ -550,7 +543,7 @@ export const saveAssistantMessageInternal = internalMutation({
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     // Get the chat to find the userId (no auth in scheduled functions)
-    const chat = await ctx.db.get(args.chatId);
+    const chat = await ctx.db.get("chats", args.chatId);
     if (!chat) {
       throw new Error("Chat not found");
     }
