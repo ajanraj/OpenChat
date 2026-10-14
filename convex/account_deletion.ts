@@ -10,8 +10,9 @@ const REVOKE_RETRY_BASE_MS = 30_000;
 
 /**
  * Revokes what a deleted user still has outside Convex: expires their open Stripe checkouts and
- * cancels their billable subscriptions, and revokes and deletes their Composio connected accounts
- * (live OAuth grants). Scheduled by users.deleteAccount. Both steps are idempotent, so a failure
+ * cancels their billable subscriptions, and deletes their Composio connected accounts, first
+ * trying to revoke the provider grant of those on OpenChat's own auth configs (see
+ * revokeUserConnections). Scheduled by users.deleteAccount. Both steps are idempotent, so a failure
  * of either retries both with exponential backoff before giving up with an error log.
  */
 export const revokeDeletedUserAccess = internalAction({
@@ -36,7 +37,7 @@ export const revokeDeletedUserAccess = internalAction({
     const error = new AggregateError(failures, failures.map(String).join("; "));
     if (attempt >= REVOKE_MAX_ATTEMPTS) {
       console.error(
-        `Giving up revoking access of deleted user ${userId} after ${attempt} attempts; expire their open Stripe checkouts, cancel their Stripe subscriptions and revoke and delete their Composio connected accounts by hand:`,
+        `Giving up revoking access of deleted user ${userId} after ${attempt} attempts; expire their open Stripe checkouts, cancel their Stripe subscriptions and delete their Composio connected accounts (revoking grants on OpenChat's own auth configs) by hand:`,
         error,
       );
       throw error;
