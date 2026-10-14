@@ -259,7 +259,7 @@ describe("startScheduledRun", () => {
     // The action gets the task as stored after the claim
     expect(action).toMatchObject({ scheduledTime: NOW, args: { task, executionId } });
     expect(pendingJobs(fake, EXPIRE)).toEqual([
-      expect.objectContaining({ scheduledTime: NOW + 15 * MINUTE, args: { taskId, executionId } }),
+      expect.objectContaining({ scheduledTime: NOW + 20 * MINUTE, args: { taskId, executionId } }),
     ]);
   });
 
@@ -292,11 +292,11 @@ describe("startScheduledRun", () => {
     expect(fake.rows("task_history")).toHaveLength(0);
   });
 
-  it("takes over a running claim older than 15 minutes", async () => {
+  it("takes over a running claim older than 20 minutes", async () => {
     const fake = createFakeCtx();
     const { taskId } = await seedDueTask(fake, {
       status: "running",
-      lastExecuted: NOW - 20 * MINUTE,
+      lastExecuted: NOW - 21 * MINUTE,
     });
 
     await call(startScheduledRun, fake.ctx, { taskId });
@@ -439,7 +439,7 @@ describe("finishTaskExecution / expireTaskExecution", () => {
   it("leaves a task alone once a later claim has taken it over", async () => {
     const fake = createFakeCtx();
     const { taskId, executionId } = await claim(fake);
-    await fake.ctx.db.patch("scheduled_tasks", taskId, { lastExecuted: NOW + 16 * MINUTE });
+    await fake.ctx.db.patch("scheduled_tasks", taskId, { lastExecuted: NOW + 21 * MINUTE });
 
     await call(expireTaskExecution, fake.ctx, { taskId, executionId });
 
@@ -636,7 +636,7 @@ describe("migrateScheduledRuns", () => {
     expect(fake.rows("task_history")[0]).toMatchObject({ status: "timeout" });
   });
 
-  it("pauses every task with pauseAll, letting a live run finish and record its outcome", async () => {
+  it("pauses every task with pauseAll, letting a live claim finish and record its outcome", async () => {
     const fake = createFakeCtx();
     const activeJob = fake.addJob(NEXT_DAY_9AM_NY, legacyRunRef, {});
     const active = await seedTask(fake, { scheduledFunctionId: activeJob });
@@ -645,13 +645,20 @@ describe("migrateScheduledRuns", () => {
     const liveRun = claimedRun(fake, live);
     const stuck = await seedTask(fake, { status: "running", lastExecuted: NOW - 60 * MINUTE });
     await fake.ctx.db.insert("task_history", { taskId: stuck, status: "running", startTime: NOW });
+    // A run the old code started before the deploy: its row starts before the task's lastExecuted
+    const oldRun = await seedTask(fake, { status: "running", lastExecuted: NOW - 5 * MINUTE });
+    await fake.ctx.db.insert("task_history", {
+      taskId: oldRun,
+      status: "running",
+      startTime: NOW - 5 * MINUTE - 2_000,
+    });
     const paused = await seedTask(fake, { status: "paused" });
     const archived = await seedTask(fake, { status: "archived" });
 
     const result = await call(migrateScheduledRuns, fake.ctx, { pauseAll: true });
 
-    expect(result).toEqual({ scanned: 5, migrated: 0, paused: 3, isDone: true });
-    for (const taskId of [active, live, stuck, paused]) {
+    expect(result).toEqual({ scanned: 6, migrated: 0, paused: 4, isDone: true });
+    for (const taskId of [active, live, stuck, oldRun, paused]) {
       expect(fake.find(taskId)).toMatchObject({ status: "paused" });
       expect(fake.find(taskId)).not.toHaveProperty("scheduledFunctionId");
       expect(fake.find(taskId)).not.toHaveProperty("nextExecution");
@@ -662,6 +669,7 @@ describe("migrateScheduledRuns", () => {
     const historyOf = (taskId: string) =>
       fake.rows("task_history").find((row) => row.taskId === taskId);
     expect(historyOf(stuck)).toMatchObject({ status: "timeout" });
+    expect(historyOf(oldRun)).toMatchObject({ status: "timeout" });
     expect(historyOf(live)).toMatchObject({ status: "running" });
 
     await call(finishTaskExecution, fake.ctx, {

@@ -38,9 +38,9 @@ const PAUSING_LIMIT_ERRORS = new Set<string>([
 ]);
 
 // Generation is aborted this long after the run was claimed, so a slow run still fails inside the
-// action (refunding its credit) instead of being killed at Convex's 10-minute action limit. It
-// counts from the claim, not the action's start, so a run delayed in the action queue still ends
-// before scheduled_tasks:expireTaskExecution releases the task.
+// action (refunding its credit) instead of being killed at Convex's 10-minute limit for Node
+// actions. A run starting later ends at once, so no run is still working 18 minutes after its
+// claim, when scheduled_tasks:expireTaskExecution has yet to release the task.
 const GENERATION_DEADLINE_MS = 8 * 60 * 1000;
 
 // Performs one run of a scheduled task that is already claimed: scheduled right after the claim
@@ -74,8 +74,8 @@ export const executeTask = internalAction({
         ...details,
       });
 
-    // Started too late (the action queue lagged): the claim may already have expired, so end the
-    // run before charging a credit, creating a chat, or calling tools
+    // Started too late (the action queue lagged): no generation time is left, and running on could
+    // outlive the claim, so end the run before charging a credit, creating a chat, or calling tools
     if (startTime >= generationDeadline) {
       return await finish("failure", { errorMessage: "The run could not start in time." });
     }

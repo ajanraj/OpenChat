@@ -27,9 +27,9 @@ const TASK_LIMITS = {
   total: 10,
 } as const;
 
-// A claimed run still unfinished after this long is dead: scheduled_ai:executeTask stops
-// generating 8 minutes after the claim, and ends at once if it starts any later.
-const STALE_RUN_MS = 15 * 60 * 1000;
+// A claimed run still unfinished after this long is dead: scheduled_ai:executeTask ends at once
+// unless it starts within 8 minutes of the claim, and Convex kills Node actions after 10 minutes.
+const STALE_RUN_MS = 20 * 60 * 1000;
 
 const scheduledTaskDoc = v.object({
   _id: v.id("scheduled_tasks"),
@@ -502,12 +502,13 @@ const LEGACY_RUN_FUNCTION = "scheduled_ai:executeTask";
  * task whose scheduledFunctionId is a pending old job, it cancels that job and books
  * startScheduledRun at the same time. It then pauses (does not reschedule) dead tasks: "active"
  * tasks with no pending or in-progress run and "running" tasks whose run is stale, marking their
- * dangling "running" history rows as "timeout". Run it again STALE_RUN_MS (15 minutes) later to
+ * dangling "running" history rows as "timeout". Run it again STALE_RUN_MS (20 minutes) later to
  * catch runs the old code was still starting during the deploy.
  *
  * With `'{"pauseAll": true}'` it pauses every task that is not paused or archived instead,
- * cancelling its pending run. A live run is left to finish and record its outcome (resolveRun
- * keeps the task paused); a stale run's dangling history rows become "timeout".
+ * cancelling its pending run. A live claim is left to finish and record its outcome (resolveRun
+ * keeps the task paused); every other "running" history row becomes "timeout", including that of
+ * a run the old code was still performing, which can no longer record its outcome.
  *
  * Handles 100 tasks per batch and schedules itself until the table is exhausted.
  */
@@ -548,19 +549,19 @@ export const migrateScheduledRuns = internalMutation({
 
       if (args.pauseAll || dead) {
         await cancelPendingRun(ctx, task.scheduledFunctionId);
-        if (!liveRun) {
-          const history = await ctx.db
-            .query("task_history")
-            .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
-            .collect();
-          for (const row of history) {
-            if (row.status === "running") {
-              await ctx.db.patch("task_history", row._id, {
-                status: "timeout",
-                endTime: now,
-                errorMessage: "The run did not finish within the time limit.",
-              });
-            }
+        const history = await ctx.db
+          .query("task_history")
+          .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
+          .collect();
+        for (const row of history) {
+          // Only a live claim's row (its startTime is the claim time) can still be resolved, by
+          // finishTaskExecution or expireTaskExecution; a run the old code started never will be
+          if (row.status === "running" && !(liveRun && row.startTime === task.lastExecuted)) {
+            await ctx.db.patch("task_history", row._id, {
+              status: "timeout",
+              endTime: now,
+              errorMessage: "The run did not finish within the time limit.",
+            });
           }
         }
         await ctx.db.patch("scheduled_tasks", task._id, {

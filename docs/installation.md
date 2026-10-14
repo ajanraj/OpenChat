@@ -214,7 +214,7 @@ For production deployment, set the environment variables before deploying either
    bunx convex run chats:backfillChatProfiles --prod
 
    # Moves pending scheduled-task runs to the new scheduler entry point and pauses tasks left
-   # without a working schedule. Run it again 15 minutes later; resume paused tasks from their card.
+   # without a working schedule. Run it again 20 minutes later; resume paused tasks from their card.
    bunx convex run scheduled_tasks:migrateScheduledRuns --prod
    ```
 
