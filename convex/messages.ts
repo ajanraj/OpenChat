@@ -416,15 +416,16 @@ export const patchMessageContent = mutation({
 // At most this many search hits are read to fill one profile's results: messages don't store a
 // profile, so hits from the user's other profiles are read and skipped
 const MESSAGE_SEARCH_CANDIDATES = 100;
-// Message bytes read before a search stops: half of Convex's 16 MiB read limit, leaving room for
-// the hit that crosses it (up to 1 MiB) and the chats looked up
+// Bytes of messages and chats read before a search stops: half of Convex's 16 MiB read limit,
+// leaving room for the hit that crosses it and its chat (up to 1 MiB each)
 const MESSAGE_SEARCH_BYTES = 8 * 1024 * 1024;
 
 /**
  * Full-text search over the user's messages in chats of one profile, best matches first. Hits are
  * read in relevance order until `limit` are in the profile, MESSAGE_SEARCH_CANDIDATES were read, or
- * they add up to MESSAGE_SEARCH_BYTES, so a profile's matches ranked below those are missed. Chats
- * without a profile (before chats:backfillChatProfiles) are left out, as in chats:searchChats.
+ * they and their chats add up to MESSAGE_SEARCH_BYTES, so a profile's matches ranked below those
+ * are missed. Chats without a profile (before chats:backfillChatProfiles) are left out, as in
+ * chats:searchChats.
  */
 export const searchMessages = query({
   args: { query: v.string(), profileId: v.id("profiles"), limit: v.optional(v.number()) },
@@ -455,7 +456,9 @@ export const searchMessages = query({
     // Read lazily, so a search filled by its first hits reads no more of them
     for await (const msg of hits) {
       if (!chatById.has(msg.chatId)) {
-        chatById.set(msg.chatId, await ctx.db.get("chats", msg.chatId));
+        const chat = await ctx.db.get("chats", msg.chatId);
+        chatById.set(msg.chatId, chat);
+        bytesRead += chat ? getDocumentSize(chat) : 0;
       }
       const chat = chatById.get(msg.chatId);
       if (chat?.profileId === profileId) {

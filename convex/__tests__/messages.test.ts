@@ -196,4 +196,21 @@ describe("searchMessages", () => {
     expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([]);
     expect(db.readIds).not.toContain(unread);
   });
+
+  it("counts the chats it reads toward the 8 MiB", async () => {
+    const { db, userId, profileId, chatId, ctx } = setup();
+    const homeProfileId = seedProfile(db, userId, "Home");
+    for (let i = 0; i < 10; i++) {
+      const homeChatId = db.seed("chats", {
+        userId,
+        profileId: homeProfileId,
+        title: "x".repeat(900_000),
+      });
+      db.seed("messages", { chatId: homeChatId, userId, role: "user", content: "Lisbon" });
+    }
+    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
+
+    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([]);
+    expect(db.readIds).not.toContain(unread);
+  });
 });
