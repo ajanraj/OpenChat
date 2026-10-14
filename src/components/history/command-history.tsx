@@ -111,13 +111,15 @@ function useCommandHistoryView() {
 	);
 	const loadMoreRef = useLoadMoreRef(canLoadMore, loadMore);
 
-	const { data: messageResults = [] } = useTanStackQuery({
-		...convexQuery(
+	// Scoped to the listed profile like the title search, so skipped until that is known
+	const { data: messageResults = [] } = useTanStackQuery(
+		convexQuery(
 			api.messages.searchMessages,
-			searchQuery ? { query: searchQuery } : "skip",
+			chatListProfileId && searchQuery
+				? { query: searchQuery, profileId: chatListProfileId }
+				: "skip",
 		),
-		enabled: Boolean(searchQuery),
-	});
+	);
 
 	const handleEdit = useCallback((chat: Doc<"chats">) => {
 		dispatch({ type: "START_EDIT", chat });

@@ -413,8 +413,17 @@ export const patchMessageContent = mutation({
   },
 });
 
+// Search hits read before keeping those in the requested profile: messages don't store one
+const MESSAGE_SEARCH_CANDIDATES = 100;
+
+/**
+ * Full-text search over the user's messages in chats of one profile, best matches first. Hits
+ * are filtered by their chat's profile after the search, so a profile's matches ranked below
+ * MESSAGE_SEARCH_CANDIDATES hits from other profiles are missed. Chats without a profile (before
+ * chats:backfillChatProfiles) are left out, as in chats:searchChats.
+ */
 export const searchMessages = query({
-  args: { query: v.string(), limit: v.optional(v.number()) },
+  args: { query: v.string(), profileId: v.id("profiles"), limit: v.optional(v.number()) },
   returns: v.array(
     v.object({
       _id: v.id("messages"),
@@ -425,29 +434,32 @@ export const searchMessages = query({
       chatTitle: v.optional(v.string()),
     }),
   ),
-  handler: async (ctx, { query: search, limit = 20 }) => {
-    const safeLimit = Math.min(Math.max(1, limit), 100); // Cap between 1-100
+  handler: async (ctx, { query: search, profileId, limit = 20 }) => {
+    const safeLimit = Math.min(Math.max(1, limit), MESSAGE_SEARCH_CANDIDATES);
     const userId = await getAuthUserId(ctx);
     if (!userId || search.trim() === "") {
       return [];
     }
 
-    const results = await ctx.db
+    const candidates = await ctx.db
       .query("messages")
       .withSearchIndex("by_user_content", (q) => q.search("content", search).eq("userId", userId))
-      .take(safeLimit);
+      .take(MESSAGE_SEARCH_CANDIDATES);
 
-    const chatIds = [...new Set(results.map((msg) => msg.chatId))];
+    const chatIds = [...new Set(candidates.map((msg) => msg.chatId))];
     const chats = await Promise.all(chatIds.map((chatId) => ctx.db.get("chats", chatId)));
-    const chatTitles = new Map(chatIds.map((chatId, i) => [chatId, chats[i]?.title]));
+    const chatById = new Map(chatIds.map((chatId, i) => [chatId, chats[i]]));
 
-    return results.map((msg) => ({
-      _id: msg._id,
-      chatId: msg.chatId,
-      content: msg.content,
-      createdAt: msg.createdAt,
-      chatTitle: chatTitles.get(msg.chatId),
-    }));
+    return candidates
+      .filter((msg) => chatById.get(msg.chatId)?.profileId === profileId)
+      .slice(0, safeLimit)
+      .map((msg) => ({
+        _id: msg._id,
+        chatId: msg.chatId,
+        content: msg.content,
+        createdAt: msg.createdAt,
+        chatTitle: chatById.get(msg.chatId)?.title,
+      }));
   },
 });
 

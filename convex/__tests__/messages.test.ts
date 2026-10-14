@@ -41,8 +41,19 @@ function setup() {
   const db = createFakeDb();
   const userId = db.seed("users", { name: "User" }) as Id<"users">;
   vi.mocked(getAuthUserId).mockResolvedValue(userId);
-  const chatId = db.seed("chats", { userId, title: "Trip planning", updatedAt: 1 });
-  return { db, userId, chatId, ctx: createFakeCtx(db) };
+  const profileId = seedProfile(db, userId, "Work");
+  const chatId = db.seed("chats", { userId, profileId, title: "Trip planning", updatedAt: 1 });
+  return { db, userId, profileId, chatId, ctx: createFakeCtx(db) };
+}
+
+function seedProfile(db: ReturnType<typeof createFakeDb>, userId: Id<"users">, name: string) {
+  return db.seed("profiles", {
+    userId,
+    name,
+    icon: "Briefcase",
+    isDefault: name === "Work",
+    order: 0,
+  }) as Id<"profiles">;
 }
 
 describe("deleteMessageAndDescendants", () => {
@@ -109,12 +120,39 @@ describe("patchMessageContent", () => {
 });
 
 describe("searchMessages", () => {
-  it("returns each match with its chat's title", async () => {
-    const { db, userId, chatId, ctx } = setup();
+  it("returns the profile's matches with their chat's title, skipping other profiles and legacy chats", async () => {
+    const { db, userId, profileId, chatId, ctx } = setup();
+    const homeChatId = db.seed("chats", {
+      userId,
+      profileId: seedProfile(db, userId, "Home"),
+      title: "Home",
+    });
+    const legacyChatId = db.seed("chats", { userId, title: "Legacy" });
+    db.seed("messages", { chatId: homeChatId, userId, role: "user", content: "Lisbon at home" });
+    db.seed("messages", { chatId: legacyChatId, userId, role: "user", content: "old Lisbon" });
     db.seed("messages", { chatId, userId, role: "user", content: "flights to Lisbon" });
 
-    expect(await asHandler(searchMessages)(ctx, { query: "lisbon" })).toEqual([
+    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([
       expect.objectContaining({ chatId, content: "flights to Lisbon", chatTitle: "Trip planning" }),
+    ]);
+  });
+
+  it("applies the limit after keeping the profile's matches", async () => {
+    const { db, userId, profileId, chatId, ctx } = setup();
+    const homeChatId = db.seed("chats", {
+      userId,
+      profileId: seedProfile(db, userId, "Home"),
+      title: "Home",
+    });
+    db.seed("messages", { chatId: homeChatId, userId, role: "user", content: "Lisbon elsewhere" });
+    db.seed("messages", { chatId, userId, role: "user", content: "Lisbon one" });
+    db.seed("messages", { chatId, userId, role: "user", content: "Lisbon two" });
+
+    const found = await asHandler(searchMessages)(ctx, { query: "lisbon", profileId, limit: 2 });
+
+    expect(found).toEqual([
+      expect.objectContaining({ content: "Lisbon one" }),
+      expect.objectContaining({ content: "Lisbon two" }),
     ]);
   });
 });
