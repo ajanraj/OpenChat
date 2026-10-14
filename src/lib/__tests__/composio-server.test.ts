@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolRouterCreateSessionConfig } from "@composio/core";
+import {
+  ComposioConnectedAccountNotRevokableError,
+  ComposioConnectedAccountRevocationNotSupportedError,
+  type ToolRouterCreateSessionConfig,
+} from "@composio/core";
 import {
   disconnectAccount,
   getComposioTools,
   initiateConnection,
+  revokeUserConnections,
   waitForConnection,
 } from "../composio-server";
 
@@ -21,6 +26,7 @@ interface MockAccount {
   id: string;
   status: string;
   toolkit: { slug: string };
+  authConfig: { isComposioManaged: boolean };
   createdAt: string;
 }
 
@@ -34,6 +40,7 @@ const {
   mockSessionDelete,
   mockSessionTools,
   mockAccountDelete,
+  mockAccountRevoke,
   mockLink,
   mockList,
   mockWaitForConnection,
@@ -55,6 +62,7 @@ const {
       >(),
     mockSessionTools: vi.fn<() => Promise<Record<string, MockTool>>>(),
     mockAccountDelete: vi.fn<(connectionId: string) => Promise<void>>(),
+    mockAccountRevoke: vi.fn<(connectionId: string) => Promise<{ revokedTokens: string[] }>>(),
     mockLink:
       vi.fn<
         (
@@ -78,9 +86,12 @@ vi.mock("@composio/core", () => ({
       delete: mockAccountDelete,
       link: mockLink,
       list: mockList,
+      revoke: mockAccountRevoke,
       waitForConnection: mockWaitForConnection,
     };
   },
+  ComposioConnectedAccountRevocationNotSupportedError: class extends Error {},
+  ComposioConnectedAccountNotRevokableError: class extends Error {},
 }));
 
 vi.mock("@composio/vercel", () => ({
@@ -96,6 +107,7 @@ const account = (
   id,
   status,
   toolkit: { slug },
+  authConfig: { isComposioManaged: false },
   createdAt,
 });
 
@@ -166,13 +178,16 @@ describe("composio-server", () => {
     const controller = new AbortController();
     controller.abort();
 
-    await expect(getComposioTools("user-123", ["GMAIL"], controller.signal)).resolves.toBeNull();
-    failTools(new Error("Tool loading failed"));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    process.off("unhandledRejection", unhandled);
-    expect(unhandled).not.toHaveBeenCalled();
-    consoleError.mockRestore();
+    try {
+      await expect(getComposioTools("user-123", ["GMAIL"], controller.signal)).resolves.toBeNull();
+      failTools(new Error("Tool loading failed"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      // Process-wide, so removed even when the test fails
+      process.off("unhandledRejection", unhandled);
+      consoleError.mockRestore();
+    }
   });
 
   it("creates a fresh router session for each agent run", async () => {
@@ -239,6 +254,8 @@ describe("composio-server", () => {
       expect(mockList).toHaveBeenNthCalledWith(1, { userIds: ["user-123"], cursor: undefined });
       expect(mockList).toHaveBeenNthCalledWith(2, { userIds: ["user-123"], cursor: "page-2" });
       expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_gmail_1", "ca_gmail_2"]);
+      // Revoking one Google toolkit's grant would cut the user's other Google toolkits
+      expect(mockAccountRevoke).not.toHaveBeenCalled();
     });
 
     it("deletes nothing when the user has no account for the toolkit", async () => {
@@ -247,17 +264,6 @@ describe("composio-server", () => {
       await disconnectAccount("user-123", "gmail");
 
       expect(mockAccountDelete).not.toHaveBeenCalled();
-    });
-
-    it("disconnects every toolkit when none is given (account deletion)", async () => {
-      mockList.mockResolvedValue({
-        items: [account("ca_gmail", "gmail"), account("ca_notion", "notion")],
-      });
-
-      await disconnectAccount("user-123");
-
-      expect(mockList).toHaveBeenCalledWith({ userIds: ["user-123"], cursor: undefined });
-      expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_gmail", "ca_notion"]);
     });
 
     it("refuses to wait on a connection request the user does not own", async () => {
@@ -316,6 +322,8 @@ describe("composio-server", () => {
       await waitForConnection("user-123", "ca_new", 60);
 
       expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual(["ca_old"]);
+      // Revoking the old Google grant would revoke the one just authorized
+      expect(mockAccountRevoke).not.toHaveBeenCalled();
     });
 
     it("completing an older request leaves newer and same-time accounts alone", async () => {
@@ -348,6 +356,68 @@ describe("composio-server", () => {
 
       expect(result).toEqual({ connectionId: "ca_new", isConnected: false });
       expect(mockAccountDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("revokeUserConnections (account deletion)", () => {
+    it("revokes each account upstream before deleting it, except on Composio-managed configs", async () => {
+      const order: string[] = [];
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_gmail", "gmail"),
+          { ...account("ca_managed", "notion"), authConfig: { isComposioManaged: true } },
+        ],
+      });
+      mockAccountRevoke.mockImplementation(async (id) => {
+        order.push(`revoke:${id}`);
+        return { revokedTokens: ["access_token", "refresh_token"] };
+      });
+      mockAccountDelete.mockImplementation(async (id) => {
+        order.push(`delete:${id}`);
+      });
+
+      await revokeUserConnections("user-123");
+
+      expect(mockList).toHaveBeenCalledWith({ userIds: ["user-123"], cursor: undefined });
+      expect(order).toEqual(["revoke:ca_gmail", "delete:ca_managed", "delete:ca_gmail"]);
+    });
+
+    it("still deletes every account when revoking fails, warning only for unexpected failures", async () => {
+      const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      mockList.mockResolvedValue({
+        items: [
+          account("ca_api_key", "linear"),
+          account("ca_pending", "gmail", "INITIATED"),
+          account("ca_calendar", "googlecalendar"),
+        ],
+      });
+      mockAccountRevoke
+        .mockRejectedValueOnce(new ComposioConnectedAccountRevocationNotSupportedError("400"))
+        .mockRejectedValueOnce(new ComposioConnectedAccountNotRevokableError("409"))
+        // e.g. the grant was already revoked through a sibling Google toolkit
+        .mockRejectedValueOnce(new Error("every upstream dispatch failed"));
+      mockAccountDelete.mockResolvedValue(undefined);
+
+      try {
+        await revokeUserConnections("user-123");
+
+        expect(mockAccountDelete.mock.calls.map(([id]) => id)).toEqual([
+          "ca_api_key",
+          "ca_pending",
+          "ca_calendar",
+        ]);
+        expect(consoleWarn).toHaveBeenCalledOnce();
+      } finally {
+        consoleWarn.mockRestore();
+      }
+    });
+
+    it("rejects when deleting fails, so account deletion retries", async () => {
+      mockList.mockResolvedValue({ items: [account("ca_gmail", "gmail")] });
+      mockAccountRevoke.mockResolvedValue({ revokedTokens: [] });
+      mockAccountDelete.mockRejectedValueOnce(new Error("Composio down"));
+
+      await expect(revokeUserConnections("user-123")).rejects.toThrow("Composio down");
     });
   });
 });

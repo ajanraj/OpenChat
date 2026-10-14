@@ -1,4 +1,8 @@
-import { Composio } from "@composio/core";
+import {
+  Composio,
+  ComposioConnectedAccountNotRevokableError,
+  ComposioConnectedAccountRevocationNotSupportedError,
+} from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import type { ToolSet } from "ai";
 import type {
@@ -146,16 +150,50 @@ export const waitForConnection = async (
 };
 
 /**
- * Disconnect a toolkit for a user (server-side only) by deleting every connected
- * account Composio holds for that user and toolkit. Omit the toolkit to delete all of
- * the user's accounts (account deletion).
+ * Disconnect a toolkit for a user (server-side only) by deleting every connected account
+ * Composio holds for that user and toolkit. The provider grant is not revoked: Google revokes a
+ * user's whole grant to an OAuth app, which would also cut their other Google toolkits.
  */
 export const disconnectAccount = async (
   userId: string,
-  connectorType?: ConnectorType,
+  connectorType: ConnectorType,
 ): Promise<void> => {
   const accounts = await listUserConnectedAccounts(userId, connectorType);
   await Promise.all(accounts.map((account) => composio.connectedAccounts.delete(account.id)));
+};
+
+/**
+ * Revoke and delete every connected account of a deleted user (server-side only). Composio's
+ * delete leaves the provider grant live, so each grant is revoked first, except on
+ * Composio-managed auth configs: those use Composio's shared OAuth apps, where revoking could cut
+ * the same person's connections in other apps. Revoking is best effort and never blocks the
+ * delete: once one Google toolkit is revoked, the grant of the others is already gone and their
+ * revokes fail.
+ */
+export const revokeUserConnections = async (userId: string): Promise<void> => {
+  const accounts = await listUserConnectedAccounts(userId);
+  await Promise.all(
+    accounts.map(async (account) => {
+      if (!account.authConfig.isComposioManaged) {
+        try {
+          await composio.connectedAccounts.revoke(account.id);
+        } catch (error) {
+          // Expected for toolkits without programmatic revocation (e.g. API keys) and for
+          // accounts that never finished authenticating
+          if (
+            !(error instanceof ComposioConnectedAccountRevocationNotSupportedError) &&
+            !(error instanceof ComposioConnectedAccountNotRevokableError)
+          ) {
+            console.warn(
+              `Failed to revoke Composio ${account.toolkit.slug} account ${account.id} upstream; deleting it anyway:`,
+              error,
+            );
+          }
+        }
+      }
+      await composio.connectedAccounts.delete(account.id);
+    }),
+  );
 };
 
 // Deleting a session is best-effort cleanup, so it never holds up the caller for longer than this

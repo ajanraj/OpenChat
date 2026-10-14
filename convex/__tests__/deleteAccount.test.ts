@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   cancelBillableSubscriptions: vi.fn<(ctx: unknown, userId: string) => Promise<void>>(
     async () => undefined,
   ),
-  disconnectAccount: vi.fn<(userId: string) => Promise<void>>(async () => undefined),
+  revokeUserConnections: vi.fn<(userId: string) => Promise<void>>(async () => undefined),
 }));
 
 // Keep the real authTables, which the schema (and so the fake db) needs
@@ -36,7 +36,7 @@ vi.mock("../stripe", () => ({
 }));
 
 vi.mock("../../src/lib/composio-server", () => ({
-  disconnectAccount: mocks.disconnectAccount,
+  revokeUserConnections: mocks.revokeUserConnections,
 }));
 
 vi.mock("../rateLimiter", () => ({
@@ -258,7 +258,7 @@ describe("revokeDeletedUserAccess", () => {
     await asHandler(revokeDeletedUserAccess)(ctx, { userId });
 
     expect(mocks.cancelBillableSubscriptions).toHaveBeenCalledWith(ctx, userId);
-    expect(mocks.disconnectAccount).toHaveBeenCalledWith(userId);
+    expect(mocks.revokeUserConnections).toHaveBeenCalledWith(userId);
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
   });
 
@@ -269,14 +269,14 @@ describe("revokeDeletedUserAccess", () => {
 
     await asHandler(revokeDeletedUserAccess)(ctx, { userId, attempt: 2 });
 
-    expect(mocks.disconnectAccount).toHaveBeenCalledWith(userId);
+    expect(mocks.revokeUserConnections).toHaveBeenCalledWith(userId);
     expect(scheduled(ctx)).toEqual([
       [60_000, "account_deletion:revokeDeletedUserAccess", { userId, attempt: 3 }],
     ]);
   });
 
   it("retries when only Composio fails", async () => {
-    mocks.disconnectAccount.mockRejectedValueOnce(new Error("Composio down"));
+    mocks.revokeUserConnections.mockRejectedValueOnce(new Error("Composio down"));
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const ctx = createFakeCtx(createFakeDb());
 
