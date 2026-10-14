@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
-import { v } from "convex/values";
+import { getDocumentSize, v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
@@ -413,14 +413,18 @@ export const patchMessageContent = mutation({
   },
 });
 
-// Search hits read before keeping those in the requested profile: messages don't store one
+// At most this many search hits are read to fill one profile's results: messages don't store a
+// profile, so hits from the user's other profiles are read and skipped
 const MESSAGE_SEARCH_CANDIDATES = 100;
+// Message bytes read before a search stops: half of Convex's 16 MiB read limit, leaving room for
+// the hit that crosses it (up to 1 MiB) and the chats looked up
+const MESSAGE_SEARCH_BYTES = 8 * 1024 * 1024;
 
 /**
- * Full-text search over the user's messages in chats of one profile, best matches first. Hits
- * are filtered by their chat's profile after the search, so a profile's matches ranked below
- * MESSAGE_SEARCH_CANDIDATES hits from other profiles are missed. Chats without a profile (before
- * chats:backfillChatProfiles) are left out, as in chats:searchChats.
+ * Full-text search over the user's messages in chats of one profile, best matches first. Hits are
+ * read in relevance order until `limit` are in the profile, MESSAGE_SEARCH_CANDIDATES were read, or
+ * they add up to MESSAGE_SEARCH_BYTES, so a profile's matches ranked below those are missed. Chats
+ * without a profile (before chats:backfillChatProfiles) are left out, as in chats:searchChats.
  */
 export const searchMessages = query({
   args: { query: v.string(), profileId: v.id("profiles"), limit: v.optional(v.number()) },
@@ -441,25 +445,39 @@ export const searchMessages = query({
       return [];
     }
 
-    const candidates = await ctx.db
+    const hits = ctx.db
       .query("messages")
-      .withSearchIndex("by_user_content", (q) => q.search("content", search).eq("userId", userId))
-      .take(MESSAGE_SEARCH_CANDIDATES);
-
-    const chatIds = [...new Set(candidates.map((msg) => msg.chatId))];
-    const chats = await Promise.all(chatIds.map((chatId) => ctx.db.get("chats", chatId)));
-    const chatById = new Map(chatIds.map((chatId, i) => [chatId, chats[i]]));
-
-    return candidates
-      .filter((msg) => chatById.get(msg.chatId)?.profileId === profileId)
-      .slice(0, safeLimit)
-      .map((msg) => ({
-        _id: msg._id,
-        chatId: msg.chatId,
-        content: msg.content,
-        createdAt: msg.createdAt,
-        chatTitle: chatById.get(msg.chatId)?.title,
-      }));
+      .withSearchIndex("by_user_content", (q) => q.search("content", search).eq("userId", userId));
+    const chatById = new Map<Id<"chats">, Doc<"chats"> | null>();
+    const results = [];
+    let read = 0;
+    let bytesRead = 0;
+    // Read lazily, so a search filled by its first hits reads no more of them
+    for await (const msg of hits) {
+      if (!chatById.has(msg.chatId)) {
+        chatById.set(msg.chatId, await ctx.db.get("chats", msg.chatId));
+      }
+      const chat = chatById.get(msg.chatId);
+      if (chat?.profileId === profileId) {
+        results.push({
+          _id: msg._id,
+          chatId: msg.chatId,
+          content: msg.content,
+          createdAt: msg.createdAt,
+          chatTitle: chat.title,
+        });
+      }
+      read += 1;
+      bytesRead += getDocumentSize(msg);
+      if (
+        results.length >= safeLimit ||
+        read === MESSAGE_SEARCH_CANDIDATES ||
+        bytesRead >= MESSAGE_SEARCH_BYTES
+      ) {
+        break;
+      }
+    }
+    return results;
   },
 });
 

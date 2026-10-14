@@ -137,7 +137,7 @@ describe("searchMessages", () => {
     ]);
   });
 
-  it("applies the limit after keeping the profile's matches", async () => {
+  it("applies the limit after keeping the profile's matches, reading no further hits", async () => {
     const { db, userId, profileId, chatId, ctx } = setup();
     const homeChatId = db.seed("chats", {
       userId,
@@ -147,6 +147,7 @@ describe("searchMessages", () => {
     db.seed("messages", { chatId: homeChatId, userId, role: "user", content: "Lisbon elsewhere" });
     db.seed("messages", { chatId, userId, role: "user", content: "Lisbon one" });
     db.seed("messages", { chatId, userId, role: "user", content: "Lisbon two" });
+    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon three" });
 
     const found = await asHandler(searchMessages)(ctx, { query: "lisbon", profileId, limit: 2 });
 
@@ -154,5 +155,45 @@ describe("searchMessages", () => {
       expect.objectContaining({ content: "Lisbon one" }),
       expect.objectContaining({ content: "Lisbon two" }),
     ]);
+    expect(db.readIds).not.toContain(unread);
+  });
+
+  it("reads at most 100 hits, missing a profile's match ranked below them", async () => {
+    const { db, userId, profileId, chatId, ctx } = setup();
+    const homeChatId = db.seed("chats", {
+      userId,
+      profileId: seedProfile(db, userId, "Home"),
+      title: "Home",
+    });
+    for (let i = 0; i < 100; i++) {
+      db.seed("messages", { chatId: homeChatId, userId, role: "user", content: `Lisbon ${i}` });
+    }
+    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
+
+    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([]);
+    expect(db.readIds).not.toContain(unread);
+  });
+
+  it("stops once the hits read add up to 8 MiB, so large replies can't break the search", async () => {
+    const { db, userId, profileId, chatId, ctx } = setup();
+    const homeChatId = db.seed("chats", {
+      userId,
+      profileId: seedProfile(db, userId, "Home"),
+      title: "Home",
+    });
+    const parts = [{ type: "text", text: "x".repeat(900_000) }];
+    for (let i = 0; i < 10; i++) {
+      db.seed("messages", {
+        chatId: homeChatId,
+        userId,
+        role: "assistant",
+        content: "Lisbon",
+        parts,
+      });
+    }
+    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
+
+    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([]);
+    expect(db.readIds).not.toContain(unread);
   });
 });
