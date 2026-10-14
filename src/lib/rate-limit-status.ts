@@ -56,7 +56,29 @@ function resolveBucket(bucket: RateLimitBucket, now: number): BucketStatus {
   };
 }
 
-/** Derives credit usage at `now` (epoch ms) from the raw buckets. */
+// Slowest users.getServerTime round trip trusted for a clock offset, which is off by up to
+// half the round trip
+const MAX_CLOCK_ROUND_TRIP_MS = 5_000;
+
+/**
+ * How far the server's clock is ahead of this device's (negative when behind), from one
+ * users.getServerTime round trip, taking the server to read its clock halfway through it.
+ * Add it to Date.now() to project credit windows on server time. Throws when the round
+ * trip was too slow to trust (e.g. it spanned a reconnect), so the caller can measure again.
+ */
+export async function measureServerClockOffset(
+  getServerTime: () => Promise<number>,
+): Promise<number> {
+  const sentAt = Date.now();
+  const serverTime = await getServerTime();
+  const receivedAt = Date.now();
+  if (receivedAt - sentAt > MAX_CLOCK_ROUND_TRIP_MS) {
+    throw new Error(`Server time took ${receivedAt - sentAt} ms to arrive; measure again`);
+  }
+  return serverTime - (sentAt + receivedAt) / 2;
+}
+
+/** Derives credit usage at `now` (epoch ms, server time) from the raw buckets. */
 export function resolveRateLimitStatus(state: RateLimitState, now: number): RateLimitStatus {
   const daily = state.daily ? resolveBucket(state.daily, now) : UNUSED_BUCKET;
   const monthly = resolveBucket(state.monthly, now);

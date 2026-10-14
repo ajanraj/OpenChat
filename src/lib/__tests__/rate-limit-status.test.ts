@@ -1,7 +1,8 @@
 import { DAY, HOUR } from "@convex-dev/rate-limiter";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getNextRateLimitReset,
+  measureServerClockOffset,
   type RateLimitState,
   resolveRateLimitStatus,
 } from "../rate-limit-status";
@@ -115,5 +116,36 @@ describe("getNextRateLimitReset", () => {
     );
 
     expect(getNextRateLimitReset(status)).toBeUndefined();
+  });
+});
+
+describe("measureServerClockOffset", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("measures a device clock behind the server at the round trip's midpoint", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(WINDOW_START);
+
+    const offset = await measureServerClockOffset(async () => {
+      // The server, two minutes ahead, reads its clock halfway through a 200 ms round trip
+      vi.setSystemTime(WINDOW_START + 200);
+      return WINDOW_START + 100 + 2 * 60_000;
+    });
+
+    expect(offset).toBe(2 * 60_000);
+  });
+
+  it("rejects a round trip too slow to trust, so the query measures again", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(WINDOW_START);
+
+    const measured = measureServerClockOffset(async () => {
+      vi.setSystemTime(WINDOW_START + 6_000);
+      return WINDOW_START + 3_000;
+    });
+
+    await expect(measured).rejects.toThrow("measure again");
   });
 });

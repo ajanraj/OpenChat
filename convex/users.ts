@@ -148,34 +148,42 @@ export const assertNotOverLimit = mutation({
 });
 
 // Charges one message credit when /api/chat starts a platform-key generation and returns
-// the charged bucket names for a refund. Throws DAILY/MONTHLY/PREMIUM_LIMIT_REACHED when
-// the user is out of credits.
+// the receipt for a refund. Throws DAILY/MONTHLY/PREMIUM_LIMIT_REACHED when the user is out
+// of credits.
 export const consumeMessageCredit = mutation({
   args: {
     usesPremiumCredits: v.optional(v.boolean()),
   },
-  returns: v.array(credits.creditBucketValidator),
+  returns: credits.creditReceiptValidator,
   handler: async (ctx, { usesPremiumCredits }) => {
     const userId = await ensureAuthenticated(ctx);
     return await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
   },
 });
 
-// Refunds a consumeMessageCredit charge (the buckets it returned) when the generation itself
+// Refunds a consumeMessageCredit charge (the receipt it returned) when the generation itself
 // failed. Server routes only: without SERVER_ROUTE_SECRET a user could mint credits for
 // themselves.
 export const refundMessageCredit = mutation({
   args: {
     serverSecret: v.string(),
-    buckets: v.array(credits.creditBucketValidator),
+    receipt: credits.creditReceiptValidator,
   },
   returns: v.null(),
-  handler: async (ctx, { serverSecret, buckets }) => {
+  handler: async (ctx, { serverSecret, receipt }) => {
     assertServerSecret(serverSecret);
     const userId = await ensureAuthenticated(ctx);
-    await credits.refundMessageCredit(ctx, userId, buckets);
+    await credits.refundMessageCredit(ctx, userId, receipt);
     return null;
   },
+});
+
+// The server's clock, so clients project credit windows (getRateLimitStatus) on server time
+// rather than a device clock that may run behind. A mutation, so it is never a cached result.
+export const getServerTime = mutation({
+  args: {},
+  returns: v.number(),
+  handler: async () => Date.now(),
 });
 
 /**
@@ -314,7 +322,7 @@ export const getUser = internalQuery({
 });
 
 // Charges one message credit for a scheduled run before it generates (internal variant of
-// consumeMessageCredit) and returns the charged bucket names. Also enforces subscription
+// consumeMessageCredit) and returns the receipt for a refund. Also enforces subscription
 // access with requiresPremium.
 export const consumeMessageCreditInternal = internalMutation({
   args: {
@@ -322,21 +330,21 @@ export const consumeMessageCreditInternal = internalMutation({
     usesPremiumCredits: v.optional(v.boolean()),
     requiresPremium: v.optional(v.boolean()),
   },
-  returns: v.array(credits.creditBucketValidator),
+  returns: credits.creditReceiptValidator,
   handler: async (ctx, { userId, ...options }) =>
     await credits.consumeMessageCredit(ctx, userId, options),
 });
 
-// Refunds a consumeMessageCreditInternal charge (the buckets it returned) when the scheduled
+// Refunds a consumeMessageCreditInternal charge (the receipt it returned) when the scheduled
 // generation failed.
 export const refundMessageCreditInternal = internalMutation({
   args: {
     userId: v.id("users"),
-    buckets: v.array(credits.creditBucketValidator),
+    receipt: credits.creditReceiptValidator,
   },
   returns: v.null(),
-  handler: async (ctx, { userId, buckets }) => {
-    await credits.refundMessageCredit(ctx, userId, buckets);
+  handler: async (ctx, { userId, receipt }) => {
+    await credits.refundMessageCredit(ctx, userId, receipt);
     return null;
   },
 });

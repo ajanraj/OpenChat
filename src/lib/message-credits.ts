@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-import type { CreditBucketName } from "@/convex/lib/credits";
+import type { CreditReceipt } from "@/convex/lib/credits";
 import { getServerRouteSecret } from "@/lib/middleware/auth";
 
 type CreditClient = Pick<ConvexHttpClient, "mutation">;
@@ -15,30 +15,30 @@ export type MessageCreditTracker = ReturnType<typeof createMessageCreditTracker>
  * DAILY/MONTHLY/PREMIUM_LIMIT_REACHED ConvexError when the user is out of credits. It reads
  * SERVER_ROUTE_SECRET first, so a deployment missing it fails before charging a credit it
  * could never refund.
- * refund() returns the outstanding charge at most once, to the buckets it was drawn
- * from, and only while the client is still connected: call it when the generation
+ * refund() returns the outstanding charge at most once, to the buckets and windows it was
+ * drawn from, and only while the client is still connected: call it when the generation
  * itself fails. User aborts and failed saves keep the charge, otherwise deleting a chat
  * mid-stream would make replies free.
  */
 export function createMessageCreditTracker(client: CreditClient, signal: AbortSignal) {
-  // The outstanding charge: the buckets it was drawn from and the secret to refund it with
-  let charged: { buckets: CreditBucketName[]; serverSecret: string } | null = null;
+  // The outstanding charge: its receipt and the secret to refund it with
+  let charged: { receipt: CreditReceipt; serverSecret: string } | null = null;
 
   return {
     async charge(usesPremiumCredits: boolean): Promise<void> {
       const serverSecret = getServerRouteSecret();
-      const buckets = await client.mutation(api.users.consumeMessageCredit, { usesPremiumCredits });
-      charged = { buckets, serverSecret };
+      const receipt = await client.mutation(api.users.consumeMessageCredit, { usesPremiumCredits });
+      charged = { receipt, serverSecret };
     },
 
     async refund(): Promise<void> {
       if (!charged || signal.aborted) {
         return;
       }
-      const { buckets, serverSecret } = charged;
+      const { receipt, serverSecret } = charged;
       charged = null;
       try {
-        await client.mutation(api.users.refundMessageCredit, { serverSecret, buckets });
+        await client.mutation(api.users.refundMessageCredit, { serverSecret, receipt });
       } catch (error) {
         console.error("Failed to refund message credit:", error);
       }

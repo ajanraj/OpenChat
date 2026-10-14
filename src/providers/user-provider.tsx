@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   getNextRateLimitReset,
+  measureServerClockOffset,
   type RateLimitStatus,
   resolveRateLimitStatus,
 } from "@/lib/rate-limit-status";
@@ -82,12 +83,25 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Credit windows run on the server's clock; a device clock running behind would keep an
+  // exhausted window that has already reset. Measured once per session (TanStack retries a
+  // round trip too slow to trust).
+  const getServerTime = useMutation(api.users.getServerTime);
+  const { data: serverClockOffset = 0 } = useTanStackQuery({
+    queryKey: ["serverClockOffset"],
+    queryFn: () => measureServerClockOffset(() => getServerTime({})),
+    enabled: Boolean(user),
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  });
+
   // The query returns raw credit buckets; remaining credits depend on the current time,
   // so resolve them here and again whenever the next window resets.
   const [now, setNow] = useState(() => Date.now());
   const rateLimitStatus = useMemo(
-    () => (rateLimitState ? resolveRateLimitStatus(rateLimitState, now) : undefined),
-    [rateLimitState, now],
+    () =>
+      rateLimitState ? resolveRateLimitStatus(rateLimitState, now + serverClockOffset) : undefined,
+    [rateLimitState, now, serverClockOffset],
   );
   const nextRateLimitReset = rateLimitStatus ? getNextRateLimitReset(rateLimitStatus) : undefined;
 
@@ -96,10 +110,13 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       return;
     }
     // Re-arms after every tick (`now` dependency), which also covers clamped delays
-    const delay = Math.min(Math.max(nextRateLimitReset - Date.now(), 0), MAX_TIMEOUT_MS);
+    const delay = Math.min(
+      Math.max(nextRateLimitReset - (Date.now() + serverClockOffset), 0),
+      MAX_TIMEOUT_MS,
+    );
     const timeout = setTimeout(() => setNow(Date.now()), delay);
     return () => clearTimeout(timeout);
-  }, [nextRateLimitReset, now]);
+  }, [nextRateLimitReset, now, serverClockOffset]);
 
   const { data: apiKeysQuery, isLoading: isApiKeysLoading } = useTanStackQuery({
     ...convexQuery(api.api_keys.getApiKeys, {}),

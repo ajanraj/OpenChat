@@ -22,7 +22,7 @@ import { createMeteredSearchTool } from "../src/lib/tools/search-credit-metering
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
-import type { CreditBucketName } from "./lib/credits";
+import type { CreditReceipt } from "./lib/credits";
 import schema from "./schema";
 
 // Extend dayjs with plugins
@@ -57,9 +57,9 @@ export const executeTask = internalAction({
     const startTime = Date.now();
     const generationDeadline = task.lastExecuted + GENERATION_DEADLINE_MS;
     let chatId: Id<"chats"> | undefined;
-    // Buckets of the charged credit; refunded only if the run fails before the model finishes
+    // Receipt of the charged credit; refunded only if the run fails before the model finishes
     // generating
-    let chargedCredit: CreditBucketName[] | null = null;
+    let chargedCredit: CreditReceipt | null = null;
     let generated = false;
     // Every path must end here (or the claim expires as "timeout")
     const finish = async (
@@ -401,7 +401,7 @@ export const executeTask = internalAction({
         await ctx
           .runMutation(internal.users.refundMessageCreditInternal, {
             userId: task.userId,
-            buckets: chargedCredit,
+            receipt: chargedCredit,
           })
           .catch((refundError: unknown) => {
             console.error("Failed to refund scheduled task credit:", refundError);

@@ -1,4 +1,4 @@
-import { calculateRateLimit, DAY } from "@convex-dev/rate-limiter";
+import { calculateRateLimit, DAY, HOUR } from "@convex-dev/rate-limiter";
 import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ERROR_CODES } from "../../src/lib/error-codes";
@@ -17,16 +17,23 @@ interface LimitOptions {
   throws?: boolean;
 }
 
+interface BucketValue {
+  value: number;
+  ts: number;
+  config: { kind: "fixed window"; rate: number; period: number; capacity: number };
+}
+
 const mocks = vi.hoisted(() => ({
   check:
     vi.fn<(ctx: unknown, name: string, options: { key: string }) => Promise<{ ok: boolean }>>(),
   limit: vi.fn<(ctx: unknown, name: string, options: LimitOptions) => Promise<{ ok: boolean }>>(),
+  getValue: vi.fn<(ctx: unknown, name: string, options: { key: string }) => Promise<BucketValue>>(),
   hasActivePremium: vi.fn<(ctx: unknown, userId: string) => Promise<boolean>>(),
   getAuthUserId: vi.fn<(ctx: unknown) => Promise<string | null>>(),
 }));
 
 vi.mock("../rateLimiter", () => ({
-  rateLimiter: { check: mocks.check, limit: mocks.limit },
+  rateLimiter: { check: mocks.check, limit: mocks.limit, getValue: mocks.getValue },
 }));
 
 vi.mock("../stripe", () => ({ hasActivePremium: mocks.hasActivePremium }));
@@ -42,9 +49,21 @@ vi.mock("../_generated/server", () => ({
 }));
 
 const USER_ID = "users:user1" as Id<"users">;
+const NOW = Date.parse("2026-10-14T12:00:00Z");
+// Start of the current window of every bucket charged at NOW
+const WINDOW = NOW - HOUR;
 
-/** Remaining tokens per bucket; check/limit read and write it like the real limiter. */
-let remaining: Map<string, number>;
+/** Stored state per bucket; check/limit/getValue read and write it with the limiter's own math. */
+let buckets: Map<string, { value: number; ts: number }>;
+
+/** The buckets' config: 5 tokens per day or month, with windows starting at WINDOW. */
+function configFor(name: string) {
+  const period = name.endsWith("Monthly") ? 30 * DAY : DAY;
+  return { kind: "fixed window", rate: 5, period, capacity: 5, start: WINDOW } as const;
+}
+
+/** Stored tokens of a bucket (undefined if never charged). */
+const valueOf = (name: string) => buckets.get(name)?.value;
 
 function ctxFor(user: { isAnonymous?: boolean } | null) {
   return {
@@ -62,19 +81,32 @@ async function errorCodeOf(promise: Promise<unknown>): Promise<unknown> {
 }
 
 beforeEach(() => {
-  remaining = new Map();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+  buckets = new Map();
   mocks.check.mockImplementation(async (_ctx, name) => ({
-    ok: (remaining.get(name) ?? 5) >= 1,
+    ok: calculateRateLimit(buckets.get(name) ?? null, configFor(name), Date.now(), 1).value >= 0,
   }));
   mocks.limit.mockImplementation(async (_ctx, name, { count = 1 }) => {
-    remaining.set(name, (remaining.get(name) ?? 5) - count);
+    const { value, ts } = calculateRateLimit(
+      buckets.get(name) ?? null,
+      configFor(name),
+      Date.now(),
+      count,
+    );
+    buckets.set(name, { value, ts });
     return { ok: true };
   });
+  mocks.getValue.mockImplementation(async (_ctx, name) => ({
+    ...(buckets.get(name) ?? { value: 5, ts: 0 }),
+    config: configFor(name),
+  }));
   mocks.hasActivePremium.mockResolvedValue(false);
   mocks.getAuthUserId.mockResolvedValue(USER_ID);
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.clearAllMocks();
   vi.unstubAllEnvs();
 });
@@ -82,45 +114,47 @@ afterEach(() => {
 describe("consumeMessageCredit", () => {
   it("charges the daily and monthly buckets of a signed-in free user", async () => {
     expect(await consumeMessageCredit(ctxFor({ isAnonymous: false }), USER_ID)).toEqual([
-      "authenticatedDaily",
-      "standardMonthly",
+      { bucket: "authenticatedDaily", windowStart: WINDOW },
+      { bucket: "standardMonthly", windowStart: WINDOW },
     ]);
 
-    expect(remaining.get("authenticatedDaily")).toBe(4);
-    expect(remaining.get("standardMonthly")).toBe(4);
+    expect(valueOf("authenticatedDaily")).toBe(4);
+    expect(valueOf("standardMonthly")).toBe(4);
   });
 
   it("charges the anonymous daily bucket for guests", async () => {
     expect(await consumeMessageCredit(ctxFor({ isAnonymous: true }), USER_ID)).toEqual([
-      "anonymousDaily",
-      "standardMonthly",
+      { bucket: "anonymousDaily", windowStart: WINDOW },
+      { bucket: "standardMonthly", windowStart: WINDOW },
     ]);
 
-    expect(remaining.get("anonymousDaily")).toBe(4);
-    expect(remaining.has("authenticatedDaily")).toBe(false);
+    expect(valueOf("anonymousDaily")).toBe(4);
+    expect(buckets.has("authenticatedDaily")).toBe(false);
   });
 
   it("charges only premium credits for premium users on premium-credit models", async () => {
     mocks.hasActivePremium.mockResolvedValue(true);
     expect(await consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true })).toEqual([
-      "premiumMonthly",
+      { bucket: "premiumMonthly", windowStart: WINDOW },
     ]);
 
-    expect([...remaining.keys()]).toEqual(["premiumMonthly"]);
+    expect([...buckets.keys()]).toEqual(["premiumMonthly"]);
   });
 
   it("skips the daily bucket for premium users on standard models", async () => {
     mocks.hasActivePremium.mockResolvedValue(true);
-    expect(await consumeMessageCredit(ctxFor({}), USER_ID)).toEqual(["standardMonthly"]);
+    expect(await consumeMessageCredit(ctxFor({}), USER_ID)).toEqual([
+      { bucket: "standardMonthly", windowStart: WINDOW },
+    ]);
 
-    expect([...remaining.keys()]).toEqual(["standardMonthly"]);
+    expect([...buckets.keys()]).toEqual(["standardMonthly"]);
   });
 
   it.each([
     ["authenticatedDaily", ERROR_CODES.DAILY_LIMIT_REACHED],
     ["standardMonthly", ERROR_CODES.MONTHLY_LIMIT_REACHED],
   ])("throws without charging anything when %s is exhausted", async (bucket, code) => {
-    remaining.set(bucket, 0);
+    buckets.set(bucket, { value: 0, ts: WINDOW });
 
     expect(await errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID))).toBe(code);
     expect(mocks.limit).not.toHaveBeenCalled();
@@ -128,7 +162,7 @@ describe("consumeMessageCredit", () => {
 
   it("throws PREMIUM_LIMIT_REACHED when premium credits are exhausted", async () => {
     mocks.hasActivePremium.mockResolvedValue(true);
-    remaining.set("premiumMonthly", 0);
+    buckets.set("premiumMonthly", { value: 0, ts: WINDOW });
 
     expect(
       await errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true })),
@@ -154,7 +188,7 @@ describe("assertMessageCreditAvailable", () => {
     await assertMessageCreditAvailable(ctxFor({}), USER_ID);
     expect(mocks.limit).not.toHaveBeenCalled();
 
-    remaining.set("authenticatedDaily", 0);
+    buckets.set("authenticatedDaily", { value: 0, ts: WINDOW });
     expect(await errorCodeOf(assertMessageCreditAvailable(ctxFor({}), USER_ID))).toBe(
       ERROR_CODES.DAILY_LIMIT_REACHED,
     );
@@ -164,44 +198,68 @@ describe("assertMessageCreditAvailable", () => {
 describe("refundMessageCredit", () => {
   it("returns the credit to every charged bucket", async () => {
     const ctx = ctxFor({});
-    const buckets = await consumeMessageCredit(ctx, USER_ID);
-    await refundMessageCredit(ctx, USER_ID, buckets);
+    const receipt = await consumeMessageCredit(ctx, USER_ID);
+    await refundMessageCredit(ctx, USER_ID, receipt);
 
-    expect(remaining.get("authenticatedDaily")).toBe(5);
-    expect(remaining.get("standardMonthly")).toBe(5);
+    expect(valueOf("authenticatedDaily")).toBe(5);
+    expect(valueOf("standardMonthly")).toBe(5);
   });
 
   it("restores the charged buckets even after the subscription changed", async () => {
     mocks.hasActivePremium.mockResolvedValue(true);
-    const buckets = await consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true });
+    const receipt = await consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true });
     // The subscription lapses mid-generation
     mocks.hasActivePremium.mockResolvedValue(false);
 
-    await refundMessageCredit(ctxFor({}), USER_ID, buckets);
+    await refundMessageCredit(ctxFor({}), USER_ID, receipt);
 
-    expect(remaining.get("premiumMonthly")).toBe(5);
-    expect(remaining.has("authenticatedDaily")).toBe(false);
-    expect(remaining.has("standardMonthly")).toBe(false);
+    expect(valueOf("premiumMonthly")).toBe(5);
+    expect(buckets.has("authenticatedDaily")).toBe(false);
+    expect(buckets.has("standardMonthly")).toBe(false);
   });
 
   it("adds back one credit per bucket without reading the user or subscription", async () => {
-    await refundMessageCredit(ctxFor(null), USER_ID, ["standardMonthly", "standardMonthly"]);
+    buckets.set("standardMonthly", { value: 5, ts: WINDOW });
+    const entry = { bucket: "standardMonthly", windowStart: WINDOW } as const;
 
-    expect(remaining.get("standardMonthly")).toBe(6);
+    await refundMessageCredit(ctxFor(null), USER_ID, [entry, entry]);
+
+    expect(valueOf("standardMonthly")).toBe(6);
     expect(mocks.limit).toHaveBeenCalledTimes(1);
     expect(mocks.hasActivePremium).not.toHaveBeenCalled();
+  });
+
+  it("refunds a charge made before a daily reset to the monthly bucket only", async () => {
+    vi.setSystemTime(WINDOW + DAY - 1);
+    const late = await consumeMessageCredit(ctxFor({}), USER_ID);
+    // The daily window resets, and the user spends a credit in the new one
+    vi.setSystemTime(WINDOW + DAY + 1);
+    const next = await consumeMessageCredit(ctxFor({}), USER_ID);
+
+    // The late generation fails: its daily token is gone with its window
+    await refundMessageCredit(ctxFor({}), USER_ID, late);
+    expect(valueOf("authenticatedDaily")).toBe(4);
+    expect(valueOf("standardMonthly")).toBe(4);
+
+    await refundMessageCredit(ctxFor({}), USER_ID, next);
+    expect(valueOf("authenticatedDaily")).toBe(5);
+    expect(valueOf("standardMonthly")).toBe(5);
   });
 });
 
 describe("users.refundMessageCredit", () => {
   const refund = refundMessageCreditMutation as unknown as (
     ctx: MutationCtx,
-    args: { serverSecret: string; buckets: string[] },
+    args: { serverSecret: string; receipt: { bucket: string; windowStart: number }[] },
   ) => Promise<null>;
 
   it("refunds the caller's charged buckets with the server secret", async () => {
     vi.stubEnv("SERVER_ROUTE_SECRET", "route-secret");
-    await refund(ctxFor({}), { serverSecret: "route-secret", buckets: ["premiumMonthly"] });
+    buckets.set("premiumMonthly", { value: 4, ts: WINDOW });
+    await refund(ctxFor({}), {
+      serverSecret: "route-secret",
+      receipt: [{ bucket: "premiumMonthly", windowStart: WINDOW }],
+    });
 
     expect(mocks.limit.mock.calls.map(([, name, options]) => [name, options])).toEqual([
       ["premiumMonthly", { key: USER_ID, count: -1 }],
@@ -216,15 +274,18 @@ describe("users.refundMessageCredit", () => {
 
     expect(
       await errorCodeOf(
-        refund(ctxFor({}), { serverSecret: provided, buckets: ["standardMonthly"] }),
+        refund(ctxFor({}), {
+          serverSecret: provided,
+          receipt: [{ bucket: "standardMonthly", windowStart: WINDOW }],
+        }),
       ),
     ).toBe(ERROR_CODES.UNAUTHORIZED);
     expect(mocks.limit).not.toHaveBeenCalled();
   });
 });
 
-// refundMessageCredit relies on the limiter accepting negative counts and capping values
-// at capacity when it reads them. Guard that behaviour across library upgrades.
+// refundMessageCredit relies on the limiter accepting negative counts and projecting a
+// bucket to the start of its current window. Guard that behaviour across library upgrades.
 describe("rate limiter refund contract", () => {
   const config = { kind: "fixed window", rate: 20, period: DAY, capacity: 20 } as const;
 
@@ -236,10 +297,8 @@ describe("rate limiter refund contract", () => {
     expect(refunded.value).toBe(20);
   });
 
-  it("caps a refund that lands after the window reset at capacity", () => {
-    const refunded = calculateRateLimit({ value: 19, ts: 0 }, config, DAY + 1, -1);
-    const nextCharge = calculateRateLimit(refunded, config, DAY + 2, 1);
-
-    expect(nextCharge.value).toBe(19);
+  it("projects a bucket to the start of the window it is in", () => {
+    expect(calculateRateLimit({ value: 19, ts: 0 }, config, DAY - 1).ts).toBe(0);
+    expect(calculateRateLimit({ value: 19, ts: 0 }, config, DAY + 1).ts).toBe(DAY);
   });
 });

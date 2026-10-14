@@ -11,16 +11,16 @@ vi.mock("@/lib/middleware/auth", () => ({ getServerRouteSecret }));
 
 type MutationCall = [FunctionReference<"mutation">, Record<string, unknown>];
 
-const CHARGED_BUCKETS = ["premiumMonthly"];
+const CHARGED_RECEIPT = [{ bucket: "premiumMonthly", windowStart: 1 }];
 
-// consumeMessageCredit answers with the charged buckets unless mutationImpl overrides it
+// consumeMessageCredit answers with the charge's receipt unless mutationImpl overrides it
 function setup(mutationImpl?: (name: string) => Promise<unknown>) {
   const mutation = vi.fn<(...call: MutationCall) => Promise<unknown>>(async (fn) => {
     const name = getFunctionName(fn);
     if (mutationImpl) {
       return await mutationImpl(name);
     }
-    return name === "users:consumeMessageCredit" ? CHARGED_BUCKETS : null;
+    return name === "users:consumeMessageCredit" ? CHARGED_RECEIPT : null;
   });
   const controller = new AbortController();
   const credits = createMessageCreditTracker(
@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe("createMessageCreditTracker", () => {
-  it("charges a credit and refunds its buckets once with the server secret", async () => {
+  it("charges a credit and refunds its receipt once with the server secret", async () => {
     const { credits, calls } = setup();
 
     await credits.charge(true);
@@ -45,7 +45,7 @@ describe("createMessageCreditTracker", () => {
 
     expect(calls()).toEqual([
       ["users:consumeMessageCredit", { usesPremiumCredits: true }],
-      ["users:refundMessageCredit", { serverSecret: "route-secret", buckets: CHARGED_BUCKETS }],
+      ["users:refundMessageCredit", { serverSecret: "route-secret", receipt: CHARGED_RECEIPT }],
     ]);
   });
 
@@ -99,7 +99,7 @@ describe("createMessageCreditTracker", () => {
       if (name === "users:refundMessageCredit") {
         throw new Error("network down");
       }
-      return CHARGED_BUCKETS;
+      return CHARGED_RECEIPT;
     });
 
     await credits.charge(false);

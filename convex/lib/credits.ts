@@ -1,3 +1,4 @@
+import { calculateRateLimit } from "@convex-dev/rate-limiter";
 import { ConvexError, v, type Infer } from "convex/values";
 import { ERROR_CODES, type ErrorCode } from "../../src/lib/error-codes";
 import type { Id } from "../_generated/dataModel";
@@ -15,8 +16,8 @@ import { hasActivePremium } from "../stripe";
  * - non-premium user: anonymousDaily or authenticatedDaily, plus standardMonthly
  *
  * Charge with consumeMessageCredit when a request starts and refund with
- * refundMessageCredit only when the generation itself fails, passing back the bucket
- * names the charge returned.
+ * refundMessageCredit only when the generation itself fails, passing back the receipt
+ * the charge returned.
  */
 
 export const creditBucketValidator = v.union(
@@ -27,6 +28,13 @@ export const creditBucketValidator = v.union(
 );
 
 export type CreditBucketName = Infer<typeof creditBucketValidator>;
+
+/** What a charge drew from: each bucket with the start of the window its token came from. */
+export const creditReceiptValidator = v.array(
+  v.object({ bucket: creditBucketValidator, windowStart: v.number() }),
+);
+
+export type CreditReceipt = Infer<typeof creditReceiptValidator>;
 
 interface CreditBucket {
   name: CreditBucketName;
@@ -102,39 +110,49 @@ export async function assertMessageCreditAvailable(
 }
 
 /**
- * Charges one message credit and returns the names of the buckets it was drawn from
- * (the refund receipt), throwing the same errors as assertMessageCreditAvailable when
- * the user is out of credits. Every bucket is checked before any is charged, so a
- * caller that catches the error never keeps a partial charge. The writes join the
- * calling mutation's transaction, so concurrent requests serialize on the bucket
- * documents and cannot spend the same credit twice.
+ * Charges one message credit and returns its refund receipt, throwing the same errors
+ * as assertMessageCreditAvailable when the user is out of credits. Every bucket is
+ * checked before any is charged, so a caller that catches the error never keeps a
+ * partial charge. The writes join the calling mutation's transaction, so concurrent
+ * requests serialize on the bucket documents and cannot spend the same credit twice.
  */
 export async function consumeMessageCredit(
   ctx: MutationCtx,
   userId: Id<"users">,
   options: MessageCreditOptions = {},
-): Promise<CreditBucketName[]> {
+): Promise<CreditReceipt> {
   const buckets = await getMessageCreditBuckets(ctx, userId, options);
   await assertBucketsHaveCredit(ctx, userId, buckets);
-  for (const bucket of buckets) {
-    await rateLimiter.limit(ctx, bucket.name, { key: userId, throws: true });
+  const receipt: CreditReceipt = [];
+  for (const { name } of buckets) {
+    await rateLimiter.limit(ctx, name, { key: userId, throws: true });
+    // The charge just wrote the bucket, so its stored ts is the start of the window charged
+    const { ts } = await rateLimiter.getValue(ctx, name, { key: userId });
+    receipt.push({ bucket: name, windowStart: ts });
   }
-  return buckets.map((bucket) => bucket.name);
+  return receipt;
 }
 
 /**
- * Returns a credit charged by consumeMessageCredit to exactly the buckets it returned,
+ * Returns a credit charged by consumeMessageCredit to exactly the buckets on its receipt,
  * whatever the user's subscription is now. Call it only when the generation itself
  * failed (provider or server error), never for user aborts or failed saves.
- * A negative count adds a token back; the limiter caps values at capacity whenever it
- * reads them, so a refund that lands after the window reset cannot exceed the allowance.
+ * A negative count adds a token back, once per bucket. A bucket whose charged window has
+ * since ended is skipped: that window's tokens are gone, and adding one now would grant
+ * an extra credit in the new window.
  */
 export async function refundMessageCredit(
   ctx: MutationCtx,
   userId: Id<"users">,
-  buckets: CreditBucketName[],
+  receipt: CreditReceipt,
 ): Promise<void> {
-  for (const name of new Set(buckets)) {
+  const now = Date.now();
+  const windowStarts = new Map(receipt.map((entry) => [entry.bucket, entry.windowStart]));
+  for (const [name, windowStart] of windowStarts) {
+    const { value, ts, config } = await rateLimiter.getValue(ctx, name, { key: userId });
+    if (calculateRateLimit({ value, ts }, config, now).ts !== windowStart) {
+      continue;
+    }
     await rateLimiter.limit(ctx, name, { key: userId, count: -1 });
   }
 }
