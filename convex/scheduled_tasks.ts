@@ -27,7 +27,8 @@ const TASK_LIMITS = {
   total: 10,
 } as const;
 
-// A claimed run still unfinished after this long is dead: actions are killed after 10 minutes.
+// A claimed run still unfinished after this long is dead: scheduled_ai:executeTask stops
+// generating 8 minutes after the claim, and ends at once if it starts any later.
 const STALE_RUN_MS = 15 * 60 * 1000;
 
 const scheduledTaskDoc = v.object({

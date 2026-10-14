@@ -37,8 +37,10 @@ const PAUSING_LIMIT_ERRORS = new Set<string>([
   ERROR_CODES.PREMIUM_LIMIT_REACHED,
 ]);
 
-// Generation is aborted this long after the run starts, so a slow run still fails inside the
-// action (refunding its credit) instead of being killed at Convex's 10-minute action limit.
+// Generation is aborted this long after the run was claimed, so a slow run still fails inside the
+// action (refunding its credit) instead of being killed at Convex's 10-minute action limit. It
+// counts from the claim, not the action's start, so a run delayed in the action queue still ends
+// before scheduled_tasks:expireTaskExecution releases the task.
 const GENERATION_DEADLINE_MS = 8 * 60 * 1000;
 
 // Performs one run of a scheduled task that is already claimed: scheduled right after the claim
@@ -46,12 +48,14 @@ const GENERATION_DEADLINE_MS = 8 * 60 * 1000;
 // the claimed task and the executionId of its "running" history row.
 export const executeTask = internalAction({
   args: {
-    task: schema.doc("scheduled_tasks"),
+    // lastExecuted is the claim time (set by scheduled_tasks.claimRun)
+    task: schema.doc("scheduled_tasks").extend({ lastExecuted: v.number() }),
     executionId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, { task, executionId }) => {
     const startTime = Date.now();
+    const generationDeadline = task.lastExecuted + GENERATION_DEADLINE_MS;
     let chatId: Id<"chats"> | undefined;
     // Buckets of the charged credit; refunded only if the run fails before the model finishes
     // generating
@@ -69,6 +73,12 @@ export const executeTask = internalAction({
         chatId,
         ...details,
       });
+
+    // Started too late (the action queue lagged): the claim may already have expired, so end the
+    // run before charging a credit, creating a chat, or calling tools
+    if (startTime >= generationDeadline) {
+      return await finish("failure", { errorMessage: "The run could not start in time." });
+    }
 
     try {
       // Validate memory backend config before creating the chat
@@ -302,7 +312,7 @@ export const executeTask = internalAction({
       // Execute Agent
       const result = await agent.generate({
         messages: [...history, { role: "user" as const, content: task.prompt }],
-        timeout: Math.max(0, startTime + GENERATION_DEADLINE_MS - Date.now()),
+        timeout: Math.max(0, generationDeadline - Date.now()),
       });
 
       generated = true;

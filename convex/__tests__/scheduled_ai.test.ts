@@ -57,6 +57,8 @@ const TASK_ID = "scheduled_tasks:task1";
 const USER_ID = "users:user1";
 const CHARGED_BUCKETS = ["authenticatedDaily", "standardMonthly"];
 const EXECUTION_ID = "exec_1";
+const NOW = Date.parse("2026-10-14T09:00:00Z");
+const MINUTE = 60 * 1000;
 // The task as claimed by scheduled_tasks.claimRun
 const TASK = {
   _id: TASK_ID,
@@ -68,7 +70,7 @@ const TASK = {
   scheduledTime: "09:00",
   timezone: "UTC",
   status: "running",
-  lastExecuted: 0,
+  lastExecuted: NOW,
   createdAt: 0,
 };
 
@@ -107,12 +109,15 @@ const run = (ctx: ReturnType<typeof createCtx>) =>
   (executeTask as unknown as Handler)(ctx, { task: TASK, executionId: EXECUTION_ID });
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(NOW);
   vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.test");
   vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "token");
   mocks.model.skipRateLimit = false;
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.clearAllMocks();
 });
@@ -220,5 +225,37 @@ describe("executeTask credits", () => {
     const timeout = mocks.generate.mock.calls[0]?.[0].timeout ?? Infinity;
     expect(timeout).toBeGreaterThan(0);
     expect(timeout).toBeLessThanOrEqual(8 * 60 * 1000);
+  });
+});
+
+describe("executeTask start lag", () => {
+  it("measures the generation deadline from the claim, not the action start", async () => {
+    vi.setSystemTime(NOW + 3 * MINUTE);
+
+    await run(createCtx());
+
+    expect(mocks.generate.mock.calls[0]?.[0].timeout).toBe(5 * MINUTE);
+  });
+
+  it("ends a run that starts after its deadline without charging, a chat, or generating", async () => {
+    vi.setSystemTime(NOW + 8 * MINUTE);
+    const ctx = createCtx();
+
+    await run(ctx);
+
+    expect(calls(ctx)).toEqual([
+      [
+        "scheduled_tasks:finishTaskExecution",
+        {
+          taskId: TASK_ID,
+          executionId: EXECUTION_ID,
+          outcome: "failure",
+          chatId: undefined,
+          errorMessage: "The run could not start in time.",
+        },
+      ],
+    ]);
+    expect(ctx.runQuery).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
   });
 });
