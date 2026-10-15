@@ -358,7 +358,7 @@ function useModelSelectorV2View({
 		if (isUpgradeLoading) {
 			return;
 		}
-		if (user?.isAnonymous) {
+		if (!user || user.isAnonymous) {
 			router.navigate({ to: "/auth" });
 			return;
 		}
@@ -381,7 +381,7 @@ function useModelSelectorV2View({
 		dispatch({ type: "SET_UPGRADE_LOADING", value: false });
 		window.location.href = checkoutUrl;
 		}, [
-		user?.isAnonymous,
+		user,
 		createCheckout,
 		isUpgradeLoading,
 		router,

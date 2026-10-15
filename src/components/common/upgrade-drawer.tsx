@@ -44,8 +44,8 @@ export function UpgradeDrawer({
 				return;
 			}
 
-			// Anonymous users: send to auth page
-			if (user?.isAnonymous) {
+			// Guests and signed-out visitors: send to auth page
+			if (!user || user.isAnonymous) {
 				router.navigate({ to: "/auth" });
 				return;
 			}

@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   getNextRateLimitReset,
@@ -9,6 +9,7 @@ import {
   type RateLimitStatus,
   resolveRateLimitStatus,
 } from "@/lib/rate-limit-status";
+import { createSessionGate } from "@/lib/session-gate";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 
@@ -26,8 +27,15 @@ export interface ApiKey {
 export type Connector = Doc<"connectors">;
 
 interface UserContextType {
+  /** Null while loading (see isLoading) or for a signed-out visitor, who has no account yet. */
   user: UserProfile | null;
+  /** True while the session or the user's data is still loading. */
   isLoading: boolean;
+  /**
+   * Resolves once Convex is authenticated, signing a visitor in as a guest first. Call it before
+   * the first write a signed-out visitor makes (sending a message); rejects if no session starts.
+   */
+  ensureSession: () => Promise<void>;
   signInGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (updates: Partial<UserProfile>) => Promise<void>;
@@ -52,8 +60,20 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
-  // isLoading will always be false here
   const { signIn, signOut } = useAuthActions();
+  const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
+  const [sessionGate] = useState(() =>
+    createSessionGate({ isLoading: isAuthLoading, isAuthenticated }),
+  );
+  // Publish Convex's auth state to the gate: it is how ensureSession learns a new token is live
+  useEffect(() => {
+    sessionGate.update({ isLoading: isAuthLoading, isAuthenticated });
+  }, [sessionGate, isAuthLoading, isAuthenticated]);
+  const ensureSession = useCallback(
+    () => sessionGate.ensure(() => signIn("anonymous")),
+    [sessionGate, signIn],
+  );
+
   const { data: user = null, isLoading: isUserLoading } = useTanStackQuery({
     ...convexQuery(api.users.getCurrentUser, {}),
     // Extended cache for user data to prevent auth flickering
@@ -133,8 +153,7 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   });
   const updateUserProfile = useMutation(api.users.updateUserProfile);
 
-  // Anonymous sign-in is now handled by AnonymousSignIn component in AuthGuard
-  // User creation and account linking is handled by the createOrUpdateUser callback in auth.ts
+  // Users (guest or Google) are created by the createOrUpdateUser callback in convex/auth.ts
 
   const signInGoogle = useCallback(async () => {
     await signIn("google");
@@ -168,8 +187,10 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const hasAnthropic = hasApiKey.get("anthropic") ?? false;
   const hasGemini = hasApiKey.get("gemini") ?? false;
 
-  // Combined loading state for user-related data (auth loading is handled by AuthLoading component)
+  // Until auth settles, getCurrentUser answers unauthenticated (null), so a null user is not yet
+  // a signed-out visitor
   const combinedLoading = Boolean(
+    isAuthLoading ||
     isUserLoading ||
     (user &&
       !user.isAnonymous &&
@@ -180,6 +201,7 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     () => ({
       user,
       isLoading: combinedLoading,
+      ensureSession,
       signInGoogle,
       signOut,
       updateUser,
@@ -200,6 +222,7 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     [
       user,
       combinedLoading,
+      ensureSession,
       signInGoogle,
       signOut,
       updateUser,

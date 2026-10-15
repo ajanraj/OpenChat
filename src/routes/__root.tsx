@@ -8,11 +8,11 @@ import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanst
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
-import { AuthGuard } from "@/components/auth/auth-guard";
 import LayoutApp from "@/components/layout/layout-app";
 import { StructuredData } from "@/components/structured-data";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_BASE_URL, APP_DESCRIPTION, APP_NAME, META_TITLE } from "@/lib/config";
+import { AppProviders } from "@/providers/app-providers";
 import { SidebarProvider } from "@/providers/sidebar-provider";
 import { LazyMotion, domMax } from "motion/react";
 import { ConvexProvider } from "../integrations/convex/provider";
@@ -226,14 +226,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <LazyMotion features={domMax}>
           <ConvexProvider>
             <TooltipProvider>
-              <AuthGuard>
+              <AppProviders>
                 <SidebarProvider>
                   <LayoutApp>{children}</LayoutApp>
                 </SidebarProvider>
                 {/* Vercel Analytics */}
                 <Analytics />
                 <SpeedInsights />
-              </AuthGuard>
+              </AppProviders>
             </TooltipProvider>
             {isDev === true && (
               <TanStackDevtools

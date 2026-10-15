@@ -17,12 +17,10 @@ export function useChatValidation() {
   const checkRateLimits = useCallback(
     (isAuthenticated: boolean, setHasDialogAuth: (value: boolean) => void) => {
       try {
+        // Unknown for a visitor without an account yet, or while it loads: let the send through,
+        // since the server enforces the limits anyway
         if (!rateLimitStatus) {
-          toast({
-            title: "Failed to check rate limits",
-            status: "error",
-          });
-          return false;
+          return true;
         }
 
         const remaining = rateLimitStatus.effectiveRemaining;

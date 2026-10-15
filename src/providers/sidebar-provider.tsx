@@ -1,3 +1,5 @@
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { getCookie } from "@tanstack/react-start/server";
 import type React from "react";
 import { createContext, useCallback, useContext, useState } from "react";
 
@@ -8,30 +10,26 @@ interface SidebarContextType {
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
+const SIDEBAR_COOKIE = "sidebarOpen";
+const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+// A cookie rather than localStorage: the server reads it too, so the server-rendered sidebar
+// matches what the browser hydrates
+const readSidebarOpen = createIsomorphicFn()
+  .server(() => getCookie(SIDEBAR_COOKIE) === "true")
+  .client(() => document.cookie.split("; ").includes(`${SIDEBAR_COOKIE}=true`));
+
+function saveSidebarOpen(isOpen: boolean) {
+  document.cookie = `${SIDEBAR_COOKIE}=${isOpen}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}; samesite=lax`;
+}
+
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const savedState = localStorage.getItem("sidebarOpen");
-        return savedState === "true";
-      } catch {
-        // Fallback to false if localStorage is blocked/unavailable
-        return false;
-      }
-    }
-    return false;
-  });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => readSidebarOpen());
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => {
       const newState = !prev;
-      if (typeof window !== "undefined" && window.localStorage) {
-        try {
-          localStorage.setItem("sidebarOpen", String(newState));
-        } catch {
-          // Silently handle localStorage errors (private mode, quota exceeded, etc.)
-        }
-      }
+      saveSidebarOpen(newState);
       return newState;
     });
   }, []);

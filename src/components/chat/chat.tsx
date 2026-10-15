@@ -5,11 +5,12 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { DefaultChatTransport, type FileUIPart } from "ai";
+import type { FileUIPart } from "ai";
 import { AnimatePresence, m } from "motion/react";
 import {
 	createContext,
 	lazy,
+	Suspense,
 	useCallback,
 	useContext,
 	useEffect,
@@ -39,6 +40,7 @@ import { useChatValidation } from "@/hooks/use-chat-validation";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useFileHandling } from "@/hooks/use-file-handling";
 import { createChatErrorHandler } from "@/lib/chat-error-utils";
+import { chatTransport, setChatAuthToken } from "@/lib/chat-transport";
 import {
 	MODEL_DEFAULT,
 	MODELS_MAP,
@@ -62,7 +64,6 @@ import {
 	supportsReasoningEffort,
 } from "@/lib/model-utils";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
-import { API_ROUTE_CHAT } from "@/lib/routes";
 import { HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT } from "@/lib/hotkey-events";
 import {
 	getDisplayName,
@@ -78,7 +79,6 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 const DRAFT_CHAT_KEY = "draft-chat";
 const chatRegistry = new Map<string, ChatInstance<MessageWithExtras>>();
-const chatAuthTokenRegistry = new WeakMap<ChatInstance<MessageWithExtras>, string | null>();
 const chatIdentityRegistry = new WeakMap<object, number>();
 let chatIdentityCounter = 0;
 
@@ -181,6 +181,7 @@ function useChatContentView() {
 		isLoading: isUserLoading,
 		hasApiKey,
 		isApiKeysLoading,
+		ensureSession,
 	} = useUser();
 
 	// Initialize utilities
@@ -525,7 +526,7 @@ function useChatContentView() {
 
 	// URL parameter processing
 	useEffect(() => {
-		if (isUserLoading || isApiKeysLoading || !user || processedUrl.current) {
+		if (isUserLoading || isApiKeysLoading || processedUrl.current) {
 			return;
 		}
 
@@ -545,6 +546,7 @@ function useChatContentView() {
 			}
 
 				const startChat = async () => {
+					await ensureSession();
 					const newChatId = await handleCreateChat(
 						trimmedQuery,
 						modelId,
@@ -580,6 +582,7 @@ function useChatContentView() {
 		validateSearchQuery,
 		validateModelAccess,
 		sendMessageHelper,
+		ensureSession,
 	]);
 
 	// Main submit handler
@@ -588,12 +591,20 @@ function useChatContentView() {
 			inputMessage: string,
 			opts?: { body?: { enableSearch?: boolean } },
 		) => {
-			if (!validateInput(inputMessage, files.length, user?._id)) {
+			if (!validateInput(inputMessage, files.length)) {
 				return;
 			}
 
 			const allowed = checkRateLimits(isAuthenticated, (v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v }));
 			if (!allowed) {
+				return;
+			}
+
+			// A signed-out visitor's first message is what creates their guest account
+			try {
+				await ensureSession();
+			} catch {
+				toast({ title: "Couldn't start your session. Please try again.", status: "error" });
 				return;
 			}
 
@@ -625,9 +636,9 @@ function useChatContentView() {
 		},
 		[
 			files.length,
-			user?._id,
 			checkRateLimits,
 			isAuthenticated,
+			ensureSession,
 			chatId,
 			messages.length,
 			handleCreateChat,
@@ -1063,7 +1074,9 @@ function useChatContentView() {
 				"@container/main relative flex h-full min-h-0 flex-col items-center justify-end md:justify-center",
 			)}
 		>
-			<DialogAuth open={hasDialogAuth} setOpenAction={(v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v })} />
+			<Suspense fallback={null}>
+				<DialogAuth open={hasDialogAuth} setOpenAction={(v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v })} />
+			</Suspense>
 			<AlertDialog
 				onOpenChange={(open) => {
 					if (isDeleting) return;
@@ -1183,44 +1196,33 @@ export default function Chat() {
 	const authToken = useAuthToken();
 	const storeKey = chatId ?? DRAFT_CHAT_KEY;
 
-	const chatTransport = useMemo(
-		() =>
-			new DefaultChatTransport({
-				api: API_ROUTE_CHAT,
-				headers: {
-					"Content-Type": "application/json",
-					...(authToken && { Authorization: `Bearer ${authToken}` }),
-				},
-			}),
-		[authToken],
-	);
+	// The shared transport reads the token per request, so instances never need recreating
+	useEffect(() => {
+		setChatAuthToken(authToken);
+	}, [authToken]);
 
 	const chatInstance = useMemo(() => {
+		// The registry is module state, shared by every request on the server, so SSR gets a
+		// throwaway instance
+		if (typeof window === "undefined") {
+			return new ChatInstance<MessageWithExtras>({ id: storeKey, transport: chatTransport });
+		}
 		const existing = chatRegistry.get(storeKey);
-		// Reuse existing instance if auth token hasn't changed.
-		// Compare token string (not transport object ref) so remounts
-		// after route navigation don't needlessly recreate the instance
-		// while an in-flight sendMessage/stream is still running.
-		if (existing && chatAuthTokenRegistry.get(existing) === (authToken ?? null)) {
+		if (existing) {
 			// Promote reused entry to most-recently-used position.
 			chatRegistry.delete(storeKey);
 			chatRegistry.set(storeKey, existing);
 			return existing;
 		}
-		// Auth token changed or no instance yet — create new,
-		// preserving messages from the old instance to avoid UI flash.
-		const existingMessages = existing?.messages ?? [];
 		const instance = new ChatInstance<MessageWithExtras>({
 			id: storeKey,
 			transport: chatTransport,
 			onError: createChatErrorHandler(),
-			...(existingMessages.length > 0 ? { messages: existingMessages } : {}),
 		});
 		chatRegistry.set(storeKey, instance);
-		chatAuthTokenRegistry.set(instance, authToken ?? null);
 		evictOldestChats();
 		return instance;
-	}, [storeKey, chatTransport, authToken]);
+	}, [storeKey]);
 
 	const chatIdentity = useMemo(
 		() => getChatIdentity(chatInstance),

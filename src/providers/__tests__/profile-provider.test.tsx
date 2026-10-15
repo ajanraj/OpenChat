@@ -25,6 +25,7 @@ interface MockUserResult {
     activeProfileId?: string;
     isAnonymous: boolean;
   } | null;
+  isLoading?: boolean;
 }
 
 type MutationValue = boolean | null | number | string | undefined;
@@ -217,8 +218,12 @@ describe("ProfileProvider chatListProfileId", () => {
     return <div data-testid="chat-list-profile-id">{String(chatListProfileId)}</div>;
   }
 
-  function renderChatListProfileId(user: MockUserResult["user"], query: MockQueryResult) {
-    useUserMock.mockReturnValue({ user });
+  function renderChatListProfileId(
+    user: MockUserResult["user"],
+    query: MockQueryResult,
+    isUserLoading = false,
+  ) {
+    useUserMock.mockReturnValue({ user, isLoading: isUserLoading });
     useTanStackQueryMock.mockReturnValue(query);
     const { getByTestId, unmount } = renderWithProvider(<ChatListProfileHarness />);
     const value = getByTestId("chat-list-profile-id").textContent;
@@ -242,13 +247,17 @@ describe("ProfileProvider chatListProfileId", () => {
   });
 
   it("is unknown until a signed-in user's profile is known", () => {
-    expect(renderChatListProfileId(null, { data: [], isLoading: false })).toBe("undefined");
+    expect(renderChatListProfileId(null, { data: [], isLoading: false }, true)).toBe("undefined");
     expect(
       renderChatListProfileId(
         { _id: "users:u1", isAnonymous: false },
         { data: [], isLoading: true },
       ),
     ).toBe("undefined");
+  });
+
+  it("is null for a signed-out visitor, who has no chats until their first message", () => {
+    expect(renderChatListProfileId(null, { data: [], isLoading: false })).toBe("null");
   });
 
   it("uses an anonymous user's active profile, or null before their first chat", () => {

@@ -29,7 +29,7 @@ interface ProfileContextType {
   /**
    * The profile whose chats the chat lists show: the active profile, or the user's stored active
    * profile id until profiles load (anonymous users never load them). Null while an anonymous user
-   * has no profile (so no chats yet); undefined while unknown.
+   * has no profile, or for a signed-out visitor (so no chats yet); undefined while unknown.
    */
   chatListProfileId: Id<"profiles"> | null | undefined;
   setActiveProfile: (profileId: Id<"profiles">, currentChatId?: string | null) => void;
@@ -48,7 +48,7 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 const THEME_SAVE_DEBOUNCE_MS = 1000;
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useUser();
+  const { user, isLoading: isUserLoading } = useUser();
   const ensureDefault = useMutation(api.profiles.ensureDefaultProfile);
   const setActive = useMutation(api.profiles.setActiveProfile);
   const updateProfileMut = useMutation(api.profiles.updateProfile);
@@ -116,8 +116,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, [activeProfileId, profiles]);
   // The stored id lets chats load alongside the profiles (anonymous users never load profiles; their
   // first chat creates a default profile and makes it active)
+  const hasNoProfile = user ? user.isAnonymous : !isUserLoading;
   const chatListProfileId =
-    activeProfile?._id ?? activeProfileId ?? (user?.isAnonymous ? null : undefined);
+    activeProfile?._id ?? activeProfileId ?? (hasNoProfile ? null : undefined);
 
   // Apply theme config when active profile changes
   const prevProfileIdRef = useRef<Id<"profiles"> | undefined>(undefined);
