@@ -216,6 +216,7 @@ function useChatContentView() {
 	// Local state
 	type ChatUIState = {
 		hasDialogAuth: boolean;
+		isStartingChat: boolean;
 		reasoningEffort: ReasoningEffort;
 		tempPersonaId: string | undefined;
 		tempSelectedModel: string | undefined;
@@ -223,6 +224,7 @@ function useChatContentView() {
 	};
 	type ChatUIAction =
 		| { type: "SET_DIALOG_AUTH"; value: boolean }
+		| { type: "SET_STARTING_CHAT"; value: boolean }
 		| { type: "SET_REASONING_EFFORT"; value: ReasoningEffort }
 		| { type: "SET_TEMP_PERSONA"; id: string | undefined }
 		| { type: "SET_TEMP_MODEL"; model: string | undefined }
@@ -234,6 +236,8 @@ function useChatContentView() {
 			switch (action.type) {
 				case "SET_DIALOG_AUTH":
 					return { ...s, hasDialogAuth: action.value };
+				case "SET_STARTING_CHAT":
+					return { ...s, isStartingChat: action.value };
 				case "SET_REASONING_EFFORT":
 					return { ...s, reasoningEffort: action.value };
 				case "SET_TEMP_PERSONA":
@@ -246,9 +250,12 @@ function useChatContentView() {
 					return { ...s, tempPersonaId: undefined, tempSelectedModel: undefined };
 			}
 		},
-		{ hasDialogAuth: false, reasoningEffort: "none", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false },
+		{ hasDialogAuth: false, isStartingChat: false, reasoningEffort: "none", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false },
 	);
-	const { hasDialogAuth, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
+	const { hasDialogAuth, isStartingChat, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
+	// Starting a chat spans several round trips (guest sign-in, createChat) before the chat's own
+	// status shows a request; a second send in that window would start a second chat
+	const startingChatRef = useRef(false);
 	const processedUrl = useRef(false);
 	const retiredFallbackChatIds = useRef(new Set<string>());
 
@@ -600,39 +607,55 @@ function useChatContentView() {
 				return;
 			}
 
-			// A signed-out visitor's first message is what creates their guest account
-			try {
-				await ensureSession();
-			} catch {
-				toast({ title: "Couldn't start your session. Please try again.", status: "error" });
-				return;
+			const isNewChat = !chatId && messages.length === 0;
+			if (isNewChat) {
+				if (startingChatRef.current) {
+					return;
+				}
+				startingChatRef.current = true;
+				dispatchUI({ type: "SET_STARTING_CHAT", value: true });
 			}
 
-			let currentChatId = chatId;
-
-			// Create chat if needed
-			if (!currentChatId && messages.length === 0 && inputMessage) {
-				currentChatId = await handleCreateChat(
-					inputMessage,
-					selectedModel,
-					personaId,
-					activeProfile?._id,
-				);
-				if (!currentChatId) {
+			try {
+				// A signed-out visitor's first message is what creates their guest account
+				try {
+					await ensureSession();
+				} catch {
+					toast({ title: "Couldn't start your session. Please try again.", status: "error" });
 					return;
 				}
 
-				promoteDraftChatToReal(currentChatId);
-				void router.navigate({ to: `/c/${currentChatId}` });
-				dispatchUI({ type: "CLEAR_TEMP" });
-			}
+				let currentChatId = chatId;
 
-			clearFiles();
-			await sendMessageHelper(
-				inputMessage,
-				currentChatId || undefined,
-				opts?.body,
-			);
+				// Create chat if needed
+				if (isNewChat && inputMessage) {
+					currentChatId = await handleCreateChat(
+						inputMessage,
+						selectedModel,
+						personaId,
+						activeProfile?._id,
+					);
+					if (!currentChatId) {
+						return;
+					}
+
+					promoteDraftChatToReal(currentChatId);
+					void router.navigate({ to: `/c/${currentChatId}` });
+					dispatchUI({ type: "CLEAR_TEMP" });
+				}
+
+				clearFiles();
+				await sendMessageHelper(
+					inputMessage,
+					currentChatId || undefined,
+					opts?.body,
+				);
+			} finally {
+				if (isNewChat) {
+					startingChatRef.current = false;
+					dispatchUI({ type: "SET_STARTING_CHAT", value: false });
+				}
+			}
 		},
 		[
 			files.length,
@@ -1168,7 +1191,8 @@ function useChatContentView() {
 				<ChatInput
 					files={files}
 					hasSuggestions={!chatId && messages.length === 0}
-					status={status}
+					// A chat being started counts as a request in flight, so the input holds the next send
+					status={isStartingChat ? "submitted" : status}
 					stop={stop}
 					isReasoningModel={supportsReasoningEffort(selectedModel)}
 					isUserAuthenticated={isAuthenticated}

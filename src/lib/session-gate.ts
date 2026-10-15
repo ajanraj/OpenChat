@@ -11,8 +11,22 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
-/** How long to wait for Convex to settle or confirm a session before giving up. */
+/** How long one attempt may take to settle, sign in and get the token confirmed. */
 export const SESSION_TIMEOUT_MS = 15_000;
+
+interface SignInResult {
+  signingIn: boolean;
+}
+
+const timeoutError = () => new Error("Timed out waiting for the session to start");
+
+/** Settles like `promise`, or rejects once `deadline` (epoch ms) passes. */
+function beforeDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(timeoutError()), deadline - Date.now());
+    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
 
 /**
  * Create one per app (UserProvider). Feed it every auth state change with `update`; `ensure`
@@ -21,14 +35,17 @@ export const SESSION_TIMEOUT_MS = 15_000;
 export function createSessionGate(initial: AuthState) {
   let current = initial;
   let pending: Promise<void> | null = null;
+  // Outlives a timed-out attempt: the retry waits on the same sign-in instead of starting a second
+  // one, which would create a second guest account
+  let signInInFlight: Promise<SignInResult> | null = null;
   const listeners = new Set<() => void>();
 
-  function waitFor(predicate: (state: AuthState) => boolean): Promise<AuthState> {
-    return new Promise((resolve, reject) => {
+  function waitFor(predicate: (state: AuthState) => boolean, deadline: number) {
+    return new Promise<AuthState>((resolve, reject) => {
       const timer = setTimeout(() => {
         listeners.delete(check);
-        reject(new Error("Timed out waiting for the session to start"));
-      }, SESSION_TIMEOUT_MS);
+        reject(timeoutError());
+      }, deadline - Date.now());
       function check() {
         if (predicate(current)) {
           clearTimeout(timer);
@@ -50,18 +67,22 @@ export function createSessionGate(initial: AuthState) {
       }
     },
 
-    /** Concurrent calls share one sign-in; a failed attempt is retried by the next call. */
-    ensure(signInAnonymously: () => Promise<{ signingIn: boolean }>): Promise<void> {
+    /** Concurrent calls share one attempt; a failed attempt is retried by the next call. */
+    ensure(signInAnonymously: () => Promise<SignInResult>): Promise<void> {
       pending ??= (async () => {
-        const settled = await waitFor((state) => !state.isLoading);
+        const deadline = Date.now() + SESSION_TIMEOUT_MS;
+        const settled = await waitFor((state) => !state.isLoading, deadline);
         if (settled.isAuthenticated) {
           return;
         }
-        const { signingIn } = await signInAnonymously();
+        signInInFlight ??= signInAnonymously().finally(() => {
+          signInInFlight = null;
+        });
+        const { signingIn } = await beforeDeadline(signInInFlight, deadline);
         if (!signingIn) {
           throw new Error("Anonymous sign-in did not start a session");
         }
-        await waitFor((state) => state.isAuthenticated);
+        await waitFor((state) => state.isAuthenticated, deadline);
       })().finally(() => {
         pending = null;
       });

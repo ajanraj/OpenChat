@@ -99,4 +99,28 @@ describe("createSessionGate", () => {
 
     expect(signIn).toHaveBeenCalledTimes(2);
   });
+
+  it("bounds a stalled sign-in, and the retry reuses it rather than creating a second guest", async () => {
+    vi.useFakeTimers();
+    const gate = createSessionGate(SIGNED_OUT);
+    let finishSignIn: (result: { signingIn: boolean }) => void = () => {};
+    const signIn = vi.fn<() => Promise<{ signingIn: boolean }>>(
+      () =>
+        new Promise((resolve) => {
+          finishSignIn = resolve;
+        }),
+    );
+
+    const failure = gate.ensure(signIn).catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
+    expect((await failure)?.message).toMatch(/Timed out/);
+
+    const retry = gate.ensure(signIn);
+    finishSignIn({ signingIn: true });
+    await flush();
+    gate.update(SIGNED_IN);
+    await retry;
+
+    expect(signIn).toHaveBeenCalledTimes(1);
+  });
 });
