@@ -133,18 +133,25 @@ export function ChatInput({
 		});
 	}, [onSendAction, searchEnabled, value]);
 
+	// Enter while saved settings load sends nothing, so the status says why
+	const [isSettingsWaitNoticed, setIsSettingsWaitNoticed] = useState(false);
+	if (isSettingsWaitNoticed && !isSettingsLoading) {
+		setIsSettingsWaitNoticed(false);
+	}
+
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (isRequestActive || isSendHeld) {
+			if (isRequestActive || e.key !== "Enter" || e.shiftKey) {
 				return;
 			}
-
-				if (e.key === "Enter" && !e.shiftKey) {
-					e.preventDefault();
-					send();
-				}
-			},
-			[send, isRequestActive, isSendHeld],
+			if (isSendHeld) {
+				setIsSettingsWaitNoticed(isSettingsLoading);
+				return;
+			}
+			e.preventDefault();
+			send();
+		},
+		[send, isRequestActive, isSendHeld, isSettingsLoading],
 	);
 
 	const handleMainClick = () => {
@@ -301,9 +308,19 @@ export function ChatInput({
 	} else if (isStartPending) {
 		sendIcon = <SpinnerGapIcon className="size-4 animate-spin" />;
 	}
+	// Announced to screen readers: why a send is waiting
+	let holdStatus = "";
+	if (isStartPending) {
+		holdStatus = "Starting your chat…";
+	} else if (isSettingsWaitNoticed) {
+		holdStatus = "Loading your settings…";
+	}
 
 	return (
 		<div className="relative flex w-full flex-col gap-4">
+			<span aria-live="polite" className="sr-only" role="status">
+				{holdStatus}
+			</span>
 				{hasSuggestions ? (
 					<PromptSystem
 						isEmpty={isEmpty}

@@ -60,11 +60,13 @@ describe("ChatInput while a new chat starts", () => {
 		const { button, textarea, onSendAction } = renderInput({ isStartingChat: true });
 
 		expect(textarea.disabled).toBe(false);
-		fireEvent.keyDown(textarea, { key: "Enter" });
+		// Held: Enter neither sends nor adds a line (the textarea never adds one on Enter)
+		expect(fireEvent.keyDown(textarea, { key: "Enter" })).toBe(false);
 		expect(onSendAction).not.toHaveBeenCalled();
 		expect(button.disabled).toBe(true);
-		// The spinner shows the guest session and chat are on their way
+		// The spinner shows the guest session and chat are on their way, and screen readers hear it
 		expect(button.getAttribute("aria-busy")).toBe("true");
+		expect(screen.getByRole("status").textContent).toBe("Starting your chat…");
 		fireEvent.click(button);
 
 		expect(onSendAction).not.toHaveBeenCalled();
@@ -92,11 +94,15 @@ describe("ChatInput while saved settings load", () => {
 
 		expect(textarea.disabled).toBe(false);
 		expect(button.disabled).toBe(true);
-		fireEvent.keyDown(textarea, { key: "Enter" });
+		// Nothing to announce until the user tries to send
+		expect(screen.getByRole("status").textContent).toBe("");
+		expect(fireEvent.keyDown(textarea, { key: "Enter" })).toBe(false);
 		expect(onSendAction).not.toHaveBeenCalled();
 		expect(textarea.value).toBe("hello");
+		expect(screen.getByRole("status").textContent).toBe("Loading your settings…");
 
 		update({ isSettingsLoading: false });
+		expect(screen.getByRole("status").textContent).toBe("");
 		expect(button.disabled).toBe(false);
 		fireEvent.keyDown(textarea, { key: "Enter" });
 
