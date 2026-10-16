@@ -208,32 +208,38 @@ describe("Chat first send", () => {
 
 	it.each([
 		{
-			settings: "the user's data",
+			settings: "the user's data loads",
 			arrange: () => {
 				mocks.user.current = { user: null, isLoading: true };
 			},
 		},
 		{
-			settings: "the user's profiles",
+			settings: "the user's profiles load",
 			arrange: () => {
 				mocks.profile.current = { activeProfile: undefined, isProfilesLoading: true };
 			},
 		},
 		{
 			// e.g. the user query failed: main refused these sends rather than use defaults
-			settings: "the user behind a confirmed session",
+			settings: "the user behind a confirmed session loads",
 			arrange: () => {
 				mocks.hasSession.current = true;
 			},
 		},
 		{
-			settings: "the open chat's model and persona",
+			settings: "a signed-out account's cached user clears",
+			arrange: () => {
+				mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
+			},
+		},
+		{
+			settings: "the open chat's model and persona load",
 			arrange: () => {
 				mocks.chatId.current = "chats:open";
 				mocks.isQueryLoading.current = true;
 			},
 		},
-	])("holds sends while $settings load", ({ arrange }) => {
+	])("holds sends until $settings", ({ arrange }) => {
 		arrange();
 		render(<Chat />);
 
@@ -247,7 +253,7 @@ describe("Chat first send", () => {
 		const { rerender } = render(<Chat />);
 		expect(mocks.clearFiles).not.toHaveBeenCalled();
 
-		mocks.user.current = { user: null, isLoading: false };
+		// The session ends before the cached user clears
 		mocks.hasSession.current = false;
 		rerender(<Chat />);
 

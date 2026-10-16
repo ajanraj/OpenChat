@@ -294,10 +294,11 @@ function useChatContentView() {
 	const { activeProfile, isProfilesLoading } = useProfile();
 	const { isAuthenticated: hasSession } = useConvexAuth();
 	// A returning user's saved model and profile, and an open chat's own settings, load after the
-	// page does. A send reads them when it starts, so sends wait for them. A session whose user
-	// hasn't loaded (or failed to) waits too, rather than send with defaults
+	// page does. A send reads them when it starts, so sends wait for them. They also wait while the
+	// session and the loaded user disagree: after sign-in the user hasn't loaded (or failed to), and
+	// after sign-out the previous account's is still cached
 	const isSettingsLoading =
-		isUserLoading || isProfilesLoading || (hasSession && !user) || isChatLoading;
+		isUserLoading || isProfilesLoading || hasSession !== Boolean(user) || isChatLoading;
 	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
 	const currentChatModelId = currentChat?.model;
 	const retiredChatModel = currentChatModelId
@@ -318,7 +319,8 @@ function useChatContentView() {
 		: (getDefaultReasoningEffort(selectedModel) ?? reasoningEffort);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
-	const isAuthenticated = isUserAuthenticated(user);
+	// The cached user outlives sign-out briefly, so a signed-in account also needs a live session
+	const isAuthenticated = hasSession && isUserAuthenticated(user);
 	// Only signed-in accounts can attach files. The view stays mounted when one signs out, so drop
 	// what it attached rather than send it from a guest account
 	if (!isAuthenticated && files.length > 0) {
