@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 	isQueryLoading: { current: false },
 	files: { current: [] as File[] },
 	clearFiles: vi.fn<() => void>(),
+	processFiles: vi.fn<() => Promise<never[]>>(async () => []),
 	ensureSession: vi.fn<() => Promise<void>>(),
 	handleCreateChat:
 		vi.fn<
@@ -103,9 +104,9 @@ vi.mock("@/hooks/use-file-handling", () => ({
 		addFiles: vi.fn(),
 		removeFile: vi.fn(),
 		clearFiles: mocks.clearFiles,
-		processFiles: vi.fn(),
-		createOptimisticFiles: vi.fn(),
-		hasFiles: false,
+		processFiles: mocks.processFiles,
+		createOptimisticFiles: () => [],
+		hasFiles: mocks.files.current.length > 0,
 		uploadFile: vi.fn(),
 		saveFileAttachment: vi.fn(),
 	}),
@@ -136,6 +137,7 @@ describe("Chat first send", () => {
 		mocks.files.current = [];
 		mocks.handleCreateChat.mockImplementation(async () => `chats:new-${++createdChats}`);
 		mocks.ensureSession.mockResolvedValue(undefined);
+		mocks.processFiles.mockResolvedValue([]);
 	});
 
 	it("starts one chat when a signed-out visitor sends again while their guest session starts", async () => {
@@ -303,5 +305,16 @@ describe("Chat first send", () => {
 		expect(result).toBe(false);
 		expect(mocks.handleCreateChat).not.toHaveBeenCalled();
 		expect(mocks.clearFiles).not.toHaveBeenCalled();
+	});
+
+	it("hands a ?q= link's query back when its attachments fail to upload", async () => {
+		mocks.search.current = { model: "gpt-5.4-mini", q: "from the link" };
+		mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
+		mocks.files.current = [new File(["notes"], "notes.txt")];
+		mocks.processFiles.mockRejectedValue(new Error("Upload failed"));
+		render(<Chat />);
+
+		await waitFor(() => expect(mocks.chatInput.current?.initialValue).toBe("from the link"));
+		expect(mocks.sendMessages).not.toHaveBeenCalled();
 	});
 });

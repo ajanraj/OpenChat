@@ -597,10 +597,7 @@ function useChatContentView() {
 
 					promoteDraftChatToReal(newChatId);
 					void router.navigate({ to: `/c/${newChatId}` });
-					await sendMessageHelper(trimmedQuery, newChatId, {
-						enableSearch: false,
-					});
-					return true;
+					return sendMessageHelper(trimmedQuery, newChatId, { enableSearch: false });
 				};
 
 				// The link is only processed once, so a start that didn't go out (e.g. the guest

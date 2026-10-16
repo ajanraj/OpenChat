@@ -11,17 +11,27 @@ vi.mock("../prompt-system", () => ({ PromptSystem: () => null }));
 vi.mock("../select-model", () => ({ SelectModel: () => null }));
 vi.mock("../select-reasoning-effort", () => ({ SelectReasoningEffort: () => null }));
 
-type InputState = { status?: ChatStatus; isStartingChat?: boolean; isSettingsLoading?: boolean };
+type InputState = {
+	status?: ChatStatus;
+	isStartingChat?: boolean;
+	isSettingsLoading?: boolean;
+	initialValue?: string;
+};
 
 function renderInput(initial: InputState) {
 	const stop = vi.fn<() => void>();
 	const onSendAction = vi.fn<(message: string, options: { enableSearch: boolean }) => Promise<boolean>>(
 		async () => true,
 	);
-	const input = ({ status = "ready", isStartingChat = false, isSettingsLoading = false }: InputState) => (
+	const input = ({
+		status = "ready",
+		isStartingChat = false,
+		isSettingsLoading = false,
+		initialValue = "hello",
+	}: InputState) => (
 		<ChatInput
 			files={[]}
-			initialValue="hello"
+			initialValue={initialValue}
 			isReasoningModel={false}
 			isSettingsLoading={isSettingsLoading}
 			isStartingChat={isStartingChat}
@@ -107,5 +117,27 @@ describe("ChatInput after a send", () => {
 		expect(textarea.value).toBe("");
 
 		await waitFor(() => expect(textarea.value).toBe("hello"));
+	});
+});
+
+describe("ChatInput when its initial value changes", () => {
+	it("shows a query handed back into an input the user cleared", () => {
+		const { textarea, update } = renderInput({ initialValue: "" });
+		fireEvent.change(textarea, { target: { value: "half a thought" } });
+		fireEvent.change(textarea, { target: { value: "" } });
+
+		// e.g. a ?q= link whose start failed
+		update({ initialValue: "from the link" });
+
+		expect(textarea.value).toBe("from the link");
+	});
+
+	it("keeps what the user typed", () => {
+		const { textarea, update } = renderInput({ initialValue: "" });
+		fireEvent.change(textarea, { target: { value: "my own words" } });
+
+		update({ initialValue: "from the link" });
+
+		expect(textarea.value).toBe("my own words");
 	});
 });

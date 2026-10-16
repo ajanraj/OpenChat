@@ -52,6 +52,7 @@ type ChatInputProps = {
 	isReasoningModel: boolean;
 	reasoningEffort: ReasoningEffort;
 	onSelectReasoningEffortAction: (reasoningEffort: ReasoningEffort) => void;
+	/** Shown until the user types. A new value (e.g. a failed ?q= link's query) replaces an empty input. */
 	initialValue?: string;
 };
 
@@ -83,6 +84,14 @@ export function ChatInput({
 
 	// Local state for input value to prevent parent re-renders
 	const [draftValue, setDraftValue] = useState<string | null>(null);
+	const [shownInitialValue, setShownInitialValue] = useState(initialValue);
+	if (initialValue !== shownInitialValue) {
+		setShownInitialValue(initialValue);
+		// Same rule as a send that didn't go out: never over text the user typed
+		if (!draftValue) {
+			setDraftValue(null);
+		}
+	}
 	const value = draftValue ?? initialValue;
 	const [searchEnabled, setSearchEnabled] = useState(false);
 	const toggleSearch = useCallback(() => {
