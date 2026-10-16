@@ -17,8 +17,10 @@ export interface AuthState {
 /** How long one attempt may take to settle, sign in and get the token confirmed. */
 export const SESSION_TIMEOUT_MS = 15_000;
 
-interface SignInResult {
-  signingIn: boolean;
+/** The Convex Auth actions (`useAuthActions()`) the gate starts a guest session with. */
+export interface GuestAuthActions {
+  signIn: () => Promise<{ signingIn: boolean }>;
+  signOut: () => Promise<void>;
 }
 
 const timeoutError = () => new Error("Timed out waiting for the session to start");
@@ -32,7 +34,7 @@ function beforeDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
 }
 
 /**
- * Create one per app (UserProvider). Feed it every auth state change with `update`; `ensure`
+ * Create one per app (useEnsureSession). Feed it every auth state change with `update`; `ensure`
  * resolves once Convex is authenticated, signing in anonymously when there is no session yet.
  */
 export function createSessionGate(initial: AuthState) {
@@ -40,7 +42,7 @@ export function createSessionGate(initial: AuthState) {
   let pending: Promise<void> | null = null;
   // Outlives a timed-out attempt: the retry waits on the same sign-in instead of starting a second
   // one, which would create a second guest account
-  let signInInFlight: Promise<SignInResult> | null = null;
+  let signInInFlight: Promise<{ signingIn: boolean }> | null = null;
   // The gate's sign-in succeeded and Convex hasn't confirmed it. Until it does, useConvexAuth()
   // reads the new token as signed out, the same as a stored token the backend rejected, so this
   // is what lets the next attempt wait on the guest it created instead of creating another. That
@@ -49,7 +51,7 @@ export function createSessionGate(initial: AuthState) {
   const listeners = new Set<() => void>();
 
   function waitFor(predicate: (state: AuthState) => boolean, deadline: number) {
-    return new Promise<AuthState>((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         listeners.delete(check);
         reject(timeoutError());
@@ -58,12 +60,23 @@ export function createSessionGate(initial: AuthState) {
         if (predicate(current)) {
           clearTimeout(timer);
           listeners.delete(check);
-          resolve(current);
+          resolve();
         }
       }
       listeners.add(check);
       check();
     });
+  }
+
+  // ConvexProviderWithAuth hands Convex a token when one appears, not when it is replaced. So a
+  // held token (one the backend rejected, or never confirmed) is signed out first, and the new
+  // one only arrives once React has seen it gone.
+  async function signInAfresh(actions: GuestAuthActions, holdsToken: boolean, deadline: number) {
+    if (holdsToken) {
+      await actions.signOut();
+      await waitFor((state) => !state.hasToken, deadline);
+    }
+    return actions.signIn();
   }
 
   return {
@@ -79,19 +92,19 @@ export function createSessionGate(initial: AuthState) {
     },
 
     /** Concurrent calls share one attempt; a failed attempt is retried by the next call. */
-    ensure(signInAnonymously: () => Promise<SignInResult>): Promise<void> {
+    ensure(actions: GuestAuthActions): Promise<void> {
       pending ??= (async () => {
         const deadline = Date.now() + SESSION_TIMEOUT_MS;
-        const settled = await waitFor((state) => !state.isLoading, deadline);
-        if (settled.isAuthenticated) {
+        await waitFor((state) => !state.isLoading, deadline);
+        // Read `current`, not the state the wait resolved with: a confirmation can land in between
+        if (current.isAuthenticated) {
           return;
         }
-        // Wait on the guest this gate created, once; otherwise sign in, which also replaces a stored
-        // token the backend rejected
-        const awaitsOwnToken = unconfirmedSignIn && settled.hasToken;
+        // Wait on the guest this gate created, once; otherwise sign in, replacing any held token
+        const awaitsOwnToken = unconfirmedSignIn && current.hasToken;
         unconfirmedSignIn = false;
         if (!awaitsOwnToken) {
-          signInInFlight ??= signInAnonymously()
+          signInInFlight ??= signInAfresh(actions, current.hasToken, deadline)
             .then((result) => {
               unconfirmedSignIn = result.signingIn;
               return result;
