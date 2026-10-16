@@ -223,10 +223,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
   }, [themeState, activeProfile, updateProfileMut]);
 
-  // Best-effort flush as the account's session ends (sign-out here or in another tab, a rejected
-  // token) and on true unmount. Cleanups run before Convex drops the session's auth (its own cleanup
-  // comes later in the tree), so the save still goes out as that account, and nothing stays pending
-  // for the next one. Uses refs so it always sees the latest values.
+  // Best-effort flush as the account's session ends and on true unmount. On sign-out (here or in
+  // another tab) this cleanup runs before Convex drops the session's auth (its own cleanup comes
+  // later in the tree), so the save still goes out as that account; a session whose token was
+  // already rejected can't save. Nothing stays pending for the next account. Uses refs so it always
+  // sees the latest values.
   const userId = user?._id;
   useEffect(() => {
     return () => {
