@@ -43,7 +43,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 	useEffect(() => {
 		activeChatIdRef.current = activeChatId;
 	}, [activeChatId]);
-	const { user } = useUser();
+	const { user, isLoading: isUserLoading } = useUser();
 	const { activeProfile, chatListProfileId, slideDirection, getLastChatForProfile } = useProfile();
 
 	const router = useRouter();
@@ -113,7 +113,8 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 	// Memoize conditional tasks button handler
 	const handleConditionalTasksClick = useCallback(() => {
-		if (!user || user.isAnonymous) {
+		// Until the session settles a returning user isn't known yet; /tasks waits for it itself
+		if (!isUserLoading && (!user || user.isAnonymous)) {
 			router.navigate({ to: "/auth" });
 			return;
 		}
@@ -121,7 +122,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 		if (pathname !== "/tasks") {
 			router.navigate({ to: "/tasks" });
 		}
-	}, [pathname, router, user]);
+	}, [isUserLoading, pathname, router, user]);
 
 	// --- Handlers for main sidebar list ---
 	const handleSaveEdit = useCallback(

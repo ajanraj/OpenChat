@@ -84,7 +84,7 @@ function useModelSelectorV2View({
 	className,
 	openSignalEvent,
 }: ModelSelectorV2Props) {
-	const { user, hasPremium } = useUser();
+	const { user, hasPremium, isLoading: isUserLoading } = useUser();
 	const { toggleFavoriteModel, favoriteModelsSet } = useModelPreferences();
 	const { categorizedModels } = useEnrichedModels();
 	const { disabledModelsSet } = useModelSettings();
@@ -358,7 +358,9 @@ function useModelSelectorV2View({
 		if (isUpgradeLoading) {
 			return;
 		}
-		if (!user || user.isAnonymous) {
+		// Until the session settles a returning user isn't known yet, so checkout goes ahead; it
+		// refuses anyone not signed in
+		if (!isUserLoading && (!user || user.isAnonymous)) {
 			router.navigate({ to: "/auth" });
 			return;
 		}
@@ -381,6 +383,7 @@ function useModelSelectorV2View({
 		dispatch({ type: "SET_UPGRADE_LOADING", value: false });
 		window.location.href = checkoutUrl;
 		}, [
+		isUserLoading,
 		user,
 		createCheckout,
 		isUpgradeLoading,
