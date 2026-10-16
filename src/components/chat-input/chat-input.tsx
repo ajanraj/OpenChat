@@ -26,8 +26,9 @@ import { SelectReasoningEffort } from "./select-reasoning-effort";
 type ChatInputProps = {
 	status: ChatStatus;
 	/**
-	 * A new chat is being set up (guest sign-in, chat creation) before its request exists: the
-	 * input holds further sends, and there is nothing to stop yet.
+	 * A new chat is starting (guest sign-in, chat creation, then its first response): the input
+	 * holds further sends. Until the chat's request exists there is nothing to stop; once it does,
+	 * Stop works as usual.
 	 */
 	isStartingChat?: boolean;
 	stop: () => void;
@@ -101,11 +102,11 @@ export function ChatInput({
 	);
 
 	const handleMainClick = () => {
-		if (isStartingChat) {
-			return;
-		}
 		if (isRequestActive) {
 			stop();
+			return;
+		}
+		if (isStartingChat) {
 			return;
 		}
 
@@ -323,8 +324,8 @@ export function ChatInput({
 								aria-label="Send message"
 								className="origin-right scale-90 transform rounded-full transition-all duration-300 ease-out sm:scale-100"
 								disabled={
-									isStartingChat ||
-									(!value.trim() && files.length === 0 && !isRequestActive)
+									!isRequestActive &&
+									(isStartingChat || (!value.trim() && files.length === 0))
 								}
 								onClick={handleMainClick}
 								size="sm"
