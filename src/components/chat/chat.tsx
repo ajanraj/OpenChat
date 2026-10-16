@@ -254,8 +254,22 @@ function useChatContentView() {
 	);
 	const { hasDialogAuth, isStartingChat, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
 	// Starting a chat spans several round trips (guest sign-in, createChat) before the chat's own
-	// status shows a request; a second send in that window would start a second chat
+	// status shows a request. Every start (a send, or ?q= in the URL) runs through here, one at a
+	// time, so a second send in that window can't start a second chat.
 	const startingChatRef = useRef(false);
+	const runChatStart = useCallback(async (start: () => Promise<void>) => {
+		if (startingChatRef.current) {
+			return;
+		}
+		startingChatRef.current = true;
+		dispatchUI({ type: "SET_STARTING_CHAT", value: true });
+		try {
+			await start();
+		} finally {
+			startingChatRef.current = false;
+			dispatchUI({ type: "SET_STARTING_CHAT", value: false });
+		}
+	}, []);
 	const processedUrl = useRef(false);
 	const retiredFallbackChatIds = useRef(new Set<string>());
 
@@ -571,7 +585,7 @@ function useChatContentView() {
 					});
 				};
 
-				void startChat().catch(() => {
+				void runChatStart(startChat).catch(() => {
 					toast({ title: "Failed to create chat", status: "error" });
 				});
 			}
@@ -590,6 +604,7 @@ function useChatContentView() {
 		validateModelAccess,
 		sendMessageHelper,
 		ensureSession,
+		runChatStart,
 	]);
 
 	// Main submit handler
@@ -608,15 +623,7 @@ function useChatContentView() {
 			}
 
 			const isNewChat = !chatId && messages.length === 0;
-			if (isNewChat) {
-				if (startingChatRef.current) {
-					return;
-				}
-				startingChatRef.current = true;
-				dispatchUI({ type: "SET_STARTING_CHAT", value: true });
-			}
-
-			try {
+			const send = async () => {
 				// A signed-out visitor's first message is what creates their guest account
 				try {
 					await ensureSession();
@@ -650,18 +657,16 @@ function useChatContentView() {
 					currentChatId || undefined,
 					opts?.body,
 				);
-			} finally {
-				if (isNewChat) {
-					startingChatRef.current = false;
-					dispatchUI({ type: "SET_STARTING_CHAT", value: false });
-				}
-			}
+			};
+
+			await (isNewChat ? runChatStart(send) : send());
 		},
 		[
 			files.length,
 			checkRateLimits,
 			isAuthenticated,
 			ensureSession,
+			runChatStart,
 			chatId,
 			messages.length,
 			handleCreateChat,
@@ -1191,8 +1196,8 @@ function useChatContentView() {
 				<ChatInput
 					files={files}
 					hasSuggestions={!chatId && messages.length === 0}
-					// A chat being started counts as a request in flight, so the input holds the next send
-					status={isStartingChat ? "submitted" : status}
+					isStartingChat={isStartingChat}
+					status={status}
 					stop={stop}
 					isReasoningModel={supportsReasoningEffort(selectedModel)}
 					isUserAuthenticated={isAuthenticated}

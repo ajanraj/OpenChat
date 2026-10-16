@@ -1,15 +1,17 @@
 import { act, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import Chat from "../chat";
 
 type ChatInputProps = {
 	status: string;
+	isStartingChat?: boolean;
 	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
 	onSuggestionAction: (suggestion: string) => void;
 };
 
 const mocks = vi.hoisted(() => ({
 	chatInput: { current: null as ChatInputProps | null },
+	search: { current: {} as Record<string, string> },
 	ensureSession: vi.fn<() => Promise<void>>(),
 	handleCreateChat: vi.fn<(title: string) => Promise<string | null>>(),
 	sendMessages: vi.fn<() => Promise<ReadableStream>>(
@@ -36,7 +38,7 @@ vi.mock("@convex-dev/react-query", () => ({ convexQuery: () => ({}) }));
 vi.mock("@tanstack/react-query", () => ({ useQuery: () => ({ data: undefined }) }));
 vi.mock("@tanstack/react-router", () => ({
 	useRouter: () => ({ navigate: vi.fn() }),
-	useSearch: () => ({}),
+	useSearch: () => mocks.search.current,
 }));
 vi.mock("convex/react", () => ({ useMutation: () => vi.fn() }));
 vi.mock("@/lib/chat-transport", () => ({
@@ -89,24 +91,33 @@ vi.mock("@/hooks/use-file-handling", () => ({
 }));
 vi.mock("@/hooks/use-document-title", () => ({ useDocumentTitle: () => undefined }));
 
+/** Like the real session gate: concurrent callers share one pending session start. */
+function holdSession() {
+	let finish: () => void = () => undefined;
+	const session = new Promise<void>((resolve) => {
+		finish = resolve;
+	});
+	mocks.ensureSession.mockReturnValue(session);
+	return finish;
+}
+
 describe("Chat first send", () => {
-	it("starts one chat when a signed-out visitor sends again while their guest session starts", async () => {
-		let finishSession: () => void = () => undefined;
-		mocks.ensureSession.mockImplementation(
-			() =>
-				new Promise((resolve) => {
-					finishSession = resolve;
-				}),
-		);
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mocks.search.current = {};
 		mocks.handleCreateChat.mockResolvedValue("chats:new");
+	});
+
+	it("starts one chat when a signed-out visitor sends again while their guest session starts", async () => {
+		const finishSession = holdSession();
 		render(<Chat />);
 
 		// Block bodies: the handlers return submit's promise, which would make act async
 		act(() => {
 			mocks.chatInput.current?.onSendAction("first", { enableSearch: false });
 		});
-		// The input treats the start as a request in flight, so it holds the next message
-		expect(mocks.chatInput.current?.status).toBe("submitted");
+		// The input holds further sends while the chat starts
+		expect(mocks.chatInput.current?.isStartingChat).toBe(true);
 		// Suggestions submit directly, without the input's own check
 		act(() => {
 			mocks.chatInput.current?.onSuggestionAction("second");
@@ -117,9 +128,26 @@ describe("Chat first send", () => {
 		});
 		await vi.waitFor(() => expect(mocks.sendMessages).toHaveBeenCalledTimes(1));
 
-		expect(mocks.ensureSession).toHaveBeenCalledTimes(1);
 		expect(mocks.handleCreateChat).toHaveBeenCalledTimes(1);
 		expect(mocks.handleCreateChat.mock.calls[0]?.[0]).toBe("first");
-		await vi.waitFor(() => expect(mocks.chatInput.current?.status).toBe("ready"));
+		await vi.waitFor(() => expect(mocks.chatInput.current?.isStartingChat).toBe(false));
+	});
+
+	it("starts one chat when a visitor sends while a ?q= link is starting one", async () => {
+		mocks.search.current = { model: "gpt-5.4-nano", q: "from the link" };
+		const finishSession = holdSession();
+		render(<Chat />);
+		expect(mocks.chatInput.current?.isStartingChat).toBe(true);
+
+		act(() => {
+			mocks.chatInput.current?.onSuggestionAction("manual");
+		});
+		await act(async () => {
+			finishSession();
+		});
+		await vi.waitFor(() => expect(mocks.sendMessages).toHaveBeenCalledTimes(1));
+
+		expect(mocks.handleCreateChat).toHaveBeenCalledTimes(1);
+		expect(mocks.handleCreateChat.mock.calls[0]?.[0]).toBe("from the link");
 	});
 });

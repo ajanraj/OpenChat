@@ -25,6 +25,11 @@ import { SelectReasoningEffort } from "./select-reasoning-effort";
 
 type ChatInputProps = {
 	status: ChatStatus;
+	/**
+	 * A new chat is being set up (guest sign-in, chat creation) before its request exists: the
+	 * input holds further sends, and there is nothing to stop yet.
+	 */
+	isStartingChat?: boolean;
 	stop: () => void;
 	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
 	files: File[];
@@ -45,6 +50,7 @@ type ChatInputProps = {
 
 export function ChatInput({
 	status,
+	isStartingChat = false,
 	stop,
 	onSendAction,
 	files,
@@ -63,6 +69,7 @@ export function ChatInput({
 	initialValue = "",
 }: ChatInputProps) {
 	const isRequestActive = status === "streaming" || status === "submitted";
+	const isBusy = isRequestActive || isStartingChat;
 
 	// Local state for input value to prevent parent re-renders
 	const [draftValue, setDraftValue] = useState<string | null>(null);
@@ -80,7 +87,7 @@ export function ChatInput({
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (isRequestActive) {
+			if (isBusy) {
 				return;
 			}
 
@@ -90,10 +97,13 @@ export function ChatInput({
 					setDraftValue(""); // Clear input after sending
 				}
 			},
-			[onSendAction, isRequestActive, searchEnabled, value],
+			[onSendAction, isBusy, searchEnabled, value],
 	);
 
 	const handleMainClick = () => {
+		if (isStartingChat) {
+			return;
+		}
 		if (isRequestActive) {
 			stop();
 			return;
@@ -263,7 +273,7 @@ export function ChatInput({
 					<FileList files={files} onFileRemoveAction={onFileRemoveAction} />
 					<PromptInputTextarea
 						className="mt-2 ml-2 text-foreground leading-[1.3]"
-						disabled={isRequestActive}
+						disabled={isBusy}
 						onKeyDown={handleKeyDown}
 						placeholder="How can I help you today?"
 						ref={textareaRef}
@@ -313,9 +323,8 @@ export function ChatInput({
 								aria-label="Send message"
 								className="origin-right scale-90 transform rounded-full transition-all duration-300 ease-out sm:scale-100"
 								disabled={
-									!value.trim() &&
-									files.length === 0 &&
-									!isRequestActive
+									isStartingChat ||
+									(!value.trim() && files.length === 0 && !isRequestActive)
 								}
 								onClick={handleMainClick}
 								size="sm"
