@@ -24,6 +24,9 @@ export default defineConfig({
       "error",
       { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
     ],
+    // Correctness rules we enforced before Ultracite that its presets turn off.
+    "jsx-a11y/no-autofocus": "error",
+    "react/forward-ref-uses-ref": "error",
     // Progressive migration: these preset rules fail on existing code. Remove an
     // entry once its problems are fixed, a few rules per pull request.
     "class-methods-use-this": "off",
@@ -118,6 +121,15 @@ export default defineConfig({
   },
   overrides: [
     {
+      // Project rule: type every mock, including in shared helpers such as
+      // src/test/setup.ts that the vitest preset's test-file globs skip.
+      files: ["**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}"],
+      plugins: ["vitest"],
+      rules: {
+        "vitest/require-mock-type-parameters": "error",
+      },
+    },
+    {
       // The vitest preset enables its plugin and rules only in this test-file
       // override, so its progressive overrides live here. Without `plugins`,
       // Oxlint ignores the vitest/* entries.
@@ -127,6 +139,8 @@ export default defineConfig({
       ],
       plugins: ["vitest"],
       rules: {
+        // Enforced before Ultracite; allowArguments keeps describe(fn) titles valid.
+        "vitest/valid-title": ["error", { allowArguments: true }],
         "vitest/max-expects": "off",
         "vitest/prefer-called-exactly-once-with": "off",
         "vitest/prefer-called-with": "off",

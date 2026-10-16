@@ -9,6 +9,8 @@
 
 ## Project Rules
 - `no-unused-vars`: prefix intentionally unused vars and args with `_`.
+- `vitest/require-mock-type-parameters`: type every `vi.fn()`, in all files (not just tests).
+- `jsx-a11y/no-autofocus`, `react/forward-ref-uses-ref` and `vitest/valid-title` stay on (we enforced them before Ultracite; its presets turn them off).
 - Add project-specific rules after the presets in `oxlint.config.ts`, so they win.
 
 ## Progressive Migration
