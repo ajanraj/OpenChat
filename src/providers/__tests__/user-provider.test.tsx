@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   auth: { current: { isLoading: false, isAuthenticated: false } },
   // getCurrentUser's cached answer; isLoading stays false once it has answered once
   user: { current: null as MockUser | null },
+  userStatus: { current: "success" },
+  signOut: vi.fn<() => Promise<void>>(async () => undefined),
 }));
 
 vi.mock("convex/react", () => ({
@@ -21,7 +23,7 @@ vi.mock("convex/react", () => ({
   useMutation: () => async () => null,
 }));
 vi.mock("@convex-dev/auth/react", () => ({
-  useAuthActions: () => ({ signIn: async () => undefined, signOut: async () => undefined }),
+  useAuthActions: () => ({ signIn: async () => undefined, signOut: mocks.signOut }),
 }));
 vi.mock("@/hooks/use-ensure-session", () => ({ useEnsureSession: () => async () => undefined }));
 vi.mock("@convex-dev/react-query", () => ({
@@ -30,8 +32,12 @@ vi.mock("@convex-dev/react-query", () => ({
 vi.mock("@tanstack/react-query", () => ({
   useQuery: ({ queryKey }: { queryKey: string[] }) =>
     queryKey[0] === "users:getCurrentUser"
-      ? { data: mocks.user.current, isLoading: false }
-      : { data: undefined, isLoading: false },
+      ? {
+          data: mocks.user.current,
+          isLoading: mocks.userStatus.current === "pending",
+          isSuccess: mocks.userStatus.current === "success",
+        }
+      : { data: undefined, isLoading: false, isSuccess: true },
 }));
 
 function renderUser() {
@@ -45,6 +51,8 @@ describe("UserProvider loading", () => {
   beforeEach(() => {
     mocks.auth.current = { isLoading: false, isAuthenticated: false };
     mocks.user.current = null;
+    mocks.userStatus.current = "success";
+    mocks.signOut.mockClear();
   });
 
   afterEach(() => {
@@ -80,22 +88,26 @@ describe("UserProvider loading", () => {
     expect(renderUser().result.current.isLoading).toBe(isLoading);
   });
 
-  it("stops waiting for a confirmed session's user that never arrives", () => {
+  it("signs out a confirmed session whose user no longer exists", () => {
     vi.useFakeTimers();
     // e.g. the account was deleted on another device; its token stays accepted until it expires
     mocks.auth.current = { isLoading: false, isAuthenticated: true };
-    const { result } = renderUser();
+    const { result, rerender } = renderUser();
     expect(result.current.isLoading).toBe(true);
 
     act(() => {
       vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS);
     });
+    expect(mocks.signOut).toHaveBeenCalledTimes(1);
+
+    mocks.auth.current = { isLoading: false, isAuthenticated: false };
+    rerender();
 
     expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toBeNull();
   });
 
-  it("keeps waiting while a confirmed session's user is on its way", () => {
+  it("keeps a session whose user is on its way", () => {
     vi.useFakeTimers();
     mocks.auth.current = { isLoading: false, isAuthenticated: true };
     const { result, rerender } = renderUser();
@@ -103,35 +115,31 @@ describe("UserProvider loading", () => {
     act(() => {
       vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS - 1);
     });
-    expect(result.current.isLoading).toBe(true);
-
     mocks.user.current = { _id: "users:1", isAnonymous: true };
     rerender();
     act(() => {
       vi.advanceTimersByTime(1);
     });
 
+    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toEqual({ _id: "users:1", isAnonymous: true });
   });
 
-  it("waits on a later sign-out after a user that was given up on turns up", () => {
+  it.each([
+    { state: "hasn't answered", status: "pending" as const },
+    { state: "failed", status: "error" as const },
+  ])("never signs out a session whose user query $state", ({ status }) => {
     vi.useFakeTimers();
     mocks.auth.current = { isLoading: false, isAuthenticated: true };
-    const { result, rerender } = renderUser();
+    mocks.userStatus.current = status;
+    const { result } = renderUser();
+
     act(() => {
-      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS);
+      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS * 2);
     });
-    expect(result.current.isLoading).toBe(false);
 
-    mocks.user.current = { _id: "users:1", isAnonymous: false };
-    rerender();
-    expect(result.current.isLoading).toBe(false);
-
-    // Signed out while getCurrentUser still holds the old user
-    mocks.auth.current = { isLoading: false, isAuthenticated: false };
-    rerender();
-
+    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(result.current.isLoading).toBe(true);
   });
 });
