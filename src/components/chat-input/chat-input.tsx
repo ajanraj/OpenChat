@@ -37,7 +37,8 @@ type ChatInputProps = {
 	 */
 	isSettingsLoading?: boolean;
 	stop: () => void;
-	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
+	/** Resolves whether the message went out; if it didn't, the input gives the text back. */
+	onSendAction: (message: string, options: { enableSearch: boolean }) => Promise<boolean>;
 	files: File[];
 	onFileUploadAction: (files: File[]) => void;
 	onFileRemoveAction: (file: File) => void;
@@ -94,6 +95,18 @@ export function ChatInput({
 		setDraftValue(nextValue);
 	}, []);
 
+	// Clears the input at once. A message that didn't go out (e.g. the session couldn't start) comes
+	// back, unless something new was typed meanwhile
+	const send = useCallback(() => {
+		const message = value;
+		setDraftValue("");
+		void onSendAction(message, { enableSearch: searchEnabled }).then((sent) => {
+			if (!sent) {
+				setDraftValue((current) => current || message);
+			}
+		});
+	}, [onSendAction, searchEnabled, value]);
+
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
 			if (isRequestActive || isSendHeld) {
@@ -102,11 +115,10 @@ export function ChatInput({
 
 				if (e.key === "Enter" && !e.shiftKey) {
 					e.preventDefault();
-					onSendAction(value, { enableSearch: searchEnabled });
-					setDraftValue(""); // Clear input after sending
+					send();
 				}
 			},
-			[onSendAction, isRequestActive, isSendHeld, searchEnabled, value],
+			[send, isRequestActive, isSendHeld],
 	);
 
 	const handleMainClick = () => {
@@ -123,8 +135,7 @@ export function ChatInput({
 			return;
 		}
 
-		onSendAction(value, { enableSearch: searchEnabled });
-		setDraftValue(""); // Clear input after sending
+		send();
 	};
 
 	const handleSuggestionClick = useCallback(

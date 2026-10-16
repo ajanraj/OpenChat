@@ -4,7 +4,7 @@ import { useAuthToken } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
-import { useConvexAuth, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import type { FileUIPart } from "ai";
 import { AnimatePresence, m } from "motion/react";
 import {
@@ -255,16 +255,17 @@ function useChatContentView() {
 	const { hasDialogAuth, isStartingChat, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
 	// Starting a chat spans several round trips (guest sign-in, createChat) before the chat's own
 	// status shows a request. Every start (a send, or ?q= in the URL) runs through here, one at a
-	// time, so a second send in that window can't start a second chat.
+	// time, so a second send in that window can't start a second chat. Resolves whether the start
+	// sent its message.
 	const startingChatRef = useRef(false);
-	const runChatStart = useCallback(async (start: () => Promise<void>) => {
+	const runChatStart = useCallback(async (start: () => Promise<boolean>) => {
 		if (startingChatRef.current) {
-			return;
+			return false;
 		}
 		startingChatRef.current = true;
 		dispatchUI({ type: "SET_STARTING_CHAT", value: true });
 		try {
-			await start();
+			return await start();
 		} finally {
 			startingChatRef.current = false;
 			dispatchUI({ type: "SET_STARTING_CHAT", value: false });
@@ -292,13 +293,10 @@ function useChatContentView() {
 
 	// Derived state
 	const { activeProfile, isProfilesLoading } = useProfile();
-	const { isAuthenticated: hasSession } = useConvexAuth();
 	// A returning user's saved model and profile, and an open chat's own settings, load after the
-	// page does. A send reads them when it starts, so sends wait for them. They also wait while the
-	// session and the loaded user disagree: after sign-in the user hasn't loaded (or failed to), and
-	// after sign-out the previous account's is still cached
-	const isSettingsLoading =
-		isUserLoading || isProfilesLoading || hasSession !== Boolean(user) || isChatLoading;
+	// page does. A send reads them when it starts, so sends wait for them (isUserLoading also covers
+	// a session whose user hasn't arrived, and a signed-out one whose user hasn't cleared)
+	const isSettingsLoading = isUserLoading || isProfilesLoading || isChatLoading;
 	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
 	const currentChatModelId = currentChat?.model;
 	const retiredChatModel = currentChatModelId
@@ -319,10 +317,9 @@ function useChatContentView() {
 		: (getDefaultReasoningEffort(selectedModel) ?? reasoningEffort);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
-	// The cached user outlives sign-out briefly, so a signed-in account also needs a live session
-	const isAuthenticated = hasSession && isUserAuthenticated(user);
+	const isAuthenticated = isUserAuthenticated(user);
 	// Only signed-in accounts can attach files. The view stays mounted when one signs out, so drop
-	// what it attached rather than send it from a guest account
+	// what it attached rather than send it from a guest account (sends wait until the user clears)
 	if (!isAuthenticated && files.length > 0) {
 		clearFiles();
 	}
@@ -588,7 +585,7 @@ function useChatContentView() {
 						activeProfile?._id,
 					);
 					if (!newChatId) {
-						return;
+						return false;
 					}
 
 					promoteDraftChatToReal(newChatId);
@@ -596,6 +593,7 @@ function useChatContentView() {
 					await sendMessageHelper(trimmedQuery, newChatId, {
 						enableSearch: false,
 					});
+					return true;
 				};
 
 				void runChatStart(startChat).catch(() => {
@@ -620,19 +618,20 @@ function useChatContentView() {
 		runChatStart,
 	]);
 
-	// Main submit handler
+	// Main submit handler. Resolves whether the message went out; when it didn't (invalid, rate
+	// limited, or the session or chat couldn't start), the input gives the text back.
 	const submit = useCallback(
 		async (
 			inputMessage: string,
 			opts?: { body?: { enableSearch?: boolean } },
-		) => {
+		): Promise<boolean> => {
 			if (!validateInput(inputMessage, files.length)) {
-				return;
+				return false;
 			}
 
 			const allowed = checkRateLimits(isAuthenticated, (v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v }));
 			if (!allowed) {
-				return;
+				return false;
 			}
 
 			const isNewChat = !chatId && messages.length === 0;
@@ -642,7 +641,7 @@ function useChatContentView() {
 					await ensureSession();
 				} catch {
 					toast({ title: "Couldn't start your session. Please try again.", status: "error" });
-					return;
+					return false;
 				}
 
 				let currentChatId = chatId;
@@ -656,7 +655,7 @@ function useChatContentView() {
 						activeProfile?._id,
 					);
 					if (!currentChatId) {
-						return;
+						return false;
 					}
 
 					promoteDraftChatToReal(currentChatId);
@@ -670,9 +669,10 @@ function useChatContentView() {
 					currentChatId || undefined,
 					opts?.body,
 				);
+				return true;
 			};
 
-			await (isNewChat ? runChatStart(send) : send());
+			return isNewChat ? runChatStart(send) : send();
 		},
 		[
 			files.length,

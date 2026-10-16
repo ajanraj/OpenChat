@@ -6,7 +6,7 @@ type ChatInputProps = {
 	status: string;
 	isStartingChat?: boolean;
 	isSettingsLoading?: boolean;
-	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
+	onSendAction: (message: string, options: { enableSearch: boolean }) => Promise<boolean>;
 	onSuggestionAction: (suggestion: string) => void;
 };
 
@@ -19,8 +19,6 @@ const mocks = vi.hoisted(() => ({
 	profile: {
 		current: { activeProfile: undefined as { _id: string } | undefined, isProfilesLoading: false },
 	},
-	// useConvexAuth: the backend has confirmed a session
-	hasSession: { current: false },
 	chatId: { current: null as string | null },
 	isQueryLoading: { current: false },
 	files: { current: [] as File[] },
@@ -58,10 +56,7 @@ vi.mock("@tanstack/react-router", () => ({
 	useRouter: () => ({ navigate: vi.fn() }),
 	useSearch: () => mocks.search.current,
 }));
-vi.mock("convex/react", () => ({
-	useConvexAuth: () => ({ isLoading: false, isAuthenticated: mocks.hasSession.current }),
-	useMutation: () => vi.fn(),
-}));
+vi.mock("convex/react", () => ({ useMutation: () => vi.fn() }));
 vi.mock("@/lib/chat-transport", () => ({
 	chatTransport: { sendMessages: mocks.sendMessages, reconnectToStream: async () => null },
 	setChatAuthToken: () => undefined,
@@ -126,16 +121,19 @@ function holdSession() {
 }
 
 describe("Chat first send", () => {
+	// Unique across tests: the chat registry is module state, and a draft is only promoted to an id
+	// it doesn't hold yet
+	let createdChats = 0;
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.search.current = {};
 		mocks.user.current = { user: null, isLoading: false };
 		mocks.profile.current = { activeProfile: undefined, isProfilesLoading: false };
-		mocks.hasSession.current = false;
 		mocks.chatId.current = null;
 		mocks.isQueryLoading.current = false;
 		mocks.files.current = [];
-		mocks.handleCreateChat.mockResolvedValue("chats:new");
+		mocks.handleCreateChat.mockImplementation(async () => `chats:new-${++createdChats}`);
+		mocks.ensureSession.mockResolvedValue(undefined);
 	});
 
 	it("starts one chat when a signed-out visitor sends again while their guest session starts", async () => {
@@ -220,19 +218,6 @@ describe("Chat first send", () => {
 			},
 		},
 		{
-			// e.g. the user query failed: main refused these sends rather than use defaults
-			settings: "the user behind a confirmed session loads",
-			arrange: () => {
-				mocks.hasSession.current = true;
-			},
-		},
-		{
-			settings: "a signed-out account's cached user clears",
-			arrange: () => {
-				mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
-			},
-		},
-		{
 			settings: "the open chat's model and persona load",
 			arrange: () => {
 				mocks.chatId.current = "chats:open";
@@ -246,17 +231,49 @@ describe("Chat first send", () => {
 		expect(mocks.chatInput.current?.isSettingsLoading).toBe(true);
 	});
 
-	it("drops a signed-in user's attachments when they sign out", () => {
-		mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
-		mocks.hasSession.current = true;
+	it("holds sends after sign-out until the user clears, then drops their attachments", () => {
+		const signedIn = { _id: "users:1", isAnonymous: false };
+		mocks.user.current = { user: signedIn, isLoading: false };
 		mocks.files.current = [new File(["notes"], "notes.txt")];
 		const { rerender } = render(<Chat />);
 		expect(mocks.clearFiles).not.toHaveBeenCalled();
 
-		// The session ends before the cached user clears
-		mocks.hasSession.current = false;
+		// UserProvider reports loading while the signed-out session's cached user lingers
+		mocks.user.current = { user: signedIn, isLoading: true };
 		rerender(<Chat />);
+		expect(mocks.chatInput.current?.isSettingsLoading).toBe(true);
 
+		mocks.user.current = { user: null, isLoading: false };
+		rerender(<Chat />);
 		expect(mocks.clearFiles).toHaveBeenCalled();
+	});
+
+	it.each([
+		{ outcome: "the message went out", sent: true, arrange: () => undefined },
+		{
+			outcome: "the guest session couldn't start",
+			sent: false,
+			arrange: () => {
+				mocks.ensureSession.mockRejectedValue(new Error("Timed out"));
+			},
+		},
+		{
+			outcome: "the chat couldn't be created",
+			sent: false,
+			arrange: () => {
+				mocks.handleCreateChat.mockResolvedValue(null);
+			},
+		},
+	])("tells the input whether $outcome", async ({ sent, arrange }) => {
+		arrange();
+		render(<Chat />);
+
+		let result: boolean | undefined;
+		await act(async () => {
+			result = await mocks.chatInput.current?.onSendAction("hello", { enableSearch: false });
+		});
+
+		expect(result).toBe(sent);
+		expect(mocks.sendMessages).toHaveBeenCalledTimes(sent ? 1 : 0);
 	});
 });

@@ -1,5 +1,5 @@
 import type { ChatStatus } from "ai";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatInput } from "../chat-input";
@@ -15,7 +15,9 @@ type InputState = { status?: ChatStatus; isStartingChat?: boolean; isSettingsLoa
 
 function renderInput(initial: InputState) {
 	const stop = vi.fn<() => void>();
-	const onSendAction = vi.fn<(message: string, options: { enableSearch: boolean }) => void>();
+	const onSendAction = vi.fn<(message: string, options: { enableSearch: boolean }) => Promise<boolean>>(
+		async () => true,
+	);
 	const input = ({ status = "ready", isStartingChat = false, isSettingsLoading = false }: InputState) => (
 		<ChatInput
 			files={[]}
@@ -83,5 +85,27 @@ describe("ChatInput while saved settings load", () => {
 		fireEvent.keyDown(textarea, { key: "Enter" });
 
 		expect(onSendAction).toHaveBeenCalledExactlyOnceWith("hello", { enableSearch: false });
+	});
+});
+
+describe("ChatInput after a send", () => {
+	it("clears the message once it went out", async () => {
+		const { textarea, onSendAction } = renderInput({});
+
+		fireEvent.keyDown(textarea, { key: "Enter" });
+
+		await waitFor(() => expect(onSendAction).toHaveBeenCalledTimes(1));
+		expect(textarea.value).toBe("");
+	});
+
+	it("gives the message back when it didn't go out", async () => {
+		const { textarea, onSendAction } = renderInput({});
+		// e.g. the guest session couldn't start
+		onSendAction.mockResolvedValue(false);
+
+		fireEvent.keyDown(textarea, { key: "Enter" });
+		expect(textarea.value).toBe("");
+
+		await waitFor(() => expect(textarea.value).toBe("hello"));
 	});
 });

@@ -61,7 +61,7 @@ const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
   const { signIn, signOut } = useAuthActions();
-  const { isLoading: isAuthLoading } = useConvexAuth();
+  const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
   const ensureSession = useEnsureSession();
 
   const { data: user = null, isLoading: isUserLoading } = useTanStackQuery({
@@ -178,10 +178,13 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const hasGemini = hasApiKey.get("gemini") ?? false;
 
   // Until auth settles, getCurrentUser answers unauthenticated (null), so a null user is not yet
-  // a signed-out visitor
+  // a signed-out visitor. The cached answer can also lag the session either way, with isUserLoading
+  // already false: no user yet once a session is confirmed, and the previous one for a moment after
+  // sign-out. Until they agree, the user isn't known
   const combinedLoading = Boolean(
     isAuthLoading ||
     isUserLoading ||
+    isAuthenticated !== Boolean(user) ||
     (user &&
       !user.isAnonymous &&
       (isPremiumLoading || isRateLimitLoading || isApiKeysLoading || isConnectorsLoading)),
