@@ -4,7 +4,8 @@ import { createSessionGate, SESSION_TIMEOUT_MS } from "../session-gate";
 const SIGNED_OUT = { isLoading: false, isAuthenticated: false, hasToken: false };
 // A returning user's stored token, before the backend confirms it
 const RESTORING = { isLoading: true, isAuthenticated: false, hasToken: true };
-// A fresh sign-in's token: useConvexAuth() still reads signed out until the backend confirms it
+// A token the backend hasn't accepted: a fresh sign-in's until it is confirmed, or a stored one it
+// rejected. useConvexAuth() reads both as signed out
 const UNCONFIRMED = { isLoading: false, isAuthenticated: false, hasToken: true };
 const SIGNED_IN = { isLoading: false, isAuthenticated: true, hasToken: true };
 
@@ -111,22 +112,64 @@ describe("createSessionGate", () => {
     expect(signIn).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses a finished sign-in whose token has not reached React state yet", async () => {
+  it("waits on an unconfirmed guest for one retry only, then signs in afresh", async () => {
     vi.useFakeTimers();
     const gate = createSessionGate(SIGNED_OUT);
     const signIn = signInMock();
 
+    // Convex Auth keeps the new token, and the backend never confirms it
+    const first = gate.ensure(signIn).catch((error: Error) => error);
+    await flush();
+    gate.update(UNCONFIRMED);
+    await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
+    expect((await first)?.message).toMatch(/Timed out/);
+
+    const second = gate.ensure(signIn).catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
+    expect((await second)?.message).toMatch(/Timed out/);
+    expect(signIn).toHaveBeenCalledTimes(1);
+
+    const third = gate.ensure(signIn);
+    await flush();
+    gate.update(SIGNED_IN);
+    await third;
+
+    expect(signIn).toHaveBeenCalledTimes(2);
+  });
+
+  it("signs in again when the new token is gone before React state shows it", async () => {
+    vi.useFakeTimers();
+    const gate = createSessionGate(SIGNED_OUT);
+    const signIn = signInMock();
+
+    // e.g. another tab signs out in the same render batch: the gate never sees a token
     const failure = gate.ensure(signIn).catch((error: Error) => error);
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
     expect((await failure)?.message).toMatch(/Timed out/);
 
-    // The gate still reads signed out, with no token
     const retry = gate.ensure(signIn);
     await flush();
     gate.update(SIGNED_IN);
     await retry;
 
+    expect(signIn).toHaveBeenCalledTimes(2);
+  });
+
+  it("replaces a stored token the backend rejected instead of waiting on it", async () => {
+    vi.useFakeTimers();
+    const gate = createSessionGate(RESTORING);
+    const signIn = signInMock();
+    const done = vi.fn<() => void>();
+
+    // Convex Auth keeps a stored token it has no refresh token for
+    gate.update(UNCONFIRMED);
+    void gate.ensure(signIn).then(done);
+    await flush();
     expect(signIn).toHaveBeenCalledTimes(1);
+
+    gate.update(SIGNED_IN);
+    await flush();
+    expect(done).toHaveBeenCalled();
   });
 
   it("signs in again once Convex Auth drops a token the backend rejected", async () => {

@@ -10,10 +10,7 @@ export interface AuthState {
   isLoading: boolean;
   /** The backend has confirmed the token. */
   isAuthenticated: boolean;
-  /**
-   * Convex Auth holds a token, confirmed or not. A fresh sign-in reads as signed out in
-   * `useConvexAuth()` until the backend confirms, so this is what tells it apart from no session.
-   */
+  /** Convex Auth holds a token, confirmed or not. */
   hasToken: boolean;
 }
 
@@ -41,10 +38,14 @@ function beforeDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
 export function createSessionGate(initial: AuthState) {
   let current = initial;
   let pending: Promise<void> | null = null;
-  // Outlives a timed-out attempt, and on success lasts until `update` sees the new token: a retry
-  // in between waits on this sign-in instead of starting a second one, which would create a second
-  // guest account
+  // Outlives a timed-out attempt: the retry waits on the same sign-in instead of starting a second
+  // one, which would create a second guest account
   let signInInFlight: Promise<SignInResult> | null = null;
+  // The gate's sign-in succeeded and Convex hasn't confirmed it. Until it does, useConvexAuth()
+  // reads the new token as signed out, the same as a stored token the backend rejected, so this
+  // is what lets the next attempt wait on the guest it created instead of creating another. That
+  // attempt uses it up: if it times out too, the one after signs in afresh rather than wait forever.
+  let unconfirmedSignIn = false;
   const listeners = new Set<() => void>();
 
   function waitFor(predicate: (state: AuthState) => boolean, deadline: number) {
@@ -68,10 +69,8 @@ export function createSessionGate(initial: AuthState) {
   return {
     update(next: AuthState) {
       current = next;
-      // From here `hasToken` keeps a retry from signing in again; if the backend rejects the token,
-      // Convex Auth drops it and the next attempt signs in afresh
-      if (next.hasToken) {
-        signInInFlight = null;
+      if (next.isAuthenticated) {
+        unconfirmedSignIn = false;
       }
       // A listener that resolves removes itself; deleting the current entry is safe mid-iteration
       for (const listener of listeners) {
@@ -87,20 +86,19 @@ export function createSessionGate(initial: AuthState) {
         if (settled.isAuthenticated) {
           return;
         }
-        // A token the backend hasn't confirmed yet (a slow earlier attempt) is waited on, not replaced
-        if (!settled.hasToken) {
-          signInInFlight ??= signInAnonymously().then(
-            (result) => {
-              if (!result.signingIn) {
-                signInInFlight = null;
-              }
+        // Wait on the guest this gate created, once; otherwise sign in, which also replaces a stored
+        // token the backend rejected
+        const awaitsOwnToken = unconfirmedSignIn && settled.hasToken;
+        unconfirmedSignIn = false;
+        if (!awaitsOwnToken) {
+          signInInFlight ??= signInAnonymously()
+            .then((result) => {
+              unconfirmedSignIn = result.signingIn;
               return result;
-            },
-            (error: Error) => {
+            })
+            .finally(() => {
               signInInFlight = null;
-              throw error;
-            },
-          );
+            });
           const { signingIn } = await beforeDeadline(signInInFlight, deadline);
           if (!signingIn) {
             throw new Error("Anonymous sign-in did not start a session");
