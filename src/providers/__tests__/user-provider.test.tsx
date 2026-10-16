@@ -57,6 +57,7 @@ describe("UserProvider loading", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   const guest = { _id: "users:1", isAnonymous: true };
@@ -135,5 +136,25 @@ describe("UserProvider loading", () => {
 
     expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toEqual({ _id: "users:1", isAnonymous: true });
+  });
+
+  it("reloads instead of waiting when another tab's sign-in swaps the token's account", () => {
+    const reload = vi.fn<() => void>();
+    vi.stubGlobal("location", { reload });
+    mocks.auth.current = { isLoading: false, isAuthenticated: true };
+    mocks.tokenUserId.current = "users:1";
+    const { rerender } = renderUser();
+
+    // A sign-out, then a new guest: Convex Auth reconnects as each, so nothing reloads
+    mocks.tokenUserId.current = null;
+    rerender();
+    mocks.tokenUserId.current = "users:2";
+    rerender();
+    expect(reload).not.toHaveBeenCalled();
+
+    // Straight to another account: this tab's connection would stay on the previous one
+    mocks.tokenUserId.current = "users:3";
+    rerender();
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });

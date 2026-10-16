@@ -2,7 +2,15 @@ import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useConvexAuth, useMutation } from "convex/react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useEnsureSession } from "@/hooks/use-ensure-session";
 import {
   getNextRateLimitReset,
@@ -95,6 +103,18 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   // never sees the previous account's while its own is on the way
   const user =
     (isAuthLoading || isAuthenticated) && cachedUser?._id === sessionUserId ? cachedUser : null;
+
+  // A token that turns straight into another account's comes from another tab signing in to it.
+  // Convex Auth doesn't hand that token to this tab's connection, which keeps answering as the
+  // previous account until the token refreshes (up to an hour), so the tab reloads as the new one
+  const previousSessionUserId = useRef(sessionUserId);
+  useEffect(() => {
+    const previous = previousSessionUserId.current;
+    previousSessionUserId.current = sessionUserId;
+    if (previous !== null && sessionUserId !== null && previous !== sessionUserId) {
+      window.location.reload();
+    }
+  }, [sessionUserId]);
 
   // User capabilities and settings - only fetch when authenticated
   // NOTE: The `enabled` flag prevents TanStack Query execution but does NOT prevent
