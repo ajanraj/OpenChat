@@ -116,27 +116,21 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     }
   }, [sessionUserId]);
 
-  // User capabilities and settings - only fetch when authenticated
-  // NOTE: The `enabled` flag prevents TanStack Query execution but does NOT prevent
-  // Convex subscription establishment. The convexQuery() call creates a WebSocket
-  // subscription immediately, regardless of the enabled state. This is a known
-  // limitation of the current @convex-dev/react-query integration.
-  //
-  // For now, we rely on server-side safety (queries return [] or null for unauthenticated users)
-  // and proper error handling rather than preventing the subscription entirely.
-
+  // The account's capabilities and settings. Without a user their queries take "skip" args, a key of
+  // their own: a disabled query would still return the previous account's cached answer (e.g. an
+  // exhausted rate limit after sign-out), and `enabled` alone doesn't stop the Convex subscription.
+  // Their answers are dropped as soon as their account is (gcTime 0), so a later session's queries
+  // start empty and wait for its own answers instead of showing the previous account's
   const { data: hasPremium, isLoading: isPremiumLoading } = useTanStackQuery({
-    ...convexQuery(api.users.userHasPremium, {}),
+    ...convexQuery(api.users.userHasPremium, user && !user.isAnonymous ? {} : "skip"),
     enabled: Boolean(user) && !user?.isAnonymous,
-    // Premium status changes infrequently, cache longer
-    gcTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 0,
   });
 
   const { data: rateLimitState, isLoading: isRateLimitLoading } = useTanStackQuery({
-    ...convexQuery(api.users.getRateLimitStatus, {}),
+    ...convexQuery(api.users.getRateLimitStatus, user ? {} : "skip"),
     enabled: Boolean(user),
-    // Rate limits update more frequently, shorter cache
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 0,
   });
 
   // Credit windows run on the server's clock; a device clock running behind would keep an
@@ -175,17 +169,15 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   }, [nextRateLimitReset, now, serverClockOffset]);
 
   const { data: apiKeysQuery, isLoading: isApiKeysLoading } = useTanStackQuery({
-    ...convexQuery(api.api_keys.getApiKeys, {}),
+    ...convexQuery(api.api_keys.getApiKeys, user && !user.isAnonymous ? {} : "skip"),
     enabled: Boolean(user) && !user?.isAnonymous,
-    // API keys are relatively stable, cache reasonably
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 0,
   });
 
   const { data: connectorsQuery, isLoading: isConnectorsLoading } = useTanStackQuery({
     ...convexQuery(api.connectors.listUserConnectors, user && !user?.isAnonymous ? {} : "skip"),
     enabled: Boolean(user) && !user?.isAnonymous,
-    // Connectors are relatively stable, cache reasonably
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 0,
   });
   const updateUserProfile = useMutation(api.users.updateUserProfile);
 

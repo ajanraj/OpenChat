@@ -67,7 +67,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { data: profiles = [], isLoading } = useTanStackQuery({
     ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
     enabled: Boolean(user) && !user?.isAnonymous,
-    gcTime: 10 * 60 * 1000,
+    // Dropped with its account, so a later session waits for its own instead of showing these
+    gcTime: 0,
   });
 
   // Lazy init: ensure default profile exists on first load
