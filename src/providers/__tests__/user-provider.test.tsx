@@ -1,8 +1,8 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UserProvider, useUser } from "../user-provider";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { USER_ARRIVAL_TIMEOUT_MS, UserProvider, useUser } from "../user-provider";
 
 type FunctionReference = Parameters<typeof getFunctionName>[0];
 interface MockUser {
@@ -38,13 +38,17 @@ function renderUser() {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <UserProvider>{children}</UserProvider>
   );
-  return renderHook(() => useUser(), { wrapper }).result.current;
+  return renderHook(() => useUser(), { wrapper });
 }
 
 describe("UserProvider loading", () => {
   beforeEach(() => {
     mocks.auth.current = { isLoading: false, isAuthenticated: false };
     mocks.user.current = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it.each([
@@ -73,6 +77,41 @@ describe("UserProvider loading", () => {
     mocks.auth.current = { isLoading: false, isAuthenticated };
     mocks.user.current = user;
 
-    expect(renderUser().isLoading).toBe(isLoading);
+    expect(renderUser().result.current.isLoading).toBe(isLoading);
+  });
+
+  it("stops waiting for a confirmed session's user that never arrives", () => {
+    vi.useFakeTimers();
+    // e.g. the account was deleted on another device; its token stays accepted until it expires
+    mocks.auth.current = { isLoading: false, isAuthenticated: true };
+    const { result } = renderUser();
+    expect(result.current.isLoading).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS);
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.user).toBeNull();
+  });
+
+  it("keeps waiting while a confirmed session's user is on its way", () => {
+    vi.useFakeTimers();
+    mocks.auth.current = { isLoading: false, isAuthenticated: true };
+    const { result, rerender } = renderUser();
+
+    act(() => {
+      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS - 1);
+    });
+    expect(result.current.isLoading).toBe(true);
+
+    mocks.user.current = { _id: "users:1", isAnonymous: true };
+    rerender();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.user).toEqual({ _id: "users:1", isAnonymous: true });
   });
 });

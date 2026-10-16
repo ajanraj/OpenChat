@@ -59,6 +59,9 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 // setTimeout fires immediately for delays above 2^31 - 1 ms (~24.8 days)
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
+// A confirmed session's user arrives within moments; one still missing after this is gone
+export const USER_ARRIVAL_TIMEOUT_MS = 10_000;
+
 export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
   const { signIn, signOut } = useAuthActions();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
@@ -177,16 +180,30 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const hasAnthropic = hasApiKey.get("anthropic") ?? false;
   const hasGemini = hasApiKey.get("gemini") ?? false;
 
+  // A confirmed session with no user is normally the cached answer catching up. Past
+  // USER_ARRIVAL_TIMEOUT_MS the user is gone instead (e.g. the account was deleted on another device,
+  // whose token stays accepted until it expires), so stop waiting and show the signed-out state
+  const isUserPending = isAuthenticated && !user;
+  const [isUserMissing, setIsUserMissing] = useState(false);
+  if (isUserMissing && !isUserPending) {
+    setIsUserMissing(false);
+  }
+  useEffect(() => {
+    if (!isUserPending) {
+      return;
+    }
+    const timeout = setTimeout(() => setIsUserMissing(true), USER_ARRIVAL_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [isUserPending]);
+
   // Until auth settles, getCurrentUser answers unauthenticated (null), so a null user is not yet
   // a signed-out visitor. The cached answer can also lag the session either way, with isUserLoading
   // already false: no user yet once a session is confirmed, and the previous one for a moment after
-  // sign-out. Until they agree, the user isn't known. (An account deleted on another device keeps
-  // an accepted token, and so this state, until the token expires within the hour and its refresh
-  // fails, which ends the session.)
+  // sign-out. Until they agree (or the user is found missing), the user isn't known.
   const combinedLoading = Boolean(
     isAuthLoading ||
     isUserLoading ||
-    isAuthenticated !== Boolean(user) ||
+    (isAuthenticated !== Boolean(user) && !isUserMissing) ||
     (user &&
       !user.isAnonymous &&
       (isPremiumLoading || isRateLimitLoading || isApiKeysLoading || isConnectorsLoading)),
