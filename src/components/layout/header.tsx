@@ -24,8 +24,11 @@ export const Header = memo(function HeaderComponent() {
 	const router = useRouter();
 	const location = useLocation();
 	const pathname = location.pathname;
-	const { user } = useUser();
+	const { user, isLoading } = useUser();
 	const isLoggedIn = Boolean(user) && !user?.isAnonymous;
+	// Server render and first paint can't know the session yet: show neither set of actions so a
+	// returning user never sees the logged-out ones flash
+	const isSessionPending = !user && isLoading;
 	const isMobile = useBreakpoint(768);
 
 	const showNewChatButton = isMobile && pathname !== "/";
@@ -58,7 +61,7 @@ export const Header = memo(function HeaderComponent() {
 				{/* Hidden placeholder to prevent layout shift on desktop */}
 				<div className="hidden w-24 md:block" />
 
-				{isLoggedIn ? (
+				{isSessionPending ? null : isLoggedIn ? (
 					<div className="flex items-center gap-4">
 						{/* Mobile button for new chat */}
 						{showNewChatButton ? (

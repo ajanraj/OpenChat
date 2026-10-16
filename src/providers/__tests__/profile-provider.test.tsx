@@ -1,7 +1,8 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { getFunctionName } from "convex/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEditorStore } from "@/lib/store/editor-store";
 import { ProfileProvider, useProfile } from "../profile-provider";
 
 interface MockProfile {
@@ -25,6 +26,7 @@ interface MockUserResult {
     activeProfileId?: string;
     isAnonymous: boolean;
   } | null;
+  isLoading?: boolean;
 }
 
 type MutationValue = boolean | null | number | string | undefined;
@@ -217,8 +219,12 @@ describe("ProfileProvider chatListProfileId", () => {
     return <div data-testid="chat-list-profile-id">{String(chatListProfileId)}</div>;
   }
 
-  function renderChatListProfileId(user: MockUserResult["user"], query: MockQueryResult) {
-    useUserMock.mockReturnValue({ user });
+  function renderChatListProfileId(
+    user: MockUserResult["user"],
+    query: MockQueryResult,
+    isUserLoading = false,
+  ) {
+    useUserMock.mockReturnValue({ user, isLoading: isUserLoading });
     useTanStackQueryMock.mockReturnValue(query);
     const { getByTestId, unmount } = renderWithProvider(<ChatListProfileHarness />);
     const value = getByTestId("chat-list-profile-id").textContent;
@@ -242,13 +248,17 @@ describe("ProfileProvider chatListProfileId", () => {
   });
 
   it("is unknown until a signed-in user's profile is known", () => {
-    expect(renderChatListProfileId(null, { data: [], isLoading: false })).toBe("undefined");
+    expect(renderChatListProfileId(null, { data: [], isLoading: false }, true)).toBe("undefined");
     expect(
       renderChatListProfileId(
         { _id: "users:u1", isAnonymous: false },
         { data: [], isLoading: true },
       ),
     ).toBe("undefined");
+  });
+
+  it("is null for a signed-out visitor, who has no chats until their first message", () => {
+    expect(renderChatListProfileId(null, { data: [], isLoading: false })).toBe("null");
   });
 
   it("uses an anonymous user's active profile, or null before their first chat", () => {
@@ -261,5 +271,120 @@ describe("ProfileProvider chatListProfileId", () => {
       ),
     ).toBe("profiles:anon");
     expect(renderChatListProfileId(anonymous, { data: [], isLoading: false })).toBe("null");
+  });
+});
+
+describe("ProfileProvider theme saves", () => {
+  const initialThemeState = useEditorStore.getState().themeState;
+  const profile = (id: string, userId: string): MockProfile => ({
+    _id: id,
+    _creationTime: 1,
+    userId,
+    name: "Default",
+    icon: "ChatCircle",
+    isDefault: true,
+    order: 0,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    useEditorStore.setState({ themeState: initialThemeState });
+  });
+
+  const edited = { ...initialThemeState, preset: "edited-before-sign-out" };
+
+  /** Renders u1's profile p1 with a theme edit still inside its save's debounce. */
+  function renderWithPendingEdit(updateProfile: MutationMock) {
+    useMutationMock.mockImplementation((mutationRef: FunctionReference) =>
+      getFunctionName(mutationRef) === "profiles:updateProfile"
+        ? updateProfile
+        : vi.fn<MutationMock>(async () => null),
+    );
+    useUserMock.mockReturnValue({
+      user: { _id: "users:u1", activeProfileId: "profiles:p1", isAnonymous: false },
+    });
+    useTanStackQueryMock.mockReturnValue({
+      data: [profile("profiles:p1", "users:u1")],
+      isLoading: false,
+    });
+    const { rerender } = renderWithProvider(null);
+    act(() => {
+      useEditorStore.getState().setThemeState(edited);
+    });
+    return () => rerender(<ProfileProvider>{null}</ProfileProvider>);
+  }
+
+  function signOut() {
+    useUserMock.mockReturnValue({ user: null });
+    useTanStackQueryMock.mockReturnValue({ data: [], isLoading: false });
+  }
+
+  it("saves a theme edit still pending as its account signs out, and only to that account", () => {
+    const updateProfile = vi.fn<MutationMock>(async () => null);
+    const rerender = renderWithPendingEdit(updateProfile);
+
+    // Signed out within the save's debounce
+    signOut();
+    rerender();
+
+    expect(updateProfile).toHaveBeenCalledExactlyOnceWith({
+      profileId: "profiles:p1",
+      updates: { themeConfig: JSON.stringify(edited) },
+    });
+
+    // The next account's profile loads with nothing left to save to the previous one
+    useUserMock.mockReturnValue({
+      user: { _id: "users:u2", activeProfileId: "profiles:p2", isAnonymous: false },
+    });
+    useTanStackQueryMock.mockReturnValue({
+      data: [profile("profiles:p2", "users:u2")],
+      isLoading: false,
+    });
+    rerender();
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(updateProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves it once when the account changes while the same profile is still shown", () => {
+    const updateProfile = vi.fn<MutationMock>(async () => null);
+    const rerender = renderWithPendingEdit(updateProfile);
+
+    // The next account's user arrives before its own profiles replace the previous ones
+    useUserMock.mockReturnValue({ user: { _id: "users:u2", isAnonymous: false } });
+    rerender();
+    // The save's debounce would have fired by now
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(updateProfile).toHaveBeenCalledExactlyOnceWith({
+      profileId: "profiles:p1",
+      updates: { themeConfig: JSON.stringify(edited) },
+    });
+  });
+
+  it("keeps the save best-effort when the ended session can't make it", async () => {
+    // Not a vi.fn, which handles the promises it returns: a rejection left unhandled fails the run
+    let saves = 0;
+    const rerender = renderWithPendingEdit(() => {
+      saves += 1;
+      return Promise.reject(new Error("NOT_AUTHENTICATED"));
+    });
+
+    signOut();
+    rerender();
+    await act(async () => {
+      await flushMicrotasks();
+    });
+
+    expect(saves).toBe(1);
   });
 });

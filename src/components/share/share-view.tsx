@@ -46,12 +46,14 @@ export function ShareView({
 	messages: SharedMessage[];
 	sourceChatId: string;
 }) {
-	const { user } = useUser();
+	const { user, isLoading: isUserLoading } = useUser();
 	const fork = useMutation(api.chats.forkFromShared);
 	const router = useRouter();
 	const [showCannotForkDialog, setShowCannotForkDialog] = useState(false);
 
 	const isAuthenticated = Boolean(user && !user.isAnonymous);
+	// Who this is isn't known until the session settles (not the account's settings, which can lag)
+	const isSessionPending = !user && isUserLoading;
 
 	// Check if messages contain redacted content
 	const canFork = !shouldDisableFork(messages);
@@ -136,25 +138,28 @@ export function ShareView({
 					variant={m.role}
 				/>
 			))}
-			{/* Floating CTA inspired by Zola's "Ask Zola" */}
-			<div className="fixed bottom-6 left-0 z-50 flex w-full justify-center">
-				<Button
-					aria-label={getAriaLabel(canFork, isAuthenticated)}
-					className="group flex h-12 items-center justify-between rounded-full border border-border bg-background py-2 pr-2 pl-4 text-muted-foreground shadow-sm transition-all hover:scale-[1.02] hover:bg-background active:scale-[0.98]"
-					onClick={handleButtonClick}
-					variant="outline"
-				>
-					<span className="flex items-center gap-2">
-						{canFork ? null : <Lock className="h-5 w-5" />}
-						{getButtonText(canFork, isAuthenticated)}
-					</span>
-					{canFork ? (
-						<span className="rounded-full bg-black/20 p-2 backdrop-blur-sm transition-colors group-hover:bg-black/30">
-							<ArrowUpRight className="h-4 w-4 text-white" />
+			{/* Floating CTA inspired by Zola's "Ask Zola". Shown once the session settles: until then a
+			    returning user isn't known yet, and it would offer them sign-in */}
+			{isSessionPending ? null : (
+				<div className="fixed bottom-6 left-0 z-50 flex w-full justify-center">
+					<Button
+						aria-label={getAriaLabel(canFork, isAuthenticated)}
+						className="group flex h-12 items-center justify-between rounded-full border border-border bg-background py-2 pr-2 pl-4 text-muted-foreground shadow-sm transition-all hover:scale-[1.02] hover:bg-background active:scale-[0.98]"
+						onClick={handleButtonClick}
+						variant="outline"
+					>
+						<span className="flex items-center gap-2">
+							{canFork ? null : <Lock className="h-5 w-5" />}
+							{getButtonText(canFork, isAuthenticated)}
 						</span>
-					) : null}
-				</Button>
-			</div>
+						{canFork ? (
+							<span className="rounded-full bg-black/20 p-2 backdrop-blur-sm transition-colors group-hover:bg-black/30">
+								<ArrowUpRight className="h-4 w-4 text-white" />
+							</span>
+						) : null}
+					</Button>
+				</div>
+			)}
 
 			{/* Cannot Fork Dialog */}
 			<Dialog

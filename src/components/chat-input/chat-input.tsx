@@ -1,5 +1,5 @@
 import type { ChatStatus } from "ai";
-import { ArrowUp, Globe, Stop, X } from "@phosphor-icons/react";
+import { ArrowUp, Globe, SpinnerGapIcon, Stop, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	PromptInput,
@@ -25,8 +25,20 @@ import { SelectReasoningEffort } from "./select-reasoning-effort";
 
 type ChatInputProps = {
 	status: ChatStatus;
+	/**
+	 * A new chat is starting (guest sign-in, chat creation, then its first response): the input
+	 * holds further sends, while typing stays open. Until the chat's request exists there is nothing
+	 * to stop; once it does, Stop works as usual.
+	 */
+	isStartingChat?: boolean;
+	/**
+	 * The settings a send reads (the user's saved model and profile, an open chat's own model and
+	 * persona) are still loading: sends wait so the message uses them. Typing doesn't wait.
+	 */
+	isSettingsLoading?: boolean;
 	stop: () => void;
-	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
+	/** Resolves whether the message went out; if it didn't, the input gives the text back. */
+	onSendAction: (message: string, options: { enableSearch: boolean }) => Promise<boolean>;
 	files: File[];
 	onFileUploadAction: (files: File[]) => void;
 	onFileRemoveAction: (file: File) => void;
@@ -40,11 +52,28 @@ type ChatInputProps = {
 	isReasoningModel: boolean;
 	reasoningEffort: ReasoningEffort;
 	onSelectReasoningEffortAction: (reasoningEffort: ReasoningEffort) => void;
+	/**
+	 * Shown until the user types. A new value (e.g. a failed ?q= link's query) replaces an empty
+	 * input, or goes ahead of what the user typed.
+	 */
 	initialValue?: string;
 };
 
+/**
+ * Text handed back to the input (a message that didn't go out, a failed ?q= link's query) goes
+ * ahead of what was typed since, so neither is lost, unless that is the same text typed again.
+ */
+function restoreAheadOf(draft: string | null, text: string): string {
+	if (!draft || draft.trim() === text.trim()) {
+		return draft || text;
+	}
+	return `${text}\n\n${draft}`;
+}
+
 export function ChatInput({
 	status,
+	isStartingChat = false,
+	isSettingsLoading = false,
 	stop,
 	onSendAction,
 	files,
@@ -63,9 +92,23 @@ export function ChatInput({
 	initialValue = "",
 }: ChatInputProps) {
 	const isRequestActive = status === "streaming" || status === "submitted";
+	// Starting a guest session and a chat can take seconds before the request exists
+	const isStartPending = isStartingChat && !isRequestActive;
+	// A held send keeps the message in the input
+	const isSendHeld = isStartingChat || isSettingsLoading;
 
 	// Local state for input value to prevent parent re-renders
 	const [draftValue, setDraftValue] = useState<string | null>(null);
+	const [shownInitialValue, setShownInitialValue] = useState(initialValue);
+	if (initialValue !== shownInitialValue) {
+		setShownInitialValue(initialValue);
+		// An empty input just shows it; otherwise it goes ahead of what the user typed, never over it
+		if (!draftValue) {
+			setDraftValue(null);
+		} else if (initialValue) {
+			setDraftValue(restoreAheadOf(draftValue, initialValue));
+		}
+	}
 	const value = draftValue ?? initialValue;
 	const [searchEnabled, setSearchEnabled] = useState(false);
 	const toggleSearch = useCallback(() => {
@@ -78,24 +121,50 @@ export function ChatInput({
 		setDraftValue(nextValue);
 	}, []);
 
+	// Clears the input at once. A message that didn't go out (e.g. the session couldn't start) comes
+	// back, ahead of anything typed while it was on its way
+	const send = useCallback(() => {
+		const message = value;
+		setDraftValue("");
+		void onSendAction(message, { enableSearch: searchEnabled }).then((sent) => {
+			if (!sent) {
+				setDraftValue((current) => restoreAheadOf(current, message));
+			}
+		});
+	}, [onSendAction, searchEnabled, value]);
+
+	// Enter while saved settings load sends nothing, so the status says why, then that sending works
+	// once they arrive; that lasts until the next hold or request, so it is never stale or repeated
+	const [settingsWait, setSettingsWait] = useState<"idle" | "waiting" | "ready">("idle");
+	if (settingsWait === "waiting" && !isSettingsLoading) {
+		setSettingsWait("ready");
+	} else if (settingsWait === "ready" && (isSendHeld || isRequestActive)) {
+		setSettingsWait("idle");
+	}
+
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (isRequestActive) {
+			if (isRequestActive || e.key !== "Enter" || e.shiftKey) {
 				return;
 			}
-
-				if (e.key === "Enter" && !e.shiftKey) {
-					e.preventDefault();
-					onSendAction(value, { enableSearch: searchEnabled });
-					setDraftValue(""); // Clear input after sending
+			if (isSendHeld) {
+				if (isSettingsLoading) {
+					setSettingsWait("waiting");
 				}
-			},
-			[onSendAction, isRequestActive, searchEnabled, value],
+				return;
+			}
+			e.preventDefault();
+			send();
+		},
+		[send, isRequestActive, isSendHeld, isSettingsLoading],
 	);
 
 	const handleMainClick = () => {
 		if (isRequestActive) {
 			stop();
+			return;
+		}
+		if (isSendHeld) {
 			return;
 		}
 
@@ -104,8 +173,7 @@ export function ChatInput({
 			return;
 		}
 
-		onSendAction(value, { enableSearch: searchEnabled });
-		setDraftValue(""); // Clear input after sending
+		send();
 	};
 
 	const handleSuggestionClick = useCallback(
@@ -236,14 +304,30 @@ export function ChatInput({
 		return () => document.removeEventListener("keydown", handleGlobalKeyDown);
 	}, [isRequestActive]);
 
-	// Compute tooltip text without nested ternary expressions
+	// Compute tooltip text and icon without nested ternary expressions
 	let tooltipText = "Send";
+	let sendIcon = <ArrowUp className="size-4" />;
 	if (isRequestActive) {
 		tooltipText = "Stop";
+		sendIcon = <Stop className="size-4" />;
+	} else if (isStartPending) {
+		sendIcon = <SpinnerGapIcon className="size-4 animate-spin" />;
+	}
+	// Announced to screen readers: why a send is waiting, and when it no longer is
+	let holdStatus = "";
+	if (isStartPending) {
+		holdStatus = "Starting your chat…";
+	} else if (settingsWait === "waiting") {
+		holdStatus = "Loading your settings…";
+	} else if (settingsWait === "ready") {
+		holdStatus = "Ready to send.";
 	}
 
 	return (
 		<div className="relative flex w-full flex-col gap-4">
+			<span aria-live="polite" className="sr-only" role="status">
+				{holdStatus}
+			</span>
 				{hasSuggestions ? (
 					<PromptSystem
 						isEmpty={isEmpty}
@@ -310,22 +394,18 @@ export function ChatInput({
 						</div>
 						<PromptInputAction tooltip={tooltipText}>
 							<Button
+								aria-busy={isStartPending}
 								aria-label="Send message"
 								className="origin-right scale-90 transform rounded-full transition-all duration-300 ease-out sm:scale-100"
 								disabled={
-									!value.trim() &&
-									files.length === 0 &&
-									!isRequestActive
+									!isRequestActive &&
+									(isSendHeld || (!value.trim() && files.length === 0))
 								}
 								onClick={handleMainClick}
 								size="sm"
 								type="button"
 							>
-								{status === "streaming" || status === "submitted" ? (
-									<Stop className="size-4" />
-								) : (
-									<ArrowUp className="size-4" />
-								)}
+								{sendIcon}
 							</Button>
 						</PromptInputAction>
 					</PromptInputActions>

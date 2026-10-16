@@ -5,11 +5,12 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { DefaultChatTransport, type FileUIPart } from "ai";
+import type { FileUIPart } from "ai";
 import { AnimatePresence, m } from "motion/react";
 import {
 	createContext,
 	lazy,
+	Suspense,
 	useCallback,
 	useContext,
 	useEffect,
@@ -39,6 +40,7 @@ import { useChatValidation } from "@/hooks/use-chat-validation";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useFileHandling } from "@/hooks/use-file-handling";
 import { createChatErrorHandler } from "@/lib/chat-error-utils";
+import { chatTransport, setChatAuthToken } from "@/lib/chat-transport";
 import {
 	MODEL_DEFAULT,
 	MODELS_MAP,
@@ -59,10 +61,10 @@ import {
 	createModelValidator,
 	getDefaultReasoningEffort,
 	getReasoningEffortOptions,
+	normalizeReasoningEffort,
 	supportsReasoningEffort,
 } from "@/lib/model-utils";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
-import { API_ROUTE_CHAT } from "@/lib/routes";
 import { HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT } from "@/lib/hotkey-events";
 import {
 	getDisplayName,
@@ -78,7 +80,6 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 const DRAFT_CHAT_KEY = "draft-chat";
 const chatRegistry = new Map<string, ChatInstance<MessageWithExtras>>();
-const chatAuthTokenRegistry = new WeakMap<ChatInstance<MessageWithExtras>, string | null>();
 const chatIdentityRegistry = new WeakMap<object, number>();
 let chatIdentityCounter = 0;
 
@@ -120,6 +121,20 @@ function cleanupChatInstance(chatId: string) {
 		void instance.stop();
 	}
 	chatRegistry.delete(chatId);
+}
+
+// The account whose conversations the registry holds. Instances keep messages in memory, so once
+// that account signs out or another takes over, the registry starts empty. A visitor becoming a
+// guest keeps it: their first message is already in flight.
+let chatRegistryOwner: string | null = null;
+
+function scopeChatRegistry(userId: string | null) {
+	if (chatRegistryOwner !== null && chatRegistryOwner !== userId) {
+		for (const key of [...chatRegistry.keys()]) {
+			cleanupChatInstance(key);
+		}
+	}
+	chatRegistryOwner = userId;
 }
 
 function getChatIdentity(instance: ChatInstance<MessageWithExtras>) {
@@ -181,6 +196,7 @@ function useChatContentView() {
 		isLoading: isUserLoading,
 		hasApiKey,
 		isApiKeysLoading,
+		ensureSession,
 	} = useUser();
 
 	// Initialize utilities
@@ -215,17 +231,22 @@ function useChatContentView() {
 	// Local state
 	type ChatUIState = {
 		hasDialogAuth: boolean;
+		isStartingChat: boolean;
 		reasoningEffort: ReasoningEffort;
 		tempPersonaId: string | undefined;
 		tempSelectedModel: string | undefined;
 		showDeleteChatDialog: boolean;
+		/** A ?q= link's query whose start didn't go out, back in the input to send again. */
+		urlDraft: string | undefined;
 	};
 	type ChatUIAction =
 		| { type: "SET_DIALOG_AUTH"; value: boolean }
+		| { type: "SET_STARTING_CHAT"; value: boolean }
 		| { type: "SET_REASONING_EFFORT"; value: ReasoningEffort }
 		| { type: "SET_TEMP_PERSONA"; id: string | undefined }
 		| { type: "SET_TEMP_MODEL"; model: string | undefined }
 		| { type: "SET_DELETE_CHAT_DIALOG"; value: boolean }
+		| { type: "RESTORE_URL_START"; query: string; model: string }
 		| { type: "CLEAR_TEMP" };
 
 	const [chatUIState, dispatchUI] = useReducer(
@@ -233,6 +254,8 @@ function useChatContentView() {
 			switch (action.type) {
 				case "SET_DIALOG_AUTH":
 					return { ...s, hasDialogAuth: action.value };
+				case "SET_STARTING_CHAT":
+					return { ...s, isStartingChat: action.value };
 				case "SET_REASONING_EFFORT":
 					return { ...s, reasoningEffort: action.value };
 				case "SET_TEMP_PERSONA":
@@ -241,13 +264,33 @@ function useChatContentView() {
 					return { ...s, tempSelectedModel: action.model };
 				case "SET_DELETE_CHAT_DIALOG":
 					return { ...s, showDeleteChatDialog: action.value };
+				case "RESTORE_URL_START":
+					return { ...s, urlDraft: action.query, tempSelectedModel: action.model };
 				case "CLEAR_TEMP":
 					return { ...s, tempPersonaId: undefined, tempSelectedModel: undefined };
 			}
 		},
-		{ hasDialogAuth: false, reasoningEffort: "none", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false },
+		{ hasDialogAuth: false, isStartingChat: false, reasoningEffort: "none", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false, urlDraft: undefined },
 	);
-	const { hasDialogAuth, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
+	const { hasDialogAuth, isStartingChat, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog, urlDraft } = chatUIState;
+	// Starting a chat spans several round trips (guest sign-in, createChat) before the chat's own
+	// status shows a request. Every start (a send, or ?q= in the URL) runs through here, one at a
+	// time, so a second send in that window can't start a second chat. Resolves whether the start
+	// sent its message.
+	const startingChatRef = useRef(false);
+	const runChatStart = useCallback(async (start: () => Promise<boolean>) => {
+		if (startingChatRef.current) {
+			return false;
+		}
+		startingChatRef.current = true;
+		dispatchUI({ type: "SET_STARTING_CHAT", value: true });
+		try {
+			return await start();
+		} finally {
+			startingChatRef.current = false;
+			dispatchUI({ type: "SET_STARTING_CHAT", value: false });
+		}
+	}, []);
 	const processedUrl = useRef(false);
 	const retiredFallbackChatIds = useRef(new Set<string>());
 
@@ -260,7 +303,7 @@ function useChatContentView() {
 		enabled: Boolean(chatId),
 	});
 
-	const { data: currentChat } = useTanStackQuery({
+	const { data: currentChat, isLoading: isChatLoading } = useTanStackQuery({
 		...convexQuery(
 			api.chats.getChat,
 			chatId ? { chatId: chatId as Id<"chats"> } : "skip",
@@ -269,7 +312,11 @@ function useChatContentView() {
 	});
 
 	// Derived state
-	const { activeProfile } = useProfile();
+	const { activeProfile, isProfilesLoading } = useProfile();
+	// A returning user's saved model and profile, and an open chat's own settings, load after the
+	// page does. A send reads them when it starts, so sends wait for them (isUserLoading also covers
+	// a session whose user hasn't arrived)
+	const isSettingsLoading = isUserLoading || isProfilesLoading || isChatLoading;
 	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
 	const currentChatModelId = currentChat?.model;
 	const retiredChatModel = currentChatModelId
@@ -284,13 +331,15 @@ function useChatContentView() {
 				tempSelectedModel ?? activeProfile?.preferredModel ?? user?.preferredModel ?? MODEL_DEFAULT,
 				disabledModels,
 			);
-	const reasoningEffortOptions = getReasoningEffortOptions(selectedModel);
-	const selectedReasoningEffort = reasoningEffortOptions.includes(reasoningEffort)
-		? reasoningEffort
-		: (getDefaultReasoningEffort(selectedModel) ?? reasoningEffort);
+	const selectedReasoningEffort = normalizeReasoningEffort(selectedModel, reasoningEffort);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
+	// Only signed-in accounts can attach files. The view stays mounted when one signs out, so drop
+	// what it attached rather than send it from a guest account (the user clears as the session ends)
+	if (!isAuthenticated && files.length > 0) {
+		clearFiles();
+	}
 
 	useEffect(() => {
 		if (
@@ -439,30 +488,34 @@ function useChatContentView() {
 		});
 	}, [chatId, messagesFromDB, status, setMessages, isDeleting]);
 
-	// Core message sending function
+	// Core message sending function. Resolves whether the message went out.
 	const sendMessageHelper = useCallback(
 		async (
 			inputMessage: string,
 			currentChatId?: string,
-			options?: { enableSearch?: boolean },
-		) => {
+			// `model` is a ?q= link's: its chat was just created with it, before this render knows
+			options?: { enableSearch?: boolean; model?: string },
+		): Promise<boolean> => {
 			const chatIdToUse = currentChatId || chatId;
 			if (!chatIdToUse) {
-				return;
+				return false;
 			}
 
-			const isReasoningModel = supportsReasoningEffort(selectedModel);
+			const model = options?.model ?? selectedModel;
+			const isReasoningModel = supportsReasoningEffort(model);
 			const timezone = getUserTimezone();
 
 			const body: ChatBody = {
 				chatId: chatIdToUse,
-				model: selectedModel,
+				model,
 				personaId,
 				profileId: activeProfile?._id,
 				...(typeof options?.enableSearch !== "undefined"
 					? { enableSearch: options.enableSearch }
 					: {}),
-				...(isReasoningModel ? { reasoningEffort: selectedReasoningEffort } : {}),
+				...(isReasoningModel
+					? { reasoningEffort: normalizeReasoningEffort(model, reasoningEffort) }
+					: {}),
 				...(timezone ? { userInfo: { timezone } } : {}),
 			};
 
@@ -494,7 +547,7 @@ function useChatContentView() {
 					// Remove placeholder and cleanup blob URLs; rely on upload utils to toast errors
 					setMessages((cur) => cur.filter((m) => m.id !== placeholderId));
 					revokeOptimisticAttachments(optimisticAttachments);
-					return;
+					return false;
 				}
 			}
 
@@ -506,15 +559,17 @@ function useChatContentView() {
 			try {
 				await sendMessage({ parts: messageParts, role: "user" }, { body });
 			} catch {
+				// The message is already in the conversation, so it counts as sent
 				toast({ title: "Failed to send message", status: "error" });
 			}
+			return true;
 		},
 		[
 			chatId,
 			selectedModel,
 			personaId,
 			activeProfile?._id,
-			selectedReasoningEffort,
+			reasoningEffort,
 			hasFiles,
 			createOptimisticFiles,
 			processFiles,
@@ -525,7 +580,7 @@ function useChatContentView() {
 
 	// URL parameter processing
 	useEffect(() => {
-		if (isUserLoading || isApiKeysLoading || !user || processedUrl.current) {
+		if (isSettingsLoading || isApiKeysLoading || processedUrl.current) {
 			return;
 		}
 
@@ -545,6 +600,7 @@ function useChatContentView() {
 			}
 
 				const startChat = async () => {
+					await ensureSession();
 					const newChatId = await handleCreateChat(
 						trimmedQuery,
 						modelId,
@@ -552,22 +608,32 @@ function useChatContentView() {
 						activeProfile?._id,
 					);
 					if (!newChatId) {
-						return;
+						return false;
 					}
 
 					promoteDraftChatToReal(newChatId);
 					void router.navigate({ to: `/c/${newChatId}` });
-					await sendMessageHelper(trimmedQuery, newChatId, {
+					return sendMessageHelper(trimmedQuery, newChatId, {
 						enableSearch: false,
+						model: modelId,
 					});
 				};
 
-				void startChat().catch(() => {
-					toast({ title: "Failed to create chat", status: "error" });
-				});
+				// The link is only processed once, so a start that didn't go out (e.g. the guest
+				// session couldn't start) puts its query and model in the input to send again
+				void runChatStart(startChat)
+					.catch(() => {
+						toast({ title: "Failed to create chat", status: "error" });
+						return false;
+					})
+					.then((sent) => {
+						if (!sent) {
+							dispatchUI({ type: "RESTORE_URL_START", query: trimmedQuery, model: modelId });
+						}
+					});
 			}
 		}, [
-		isUserLoading,
+		isSettingsLoading,
 		isApiKeysLoading,
 		user,
 		searchParams,
@@ -580,54 +646,72 @@ function useChatContentView() {
 		validateSearchQuery,
 		validateModelAccess,
 		sendMessageHelper,
+		ensureSession,
+		runChatStart,
 	]);
 
-	// Main submit handler
+	// Main submit handler. Resolves whether the message went out; when it didn't (invalid, rate
+	// limited, or the session or chat couldn't start), the input gives the text back.
 	const submit = useCallback(
 		async (
 			inputMessage: string,
 			opts?: { body?: { enableSearch?: boolean } },
-		) => {
-			if (!validateInput(inputMessage, files.length, user?._id)) {
-				return;
+		): Promise<boolean> => {
+			if (!validateInput(inputMessage, files.length)) {
+				return false;
 			}
 
 			const allowed = checkRateLimits(isAuthenticated, (v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v }));
 			if (!allowed) {
-				return;
+				return false;
 			}
 
-			let currentChatId = chatId;
-
-			// Create chat if needed
-			if (!currentChatId && messages.length === 0 && inputMessage) {
-				currentChatId = await handleCreateChat(
-					inputMessage,
-					selectedModel,
-					personaId,
-					activeProfile?._id,
-				);
-				if (!currentChatId) {
-					return;
+			const isNewChat = !chatId && messages.length === 0;
+			const send = async () => {
+				// A signed-out visitor's first message is what creates their guest account
+				try {
+					await ensureSession();
+				} catch {
+					toast({ title: "Couldn't start your session. Please try again.", status: "error" });
+					return false;
 				}
 
-				promoteDraftChatToReal(currentChatId);
-				void router.navigate({ to: `/c/${currentChatId}` });
-				dispatchUI({ type: "CLEAR_TEMP" });
-			}
+				let currentChatId = chatId;
 
-			clearFiles();
-			await sendMessageHelper(
-				inputMessage,
-				currentChatId || undefined,
-				opts?.body,
-			);
+				// Create chat if needed
+				if (isNewChat && inputMessage) {
+					currentChatId = await handleCreateChat(
+						inputMessage,
+						selectedModel,
+						personaId,
+						activeProfile?._id,
+					);
+					if (!currentChatId) {
+						return false;
+					}
+
+					promoteDraftChatToReal(currentChatId);
+					void router.navigate({ to: `/c/${currentChatId}` });
+					dispatchUI({ type: "CLEAR_TEMP" });
+				}
+
+				// A new chat starts from text, so attachments alone stay in the input
+				if (!currentChatId) {
+					return false;
+				}
+
+				clearFiles();
+				return sendMessageHelper(inputMessage, currentChatId, opts?.body);
+			};
+
+			return isNewChat ? runChatStart(send) : send();
 		},
 		[
 			files.length,
-			user?._id,
 			checkRateLimits,
 			isAuthenticated,
+			ensureSession,
+			runChatStart,
 			chatId,
 			messages.length,
 			handleCreateChat,
@@ -1016,12 +1100,17 @@ function useChatContentView() {
 			);
 	}, [chatId, isDeleting]);
 
+	// A chat is only ever shown to its owner. With no session (signed out here or in another tab),
+	// its cached data can outlast the sign-out until the connection catches up, so it isn't shown
+	const isSignedOut = !isUserLoading && !user;
+	const isChatUnavailable = Boolean(chatId) && (currentChat === null || isSignedOut);
+
 	// Chat redirect effect
 	useEffect(() => {
-		if (!isUserLoading && chatId && currentChat === null && !isDeleting) {
+		if (!isUserLoading && isChatUnavailable && !isDeleting) {
 			router.navigate({ to: "/", replace: true });
 		}
-	}, [chatId, currentChat, isUserLoading, router, isDeleting]);
+	}, [isChatUnavailable, isUserLoading, router, isDeleting]);
 
 	// Document title update
 	useDocumentTitle(currentChat?.title, chatId || undefined);
@@ -1053,7 +1142,7 @@ function useChatContentView() {
 	}, [targetMessageId, messages]);
 
 	// Early return for redirect
-	if (currentChat === null && chatId) {
+	if (isChatUnavailable) {
 		return null;
 	}
 
@@ -1063,7 +1152,9 @@ function useChatContentView() {
 				"@container/main relative flex h-full min-h-0 flex-col items-center justify-end md:justify-center",
 			)}
 		>
-			<DialogAuth open={hasDialogAuth} setOpenAction={(v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v })} />
+			<Suspense fallback={null}>
+				<DialogAuth open={hasDialogAuth} setOpenAction={(v) => dispatchUI({ type: "SET_DIALOG_AUTH", value: v })} />
+			</Suspense>
 			<AlertDialog
 				onOpenChange={(open) => {
 					if (isDeleting) return;
@@ -1155,6 +1246,9 @@ function useChatContentView() {
 				<ChatInput
 					files={files}
 					hasSuggestions={!chatId && messages.length === 0}
+					initialValue={urlDraft}
+					isStartingChat={isStartingChat}
+					isSettingsLoading={isSettingsLoading}
 					status={status}
 					stop={stop}
 					isReasoningModel={supportsReasoningEffort(selectedModel)}
@@ -1180,47 +1274,39 @@ function useChatContentView() {
 
 export default function Chat() {
 	const { chatId } = useChatSession();
+	const { user } = useUser();
 	const authToken = useAuthToken();
 	const storeKey = chatId ?? DRAFT_CHAT_KEY;
+	const userId = user?._id ?? null;
 
-	const chatTransport = useMemo(
-		() =>
-			new DefaultChatTransport({
-				api: API_ROUTE_CHAT,
-				headers: {
-					"Content-Type": "application/json",
-					...(authToken && { Authorization: `Bearer ${authToken}` }),
-				},
-			}),
-		[authToken],
-	);
+	// The shared transport reads the token per request, so instances never need recreating
+	useEffect(() => {
+		setChatAuthToken(authToken);
+	}, [authToken]);
 
 	const chatInstance = useMemo(() => {
+		// The registry is module state, shared by every request on the server, so SSR gets a
+		// throwaway instance
+		if (typeof window === "undefined") {
+			return new ChatInstance<MessageWithExtras>({ id: storeKey, transport: chatTransport });
+		}
+		scopeChatRegistry(userId);
 		const existing = chatRegistry.get(storeKey);
-		// Reuse existing instance if auth token hasn't changed.
-		// Compare token string (not transport object ref) so remounts
-		// after route navigation don't needlessly recreate the instance
-		// while an in-flight sendMessage/stream is still running.
-		if (existing && chatAuthTokenRegistry.get(existing) === (authToken ?? null)) {
+		if (existing) {
 			// Promote reused entry to most-recently-used position.
 			chatRegistry.delete(storeKey);
 			chatRegistry.set(storeKey, existing);
 			return existing;
 		}
-		// Auth token changed or no instance yet — create new,
-		// preserving messages from the old instance to avoid UI flash.
-		const existingMessages = existing?.messages ?? [];
 		const instance = new ChatInstance<MessageWithExtras>({
 			id: storeKey,
 			transport: chatTransport,
 			onError: createChatErrorHandler(),
-			...(existingMessages.length > 0 ? { messages: existingMessages } : {}),
 		});
 		chatRegistry.set(storeKey, instance);
-		chatAuthTokenRegistry.set(instance, authToken ?? null);
 		evictOldestChats();
 		return instance;
-	}, [storeKey, chatTransport, authToken]);
+	}, [storeKey, userId]);
 
 	const chatIdentity = useMemo(
 		() => getChatIdentity(chatInstance),

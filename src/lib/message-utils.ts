@@ -17,15 +17,11 @@ export function mapMessage(msg: Doc<"messages">): UIMessage {
 }
 
 /**
- * Validates input message
+ * Validates input message. A signed-out visitor may send too: their guest account is created on
+ * send (UserProvider's ensureSession).
  */
-export function validateInput(inputMessage: string, filesCount = 0, userId?: string): boolean {
+export function validateInput(inputMessage: string, filesCount = 0): boolean {
   if (!inputMessage.trim() && filesCount === 0) {
-    return false;
-  }
-
-  if (!userId) {
-    toast({ title: "User not found. Please sign in.", status: "error" });
     return false;
   }
 

@@ -4,7 +4,6 @@ import { useMutation } from "convex/react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModifierKey } from "@/lib/hooks/use-modifier-key";
-import { useTheme } from "@/components/theme-provider";
 import { useChatList, useLoadMoreRef } from "@/hooks/use-chat-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +31,6 @@ import { ChatList } from "./chat-list";
 const ChatSidebar = memo(function SidebarComponent() {
 	const { isSidebarOpen: isOpen, toggleSidebar } = useSidebar();
 	const modKey = useModifierKey();
-	const { theme } = useTheme();
 	const prefersReducedMotion = useReducedMotion();
 	const profileSwitchDuration = prefersReducedMotion ? 0 : 0.16;
 	const updateChatTitle = useMutation(api.chats.updateChatTitle);
@@ -45,7 +43,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 	useEffect(() => {
 		activeChatIdRef.current = activeChatId;
 	}, [activeChatId]);
-	const { user } = useUser();
+	const { user, isLoading: isUserLoading } = useUser();
 	const { activeProfile, chatListProfileId, slideDirection, getLastChatForProfile } = useProfile();
 
 	const router = useRouter();
@@ -115,7 +113,8 @@ const ChatSidebar = memo(function SidebarComponent() {
 
 	// Memoize conditional tasks button handler
 	const handleConditionalTasksClick = useCallback(() => {
-		if (!user || user.isAnonymous) {
+		// Until the session settles a returning user isn't known yet; /tasks waits for it itself
+		if (!isUserLoading && (!user || user.isAnonymous)) {
 			router.navigate({ to: "/auth" });
 			return;
 		}
@@ -123,7 +122,7 @@ const ChatSidebar = memo(function SidebarComponent() {
 		if (pathname !== "/tasks") {
 			router.navigate({ to: "/tasks" });
 		}
-	}, [pathname, router, user]);
+	}, [isUserLoading, pathname, router, user]);
 
 	// --- Handlers for main sidebar list ---
 	const handleSaveEdit = useCallback(
@@ -298,16 +297,24 @@ const ChatSidebar = memo(function SidebarComponent() {
 							delay: isOpen ? 0.1 : 0,
 						}}
 					>
+						{/* Theme picked by CSS so the server-rendered logo matches the stored theme */}
 						<Link className="flex items-center justify-center" to="/">
 							<img
 								alt="oschat Logo"
-								className="antialiased"
+								className="antialiased dark:hidden"
 								height={32}
-								src={
-									theme === "dark"
-										? "/oschat_logo_dark.svg"
-										: "/oschat_logo_light.svg"
-								}
+								src="/oschat_logo_light.svg"
+								style={{
+									filter: "none",
+									imageRendering: "auto",
+								}}
+								width={128}
+							/>
+							<img
+								alt="oschat Logo"
+								className="hidden antialiased dark:block"
+								height={32}
+								src="/oschat_logo_dark.svg"
 								style={{
 									filter: "none",
 									imageRendering: "auto",

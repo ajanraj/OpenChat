@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { ShareView } from "@/components/share/share-view";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { APP_BASE_URL } from "@/lib/config";
 
 export const Route = createFileRoute("/share/$chatId")({
   component: ShareChatPage,
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/share/$chatId")({
       { property: "og:type", content: "article" },
       {
         property: "og:url",
-        content: `${typeof window !== "undefined" ? window.location.origin : ""}/share/${params.chatId}`,
+        content: `${APP_BASE_URL}/share/${params.chatId}`,
       },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Chat" },
