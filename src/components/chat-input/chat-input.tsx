@@ -59,6 +59,17 @@ type ChatInputProps = {
 	initialValue?: string;
 };
 
+/**
+ * Text handed back to the input (a message that didn't go out, a failed ?q= link's query) goes
+ * ahead of what was typed since, so neither is lost, unless that is the same text typed again.
+ */
+function restoreAheadOf(draft: string | null, text: string): string {
+	if (!draft || draft.trim() === text.trim()) {
+		return draft || text;
+	}
+	return `${text}\n\n${draft}`;
+}
+
 export function ChatInput({
 	status,
 	isStartingChat = false,
@@ -91,11 +102,11 @@ export function ChatInput({
 	const [shownInitialValue, setShownInitialValue] = useState(initialValue);
 	if (initialValue !== shownInitialValue) {
 		setShownInitialValue(initialValue);
-		// Same rule as a send that didn't go out: ahead of anything the user typed, never over it
+		// An empty input just shows it; otherwise it goes ahead of what the user typed, never over it
 		if (!draftValue) {
 			setDraftValue(null);
 		} else if (initialValue) {
-			setDraftValue(`${initialValue}\n\n${draftValue}`);
+			setDraftValue(restoreAheadOf(draftValue, initialValue));
 		}
 	}
 	const value = draftValue ?? initialValue;
@@ -111,13 +122,13 @@ export function ChatInput({
 	}, []);
 
 	// Clears the input at once. A message that didn't go out (e.g. the session couldn't start) comes
-	// back, ahead of anything typed while it was on its way, so neither is lost
+	// back, ahead of anything typed while it was on its way
 	const send = useCallback(() => {
 		const message = value;
 		setDraftValue("");
 		void onSendAction(message, { enableSearch: searchEnabled }).then((sent) => {
 			if (!sent) {
-				setDraftValue((current) => (current ? `${message}\n\n${current}` : message));
+				setDraftValue((current) => restoreAheadOf(current, message));
 			}
 		});
 	}, [onSendAction, searchEnabled, value]);

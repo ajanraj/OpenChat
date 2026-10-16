@@ -142,6 +142,23 @@ describe("ChatInput after a send", () => {
 
 		await waitFor(() => expect(textarea.value).toBe("hello\n\nand another thing"));
 	});
+
+	it("gives back one copy of a message that was typed again while it was starting", async () => {
+		let finish: (sent: boolean) => void = () => undefined;
+		const { textarea, onSendAction } = renderInput({});
+		onSendAction.mockReturnValue(
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+		);
+
+		fireEvent.keyDown(textarea, { key: "Enter" });
+		fireEvent.change(textarea, { target: { value: "hello " } });
+		finish(false);
+
+		await waitFor(() => expect(onSendAction).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(textarea.value).toBe("hello "));
+	});
 });
 
 describe("ChatInput when its initial value changes", () => {
@@ -163,5 +180,14 @@ describe("ChatInput when its initial value changes", () => {
 		update({ initialValue: "from the link" });
 
 		expect(textarea.value).toBe("from the link\n\nmy own words");
+	});
+
+	it("doesn't repeat a query the user already typed", () => {
+		const { textarea, update } = renderInput({ initialValue: "" });
+		fireEvent.change(textarea, { target: { value: "from the link" } });
+
+		update({ initialValue: "from the link" });
+
+		expect(textarea.value).toBe("from the link");
 	});
 });
