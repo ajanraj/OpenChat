@@ -134,11 +134,11 @@ export function ChatInput({
 	}, [onSendAction, searchEnabled, value]);
 
 	// Enter while saved settings load sends nothing, so the status says why, then that sending works
-	// once they arrive; that lasts until the next hold, so it isn't announced again after it
+	// once they arrive; that lasts until the next hold or request, so it is never stale or repeated
 	const [settingsWait, setSettingsWait] = useState<"idle" | "waiting" | "ready">("idle");
 	if (settingsWait === "waiting" && !isSettingsLoading) {
 		setSettingsWait("ready");
-	} else if (settingsWait === "ready" && isSendHeld) {
+	} else if (settingsWait === "ready" && (isSendHeld || isRequestActive)) {
 		setSettingsWait("idle");
 	}
 

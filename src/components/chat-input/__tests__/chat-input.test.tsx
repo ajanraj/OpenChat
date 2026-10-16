@@ -107,9 +107,19 @@ describe("ChatInput while saved settings load", () => {
 		fireEvent.keyDown(textarea, { key: "Enter" });
 
 		expect(onSendAction).toHaveBeenCalledExactlyOnceWith("hello", { enableSearch: false });
-		// The next hold ends it, so it isn't announced again once that hold is over
+		// A new chat's start ends it, so it isn't announced again once the chat has started
 		update({ isStartingChat: true });
 		expect(screen.getByRole("status").textContent).toBe("Starting your chat…");
+		update({});
+		expect(screen.getByRole("status").textContent).toBe("");
+
+		// So does an existing chat's request
+		update({ isSettingsLoading: true });
+		fireEvent.keyDown(textarea, { key: "Enter" });
+		update({});
+		expect(screen.getByRole("status").textContent).toBe("Ready to send.");
+		update({ status: "submitted" });
+		expect(screen.getByRole("status").textContent).toBe("");
 		update({});
 		expect(screen.getByRole("status").textContent).toBe("");
 	});
