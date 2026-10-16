@@ -46,5 +46,7 @@ jobs:
       - name: Build
         run: bun run build
 
+      # GHSA-vfj7-8cjw-p6xm: braces has no patched release. It reaches us only through the
+      # Ultracite CLI (dev-only, globbing our own config patterns); drop the ignore once fixed.
       - name: Audit dependencies
-        run: bun audit --audit-level=high
+        run: bun audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm
