@@ -5,6 +5,7 @@ import Chat from "../chat";
 type ChatInputProps = {
 	status: string;
 	isStartingChat?: boolean;
+	isSettingsLoading?: boolean;
 	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
 	onSuggestionAction: (suggestion: string) => void;
 };
@@ -12,8 +13,14 @@ type ChatInputProps = {
 const mocks = vi.hoisted(() => ({
 	chatInput: { current: null as ChatInputProps | null },
 	search: { current: {} as Record<string, string> },
+	profile: {
+		current: { activeProfile: undefined as { _id: string } | undefined, isProfilesLoading: false },
+	},
 	ensureSession: vi.fn<() => Promise<void>>(),
-	handleCreateChat: vi.fn<(title: string) => Promise<string | null>>(),
+	handleCreateChat:
+		vi.fn<
+			(title: string, model: string, personaId?: string, profileId?: string) => Promise<string | null>
+		>(),
 	sendMessages: vi.fn<() => Promise<ReadableStream>>(
 		async () =>
 			new ReadableStream({
@@ -49,7 +56,7 @@ vi.mock("@/providers/chat-session-provider", () => ({
 	useChatSession: () => ({ chatId: null, isDeleting: false, setIsDeleting: () => undefined }),
 }));
 vi.mock("@/providers/profile-provider", () => ({
-	useProfile: () => ({ activeProfile: undefined }),
+	useProfile: () => mocks.profile.current,
 }));
 vi.mock("@/providers/user-provider", () => ({
 	useUser: () => ({
@@ -105,6 +112,7 @@ describe("Chat first send", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.search.current = {};
+		mocks.profile.current = { activeProfile: undefined, isProfilesLoading: false };
 		mocks.handleCreateChat.mockResolvedValue("chats:new");
 	});
 
@@ -118,7 +126,7 @@ describe("Chat first send", () => {
 		});
 		// The input holds further sends while the chat starts
 		expect(mocks.chatInput.current?.isStartingChat).toBe(true);
-		// Suggestions submit directly, without the input's own check
+		// A second send that gets past the input's own hold (mocked out here)
 		act(() => {
 			mocks.chatInput.current?.onSuggestionAction("second");
 		});
@@ -149,5 +157,24 @@ describe("Chat first send", () => {
 
 		expect(mocks.handleCreateChat).toHaveBeenCalledTimes(1);
 		expect(mocks.handleCreateChat.mock.calls[0]?.[0]).toBe("from the link");
+	});
+
+	it("waits for a returning user's saved profile before starting a ?q= chat", async () => {
+		mocks.search.current = { model: "gpt-5.4-nano", q: "from the link" };
+		mocks.profile.current = { activeProfile: undefined, isProfilesLoading: true };
+		mocks.ensureSession.mockResolvedValue(undefined);
+		const { rerender } = render(<Chat />);
+
+		// Typed sends wait too
+		expect(mocks.chatInput.current?.isSettingsLoading).toBe(true);
+		await act(async () => {});
+		expect(mocks.handleCreateChat).not.toHaveBeenCalled();
+
+		mocks.profile.current = { activeProfile: { _id: "profiles:work" }, isProfilesLoading: false };
+		rerender(<Chat />);
+
+		await vi.waitFor(() => expect(mocks.handleCreateChat).toHaveBeenCalledTimes(1));
+		expect(mocks.handleCreateChat.mock.calls[0]?.[3]).toBe("profiles:work");
+		expect(mocks.chatInput.current?.isSettingsLoading).toBe(false);
 	});
 });

@@ -291,7 +291,10 @@ function useChatContentView() {
 	});
 
 	// Derived state
-	const { activeProfile } = useProfile();
+	const { activeProfile, isProfilesLoading } = useProfile();
+	// A returning user's saved model and profile load after the page does. A send reads them when
+	// it starts, so sends wait for them
+	const isSettingsLoading = isUserLoading || isProfilesLoading;
 	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
 	const currentChatModelId = currentChat?.model;
 	const retiredChatModel = currentChatModelId
@@ -547,7 +550,7 @@ function useChatContentView() {
 
 	// URL parameter processing
 	useEffect(() => {
-		if (isUserLoading || isApiKeysLoading || processedUrl.current) {
+		if (isSettingsLoading || isApiKeysLoading || processedUrl.current) {
 			return;
 		}
 
@@ -590,7 +593,7 @@ function useChatContentView() {
 				});
 			}
 		}, [
-		isUserLoading,
+		isSettingsLoading,
 		isApiKeysLoading,
 		user,
 		searchParams,
@@ -1197,6 +1200,7 @@ function useChatContentView() {
 					files={files}
 					hasSuggestions={!chatId && messages.length === 0}
 					isStartingChat={isStartingChat}
+					isSettingsLoading={isSettingsLoading}
 					status={status}
 					stop={stop}
 					isReasoningModel={supportsReasoningEffort(selectedModel)}

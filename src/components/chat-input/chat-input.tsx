@@ -31,6 +31,11 @@ type ChatInputProps = {
 	 * Stop works as usual.
 	 */
 	isStartingChat?: boolean;
+	/**
+	 * A returning user's saved settings (model, profile) are still loading: sends, suggestions
+	 * included, wait so the message uses them. Typing doesn't wait.
+	 */
+	isSettingsLoading?: boolean;
 	stop: () => void;
 	onSendAction: (message: string, options: { enableSearch: boolean }) => void;
 	files: File[];
@@ -52,6 +57,7 @@ type ChatInputProps = {
 export function ChatInput({
 	status,
 	isStartingChat = false,
+	isSettingsLoading = false,
 	stop,
 	onSendAction,
 	files,
@@ -71,6 +77,8 @@ export function ChatInput({
 }: ChatInputProps) {
 	const isRequestActive = status === "streaming" || status === "submitted";
 	const isBusy = isRequestActive || isStartingChat;
+	// A held send keeps the message in the input
+	const isSendHeld = isStartingChat || isSettingsLoading;
 
 	// Local state for input value to prevent parent re-renders
 	const [draftValue, setDraftValue] = useState<string | null>(null);
@@ -88,7 +96,7 @@ export function ChatInput({
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (isBusy) {
+			if (isRequestActive || isSendHeld) {
 				return;
 			}
 
@@ -98,7 +106,7 @@ export function ChatInput({
 					setDraftValue(""); // Clear input after sending
 				}
 			},
-			[onSendAction, isBusy, searchEnabled, value],
+			[onSendAction, isRequestActive, isSendHeld, searchEnabled, value],
 	);
 
 	const handleMainClick = () => {
@@ -106,7 +114,7 @@ export function ChatInput({
 			stop();
 			return;
 		}
-		if (isStartingChat) {
+		if (isSendHeld) {
 			return;
 		}
 
@@ -122,9 +130,11 @@ export function ChatInput({
 	const handleSuggestionClick = useCallback(
 		(suggestion: string) => {
 			setDraftValue(suggestion);
-			onSuggestionAction(suggestion);
+			if (!isSendHeld) {
+				onSuggestionAction(suggestion);
+			}
 		},
-		[onSuggestionAction],
+		[isSendHeld, onSuggestionAction],
 	);
 
 	const handlePaste = useCallback(
@@ -325,7 +335,7 @@ export function ChatInput({
 								className="origin-right scale-90 transform rounded-full transition-all duration-300 ease-out sm:scale-100"
 								disabled={
 									!isRequestActive &&
-									(isStartingChat || (!value.trim() && files.length === 0))
+									(isSendHeld || (!value.trim() && files.length === 0))
 								}
 								onClick={handleMainClick}
 								size="sm"
