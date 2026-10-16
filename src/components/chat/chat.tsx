@@ -221,6 +221,8 @@ function useChatContentView() {
 		tempPersonaId: string | undefined;
 		tempSelectedModel: string | undefined;
 		showDeleteChatDialog: boolean;
+		/** A ?q= link's query whose start didn't go out, back in the input to send again. */
+		urlDraft: string | undefined;
 	};
 	type ChatUIAction =
 		| { type: "SET_DIALOG_AUTH"; value: boolean }
@@ -229,6 +231,7 @@ function useChatContentView() {
 		| { type: "SET_TEMP_PERSONA"; id: string | undefined }
 		| { type: "SET_TEMP_MODEL"; model: string | undefined }
 		| { type: "SET_DELETE_CHAT_DIALOG"; value: boolean }
+		| { type: "RESTORE_URL_START"; query: string; model: string }
 		| { type: "CLEAR_TEMP" };
 
 	const [chatUIState, dispatchUI] = useReducer(
@@ -246,13 +249,15 @@ function useChatContentView() {
 					return { ...s, tempSelectedModel: action.model };
 				case "SET_DELETE_CHAT_DIALOG":
 					return { ...s, showDeleteChatDialog: action.value };
+				case "RESTORE_URL_START":
+					return { ...s, urlDraft: action.query, tempSelectedModel: action.model };
 				case "CLEAR_TEMP":
 					return { ...s, tempPersonaId: undefined, tempSelectedModel: undefined };
 			}
 		},
-		{ hasDialogAuth: false, isStartingChat: false, reasoningEffort: "none", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false },
+		{ hasDialogAuth: false, isStartingChat: false, reasoningEffort: "none", tempPersonaId: undefined, tempSelectedModel: undefined, showDeleteChatDialog: false, urlDraft: undefined },
 	);
-	const { hasDialogAuth, isStartingChat, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog } = chatUIState;
+	const { hasDialogAuth, isStartingChat, reasoningEffort, tempPersonaId, tempSelectedModel, showDeleteChatDialog, urlDraft } = chatUIState;
 	// Starting a chat spans several round trips (guest sign-in, createChat) before the chat's own
 	// status shows a request. Every start (a send, or ?q= in the URL) runs through here, one at a
 	// time, so a second send in that window can't start a second chat. Resolves whether the start
@@ -596,9 +601,18 @@ function useChatContentView() {
 					return true;
 				};
 
-				void runChatStart(startChat).catch(() => {
-					toast({ title: "Failed to create chat", status: "error" });
-				});
+				// The link is only processed once, so a start that didn't go out (e.g. the guest
+				// session couldn't start) puts its query and model in the input to send again
+				void runChatStart(startChat)
+					.catch(() => {
+						toast({ title: "Failed to create chat", status: "error" });
+						return false;
+					})
+					.then((sent) => {
+						if (!sent) {
+							dispatchUI({ type: "RESTORE_URL_START", query: trimmedQuery, model: modelId });
+						}
+					});
 			}
 		}, [
 		isSettingsLoading,
@@ -1209,6 +1223,7 @@ function useChatContentView() {
 				<ChatInput
 					files={files}
 					hasSuggestions={!chatId && messages.length === 0}
+					initialValue={urlDraft}
 					isStartingChat={isStartingChat}
 					isSettingsLoading={isSettingsLoading}
 					status={status}

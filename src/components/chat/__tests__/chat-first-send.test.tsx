@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Chat from "../chat";
 
@@ -6,6 +6,8 @@ type ChatInputProps = {
 	status: string;
 	isStartingChat?: boolean;
 	isSettingsLoading?: boolean;
+	initialValue?: string;
+	selectedModel: string;
 	onSendAction: (message: string, options: { enableSearch: boolean }) => Promise<boolean>;
 	onSuggestionAction: (suggestion: string) => void;
 };
@@ -275,5 +277,16 @@ describe("Chat first send", () => {
 
 		expect(result).toBe(sent);
 		expect(mocks.sendMessages).toHaveBeenCalledTimes(sent ? 1 : 0);
+	});
+
+	it("puts a ?q= link's query and model back in the input when its start fails", async () => {
+		mocks.search.current = { model: "gpt-5.4-mini", q: "from the link" };
+		mocks.ensureSession.mockRejectedValue(new Error("Timed out"));
+		render(<Chat />);
+
+		// The link is processed once; sending from the input is the retry
+		await waitFor(() => expect(mocks.chatInput.current?.initialValue).toBe("from the link"));
+		expect(mocks.chatInput.current?.selectedModel).toBe("gpt-5.4-mini");
+		expect(mocks.handleCreateChat).not.toHaveBeenCalled();
 	});
 });
