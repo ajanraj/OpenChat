@@ -1,7 +1,8 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { getFunctionName } from "convex/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEditorStore } from "@/lib/store/editor-store";
 import { ProfileProvider, useProfile } from "../profile-provider";
 
 interface MockProfile {
@@ -270,5 +271,74 @@ describe("ProfileProvider chatListProfileId", () => {
       ),
     ).toBe("profiles:anon");
     expect(renderChatListProfileId(anonymous, { data: [], isLoading: false })).toBe("null");
+  });
+});
+
+describe("ProfileProvider theme saves", () => {
+  const initialThemeState = useEditorStore.getState().themeState;
+  const profile = (id: string, userId: string): MockProfile => ({
+    _id: id,
+    _creationTime: 1,
+    userId,
+    name: "Default",
+    icon: "ChatCircle",
+    isDefault: true,
+    order: 0,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    useEditorStore.setState({ themeState: initialThemeState });
+  });
+
+  it("saves a theme edit still pending as its account signs out, and only to that account", () => {
+    const updateProfile = vi.fn<MutationMock>(async () => null);
+    useMutationMock.mockImplementation((mutationRef: FunctionReference) =>
+      getFunctionName(mutationRef) === "profiles:updateProfile"
+        ? updateProfile
+        : vi.fn<MutationMock>(async () => null),
+    );
+    useUserMock.mockReturnValue({
+      user: { _id: "users:u1", activeProfileId: "profiles:p1", isAnonymous: false },
+    });
+    useTanStackQueryMock.mockReturnValue({
+      data: [profile("profiles:p1", "users:u1")],
+      isLoading: false,
+    });
+    const { rerender } = renderWithProvider(null);
+
+    const edited = { ...initialThemeState, preset: "edited-before-sign-out" };
+    act(() => {
+      useEditorStore.getState().setThemeState(edited);
+    });
+    // Signed out within the save's debounce
+    useUserMock.mockReturnValue({ user: null });
+    useTanStackQueryMock.mockReturnValue({ data: [], isLoading: false });
+    rerender(<ProfileProvider>{null}</ProfileProvider>);
+
+    expect(updateProfile).toHaveBeenCalledExactlyOnceWith({
+      profileId: "profiles:p1",
+      updates: { themeConfig: JSON.stringify(edited) },
+    });
+
+    // The next account's profile loads with nothing left to save to the previous one
+    useUserMock.mockReturnValue({
+      user: { _id: "users:u2", activeProfileId: "profiles:p2", isAnonymous: false },
+    });
+    useTanStackQueryMock.mockReturnValue({
+      data: [profile("profiles:p2", "users:u2")],
+      isLoading: false,
+    });
+    rerender(<ProfileProvider>{null}</ProfileProvider>);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(updateProfile).toHaveBeenCalledTimes(1);
   });
 });

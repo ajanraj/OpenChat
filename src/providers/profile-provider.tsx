@@ -223,11 +223,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
   }, [themeState, activeProfile, updateProfileMut]);
 
-  // Best-effort flush on true unmount only (tab close, sign-out, etc.)
-  // Uses refs so the empty-dep array is safe and always sees latest values.
+  // Best-effort flush as the account's session ends (sign-out here or in another tab, a rejected
+  // token) and on true unmount. Cleanups run before Convex drops the session's auth (its own cleanup
+  // comes later in the tree), so the save still goes out as that account, and nothing stays pending
+  // for the next one. Uses refs so it always sees the latest values.
+  const userId = user?._id;
   useEffect(() => {
     return () => {
-      if (!pendingThemeSaveRef.current || !prevProfileIdRef.current) return;
+      const isPending = pendingThemeSaveRef.current;
+      pendingThemeSaveRef.current = false;
+      if (!isPending || !prevProfileIdRef.current) return;
       const serialized = JSON.stringify(themeStateRef.current);
       if (serialized === lastSavedThemeRef.current) return;
       void updateProfileMutRef.current({
@@ -235,7 +240,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         updates: { themeConfig: serialized },
       });
     };
-  }, []);
+  }, [userId]);
 
   const [slideDirection, setSlideDirection] = useState(0);
   const chatByProfileRef = useRef<Map<string, string>>(new Map());
