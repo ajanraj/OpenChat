@@ -107,7 +107,8 @@ describe("Markdown", () => {
 describe("KaTeX stylesheet", () => {
 	// Markdown imports katex/dist/katex.css from the app's `katex` dependency, while
 	// @streamdown/math renders math through rehype-katex and its own `katex`. KaTeX
-	// renames CSS classes between minor versions, so both must be the same copy.
+	// renames CSS classes between minor versions, so both must be the same copy;
+	// package.json `overrides` pins every katex to the app's version.
 	it("comes from the KaTeX copy that renders math", () => {
 		const fromApp = createRequire(import.meta.url);
 		const rehypeKatex = createRequire(

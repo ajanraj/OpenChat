@@ -15,11 +15,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # The app imports KaTeX's stylesheet, but @streamdown/math renders the markup with
-      # katex 0.16. Move katex together with @streamdown/math (markdown.test.tsx checks it).
-      - dependency-name: "katex"
-        versions: [">=0.17.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
