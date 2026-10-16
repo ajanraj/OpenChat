@@ -27,8 +27,8 @@ type ChatInputProps = {
 	status: ChatStatus;
 	/**
 	 * A new chat is starting (guest sign-in, chat creation, then its first response): the input
-	 * holds further sends. Until the chat's request exists there is nothing to stop; once it does,
-	 * Stop works as usual.
+	 * holds further sends, while typing stays open. Until the chat's request exists there is nothing
+	 * to stop; once it does, Stop works as usual.
 	 */
 	isStartingChat?: boolean;
 	/**
@@ -52,7 +52,10 @@ type ChatInputProps = {
 	isReasoningModel: boolean;
 	reasoningEffort: ReasoningEffort;
 	onSelectReasoningEffortAction: (reasoningEffort: ReasoningEffort) => void;
-	/** Shown until the user types. A new value (e.g. a failed ?q= link's query) replaces an empty input. */
+	/**
+	 * Shown until the user types. A new value (e.g. a failed ?q= link's query) replaces an empty
+	 * input, or goes ahead of what the user typed.
+	 */
 	initialValue?: string;
 };
 
@@ -78,7 +81,6 @@ export function ChatInput({
 	initialValue = "",
 }: ChatInputProps) {
 	const isRequestActive = status === "streaming" || status === "submitted";
-	const isBusy = isRequestActive || isStartingChat;
 	// Starting a guest session and a chat can take seconds before the request exists
 	const isStartPending = isStartingChat && !isRequestActive;
 	// A held send keeps the message in the input
@@ -89,9 +91,11 @@ export function ChatInput({
 	const [shownInitialValue, setShownInitialValue] = useState(initialValue);
 	if (initialValue !== shownInitialValue) {
 		setShownInitialValue(initialValue);
-		// Same rule as a send that didn't go out: never over text the user typed
+		// Same rule as a send that didn't go out: ahead of anything the user typed, never over it
 		if (!draftValue) {
 			setDraftValue(null);
+		} else if (initialValue) {
+			setDraftValue(`${initialValue}\n\n${draftValue}`);
 		}
 	}
 	const value = draftValue ?? initialValue;
@@ -107,13 +111,13 @@ export function ChatInput({
 	}, []);
 
 	// Clears the input at once. A message that didn't go out (e.g. the session couldn't start) comes
-	// back, unless something new was typed meanwhile
+	// back, ahead of anything typed while it was on its way, so neither is lost
 	const send = useCallback(() => {
 		const message = value;
 		setDraftValue("");
 		void onSendAction(message, { enableSearch: searchEnabled }).then((sent) => {
 			if (!sent) {
-				setDraftValue((current) => current || message);
+				setDraftValue((current) => (current ? `${message}\n\n${current}` : message));
 			}
 		});
 	}, [onSendAction, searchEnabled, value]);
@@ -308,7 +312,7 @@ export function ChatInput({
 					<FileList files={files} onFileRemoveAction={onFileRemoveAction} />
 					<PromptInputTextarea
 						className="mt-2 ml-2 text-foreground leading-[1.3]"
-						disabled={isBusy}
+						disabled={isRequestActive}
 						onKeyDown={handleKeyDown}
 						placeholder="How can I help you today?"
 						ref={textareaRef}

@@ -56,9 +56,12 @@ function renderInput(initial: InputState) {
 }
 
 describe("ChatInput while a new chat starts", () => {
-	it("holds the typed message until the chat's request exists", () => {
+	it("holds the typed message until the chat's request exists, while typing stays open", () => {
 		const { button, textarea, onSendAction } = renderInput({ isStartingChat: true });
 
+		expect(textarea.disabled).toBe(false);
+		fireEvent.keyDown(textarea, { key: "Enter" });
+		expect(onSendAction).not.toHaveBeenCalled();
 		expect(button.disabled).toBe(true);
 		// The spinner shows the guest session and chat are on their way
 		expect(button.getAttribute("aria-busy")).toBe("true");
@@ -121,6 +124,24 @@ describe("ChatInput after a send", () => {
 
 		await waitFor(() => expect(textarea.value).toBe("hello"));
 	});
+
+	it("gives the message back ahead of a follow-up typed while it was starting", async () => {
+		let finish: (sent: boolean) => void = () => undefined;
+		const { textarea, onSendAction, update } = renderInput({});
+		onSendAction.mockReturnValue(
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+		);
+
+		fireEvent.keyDown(textarea, { key: "Enter" });
+		update({ isStartingChat: true });
+		fireEvent.change(textarea, { target: { value: "and another thing" } });
+		finish(false);
+		update({ isStartingChat: false });
+
+		await waitFor(() => expect(textarea.value).toBe("hello\n\nand another thing"));
+	});
 });
 
 describe("ChatInput when its initial value changes", () => {
@@ -135,12 +156,12 @@ describe("ChatInput when its initial value changes", () => {
 		expect(textarea.value).toBe("from the link");
 	});
 
-	it("keeps what the user typed", () => {
+	it("puts the query ahead of what the user typed, keeping both", () => {
 		const { textarea, update } = renderInput({ initialValue: "" });
 		fireEvent.change(textarea, { target: { value: "my own words" } });
 
 		update({ initialValue: "from the link" });
 
-		expect(textarea.value).toBe("my own words");
+		expect(textarea.value).toBe("from the link\n\nmy own words");
 	});
 });
