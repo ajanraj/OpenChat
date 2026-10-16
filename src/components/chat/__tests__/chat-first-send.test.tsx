@@ -307,11 +307,12 @@ describe("Chat first send", () => {
 		expect(mocks.clearFiles).not.toHaveBeenCalled();
 	});
 
-	it("hands a ?q= link's query back when its attachments fail to upload", async () => {
+	it("hands a ?q= link's query back when its attachments can't be processed", async () => {
 		mocks.search.current = { model: "gpt-5.4-mini", q: "from the link" };
 		mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
 		mocks.files.current = [new File(["notes"], "notes.txt")];
-		mocks.processFiles.mockRejectedValue(new Error("Upload failed"));
+		// A single file's failed upload is toasted and dropped instead; this is processing that throws
+		mocks.processFiles.mockRejectedValue(new Error("Processing failed"));
 		render(<Chat />);
 
 		await waitFor(() => expect(mocks.chatInput.current?.initialValue).toBe("from the link"));

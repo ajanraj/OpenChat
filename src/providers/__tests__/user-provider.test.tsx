@@ -114,4 +114,24 @@ describe("UserProvider loading", () => {
     expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toEqual({ _id: "users:1", isAnonymous: true });
   });
+
+  it("waits on a later sign-out after a user that was given up on turns up", () => {
+    vi.useFakeTimers();
+    mocks.auth.current = { isLoading: false, isAuthenticated: true };
+    const { result, rerender } = renderUser();
+    act(() => {
+      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS);
+    });
+    expect(result.current.isLoading).toBe(false);
+
+    mocks.user.current = { _id: "users:1", isAnonymous: false };
+    rerender();
+    expect(result.current.isLoading).toBe(false);
+
+    // Signed out while getCurrentUser still holds the old user
+    mocks.auth.current = { isLoading: false, isAuthenticated: false };
+    rerender();
+
+    expect(result.current.isLoading).toBe(true);
+  });
 });
