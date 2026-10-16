@@ -53,12 +53,20 @@ describe("UserProvider loading", () => {
     vi.useRealTimers();
   });
 
+  const guest = { _id: "users:1", isAnonymous: true };
   it.each([
-    { state: "a signed-out visitor", isAuthenticated: false, user: null, isLoading: false },
     {
-      state: "a guest whose session and user agree",
+      state: "a signed-out visitor",
+      isAuthenticated: false,
+      cached: null,
+      user: null,
+      isLoading: false,
+    },
+    {
+      state: "a guest's session",
       isAuthenticated: true,
-      user: { _id: "users:1", isAnonymous: true },
+      cached: guest,
+      user: guest,
       isLoading: false,
     },
     {
@@ -66,20 +74,26 @@ describe("UserProvider loading", () => {
       // /settings and /tasks would otherwise send a returning user to /auth
       state: "a confirmed session whose user hasn't arrived",
       isAuthenticated: true,
+      cached: null,
       user: null,
       isLoading: true,
     },
     {
-      state: "a signed-out session whose cached user hasn't cleared",
+      // Signed out here or in another tab; a stalled connection can keep the old answer cached
+      state: "a session that ended while its user is still cached",
       isAuthenticated: false,
-      user: { _id: "users:1", isAnonymous: false },
-      isLoading: true,
+      cached: guest,
+      user: null,
+      isLoading: false,
     },
-  ])("is $isLoading for $state", ({ isAuthenticated, user, isLoading }) => {
+  ])("reports $state", ({ isAuthenticated, cached, user, isLoading }) => {
     mocks.auth.current = { isLoading: false, isAuthenticated };
-    mocks.user.current = user;
+    mocks.user.current = cached;
 
-    expect(renderUser().result.current.isLoading).toBe(isLoading);
+    const { result } = renderUser();
+
+    expect(result.current.user).toEqual(user);
+    expect(result.current.isLoading).toBe(isLoading);
   });
 
   it("waits on a confirmed session's user however long it takes, and never signs it out", () => {

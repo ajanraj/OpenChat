@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 	chatInput: { current: null as ChatInputProps | null },
 	// The messages the open conversation shows
 	conversation: { current: [] as { role: string }[] },
+	navigate: vi.fn<(options: { to: string; replace?: boolean }) => void>(),
 	search: { current: {} as Record<string, string> },
 	user: {
 		current: { user: null as { _id: string; isAnonymous: boolean } | null, isLoading: false },
@@ -63,7 +64,7 @@ vi.mock("@tanstack/react-query", () => ({
 	useQuery: () => ({ data: undefined, isLoading: mocks.isQueryLoading.current }),
 }));
 vi.mock("@tanstack/react-router", () => ({
-	useRouter: () => ({ navigate: vi.fn() }),
+	useRouter: () => ({ navigate: mocks.navigate }),
 	useSearch: () => mocks.search.current,
 }));
 vi.mock("convex/react", () => ({ useMutation: () => vi.fn() }));
@@ -242,18 +243,13 @@ describe("Chat first send", () => {
 		expect(mocks.chatInput.current?.isSettingsLoading).toBe(true);
 	});
 
-	it("holds sends after sign-out until the user clears, then drops their attachments", () => {
-		const signedIn = { _id: "users:1", isAnonymous: false };
-		mocks.user.current = { user: signedIn, isLoading: false };
+	it("drops an account's attachments as soon as its session ends", () => {
+		mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
 		mocks.files.current = [new File(["notes"], "notes.txt")];
 		const { rerender } = render(<Chat />);
 		expect(mocks.clearFiles).not.toHaveBeenCalled();
 
-		// UserProvider reports loading while the signed-out session's cached user lingers
-		mocks.user.current = { user: signedIn, isLoading: true };
-		rerender(<Chat />);
-		expect(mocks.chatInput.current?.isSettingsLoading).toBe(true);
-
+		// UserProvider drops the user the moment Convex reports no session
 		mocks.user.current = { user: null, isLoading: false };
 		rerender(<Chat />);
 		expect(mocks.clearFiles).toHaveBeenCalled();
@@ -326,19 +322,24 @@ describe("Chat first send", () => {
 		expect(mocks.sendMessages).not.toHaveBeenCalled();
 	});
 
-	it("forgets an account's conversations once it signs out", async () => {
+	it("hides an account's chat once it signs out, and forgets its messages", async () => {
 		mocks.user.current = { user: { _id: "users:owner", isAnonymous: false }, isLoading: false };
 		mocks.chatId.current = "chats:private";
-		const { rerender } = render(<Chat />);
+		const { container, rerender } = render(<Chat />);
 		await act(async () => {
 			await mocks.chatInput.current?.onSendAction("private note", { enableSearch: false });
 		});
 		await waitFor(() => expect(mocks.conversation.current).toHaveLength(1));
 
-		// The next person on this browser goes back to the same chat
+		// Signed out (here or in another tab) while the chat's cached data still loads fine
 		mocks.user.current = { user: null, isLoading: false };
 		rerender(<Chat />);
+		expect(container.innerHTML).toBe("");
+		expect(mocks.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
 
+		// The next person on this browser starts a guest and goes back to the same chat
+		mocks.user.current = { user: { _id: "users:next", isAnonymous: true }, isLoading: false };
+		rerender(<Chat />);
 		expect(mocks.conversation.current).toEqual([]);
 	});
 

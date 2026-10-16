@@ -28,8 +28,8 @@ export type Connector = Doc<"connectors">;
 
 interface UserContextType {
   /**
-   * Null for a signed-out visitor, who has no account yet. Not settled while isLoading: it may
-   * still be null, or the previous account's just after sign-out.
+   * Null for a signed-out visitor, who has no account yet, from the moment a session ends. Not
+   * settled while isLoading: a confirmed session's user may still be on its way.
    */
   user: UserProfile | null;
   /** True while the session or the user's data is still loading. */
@@ -67,11 +67,15 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
   const ensureSession = useEnsureSession();
 
-  const { data: user = null, isLoading: isUserLoading } = useTanStackQuery({
+  const { data: cachedUser = null, isLoading: isUserLoading } = useTanStackQuery({
     ...convexQuery(api.users.getCurrentUser, {}),
     // Extended cache for user data to prevent auth flickering
     gcTime: 30 * 60 * 1000, // 30 minutes - user data persists longer
   });
+  // A user exists only while its session does. Once Convex reports none (sign-out here or in another
+  // tab, or a rejected token), the previous account's cached answer is dropped at once, not when its
+  // query catches up, which a stalled connection can put off indefinitely
+  const user = isAuthLoading || isAuthenticated ? cachedUser : null;
 
   // User capabilities and settings - only fetch when authenticated
   // NOTE: The `enabled` flag prevents TanStack Query execution but does NOT prevent
@@ -181,9 +185,8 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const hasGemini = hasApiKey.get("gemini") ?? false;
 
   // Until auth settles, getCurrentUser answers unauthenticated (null), so a null user is not yet
-  // a signed-out visitor. The cached answer can also lag the session either way, with isUserLoading
-  // already false: no user yet once a session is confirmed, and the previous one for a moment after
-  // sign-out. Until they agree, the user isn't known.
+  // a signed-out visitor. Once a session is confirmed, the cached answer can still be that null,
+  // with isUserLoading already false; until the session's user arrives, the user isn't known.
   // No timeout ends that wait, and nothing here signs a session out: a reconnect can confirm the
   // session before the user's answer returns, so a missing user can't be told from a slow one, and
   // signing out a live guest loses the account. A session whose account was deleted on another
@@ -191,7 +194,7 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const combinedLoading = Boolean(
     isAuthLoading ||
     isUserLoading ||
-    isAuthenticated !== Boolean(user) ||
+    (isAuthenticated && !user) ||
     (user &&
       !user.isAnonymous &&
       (isPremiumLoading || isRateLimitLoading || isApiKeysLoading || isConnectorsLoading)),

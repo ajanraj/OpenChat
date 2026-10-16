@@ -314,7 +314,7 @@ function useChatContentView() {
 	const { activeProfile, isProfilesLoading } = useProfile();
 	// A returning user's saved model and profile, and an open chat's own settings, load after the
 	// page does. A send reads them when it starts, so sends wait for them (isUserLoading also covers
-	// a session whose user hasn't arrived, and a signed-out one whose user hasn't cleared)
+	// a session whose user hasn't arrived)
 	const isSettingsLoading = isUserLoading || isProfilesLoading || isChatLoading;
 	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
 	const currentChatModelId = currentChat?.model;
@@ -338,7 +338,7 @@ function useChatContentView() {
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
 	// Only signed-in accounts can attach files. The view stays mounted when one signs out, so drop
-	// what it attached rather than send it from a guest account (sends wait until the user clears)
+	// what it attached rather than send it from a guest account (the user clears as the session ends)
 	if (!isAuthenticated && files.length > 0) {
 		clearFiles();
 	}
@@ -1095,12 +1095,17 @@ function useChatContentView() {
 			);
 	}, [chatId, isDeleting]);
 
+	// A chat is only ever shown to its owner. With no session (signed out here or in another tab),
+	// its cached data can outlast the sign-out until the connection catches up, so it isn't shown
+	const isSignedOut = !isUserLoading && !user;
+	const isChatUnavailable = Boolean(chatId) && (currentChat === null || isSignedOut);
+
 	// Chat redirect effect
 	useEffect(() => {
-		if (!isUserLoading && chatId && currentChat === null && !isDeleting) {
+		if (!isUserLoading && isChatUnavailable && !isDeleting) {
 			router.navigate({ to: "/", replace: true });
 		}
-	}, [chatId, currentChat, isUserLoading, router, isDeleting]);
+	}, [isChatUnavailable, isUserLoading, router, isDeleting]);
 
 	// Document title update
 	useDocumentTitle(currentChat?.title, chatId || undefined);
@@ -1132,7 +1137,7 @@ function useChatContentView() {
 	}, [targetMessageId, messages]);
 
 	// Early return for redirect
-	if (currentChat === null && chatId) {
+	if (isChatUnavailable) {
 		return null;
 	}
 
