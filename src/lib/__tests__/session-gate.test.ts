@@ -205,6 +205,35 @@ describe("createSessionGate", () => {
     expect(done).toHaveBeenCalled();
   });
 
+  it("gives a sign-out that outlasts its attempt a fresh wait for the token to go", async () => {
+    vi.useFakeTimers();
+    const gate = createSessionGate(UNCONFIRMED);
+    let finishSignOut = () => {};
+    const auth = guestAuth();
+    auth.signOut.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSignOut = resolve;
+        }),
+    );
+
+    const failure = gate.ensure(auth).catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
+    expect((await failure)?.message).toMatch(/Timed out/);
+
+    // The retry reuses the stalled sign-out, which then finishes
+    const retry = gate.ensure(auth);
+    finishSignOut();
+    await flush();
+    gate.update(SIGNED_OUT);
+    await flush();
+    expect(auth.signIn).toHaveBeenCalledTimes(1);
+
+    gate.update(SIGNED_IN);
+    await retry;
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+  });
+
   it("signs in again once Convex Auth drops a token the backend rejected", async () => {
     vi.useFakeTimers();
     const gate = createSessionGate(SIGNED_OUT);

@@ -70,11 +70,12 @@ export function createSessionGate(initial: AuthState) {
 
   // ConvexProviderWithAuth hands Convex a token when one appears, not when it is replaced. So a
   // held token (one the backend rejected, or never confirmed) is signed out first, and the new
-  // one only arrives once React has seen it gone.
-  async function signInAfresh(actions: GuestAuthActions, holdsToken: boolean, deadline: number) {
+  // one only arrives once React has seen it gone. That wait is timed from the sign-out, which
+  // may outlast the attempt that started it; the attempt itself stays bounded by its deadline.
+  async function signInAfresh(actions: GuestAuthActions, holdsToken: boolean) {
     if (holdsToken) {
       await actions.signOut();
-      await waitFor((state) => !state.hasToken, deadline);
+      await waitFor((state) => !state.hasToken, Date.now() + SESSION_TIMEOUT_MS);
     }
     return actions.signIn();
   }
@@ -104,7 +105,7 @@ export function createSessionGate(initial: AuthState) {
         const awaitsOwnToken = unconfirmedSignIn && current.hasToken;
         unconfirmedSignIn = false;
         if (!awaitsOwnToken) {
-          signInInFlight ??= signInAfresh(actions, current.hasToken, deadline)
+          signInInFlight ??= signInAfresh(actions, current.hasToken)
             .then((result) => {
               unconfirmedSignIn = result.signingIn;
               return result;
