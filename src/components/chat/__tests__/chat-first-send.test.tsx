@@ -289,4 +289,19 @@ describe("Chat first send", () => {
 		expect(mocks.chatInput.current?.selectedModel).toBe("gpt-5.4-mini");
 		expect(mocks.handleCreateChat).not.toHaveBeenCalled();
 	});
+
+	it("keeps a signed-in user's attachments when a new chat has no text to start from", async () => {
+		mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
+		mocks.files.current = [new File(["notes"], "notes.txt")];
+		render(<Chat />);
+
+		let result: boolean | undefined;
+		await act(async () => {
+			result = await mocks.chatInput.current?.onSendAction("", { enableSearch: false });
+		});
+
+		expect(result).toBe(false);
+		expect(mocks.handleCreateChat).not.toHaveBeenCalled();
+		expect(mocks.clearFiles).not.toHaveBeenCalled();
+	});
 });

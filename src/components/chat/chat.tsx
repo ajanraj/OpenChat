@@ -476,16 +476,16 @@ function useChatContentView() {
 		});
 	}, [chatId, messagesFromDB, status, setMessages, isDeleting]);
 
-	// Core message sending function
+	// Core message sending function. Resolves whether the message went out.
 	const sendMessageHelper = useCallback(
 		async (
 			inputMessage: string,
 			currentChatId?: string,
 			options?: { enableSearch?: boolean },
-		) => {
+		): Promise<boolean> => {
 			const chatIdToUse = currentChatId || chatId;
 			if (!chatIdToUse) {
-				return;
+				return false;
 			}
 
 			const isReasoningModel = supportsReasoningEffort(selectedModel);
@@ -531,7 +531,7 @@ function useChatContentView() {
 					// Remove placeholder and cleanup blob URLs; rely on upload utils to toast errors
 					setMessages((cur) => cur.filter((m) => m.id !== placeholderId));
 					revokeOptimisticAttachments(optimisticAttachments);
-					return;
+					return false;
 				}
 			}
 
@@ -543,8 +543,10 @@ function useChatContentView() {
 			try {
 				await sendMessage({ parts: messageParts, role: "user" }, { body });
 			} catch {
+				// The message is already in the conversation, so it counts as sent
 				toast({ title: "Failed to send message", status: "error" });
 			}
+			return true;
 		},
 		[
 			chatId,
@@ -677,13 +679,13 @@ function useChatContentView() {
 					dispatchUI({ type: "CLEAR_TEMP" });
 				}
 
+				// A new chat starts from text, so attachments alone stay in the input
+				if (!currentChatId) {
+					return false;
+				}
+
 				clearFiles();
-				await sendMessageHelper(
-					inputMessage,
-					currentChatId || undefined,
-					opts?.body,
-				);
-				return true;
+				return sendMessageHelper(inputMessage, currentChatId, opts?.body);
 			};
 
 			return isNewChat ? runChatStart(send) : send();

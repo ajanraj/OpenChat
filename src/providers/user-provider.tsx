@@ -180,7 +180,9 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   // Until auth settles, getCurrentUser answers unauthenticated (null), so a null user is not yet
   // a signed-out visitor. The cached answer can also lag the session either way, with isUserLoading
   // already false: no user yet once a session is confirmed, and the previous one for a moment after
-  // sign-out. Until they agree, the user isn't known
+  // sign-out. Until they agree, the user isn't known. (An account deleted on another device keeps
+  // an accepted token, and so this state, until the token expires within the hour and its refresh
+  // fails, which ends the session.)
   const combinedLoading = Boolean(
     isAuthLoading ||
     isUserLoading ||
