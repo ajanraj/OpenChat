@@ -62,20 +62,12 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 // setTimeout fires immediately for delays above 2^31 - 1 ms (~24.8 days)
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
-// Convex confirms a session in the same message that brings its queries' new results, so a
-// confirmed session's user follows within a render; one still missing after this no longer exists
-export const USER_ARRIVAL_TIMEOUT_MS = 10_000;
-
 export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
   const { signIn, signOut } = useAuthActions();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
   const ensureSession = useEnsureSession();
 
-  const {
-    data: user = null,
-    isLoading: isUserLoading,
-    isSuccess: isUserAnswered,
-  } = useTanStackQuery({
+  const { data: user = null, isLoading: isUserLoading } = useTanStackQuery({
     ...convexQuery(api.users.getCurrentUser, {}),
     // Extended cache for user data to prevent auth flickering
     gcTime: 30 * 60 * 1000, // 30 minutes - user data persists longer
@@ -188,23 +180,14 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const hasAnthropic = hasApiKey.get("anthropic") ?? false;
   const hasGemini = hasApiKey.get("gemini") ?? false;
 
-  // A confirmed session whose user is still answered as null past USER_ARRIVAL_TIMEOUT_MS has no
-  // account (e.g. it was deleted on another device, whose token stays accepted for up to an hour).
-  // Sign it out: the tab becomes a signed-out visitor, and the next send starts a guest. A pending or
-  // failed user query never counts, so a slow or failing backend can't sign out a live account.
-  const isSessionUserless = isAuthenticated && isUserAnswered && !user;
-  useEffect(() => {
-    if (!isSessionUserless) {
-      return;
-    }
-    const timeout = setTimeout(() => void signOut(), USER_ARRIVAL_TIMEOUT_MS);
-    return () => clearTimeout(timeout);
-  }, [isSessionUserless, signOut]);
-
   // Until auth settles, getCurrentUser answers unauthenticated (null), so a null user is not yet
   // a signed-out visitor. The cached answer can also lag the session either way, with isUserLoading
   // already false: no user yet once a session is confirmed, and the previous one for a moment after
   // sign-out. Until they agree, the user isn't known.
+  // No timeout ends that wait, and nothing here signs a session out: a reconnect can confirm the
+  // session before the user's answer returns, so a missing user can't be told from a slow one, and
+  // signing out a live guest loses the account. A session whose account was deleted on another
+  // device (its token stays accepted for up to an hour) ends when Convex Auth's refresh fails.
   const combinedLoading = Boolean(
     isAuthLoading ||
     isUserLoading ||

@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { USER_ARRIVAL_TIMEOUT_MS, UserProvider, useUser } from "../user-provider";
+import { UserProvider, useUser } from "../user-provider";
 
 type FunctionReference = Parameters<typeof getFunctionName>[0];
 interface MockUser {
@@ -14,7 +14,6 @@ const mocks = vi.hoisted(() => ({
   auth: { current: { isLoading: false, isAuthenticated: false } },
   // getCurrentUser's cached answer; isLoading stays false once it has answered once
   user: { current: null as MockUser | null },
-  userStatus: { current: "success" },
   signOut: vi.fn<() => Promise<void>>(async () => undefined),
 }));
 
@@ -32,12 +31,8 @@ vi.mock("@convex-dev/react-query", () => ({
 vi.mock("@tanstack/react-query", () => ({
   useQuery: ({ queryKey }: { queryKey: string[] }) =>
     queryKey[0] === "users:getCurrentUser"
-      ? {
-          data: mocks.user.current,
-          isLoading: mocks.userStatus.current === "pending",
-          isSuccess: mocks.userStatus.current === "success",
-        }
-      : { data: undefined, isLoading: false, isSuccess: true },
+      ? { data: mocks.user.current, isLoading: false }
+      : { data: undefined, isLoading: false },
 }));
 
 function renderUser() {
@@ -51,7 +46,6 @@ describe("UserProvider loading", () => {
   beforeEach(() => {
     mocks.auth.current = { isLoading: false, isAuthenticated: false };
     mocks.user.current = null;
-    mocks.userStatus.current = "success";
     mocks.signOut.mockClear();
   });
 
@@ -88,58 +82,23 @@ describe("UserProvider loading", () => {
     expect(renderUser().result.current.isLoading).toBe(isLoading);
   });
 
-  it("signs out a confirmed session whose user no longer exists", () => {
+  it("waits on a confirmed session's user however long it takes, and never signs it out", () => {
     vi.useFakeTimers();
-    // e.g. the account was deleted on another device; its token stays accepted until it expires
+    // e.g. a reconnect confirmed the session and the connection dropped before the user's answer
     mocks.auth.current = { isLoading: false, isAuthenticated: true };
     const { result, rerender } = renderUser();
+
+    act(() => {
+      vi.advanceTimersByTime(60 * 60 * 1000);
+    });
+    // Signing out a guest would lose the account
+    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(result.current.isLoading).toBe(true);
 
-    act(() => {
-      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS);
-    });
-    expect(mocks.signOut).toHaveBeenCalledTimes(1);
-
-    mocks.auth.current = { isLoading: false, isAuthenticated: false };
-    rerender();
-
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.user).toBeNull();
-  });
-
-  it("keeps a session whose user is on its way", () => {
-    vi.useFakeTimers();
-    mocks.auth.current = { isLoading: false, isAuthenticated: true };
-    const { result, rerender } = renderUser();
-
-    act(() => {
-      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS - 1);
-    });
     mocks.user.current = { _id: "users:1", isAnonymous: true };
     rerender();
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
 
-    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toEqual({ _id: "users:1", isAnonymous: true });
-  });
-
-  it.each([
-    { state: "hasn't answered", status: "pending" as const },
-    { state: "failed", status: "error" as const },
-  ])("never signs out a session whose user query $state", ({ status }) => {
-    vi.useFakeTimers();
-    mocks.auth.current = { isLoading: false, isAuthenticated: true };
-    mocks.userStatus.current = status;
-    const { result } = renderUser();
-
-    act(() => {
-      vi.advanceTimersByTime(USER_ARRIVAL_TIMEOUT_MS * 2);
-    });
-
-    expect(mocks.signOut).not.toHaveBeenCalled();
-    expect(result.current.isLoading).toBe(true);
   });
 });
