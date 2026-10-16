@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   auth: { current: { isLoading: false, isAuthenticated: false } },
   // getCurrentUser's cached answer; isLoading stays false once it has answered once
   user: { current: null as MockUser | null },
+  // The account the session's Convex Auth token was issued to
+  tokenUserId: { current: null as string | null },
   signOut: vi.fn<() => Promise<void>>(async () => undefined),
 }));
 
@@ -23,6 +25,9 @@ vi.mock("convex/react", () => ({
 }));
 vi.mock("@convex-dev/auth/react", () => ({
   useAuthActions: () => ({ signIn: async () => undefined, signOut: mocks.signOut }),
+  useAuthToken: () =>
+    mocks.tokenUserId.current &&
+    `header.${btoa(JSON.stringify({ sub: `${mocks.tokenUserId.current}|sessions:1` }))}.signature`,
 }));
 vi.mock("@/hooks/use-ensure-session", () => ({ useEnsureSession: () => async () => undefined }));
 vi.mock("@convex-dev/react-query", () => ({
@@ -46,6 +51,7 @@ describe("UserProvider loading", () => {
   beforeEach(() => {
     mocks.auth.current = { isLoading: false, isAuthenticated: false };
     mocks.user.current = null;
+    mocks.tokenUserId.current = null;
     mocks.signOut.mockClear();
   });
 
@@ -58,6 +64,7 @@ describe("UserProvider loading", () => {
     {
       state: "a signed-out visitor",
       isAuthenticated: false,
+      token: null,
       cached: null,
       user: null,
       isLoading: false,
@@ -65,6 +72,7 @@ describe("UserProvider loading", () => {
     {
       state: "a guest's session",
       isAuthenticated: true,
+      token: "users:1",
       cached: guest,
       user: guest,
       isLoading: false,
@@ -74,6 +82,7 @@ describe("UserProvider loading", () => {
       // /settings and /tasks would otherwise send a returning user to /auth
       state: "a confirmed session whose user hasn't arrived",
       isAuthenticated: true,
+      token: "users:1",
       cached: null,
       user: null,
       isLoading: true,
@@ -82,12 +91,23 @@ describe("UserProvider loading", () => {
       // Signed out here or in another tab; a stalled connection can keep the old answer cached
       state: "a session that ended while its user is still cached",
       isAuthenticated: false,
+      token: null,
       cached: guest,
       user: null,
       isLoading: false,
     },
-  ])("reports $state", ({ isAuthenticated, cached, user, isLoading }) => {
+    {
+      // e.g. a guest's session confirmed on a reconnect, before the cache catches up
+      state: "a new session while the previous account's user is still cached",
+      isAuthenticated: true,
+      token: "users:2",
+      cached: guest,
+      user: null,
+      isLoading: true,
+    },
+  ])("reports $state", ({ isAuthenticated, token, cached, user, isLoading }) => {
     mocks.auth.current = { isLoading: false, isAuthenticated };
+    mocks.tokenUserId.current = token;
     mocks.user.current = cached;
 
     const { result } = renderUser();
@@ -100,6 +120,7 @@ describe("UserProvider loading", () => {
     vi.useFakeTimers();
     // e.g. a reconnect confirmed the session and the connection dropped before the user's answer
     mocks.auth.current = { isLoading: false, isAuthenticated: true };
+    mocks.tokenUserId.current = "users:1";
     const { result, rerender } = renderUser();
 
     act(() => {

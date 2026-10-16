@@ -1,4 +1,4 @@
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useConvexAuth, useMutation } from "convex/react";
@@ -62,9 +62,26 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 // setTimeout fires immediately for delays above 2^31 - 1 ms (~24.8 days)
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
+/** The account a Convex Auth token was issued to: its subject is `userId|sessionId`. */
+function getTokenUserId(token: string | null): string | null {
+  const payload = token?.split(".")[1];
+  if (!payload) {
+    return null;
+  }
+  try {
+    const claims: { sub?: unknown } = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    return typeof claims.sub === "string" ? (claims.sub.split("|")[0] ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
   const { signIn, signOut } = useAuthActions();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
+  const sessionUserId = getTokenUserId(useAuthToken());
   const ensureSession = useEnsureSession();
 
   const { data: cachedUser = null, isLoading: isUserLoading } = useTanStackQuery({
@@ -72,10 +89,12 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
     // Extended cache for user data to prevent auth flickering
     gcTime: 30 * 60 * 1000, // 30 minutes - user data persists longer
   });
-  // A user exists only while its session does. Once Convex reports none (sign-out here or in another
-  // tab, or a rejected token), the previous account's cached answer is dropped at once, not when its
-  // query catches up, which a stalled connection can put off indefinitely
-  const user = isAuthLoading || isAuthenticated ? cachedUser : null;
+  // A user exists only while its session does, and only as that session's account. The cached
+  // answer lags the session, indefinitely on a stalled connection: once Convex reports no session
+  // (sign-out here or in another tab, or a rejected token) it is dropped at once, and a new session
+  // never sees the previous account's while its own is on the way
+  const user =
+    (isAuthLoading || isAuthenticated) && cachedUser?._id === sessionUserId ? cachedUser : null;
 
   // User capabilities and settings - only fetch when authenticated
   // NOTE: The `enabled` flag prevents TanStack Query execution but does NOT prevent
