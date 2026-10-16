@@ -54,4 +54,5 @@ class IntersectionObserverMock {
     // Mock implementation - no-op
   }
 }
-window.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver;
+window.IntersectionObserver =
+  IntersectionObserverMock as unknown as typeof IntersectionObserver;

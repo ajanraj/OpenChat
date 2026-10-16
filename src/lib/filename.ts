@@ -47,7 +47,9 @@ export function sanitizeAndValidateFileName(input: string): string {
   const normalized = (input ?? "").normalize("NFKC").trim();
   // Remove control chars and forbidden punctuation
   const noCtrl = stripControlChars(normalized);
-  const cleaned = noCtrl.replace(INVALID_FILENAME_PUNCT, "_").replace(WHITESPACE_RE, " ");
+  const cleaned = noCtrl
+    .replace(INVALID_FILENAME_PUNCT, "_")
+    .replace(WHITESPACE_RE, " ");
   // Disallow names that are just dots or empty after cleaning
   let candidate = cleaned.replace(JUST_DOTS_RE, "").trim();
   if (candidate.length === 0) {

@@ -2,11 +2,12 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { processEvent, StripeSubscriptions } from "@convex-dev/stripe";
 import { ConvexError, v } from "convex/values";
 import Stripe from "stripe";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { api, components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { action } from './_generated/server';
-import type { ActionCtx, QueryCtx } from './_generated/server';
+import { action } from "./_generated/server";
+import type { ActionCtx, QueryCtx } from "./_generated/server";
 
 const stripeClient = new StripeSubscriptions(components.stripe);
 
@@ -14,7 +15,12 @@ const stripeClient = new StripeSubscriptions(components.stripe);
 const PREMIUM_STATUSES = new Set(["active", "trialing"]);
 // Statuses of a subscription that can still bill or be recovered in the portal; a new checkout
 // would create a second billable subscription
-const CHECKOUT_BLOCKING_STATUSES = new Set([...PREMIUM_STATUSES, "past_due", "unpaid", "paused"]);
+const CHECKOUT_BLOCKING_STATUSES = new Set([
+  ...PREMIUM_STATUSES,
+  "past_due",
+  "unpaid",
+  "paused",
+]);
 
 const siteUrl = () => process.env.SITE_URL || "https://oschat.ai";
 
@@ -32,19 +38,27 @@ type RunQueryCtx = Pick<QueryCtx, "runQuery"> | Pick<ActionCtx, "runQuery">;
 async function hasSubscriptionWithStatus(
   ctx: RunQueryCtx,
   userId: Id<"users">,
-  statuses: Set<string>,
+  statuses: Set<string>
 ): Promise<boolean> {
-  const subscriptions = await ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
-    userId,
-  });
-  return subscriptions.some((subscription) => statuses.has(subscription.status));
+  const subscriptions = await ctx.runQuery(
+    components.stripe.public.listSubscriptionsByUserId,
+    {
+      userId,
+    }
+  );
+  return subscriptions.some((subscription) =>
+    statuses.has(subscription.status)
+  );
 }
 
 /**
  * Whether the user has a premium subscription, based on the Stripe component's
  * webhook-synced subscriptions table. Usable from queries, mutations and actions.
  */
-export function hasActivePremium(ctx: RunQueryCtx, userId: Id<"users">): Promise<boolean> {
+export function hasActivePremium(
+  ctx: RunQueryCtx,
+  userId: Id<"users">
+): Promise<boolean> {
   return hasSubscriptionWithStatus(ctx, userId, PREMIUM_STATUSES);
 }
 
@@ -56,12 +70,16 @@ export function hasActivePremium(ctx: RunQueryCtx, userId: Id<"users">): Promise
 export async function syncSubscriptionFromStripe(
   ctx: Pick<ActionCtx, "runMutation">,
   stripe: Stripe,
-  stripeSubscriptionId: string,
+  stripeSubscriptionId: string
 ): Promise<void> {
-  const revision: number = await ctx.runMutation(internal.subscription.reserveSubscriptionSync, {
-    stripeSubscriptionId,
-  });
-  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const revision: number = await ctx.runMutation(
+    internal.subscription.reserveSubscriptionSync,
+    {
+      stripeSubscriptionId,
+    }
+  );
+  const subscription =
+    await stripe.subscriptions.retrieve(stripeSubscriptionId);
   const item = subscription.items.data[0];
   await ctx.runMutation(internal.subscription.applySubscriptionSnapshot, {
     revision,
@@ -97,16 +115,18 @@ const ENDED_STATUSES = new Set(["canceled", "incomplete_expired"]);
  */
 export async function cancelBillableSubscriptions(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  userId: Id<"users">,
+  userId: Id<"users">
 ): Promise<void> {
   const [customer, synced] = await Promise.all([
     ctx.runQuery(components.stripe.public.getCustomerByUserId, { userId }),
-    ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, { userId }),
+    ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
+      userId,
+    }),
   ]);
   const billable = new Set(
     synced
       .filter((subscription) => !ENDED_STATUSES.has(subscription.status))
-      .map((subscription) => subscription.stripeSubscriptionId),
+      .map((subscription) => subscription.stripeSubscriptionId)
   );
   if (!customer && billable.size === 0) {
     return;
@@ -158,7 +178,10 @@ export async function cancelBillableSubscriptions(
     });
   }
   if (failures.length > 0) {
-    throw new AggregateError(failures, `${failures.length} billing step(s) failed`);
+    throw new AggregateError(
+      failures,
+      `${failures.length} billing step(s) failed`
+    );
   }
 }
 
@@ -173,7 +196,10 @@ const NEW_PERIOD_BILLING_REASONS = new Set<Stripe.Invoice.BillingReason>([
  * new billing period or isn't linked to a user.
  */
 export function getCreditResetUserId(invoice: Stripe.Invoice): string | null {
-  if (!invoice.billing_reason || !NEW_PERIOD_BILLING_REASONS.has(invoice.billing_reason)) {
+  if (
+    !invoice.billing_reason ||
+    !NEW_PERIOD_BILLING_REASONS.has(invoice.billing_reason)
+  ) {
     return null;
   }
   return invoice.parent?.subscription_details?.metadata?.userId ?? null;
@@ -187,7 +213,7 @@ export function getCreditResetUserId(invoice: Stripe.Invoice): string | null {
 export async function handleStripeEvent(
   ctx: ActionCtx,
   stripe: Stripe,
-  event: Stripe.Event,
+  event: Stripe.Event
 ): Promise<void> {
   switch (event.type) {
     case "customer.subscription.created":
@@ -221,11 +247,14 @@ export async function handleStripeEvent(
  */
 export async function getOrCreateCustomerId(
   ctx: ActionCtx,
-  user: { _id: Id<"users">; email: string; name: string },
+  user: { _id: Id<"users">; email: string; name: string }
 ): Promise<string> {
-  const existing = await ctx.runQuery(components.stripe.public.getCustomerByUserId, {
-    userId: user._id,
-  });
+  const existing = await ctx.runQuery(
+    components.stripe.public.getCustomerByUserId,
+    {
+      userId: user._id,
+    }
+  );
   if (existing) {
     return existing.stripeCustomerId;
   }
@@ -238,8 +267,14 @@ export async function getOrCreateCustomerId(
   return customerId;
 }
 
-async function createPortalUrl(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
-  const customer = await ctx.runQuery(components.stripe.public.getCustomerByUserId, { userId });
+async function createPortalUrl(
+  ctx: ActionCtx,
+  userId: Id<"users">
+): Promise<string> {
+  const customer = await ctx.runQuery(
+    components.stripe.public.getCustomerByUserId,
+    { userId }
+  );
   if (!customer) {
     throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
   }
@@ -263,11 +298,15 @@ export const createCheckout = action({
     if (!priceId) {
       throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
     }
-    const user: Doc<"users"> | null = await ctx.runQuery(api.users.getCurrentUser);
+    const user: Doc<"users"> | null = await ctx.runQuery(
+      api.users.getCurrentUser
+    );
     if (!user?.email || user.isAnonymous) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-    if (await hasSubscriptionWithStatus(ctx, user._id, CHECKOUT_BLOCKING_STATUSES)) {
+    if (
+      await hasSubscriptionWithStatus(ctx, user._id, CHECKOUT_BLOCKING_STATUSES)
+    ) {
       return { url: await createPortalUrl(ctx, user._id) };
     }
 
@@ -297,7 +336,10 @@ export const createCheckout = action({
       subscriptionMetadata: { userId: user._id },
       // Stripe Managed Payments: Stripe is merchant of record and handles tax, fraud and disputes.
       // Tax is added on top of the price (the price's tax behavior is exclusive).
-      params: { managed_payments: { enabled: true }, allow_promotion_codes: true },
+      params: {
+        managed_payments: { enabled: true },
+        allow_promotion_codes: true,
+      },
     });
     if (!url) {
       throw new ConvexError(ERROR_CODES.UNSUPPORTED_OPERATION);

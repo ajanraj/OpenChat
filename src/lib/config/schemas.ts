@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const ReasoningEffortSchema = z.enum(["none", "low", "medium", "high", "xhigh"]);
+export const ReasoningEffortSchema = z.enum([
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+]);
 
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 

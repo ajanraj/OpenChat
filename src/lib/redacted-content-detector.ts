@@ -25,8 +25,11 @@ export interface RedactedContentDetails {
  * @returns Object with details about redacted content
  */
 export function detectRedactedInParts(
-  parts: any[],
-): Pick<RedactedContentDetails, "redactedFiles" | "redactedTools" | "redactedParts"> {
+  parts: any[]
+): Pick<
+  RedactedContentDetails,
+  "redactedFiles" | "redactedTools" | "redactedParts"
+> {
   let redactedFiles = 0;
   let redactedTools = 0;
   let redactedParts = 0;
@@ -41,7 +44,10 @@ export function detectRedactedInParts(
     }
 
     // Check for redacted files
-    if ((part.type === "file" || part.type === "reasoning-file") && part.url === "redacted") {
+    if (
+      (part.type === "file" || part.type === "reasoning-file") &&
+      part.url === "redacted"
+    ) {
       redactedFiles += 1;
       continue;
     }
@@ -50,7 +56,9 @@ export function detectRedactedInParts(
     if (
       typeof part.type === "string" &&
       part.type.startsWith("tool-") &&
-      (part.input === "REDACTED" || part.output === "REDACTED" || part.error === "REDACTED")
+      (part.input === "REDACTED" ||
+        part.output === "REDACTED" ||
+        part.error === "REDACTED")
     ) {
       redactedTools += 1;
       continue;
@@ -109,13 +117,19 @@ export function detectRedactedContent(messages: any[]): RedactedContentDetails {
   if (hasRedactedContent) {
     const items: string[] = [];
     if (totalRedactedFiles > 0) {
-      items.push(`${totalRedactedFiles} file${totalRedactedFiles === 1 ? "" : "s"}`);
+      items.push(
+        `${totalRedactedFiles} file${totalRedactedFiles === 1 ? "" : "s"}`
+      );
     }
     if (totalRedactedTools > 0) {
-      items.push(`${totalRedactedTools} tool call${totalRedactedTools === 1 ? "" : "s"}`);
+      items.push(
+        `${totalRedactedTools} tool call${totalRedactedTools === 1 ? "" : "s"}`
+      );
     }
     if (totalRedactedParts > 0) {
-      items.push(`${totalRedactedParts} message part${totalRedactedParts === 1 ? "" : "s"}`);
+      items.push(
+        `${totalRedactedParts} message part${totalRedactedParts === 1 ? "" : "s"}`
+      );
     }
 
     if (items.length === 1) {

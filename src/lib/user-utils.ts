@@ -39,7 +39,9 @@ export function getUserTimezone(): string {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const supported =
-    typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : null;
+    typeof Intl.supportedValuesOf === "function"
+      ? Intl.supportedValuesOf("timeZone")
+      : null;
   const fallback = supported
     ? supported.includes("Africa/Abidjan")
       ? "Africa/Abidjan"

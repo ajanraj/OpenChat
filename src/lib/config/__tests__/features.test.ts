@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   FILE_UPLOAD_FEATURE,
   IMAGE_GENERATION_FEATURE,
@@ -47,12 +48,25 @@ describe("Feature Constants", () => {
     it("REASONING_FEATURE supports optional reasoning effort", () => {
       expect(REASONING_FEATURE.id).toBe("reasoning");
       expect(REASONING_FEATURE.enabled).toBe(true);
-      expect(REASONING_FEATURE.effortOptions).toEqual(["none", "low", "medium", "high"]);
+      expect(REASONING_FEATURE.effortOptions).toEqual([
+        "none",
+        "low",
+        "medium",
+        "high",
+      ]);
     });
 
     it("defines always-on and toggle effort options", () => {
-      expect(REASONING_FEATURE_ALWAYS.effortOptions).toEqual(["low", "medium", "high"]);
-      expect(REASONING_FEATURE_MAX.effortOptions).toEqual(["xhigh", "high", "low"]);
+      expect(REASONING_FEATURE_ALWAYS.effortOptions).toEqual([
+        "low",
+        "medium",
+        "high",
+      ]);
+      expect(REASONING_FEATURE_MAX.effortOptions).toEqual([
+        "xhigh",
+        "high",
+        "low",
+      ]);
       expect(REASONING_FEATURE_TOGGLE.effortOptions).toEqual(["none", "high"]);
     });
 

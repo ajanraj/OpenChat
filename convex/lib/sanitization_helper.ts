@@ -22,7 +22,10 @@ export interface SanitizationOptions {
  * @param options Sanitization configuration options
  * @returns Array of sanitized message parts
  */
-export function sanitizeMessageParts(parts: any[], options: SanitizationOptions): any[] {
+export function sanitizeMessageParts(
+  parts: any[],
+  options: SanitizationOptions
+): any[] {
   return (parts ?? []).map((p: any) => {
     try {
       if (!p || typeof p !== "object") {
@@ -30,7 +33,11 @@ export function sanitizeMessageParts(parts: any[], options: SanitizationOptions)
       }
 
       // Redact sensitive tool use info (except tool-search which is public)
-      if (typeof p.type === "string" && p.type.startsWith("tool-") && p.type !== "tool-search") {
+      if (
+        typeof p.type === "string" &&
+        p.type.startsWith("tool-") &&
+        p.type !== "tool-search"
+      ) {
         const cloned = { ...p } as Record<string, unknown>;
         if ("input" in cloned) {
           cloned.input = "REDACTED";
@@ -45,7 +52,10 @@ export function sanitizeMessageParts(parts: any[], options: SanitizationOptions)
       }
 
       // Hide files/images if requested
-      if (options.hideFiles && (p.type === "file" || p.type === "reasoning-file")) {
+      if (
+        options.hideFiles &&
+        (p.type === "file" || p.type === "reasoning-file")
+      ) {
         return { ...p, url: "redacted" };
       }
 

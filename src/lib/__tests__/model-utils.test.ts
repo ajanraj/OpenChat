@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+
 import { MODEL_DEFAULT, MODELS } from "@/lib/config";
+
 import {
   createModelValidator,
   getDefaultReasoningEffort,
@@ -24,7 +26,7 @@ describe("model-utils", () => {
     it("returns false for models without features", () => {
       // Find a model without reasoning feature
       const modelWithoutReasoning = MODELS.find(
-        (m) => !m.features?.some((f) => f.id === "reasoning"),
+        (m) => !m.features?.some((f) => f.id === "reasoning")
       );
       expect(modelWithoutReasoning).toBeDefined();
       expect(supportsReasoningEffort(modelWithoutReasoning!.id)).toBe(false);
@@ -33,8 +35,11 @@ describe("model-utils", () => {
     it("returns true for models with reasoning effort options", () => {
       const modelWithReasoning = MODELS.find((m) =>
         m.features?.some(
-          (f) => f.id === "reasoning" && f.enabled && (f.effortOptions?.length ?? 0) > 0,
-        ),
+          (f) =>
+            f.id === "reasoning" &&
+            f.enabled &&
+            (f.effortOptions?.length ?? 0) > 0
+        )
       );
       expect(modelWithReasoning).toBeDefined();
       expect(supportsReasoningEffort(modelWithReasoning!.id)).toBe(true);
@@ -42,7 +47,10 @@ describe("model-utils", () => {
 
     it("returns false for fixed reasoning models", () => {
       const modelWithBasicReasoning = MODELS.find((m) =>
-        m.features?.some((f) => f.id === "reasoning" && f.enabled && f.effortOptions === undefined),
+        m.features?.some(
+          (f) =>
+            f.id === "reasoning" && f.enabled && f.effortOptions === undefined
+        )
       );
       expect(modelWithBasicReasoning).toBeDefined();
       expect(supportsReasoningEffort(modelWithBasicReasoning!.id)).toBe(false);
@@ -50,7 +58,9 @@ describe("model-utils", () => {
 
     it("returns configured options and defaults", () => {
       const optionalModel = MODELS.find((model) =>
-        model.features.some((feature) => feature.effortOptions?.includes("none")),
+        model.features.some((feature) =>
+          feature.effortOptions?.includes("none")
+        )
       );
       expect(optionalModel).toBeDefined();
       expect(getReasoningEffortOptions(optionalModel!.id)).toContain("none");
@@ -69,13 +79,16 @@ describe("model-utils", () => {
       const toggleModel = MODELS.find((model) =>
         model.features.some(
           (feature) =>
-            feature.effortOptions?.length === 2 && feature.effortOptions.includes("high"),
-        ),
+            feature.effortOptions?.length === 2 &&
+            feature.effortOptions.includes("high")
+        )
       );
       if (!toggleModel) {
         throw new Error("Expected a model with toggle reasoning");
       }
-      expect(resolveReasoningEffort(toggleModel.id, "medium")).toEqual({ success: false });
+      expect(resolveReasoningEffort(toggleModel.id, "medium")).toEqual({
+        success: false,
+      });
     });
 
     it("normalizes edit effort to the selected model", () => {
@@ -85,17 +98,34 @@ describe("model-utils", () => {
     });
 
     it("resolves edit effort from message history before chat fallback", () => {
-      expect(getMessageReasoningEffort("xai/grok-4.5", "high", "none")).toBe("high");
-      expect(getMessageReasoningEffort("xai/grok-4.5", undefined, "none")).toBe("low");
-      expect(getMessageReasoningEffort("xai/grok-4.5", "invalid", "medium")).toBe("medium");
+      expect(getMessageReasoningEffort("xai/grok-4.5", "high", "none")).toBe(
+        "high"
+      );
+      expect(getMessageReasoningEffort("xai/grok-4.5", undefined, "none")).toBe(
+        "low"
+      );
+      expect(
+        getMessageReasoningEffort("xai/grok-4.5", "invalid", "medium")
+      ).toBe("medium");
     });
 
     it("matches provider-specific reasoning capabilities", () => {
-      expect(getReasoningEffortOptions("xai/grok-4.5")).toEqual(["low", "medium", "high"]);
-      expect(getReasoningEffortOptions("moonshotai/kimi-k3")).toEqual(["xhigh", "high", "low"]);
+      expect(getReasoningEffortOptions("xai/grok-4.5")).toEqual([
+        "low",
+        "medium",
+        "high",
+      ]);
+      expect(getReasoningEffortOptions("moonshotai/kimi-k3")).toEqual([
+        "xhigh",
+        "high",
+        "low",
+      ]);
       expect(getDefaultReasoningEffort("moonshotai/kimi-k3")).toBe("xhigh");
       expect(getReasoningEffortOptions("mistral-medium-latest")).toEqual([]);
-      expect(getReasoningEffortOptions("z-ai/glm-5.2")).toEqual(["none", "high"]);
+      expect(getReasoningEffortOptions("z-ai/glm-5.2")).toEqual([
+        "none",
+        "high",
+      ]);
 
       const fixedReasoningModelIds = [
         "minimax/minimax-m2.7",
@@ -106,9 +136,9 @@ describe("model-utils", () => {
       ];
 
       for (const modelId of fixedReasoningModelIds) {
-        const reasoningFeature = MODELS.find((model) => model.id === modelId)?.features.find(
-          (feature) => feature.id === "reasoning",
-        );
+        const reasoningFeature = MODELS.find(
+          (model) => model.id === modelId
+        )?.features.find((feature) => feature.id === "reasoning");
         expect(reasoningFeature).toMatchObject({ enabled: true });
         expect(reasoningFeature).not.toHaveProperty("effortOptions");
         expect(supportsReasoningEffort(modelId)).toBe(false);
@@ -116,9 +146,15 @@ describe("model-utils", () => {
     });
 
     it("rejects unsupported provider-specific efforts", () => {
-      expect(resolveReasoningEffort("xai/grok-4.5", "none")).toEqual({ success: false });
-      expect(resolveReasoningEffort("z-ai/glm-5.2", "low")).toEqual({ success: false });
-      expect(resolveReasoningEffort("z-ai/glm-5.2", "medium")).toEqual({ success: false });
+      expect(resolveReasoningEffort("xai/grok-4.5", "none")).toEqual({
+        success: false,
+      });
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "low")).toEqual({
+        success: false,
+      });
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "medium")).toEqual({
+        success: false,
+      });
       expect(resolveReasoningEffort("z-ai/glm-5.2", "high")).toEqual({
         success: true,
         effort: "high",
@@ -134,7 +170,9 @@ describe("model-utils", () => {
         "minimax/minimax-m2",
         "qwen/qwen3-235b-a22b-thinking-2507",
       ]) {
-        expect(resolveReasoningEffort(modelId, "none")).toEqual({ success: false });
+        expect(resolveReasoningEffort(modelId, "none")).toEqual({
+          success: false,
+        });
         expect(resolveReasoningEffort(modelId)).toEqual({
           success: true,
           effort: undefined,
@@ -145,16 +183,21 @@ describe("model-utils", () => {
     it("maps OpenRouter effort to call-level provider options", () => {
       const openRouterReasoningModel = MODELS.find(
         (model) =>
-          model.provider === "openrouter" && getReasoningEffortOptions(model.id).length > 0,
+          model.provider === "openrouter" &&
+          getReasoningEffortOptions(model.id).length > 0
       );
       if (!openRouterReasoningModel) {
         throw new Error("Expected a configurable OpenRouter reasoning model");
       }
 
-      expect(getOpenRouterReasoningOptions(openRouterReasoningModel.id, "none")).toEqual({
+      expect(
+        getOpenRouterReasoningOptions(openRouterReasoningModel.id, "none")
+      ).toEqual({
         reasoning: { enabled: false, effort: "none" },
       });
-      expect(getOpenRouterReasoningOptions(openRouterReasoningModel.id, "high")).toEqual({
+      expect(
+        getOpenRouterReasoningOptions(openRouterReasoningModel.id, "high")
+      ).toEqual({
         reasoning: { enabled: true, effort: "high" },
       });
       expect(getOpenRouterReasoningOptions(MODEL_DEFAULT, "high")).toEqual({});
@@ -248,7 +291,9 @@ describe("model-utils", () => {
     });
 
     it("returns true for models requiring user API key", () => {
-      const userKeyModel = MODELS.find((m) => m.apiKeyUsage?.userKeyOnly === true);
+      const userKeyModel = MODELS.find(
+        (m) => m.apiKeyUsage?.userKeyOnly === true
+      );
       expect(userKeyModel).toBeDefined();
       expect(requiresUserApiKey(userKeyModel!.id)).toBe(true);
     });

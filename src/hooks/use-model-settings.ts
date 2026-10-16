@@ -1,10 +1,12 @@
 import { useMutation } from "convex/react";
 import { useMemo } from "react";
+
 import { MODEL_DEFAULT } from "@/lib/config";
 import { useProfile } from "@/providers/profile-provider";
-import { useUser } from "@/providers/user-provider";
-import { api } from "../../convex/_generated/api";
 import type { Profile } from "@/providers/profile-provider";
+import { useUser } from "@/providers/user-provider";
+
+import { api } from "../../convex/_generated/api";
 
 /**
  * Hook specifically for the settings page to manage model enable/disable state.
@@ -14,54 +16,58 @@ export function useModelSettings() {
   const { user } = useUser();
   const { activeProfile } = useProfile();
 
-  const setModelEnabled = useMutation(api.profiles.setProfileModelEnabled).withOptimisticUpdate(
-    (localStore, { profileId, modelId, enabled }) => {
-      const profiles = localStore.getQuery(api.profiles.listProfiles, {});
-      if (!profiles) {
-        return;
-      }
+  const setModelEnabled = useMutation(
+    api.profiles.setProfileModelEnabled
+  ).withOptimisticUpdate((localStore, { profileId, modelId, enabled }) => {
+    const profiles = localStore.getQuery(api.profiles.listProfiles, {});
+    if (!profiles) {
+      return;
+    }
 
-      localStore.setQuery(
-        api.profiles.listProfiles,
-        {},
-        profiles.map((p: Profile) => {
-          if (p._id !== profileId) {
+    localStore.setQuery(
+      api.profiles.listProfiles,
+      {},
+      profiles.map((p: Profile) => {
+        if (p._id !== profileId) {
+          return p;
+        }
+
+        const currentDisabled = p.disabledModels ?? [];
+        const currentFavorites = p.favoriteModels ?? [];
+
+        let newDisabled: string[];
+        let newFavorites = currentFavorites;
+
+        if (enabled) {
+          newDisabled = currentDisabled.filter((id) => id !== modelId);
+        } else {
+          if (modelId === MODEL_DEFAULT) {
             return p;
           }
 
-          const currentDisabled = p.disabledModels ?? [];
-          const currentFavorites = p.favoriteModels ?? [];
+          newDisabled = currentDisabled.includes(modelId)
+            ? currentDisabled
+            : [...currentDisabled, modelId];
+          newFavorites = currentFavorites.filter((id) => id !== modelId);
 
-          let newDisabled: string[];
-          let newFavorites = currentFavorites;
-
-          if (enabled) {
-            newDisabled = currentDisabled.filter((id) => id !== modelId);
-          } else {
-            if (modelId === MODEL_DEFAULT) {
-              return p;
-            }
-
-            newDisabled = currentDisabled.includes(modelId)
-              ? currentDisabled
-              : [...currentDisabled, modelId];
-            newFavorites = currentFavorites.filter((id) => id !== modelId);
-
-            if (newFavorites.length === 0 && currentFavorites.length > 0) {
-              const firstFavorite = currentFavorites[0];
-              newFavorites = [firstFavorite];
-              newDisabled = newDisabled.filter((id) => id !== firstFavorite);
-            }
+          if (newFavorites.length === 0 && currentFavorites.length > 0) {
+            const firstFavorite = currentFavorites[0];
+            newFavorites = [firstFavorite];
+            newDisabled = newDisabled.filter((id) => id !== firstFavorite);
           }
+        }
 
-          return { ...p, disabledModels: newDisabled, favoriteModels: newFavorites };
-        }),
-      );
-    },
-  );
+        return {
+          ...p,
+          disabledModels: newDisabled,
+          favoriteModels: newFavorites,
+        };
+      })
+    );
+  });
 
   const bulkSetModelsDisabled = useMutation(
-    api.profiles.bulkSetProfileModelsDisabled,
+    api.profiles.bulkSetProfileModelsDisabled
   ).withOptimisticUpdate((localStore, { profileId, modelIds }) => {
     const profiles = localStore.getQuery(api.profiles.listProfiles, {});
     if (!profiles) {
@@ -87,7 +93,9 @@ export function useModelSettings() {
           newDisabled = [];
           newFavorites = currentFavorites;
         } else {
-          newFavorites = currentFavorites.filter((id) => !modelsToDisable.includes(id));
+          newFavorites = currentFavorites.filter(
+            (id) => !modelsToDisable.includes(id)
+          );
           newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
 
           if (newFavorites.length === 0 && currentFavorites.length > 0) {
@@ -97,14 +105,18 @@ export function useModelSettings() {
           }
         }
 
-        return { ...p, disabledModels: newDisabled, favoriteModels: newFavorites };
-      }),
+        return {
+          ...p,
+          disabledModels: newDisabled,
+          favoriteModels: newFavorites,
+        };
+      })
     );
   });
 
   const disabledModelsSet = useMemo(
     () => new Set(activeProfile?.disabledModels ?? user?.disabledModels ?? []),
-    [activeProfile?.disabledModels, user?.disabledModels],
+    [activeProfile?.disabledModels, user?.disabledModels]
   );
 
   const isModelEnabled = (modelId: string) => !disabledModelsSet.has(modelId);

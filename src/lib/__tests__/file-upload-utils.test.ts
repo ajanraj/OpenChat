@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createOptimisticAttachments, revokeOptimisticAttachments } from "../file-upload-utils";
+
+import {
+  createOptimisticAttachments,
+  revokeOptimisticAttachments,
+} from "../file-upload-utils";
 
 const BLOB_URL_PATTERN = /^blob:/;
 
@@ -52,8 +56,12 @@ describe("revokeOptimisticAttachments", () => {
     revokeOptimisticAttachments(parts as never);
 
     expect(revokeObjectURL).toHaveBeenCalledTimes(2);
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:http://localhost/abc123");
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:http://localhost/def456");
+    expect(revokeObjectURL).toHaveBeenCalledWith(
+      "blob:http://localhost/abc123"
+    );
+    expect(revokeObjectURL).toHaveBeenCalledWith(
+      "blob:http://localhost/def456"
+    );
 
     revokeObjectURL.mockRestore();
   });
@@ -102,7 +110,10 @@ describe("revokeOptimisticAttachments", () => {
   it("handles parts with undefined url", () => {
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
 
-    const parts = [{ type: "file" as const, url: undefined }, { type: "file" as const }];
+    const parts = [
+      { type: "file" as const, url: undefined },
+      { type: "file" as const },
+    ];
 
     // Should not throw
     revokeOptimisticAttachments(parts as never);

@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import type { Id } from "../_generated/dataModel";
 import {
   backfillChatProfiles,
@@ -16,8 +17,8 @@ import {
   searchChats,
 } from "../chats";
 import { bulkImportChat } from "../import_export";
-import { createFakeCtx, createFakeDb } from './fake_db.testutil';
-import type { FakeCtx, FakeDb } from './fake_db.testutil';
+import { createFakeCtx, createFakeDb } from "./fake_db.testutil";
+import type { FakeCtx, FakeDb } from "./fake_db.testutil";
 
 // Keep the real authTables, which the schema (and so the fake db) needs
 vi.mock(import("@convex-dev/auth/server"), async (importOriginal) => ({
@@ -39,7 +40,10 @@ vi.mock("@convex-dev/r2", () => ({
   },
 }));
 
-type Handler = (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;
+type Handler = (
+  ctx: unknown,
+  args: Record<string, unknown>
+) => Promise<unknown>;
 interface Page {
   page: Array<{ _id: string }>;
   isDone: boolean;
@@ -60,11 +64,19 @@ function setup() {
   return { db, userId, otherUserId, ctx: createFakeCtx(db) };
 }
 
-function seedChat(db: FakeDb, userId: Id<"users">, fields: Record<string, unknown>) {
+function seedChat(
+  db: FakeDb,
+  userId: Id<"users">,
+  fields: Record<string, unknown>
+) {
   return db.seed("chats", { userId, title: "Chat", ...fields });
 }
 
-function seedProfile(db: FakeDb, userId: Id<"users">, fields: Record<string, unknown> = {}) {
+function seedProfile(
+  db: FakeDb,
+  userId: Id<"users">,
+  fields: Record<string, unknown> = {}
+) {
   return db.seed("profiles", {
     userId,
     name: "Work",
@@ -75,8 +87,10 @@ function seedProfile(db: FakeDb, userId: Id<"users">, fields: Record<string, unk
   }) as Id<"profiles">;
 }
 
-const chatById = (db: FakeDb, chatId: string) => db.all("chats").find((c) => c._id === chatId);
-const userById = (db: FakeDb, userId: string) => db.all("users").find((u) => u._id === userId);
+const chatById = (db: FakeDb, chatId: string) =>
+  db.all("chats").find((c) => c._id === chatId);
+const userById = (db: FakeDb, userId: string) =>
+  db.all("users").find((u) => u._id === userId);
 const defaultProfiles = (db: FakeDb, userId: string) =>
   db.all("profiles").filter((p) => p.userId === userId && p.isDefault === true);
 
@@ -86,7 +100,11 @@ describe("listChatsForUser", () => {
     const profileId = seedProfile(db, userId);
     const otherProfileId = seedProfile(db, userId, { name: "Home" });
     const older = seedChat(db, userId, { profileId, updatedAt: 10 });
-    const newest = seedChat(db, userId, { profileId, updatedAt: 30, isPinned: true });
+    const newest = seedChat(db, userId, {
+      profileId,
+      updatedAt: 30,
+      isPinned: true,
+    });
     const middle = seedChat(db, userId, { profileId, updatedAt: 20 });
     const legacy = seedChat(db, userId, { profileId });
     seedChat(db, userId, { profileId: otherProfileId, updatedAt: 50 });
@@ -111,7 +129,10 @@ describe("listChatsForUser", () => {
 
   it("lists every profile's chats of the user when profileId is null", async () => {
     const { db, userId, otherUserId, ctx } = setup();
-    const work = seedChat(db, userId, { profileId: seedProfile(db, userId), updatedAt: 2 });
+    const work = seedChat(db, userId, {
+      profileId: seedProfile(db, userId),
+      updatedAt: 2,
+    });
     const unfiled = seedChat(db, userId, { updatedAt: 1 });
     seedChat(db, otherUserId, { updatedAt: 3 });
 
@@ -138,10 +159,12 @@ describe("listChatsForUser", () => {
     const { ctx } = setup();
     authUser.mockResolvedValue(null);
 
-    await expect(asHandler(listChatsForUser)(ctx, {
+    await expect(
+      asHandler(listChatsForUser)(ctx, {
         profileId: null,
         paginationOpts: { numItems: 10, cursor: null },
-      })).resolves.toEqual({ page: [], isDone: true, continueCursor: "" });
+      })
+    ).resolves.toEqual({ page: [], isDone: true, continueCursor: "" });
   });
 });
 
@@ -149,13 +172,23 @@ describe("listPinnedChatsForUser", () => {
   it("returns only the user's pinned chats in the profile", async () => {
     const { db, userId, otherUserId, ctx } = setup();
     const profileId = seedProfile(db, userId);
-    const pinned = seedChat(db, userId, { profileId, isPinned: true, updatedAt: 1 });
+    const pinned = seedChat(db, userId, {
+      profileId,
+      isPinned: true,
+      updatedAt: 1,
+    });
     seedChat(db, userId, { profileId, isPinned: false, updatedAt: 2 });
     seedChat(db, userId, { profileId, updatedAt: 3 });
-    seedChat(db, userId, { profileId: seedProfile(db, userId), isPinned: true, updatedAt: 4 });
+    seedChat(db, userId, {
+      profileId: seedProfile(db, userId),
+      isPinned: true,
+      updatedAt: 4,
+    });
     seedChat(db, otherUserId, { profileId, isPinned: true, updatedAt: 5 });
 
-    const chats = (await asHandler(listPinnedChatsForUser)(ctx, { profileId })) as Array<{
+    const chats = (await asHandler(listPinnedChatsForUser)(ctx, {
+      profileId,
+    })) as Array<{
       _id: string;
     }>;
     expect(chats.map((c) => c._id)).toEqual([pinned]);
@@ -169,16 +202,26 @@ describe("searchChats", () => {
     const trip = seedChat(db, userId, { profileId, title: "Trip to Paris" });
     const budget = seedChat(db, userId, { profileId, title: "Paris budget" });
     seedChat(db, userId, { profileId, title: "Groceries" });
-    seedChat(db, userId, { profileId: seedProfile(db, userId), title: "Paris at home" });
+    seedChat(db, userId, {
+      profileId: seedProfile(db, userId),
+      title: "Paris at home",
+    });
     seedChat(db, otherUserId, { profileId, title: "Paris" });
 
-    const found = (await asHandler(searchChats)(ctx, { query: " paris ", profileId })) as Array<{
+    const found = (await asHandler(searchChats)(ctx, {
+      query: " paris ",
+      profileId,
+    })) as Array<{
       _id: string;
     }>;
     // Order is by relevance; convex/tsconfig targets ES2022, so no toSorted here
     expect(found.map((c) => c._id)).toHaveLength(2);
-    expect(found.map((c) => c._id)).toEqual(expect.arrayContaining([trip, budget]));
-    await expect(asHandler(searchChats)(ctx, { query: "   ", profileId })).resolves.toEqual([]);
+    expect(found.map((c) => c._id)).toEqual(
+      expect.arrayContaining([trip, budget])
+    );
+    await expect(
+      asHandler(searchChats)(ctx, { query: "   ", profileId })
+    ).resolves.toEqual([]);
   });
 });
 
@@ -187,7 +230,9 @@ describe("chat writers", () => {
     const { db, userId, ctx } = setup();
     const profileId = seedProfile(db, userId);
 
-    const { chatId } = (await asHandler(createChat)(ctx, { profileId })) as { chatId: string };
+    const { chatId } = (await asHandler(createChat)(ctx, { profileId })) as {
+      chatId: string;
+    };
 
     expect(chatById(db, chatId)?.profileId).toBe(profileId);
   });
@@ -206,10 +251,18 @@ describe("chat writers", () => {
 
   it("creates and activates the default profile when the user has none", async () => {
     const { db, userId, ctx } = setup();
-    await db.patch("users", userId, { preferredModel: "model-a", favoriteModels: ["model-a"] });
+    await db.patch("users", userId, {
+      preferredModel: "model-a",
+      favoriteModels: ["model-a"],
+    });
 
-    const { chatId } = (await asHandler(createChat)(ctx, {})) as { chatId: string };
-    const { chatId: secondChatId } = (await asHandler(createChat)(createFakeCtx(db), {})) as {
+    const { chatId } = (await asHandler(createChat)(ctx, {})) as {
+      chatId: string;
+    };
+    const { chatId: secondChatId } = (await asHandler(createChat)(
+      createFakeCtx(db),
+      {}
+    )) as {
       chatId: string;
     };
 
@@ -230,7 +283,9 @@ describe("chat writers", () => {
     const defaultId = seedProfile(db, userId, { isDefault: true, order: 0 });
     await db.patch("users", userId, { activeProfileId: "profiles:deleted" });
 
-    const { chatId } = (await asHandler(createChat)(ctx, {})) as { chatId: string };
+    const { chatId } = (await asHandler(createChat)(ctx, {})) as {
+      chatId: string;
+    };
 
     expect(chatById(db, chatId)?.profileId).toBe(defaultId);
     expect(defaultProfiles(db, userId)).toHaveLength(1);
@@ -253,11 +308,16 @@ describe("chat writers", () => {
       createdAt: 1,
     });
 
-    const { chatId } = (await asHandler(forkFromShared)(ctx, { sourceChatId })) as {
+    const { chatId } = (await asHandler(forkFromShared)(ctx, {
+      sourceChatId,
+    })) as {
       chatId: string;
     };
 
-    expect(chatById(db, chatId)).toMatchObject({ userId, profileId: activeProfileId });
+    expect(chatById(db, chatId)).toMatchObject({
+      userId,
+      profileId: activeProfileId,
+    });
   });
 
   it("files an imported chat under the active profile", async () => {
@@ -281,10 +341,13 @@ describe("chat writers", () => {
       userId,
       profileId: taskProfileId,
     })) as { chatId: string };
-    const { chatId: foreignChatId } = (await asHandler(createChatInternal)(createFakeCtx(db), {
-      userId,
-      profileId: seedProfile(db, otherUserId),
-    })) as { chatId: string };
+    const { chatId: foreignChatId } = (await asHandler(createChatInternal)(
+      createFakeCtx(db),
+      {
+        userId,
+        profileId: seedProfile(db, otherUserId),
+      }
+    )) as { chatId: string };
 
     expect(chatById(db, chatId)?.profileId).toBe(taskProfileId);
     const [created] = defaultProfiles(db, userId);
@@ -300,7 +363,10 @@ describe("backfillChatProfiles", () => {
     isDone: boolean;
   }
   const runBackfill = async (ctx: FakeCtx, cursor?: string) =>
-    (await asHandler(backfillChatProfiles)(ctx, cursor ? { cursor } : {})) as BackfillResult;
+    (await asHandler(backfillChatProfiles)(
+      ctx,
+      cursor ? { cursor } : {}
+    )) as BackfillResult;
 
   it("moves chats without a valid profile to the owner's default profile", async () => {
     const { db, userId, otherUserId, ctx } = setup();
@@ -308,17 +374,27 @@ describe("backfillChatProfiles", () => {
     const workId = seedProfile(db, userId);
     const missing = seedChat(db, userId, {});
     const deleted = seedChat(db, userId, { profileId: "profiles:deleted" });
-    const foreign = seedChat(db, userId, { profileId: seedProfile(db, otherUserId) });
+    const foreign = seedChat(db, userId, {
+      profileId: seedProfile(db, otherUserId),
+    });
     const filed = seedChat(db, userId, { profileId: workId, updatedAt: 5 });
     const orphan = seedChat(db, "users:gone" as Id<"users">, {});
 
     const result = await runBackfill(ctx);
 
-    expect(result).toEqual({ scanned: 5, updated: 3, skipped: 1, isDone: true });
+    expect(result).toEqual({
+      scanned: 5,
+      updated: 3,
+      skipped: 1,
+      isDone: true,
+    });
     for (const chatId of [missing, deleted, foreign]) {
       expect(chatById(db, chatId)?.profileId).toBe(defaultId);
     }
-    expect(chatById(db, filed)).toMatchObject({ profileId: workId, updatedAt: 5 });
+    expect(chatById(db, filed)).toMatchObject({
+      profileId: workId,
+      updatedAt: 5,
+    });
     expect(chatById(db, orphan)?.profileId).toBeUndefined();
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
   });
@@ -347,22 +423,31 @@ describe("backfillChatProfiles", () => {
     expect(first).toMatchObject({ scanned: 100, updated: 100, isDone: false });
     const [[, fn, args]] = ctx.scheduler.runAfter.mock.calls;
     expect(getFunctionName(fn as Parameters<typeof getFunctionName>[0])).toBe(
-      "chats:backfillChatProfiles",
+      "chats:backfillChatProfiles"
     );
 
     const next = createFakeCtx(db);
     const second = await runBackfill(next, (args as { cursor: string }).cursor);
     expect(second).toMatchObject({ scanned: 1, updated: 1, isDone: true });
     expect(next.scheduler.runAfter).not.toHaveBeenCalled();
-    expect(db.all("chats").every((chat) => chat.profileId !== undefined)).toBe(true);
+    expect(db.all("chats").every((chat) => chat.profileId !== undefined)).toBe(
+      true
+    );
   });
 });
 
 describe("branchChat", () => {
   it("copies up to the branch message, remaps parents, and stops reading there", async () => {
     const { db, userId, ctx } = setup();
-    const chatId = seedChat(db, userId, { title: "Original", updatedAt: 1 }) as Id<"chats">;
-    const message = (role: string, createdAt: number, parentMessageId?: string) =>
+    const chatId = seedChat(db, userId, {
+      title: "Original",
+      updatedAt: 1,
+    }) as Id<"chats">;
+    const message = (
+      role: string,
+      createdAt: number,
+      parentMessageId?: string
+    ) =>
       db.seed("messages", {
         chatId,
         userId,
@@ -384,7 +469,12 @@ describe("branchChat", () => {
     })) as { chatId: string };
 
     const copies = db.all("messages").filter((m) => m.chatId === newChatId);
-    expect(copies.map((m) => m.content)).toEqual(["user1", "assistant2", "user3", "assistant4"]);
+    expect(copies.map((m) => m.content)).toEqual([
+      "user1",
+      "assistant2",
+      "user3",
+      "assistant4",
+    ]);
     const copyIdByContent = new Map(copies.map((m) => [m.content, m._id]));
     expect(copies.map((m) => m.parentMessageId)).toEqual([
       undefined,
@@ -394,7 +484,9 @@ describe("branchChat", () => {
     ]);
     expect(chatById(db, newChatId)?.originalChatId).toBe(chatId);
     // A legacy original without a profile gives the branch the user's (new) default profile
-    expect(chatById(db, newChatId)?.profileId).toBe(defaultProfiles(db, userId)[0]._id);
+    expect(chatById(db, newChatId)?.profileId).toBe(
+      defaultProfiles(db, userId)[0]._id
+    );
     // Messages after the branch point are never read
     expect(db.readIds).not.toContain(u3);
     expect(db.readIds).not.toContain(a3);
@@ -403,7 +495,9 @@ describe("branchChat", () => {
   it("files the branch under the original chat's profile", async () => {
     const { db, userId, ctx } = setup();
     const profileId = seedProfile(db, userId);
-    await db.patch("users", userId, { activeProfileId: seedProfile(db, userId) });
+    await db.patch("users", userId, {
+      activeProfileId: seedProfile(db, userId),
+    });
     const chatId = seedChat(db, userId, { profileId }) as Id<"chats">;
     const branchPoint = db.seed("messages", {
       chatId,
@@ -431,7 +525,13 @@ describe("bulk chat deletion", () => {
   function seedLargeChat(db: FakeDb, userId: Id<"users">) {
     const chatId = seedChat(db, userId, {});
     for (let i = 0; i < 2100; i += 1) {
-      db.seed("messages", { chatId, userId, role: "user", content: `m${i}`, createdAt: i });
+      db.seed("messages", {
+        chatId,
+        userId,
+        role: "user",
+        content: `m${i}`,
+        createdAt: i,
+      });
     }
     return chatId;
   }
@@ -445,7 +545,13 @@ describe("bulk chat deletion", () => {
   it("deletes all of the user's chats and their messages in one call when small", async () => {
     const { db, userId, otherUserId, ctx } = setup();
     const chatId = seedChat(db, userId, {});
-    db.seed("messages", { chatId, userId, role: "user", content: "hi", createdAt: 1 });
+    db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "hi",
+      createdAt: 1,
+    });
     const othersChat = seedChat(db, otherUserId, {});
 
     await asHandler(deleteAllChatsForUser)(ctx, {});
@@ -458,7 +564,9 @@ describe("bulk chat deletion", () => {
   it("finishes a large delete-all in the background, keeping chats created since", async () => {
     const { db, userId, ctx } = setup();
     seedLargeChat(db, userId);
-    const requestedAt = Math.max(...db.all("messages").map((m) => m._creationTime));
+    const requestedAt = Math.max(
+      ...db.all("messages").map((m) => m._creationTime)
+    );
     vi.spyOn(Date, "now").mockReturnValue(requestedAt);
 
     await asHandler(deleteAllChatsForUser)(ctx, {});
@@ -478,7 +586,9 @@ describe("bulk chat deletion", () => {
     const large = seedLargeChat(db, userId);
     const othersChat = seedChat(db, otherUserId, {});
 
-    await asHandler(deleteBulkChats)(ctx, { chatIds: [small, large, othersChat] });
+    await asHandler(deleteBulkChats)(ctx, {
+      chatIds: [small, large, othersChat],
+    });
     const args = continuation(ctx);
     expect(args).toEqual({ userId, scope: { chatIds: [large, othersChat] } });
 

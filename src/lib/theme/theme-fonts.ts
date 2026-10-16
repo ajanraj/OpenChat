@@ -112,7 +112,7 @@ export function getFontOptions(category: FontCategory): readonly FontOption[] {
 // Get current font selection for a theme property
 export function getCurrentFontSelection(
   themeStyles: Partial<ThemeStyleProps>,
-  category: FontCategory,
+  category: FontCategory
 ): FontOption {
   const fontKey = category === "sans" ? "font-sans" : "font-mono";
   const currentValue = themeStyles[fontKey];
@@ -146,7 +146,7 @@ export function hasCustomFonts(themeStyles: Partial<ThemeStyleProps>): boolean {
 export function updateThemeFont(
   currentStyles: Partial<ThemeStyleProps>,
   category: FontCategory,
-  fontOption: FontOption,
+  fontOption: FontOption
 ): Partial<ThemeStyleProps> {
   const fontKey = category === "sans" ? "font-sans" : "font-mono";
 
@@ -157,7 +157,9 @@ export function updateThemeFont(
 }
 
 // Check if a theme is using default/system fonts
-export function isUsingSystemFonts(themeStyles: Partial<ThemeStyleProps>): boolean {
+export function isUsingSystemFonts(
+  themeStyles: Partial<ThemeStyleProps>
+): boolean {
   const sansFont = themeStyles["font-sans"];
   const monoFont = themeStyles["font-mono"];
 

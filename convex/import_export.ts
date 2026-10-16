@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
@@ -14,7 +15,11 @@ export const bulkImportChat = mutation({
     }),
     messages: v.array(
       v.object({
-        role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+        role: v.union(
+          v.literal("user"),
+          v.literal("assistant"),
+          v.literal("system")
+        ),
         content: v.string(),
         parts: v.optional(v.array(v.any())), // Use any to allow any part structure
         metadata: v.optional(
@@ -27,13 +32,13 @@ export const bulkImportChat = mutation({
             serverDurationMs: v.optional(v.number()),
             includeSearch: v.optional(v.boolean()),
             reasoningEffort: v.optional(v.string()),
-          }),
+          })
         ),
         createdAt: v.optional(v.number()),
         parentMessageId: v.optional(v.id("messages")),
         originalId: v.optional(v.string()),
         parentOriginalId: v.optional(v.string()),
-      }),
+      })
     ),
   },
   returns: v.object({
@@ -67,7 +72,9 @@ export const bulkImportChat = mutation({
 
     // Insert all messages in order (preserving threading)
     for (const msg of args.messages) {
-      const parentMessageId = msg.parentOriginalId ? idMap.get(msg.parentOriginalId) : undefined;
+      const parentMessageId = msg.parentOriginalId
+        ? idMap.get(msg.parentOriginalId)
+        : undefined;
 
       const messageId = await ctx.db.insert("messages", {
         chatId,

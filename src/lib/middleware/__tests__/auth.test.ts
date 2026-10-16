@@ -9,17 +9,21 @@ type MiddlewareHandler = (options: MiddlewareOptions) => Promise<Response>;
 
 // Mock dependencies
 vi.mock("@tanstack/react-start", () => ({
-  createMiddleware: vi.fn<() => { server: (handler: MiddlewareHandler) => MiddlewareHandler }>(
-    () => ({
-      server: vi.fn<(handler: MiddlewareHandler) => MiddlewareHandler>((handler) => handler),
-    }),
-  ),
+  createMiddleware: vi.fn<
+    () => { server: (handler: MiddlewareHandler) => MiddlewareHandler }
+  >(() => ({
+    server: vi.fn<(handler: MiddlewareHandler) => MiddlewareHandler>(
+      (handler) => handler
+    ),
+  })),
 }));
 
 vi.mock("convex/browser", () => ({
-  ConvexHttpClient: vi.fn<() => { setAuth: (token: string) => void }>().mockImplementation(() => ({
-    setAuth: vi.fn<(token: string) => void>(),
-  })),
+  ConvexHttpClient: vi
+    .fn<() => { setAuth: (token: string) => void }>()
+    .mockImplementation(() => ({
+      setAuth: vi.fn<(token: string) => void>(),
+    })),
 }));
 
 describe("auth middleware", () => {
@@ -56,7 +60,7 @@ describe("auth middleware", () => {
           headers: {
             "X-Custom-Header": "custom-value",
           },
-        },
+        }
       );
 
       expect(response.headers.get("Content-Type")).toBe("application/json");
@@ -150,7 +154,9 @@ describe("auth middleware", () => {
       delete process.env.SERVER_ROUTE_SECRET;
       const { getServerRouteSecret } = await import("../auth");
 
-      expect(() => getServerRouteSecret()).toThrow(/SERVER_ROUTE_SECRET is missing/);
+      expect(() => getServerRouteSecret()).toThrow(
+        /SERVER_ROUTE_SECRET is missing/
+      );
     });
   });
 

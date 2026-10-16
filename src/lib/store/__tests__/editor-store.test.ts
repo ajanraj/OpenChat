@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { useEditorStore } from "../editor-store";
 
 describe("useEditorStore", () => {
@@ -77,7 +78,8 @@ describe("useEditorStore", () => {
       const { setThemeState, themeState } = useEditorStore.getState();
 
       // Change only currentMode
-      const newMode: "light" | "dark" = themeState.currentMode === "light" ? "dark" : "light";
+      const newMode: "light" | "dark" =
+        themeState.currentMode === "light" ? "dark" : "light";
       const newState = {
         ...themeState,
         currentMode: newMode,
@@ -148,7 +150,9 @@ describe("useEditorStore", () => {
       const store = useEditorStore.getState();
       store.saveThemeCheckpoint();
 
-      expect(useEditorStore.getState().hasThemeChangedFromCheckpoint()).toBe(false);
+      expect(useEditorStore.getState().hasThemeChangedFromCheckpoint()).toBe(
+        false
+      );
     });
 
     it("returns true when state differs from checkpoint", () => {
@@ -163,7 +167,9 @@ describe("useEditorStore", () => {
         preset: "different",
       });
 
-      expect(useEditorStore.getState().hasThemeChangedFromCheckpoint()).toBe(true);
+      expect(useEditorStore.getState().hasThemeChangedFromCheckpoint()).toBe(
+        true
+      );
     });
   });
 

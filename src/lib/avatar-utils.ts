@@ -8,7 +8,10 @@ export interface AvatarUserData {
 const SIZE_PARAM_REGEX = /sz=\d+/;
 const S96_PARAM_REGEX = /s96-c/;
 const GOOGLE_USER_CONTENT_HOST_REGEX = /(^|\.)googleusercontent\.com$/;
-const GOOGLE_DEFAULT_AVATAR_PATTERNS = ["/a/default-user", "/AAAAAAAAAAI/AAAAAAAAAAA/"];
+const GOOGLE_DEFAULT_AVATAR_PATTERNS = [
+  "/a/default-user",
+  "/AAAAAAAAAAI/AAAAAAAAAAA/",
+];
 
 const normalizeSeedValue = (value?: string | null): string | null => {
   if (!value) {
@@ -19,7 +22,9 @@ const normalizeSeedValue = (value?: string | null): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-export const getUserAvatarSeed = (user: AvatarUserData | null | undefined): string => {
+export const getUserAvatarSeed = (
+  user: AvatarUserData | null | undefined
+): string => {
   const preferredName = normalizeSeedValue(user?.preferredName);
   if (preferredName) {
     return preferredName;
@@ -40,7 +45,7 @@ export const getUserAvatarSeed = (user: AvatarUserData | null | undefined): stri
 
 export const getHighResolutionAvatarUrl = (
   imageUrl?: string | null,
-  size = 192,
+  size = 192
 ): string | undefined => {
   if (!imageUrl) {
     return;
@@ -62,7 +67,9 @@ export const getHighResolutionAvatarUrl = (
   return imageUrl;
 };
 
-export const isLikelyDefaultGoogleAvatarUrl = (imageUrl?: string | null): boolean => {
+export const isLikelyDefaultGoogleAvatarUrl = (
+  imageUrl?: string | null
+): boolean => {
   if (!imageUrl) {
     return false;
   }
@@ -74,16 +81,22 @@ export const isLikelyDefaultGoogleAvatarUrl = (imageUrl?: string | null): boolea
     }
 
     const urlValue = `${url.pathname}${url.search}${url.hash}`;
-    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) => urlValue.includes(pattern));
+    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) =>
+      urlValue.includes(pattern)
+    );
   } catch {
     if (!imageUrl.includes("googleusercontent.com")) {
       return false;
     }
-    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) => imageUrl.includes(pattern));
+    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) =>
+      imageUrl.includes(pattern)
+    );
   }
 };
 
-export const getRenderableAvatarImageSrc = (imageUrl?: string | null): string | undefined => {
+export const getRenderableAvatarImageSrc = (
+  imageUrl?: string | null
+): string | undefined => {
   if (!imageUrl || isLikelyDefaultGoogleAvatarUrl(imageUrl)) {
     return undefined;
   }

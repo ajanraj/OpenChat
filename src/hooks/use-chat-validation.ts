@@ -4,11 +4,17 @@
  */
 
 import { useCallback } from "react";
+
 import { toast } from "@/components/ui/toast";
 import { MODELS_MAP, REMAINING_QUERY_ALERT_THRESHOLD } from "@/lib/config";
 import { validateQueryParam } from "@/lib/message-utils";
-import { getModelProvider, isModelPremium, requiresUserApiKey } from "@/lib/model-utils";
+import {
+  getModelProvider,
+  isModelPremium,
+  requiresUserApiKey,
+} from "@/lib/model-utils";
 import { useUser } from "@/providers/user-provider";
+
 import type { Doc } from "../../convex/_generated/dataModel";
 
 export function useChatValidation() {
@@ -47,7 +53,7 @@ export function useChatValidation() {
         return false;
       }
     },
-    [rateLimitStatus],
+    [rateLimitStatus]
   );
 
   const validateModelAccess = useCallback(
@@ -56,7 +62,7 @@ export function useChatValidation() {
       user: Doc<"users"> | null,
       hasPremium: boolean,
       hasApiKey: Map<string, boolean>,
-      disabledModels?: string[],
+      disabledModels?: string[]
     ) => {
       const model = MODELS_MAP[modelId];
 
@@ -94,10 +100,13 @@ export function useChatValidation() {
 
       return true;
     },
-    [],
+    []
   );
 
-  const validateSearchQuery = useCallback((query: string) => validateQueryParam(query), []);
+  const validateSearchQuery = useCallback(
+    (query: string) => validateQueryParam(query),
+    []
+  );
 
   return {
     checkRateLimits,

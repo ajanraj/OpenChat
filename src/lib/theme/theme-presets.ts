@@ -62,7 +62,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "sidebar-ring": "oklch(0.705 0.015 286.067)",
         // Updated to use Geist font families
         "font-sans": "Geist, ui-sans-serif, system-ui, sans-serif",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono": "'Geist Mono', ui-monospace, monospace",
         "shadow-color": "oklch(0 0 0)",
         "shadow-opacity": "0.1",
@@ -160,7 +161,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         radius: "0.5rem",
         "font-sans":
           "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono":
           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         "shadow-color": "oklch(0 0 0)",
@@ -208,7 +210,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         radius: "0.5rem",
         "font-sans":
           "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono":
           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         "shadow-color": "oklch(0 0 0)",
@@ -348,8 +351,10 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "sidebar-accent-foreground": "#5d4037",
         "sidebar-border": "#c0c0c0",
         "sidebar-ring": "#a0a0a0",
-        "font-sans": "'Architects Daughter', ui-sans-serif, system-ui, sans-serif",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-sans":
+          "'Architects Daughter', ui-sans-serif, system-ui, sans-serif",
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono": "'Fira Mono', ui-monospace, monospace",
         radius: "0.625rem",
         "shadow-color": "#000000",
@@ -394,8 +399,10 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "sidebar-accent-foreground": "#333333",
         "sidebar-border": "#4f4f4f",
         "sidebar-ring": "#c0c0c0",
-        "font-sans": "'Architects Daughter', ui-sans-serif, system-ui, sans-serif",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-sans":
+          "'Architects Daughter', ui-sans-serif, system-ui, sans-serif",
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono": "'Fira Mono', ui-monospace, monospace",
         radius: "0.625rem",
         "shadow-color": "#000000",
@@ -450,7 +457,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         radius: "0.5rem",
         "font-sans":
           "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono":
           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         "shadow-color": "oklch(0 0 0)",
@@ -498,7 +506,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         radius: "0.5rem",
         "font-sans":
           "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono":
           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         "shadow-color": "oklch(0 0 0)",
@@ -551,7 +560,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "sidebar-border": "#e5e7eb",
         "sidebar-ring": "#22c55e",
         "font-sans": "'DM Sans', ui-sans-serif, system-ui, sans-serif",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono": "'IBM Plex Mono', ui-monospace, monospace",
         "shadow-color": "hsl(0 0% 0%)",
         "shadow-opacity": "0.1",
@@ -595,7 +605,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "sidebar-border": "#4b5563",
         "sidebar-ring": "#34d399",
         "font-sans": "'DM Sans', ui-sans-serif, system-ui, sans-serif",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono": "'IBM Plex Mono', ui-monospace, monospace",
       },
     },
@@ -639,7 +650,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "sidebar-border": "oklch(0.94 0 0)",
         "sidebar-ring": "oklch(0 0 0)",
         "font-sans": "Geist, ui-sans-serif, system-ui, sans-serif",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono": "'Geist Mono', ui-monospace, monospace",
         radius: "0.5rem",
         "shadow-color": "hsl(0 0% 0%)",
@@ -684,7 +696,8 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "sidebar-border": "oklch(0.32 0 0)",
         "sidebar-ring": "oklch(0.72 0 0)",
         "font-sans": "Geist, ui-sans-serif, system-ui, sans-serif",
-        "font-serif": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+        "font-serif":
+          'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
         "font-mono": "'Geist Mono', ui-monospace, monospace",
       },
     },

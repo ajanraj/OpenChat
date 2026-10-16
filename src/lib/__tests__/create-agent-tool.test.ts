@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
 import * as ai from "ai";
 import { MockLanguageModelV4 } from "ai/test";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+
 import type { ComposioToolsSession } from "../composio-server";
 import {
   analyzeSubAgentExecution,
@@ -17,7 +18,7 @@ const { mockGetComposioTools, mockStreamText } = vi.hoisted(() => ({
       (
         userId: string,
         toolkitSlugs: string[],
-        signal?: AbortSignal,
+        signal?: AbortSignal
       ) => Promise<ComposioToolsSession | null>
     >(),
   mockStreamText: vi.fn<typeof ai.streamText>(),
@@ -35,7 +36,9 @@ vi.mock("@/lib/composio-server", () => ({
 
 // Mock prompt-tool-config to avoid any side effects
 vi.mock("@/lib/prompt-tool-config", () => ({
-  getToolSpecificPrompts: vi.fn<(toolkits: string[]) => string>().mockReturnValue(""),
+  getToolSpecificPrompts: vi
+    .fn<(toolkits: string[]) => string>()
+    .mockReturnValue(""),
 }));
 
 const successfulConnectorResult: ai.DynamicToolResult = {
@@ -82,8 +85,8 @@ describe("create-agent-tool", () => {
     await expect(
       agentTool.execute(
         { tool: "GMAIL", task: "Send an email" },
-        { toolCallId: "agent-call", messages: [], context: {} },
-      ),
+        { toolCallId: "agent-call", messages: [], context: {} }
+      )
     ).rejects.toThrow("Agent startup failed");
     expect(close).toHaveBeenCalledOnce();
   });
@@ -123,10 +126,12 @@ describe("create-agent-tool", () => {
     await expect(
       agentTool.execute(
         { tool: "GMAIL", task: "Send an email" },
-        { toolCallId: "agent-call", messages: [], context: {} },
-      ),
+        { toolCallId: "agent-call", messages: [], context: {} }
+      )
     ).rejects.toThrow("Stop after inspecting options");
-    expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ reasoning: "high" }));
+    expect(mockStreamText).toHaveBeenCalledWith(
+      expect.objectContaining({ reasoning: "high" })
+    );
     expect(close).toHaveBeenCalledOnce();
   });
 
@@ -147,7 +152,9 @@ describe("create-agent-tool", () => {
       doStream: async () => ({ stream: new ReadableStream() }),
     });
     const { streamText } = await vi.importActual<typeof ai>("ai");
-    mockStreamText.mockImplementation((options) => streamText({ ...options, model }));
+    mockStreamText.mockImplementation((options) =>
+      streamText({ ...options, model })
+    );
     const writer: ai.UIMessageStreamWriter = {
       write: vi.fn<ai.UIMessageStreamWriter["write"]>(),
       merge: vi.fn<ai.UIMessageStreamWriter["merge"]>(),
@@ -167,13 +174,24 @@ describe("create-agent-tool", () => {
     const controller = new AbortController();
     const execution = agentTool.execute(
       { tool: "GMAIL", task: "Send an email" },
-      { toolCallId: "agent-call", messages: [], context: {}, abortSignal: controller.signal },
+      {
+        toolCallId: "agent-call",
+        messages: [],
+        context: {},
+        abortSignal: controller.signal,
+      }
     );
-    await vi.waitFor(() =>{  expect(model.doStreamCalls).toHaveLength(1); });
+    await vi.waitFor(() => {
+      expect(model.doStreamCalls).toHaveLength(1);
+    });
     controller.abort(new Error("Run deadline reached"));
 
     await expect(execution).rejects.toThrow("Run deadline reached");
-    expect(mockGetComposioTools).toHaveBeenCalledWith("user-123", ["GMAIL"], controller.signal);
+    expect(mockGetComposioTools).toHaveBeenCalledWith(
+      "user-123",
+      ["GMAIL"],
+      controller.signal
+    );
     expect(close).toHaveBeenCalledOnce();
   });
 
@@ -267,7 +285,9 @@ describe("create-agent-tool", () => {
         });
 
         expect(result.success).toBe(true);
-        expect(result.success && result.data.context).toBe("Previous operation returned user list");
+        expect(result.success && result.data.context).toBe(
+          "Previous operation returned user list"
+        );
       });
 
       it("accepts missing context", () => {
@@ -319,7 +339,10 @@ describe("create-agent-tool", () => {
 
       expect(result.success).toBe(true);
       expect(result.toolCallCount).toBe(2);
-      expect(result.toolNames).toEqual(["COMPOSIO_SEARCH_TOOLS", "COMPOSIO_MULTI_EXECUTE_TOOL"]);
+      expect(result.toolNames).toEqual([
+        "COMPOSIO_SEARCH_TOOLS",
+        "COMPOSIO_MULTI_EXECUTE_TOOL",
+      ]);
       expect(result.finishReason).toBe("stop");
       expect(result.issues).toHaveLength(0);
     });
@@ -451,7 +474,11 @@ describe("create-agent-tool", () => {
             toolCallId: "connector-call",
             toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
             input: {},
-            output: { data: {}, error: "Gmail rejected the request", successful: false },
+            output: {
+              data: {},
+              error: "Gmail rejected the request",
+              successful: false,
+            },
             dynamic: true,
           },
         ],
@@ -461,7 +488,9 @@ describe("create-agent-tool", () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.issues).toContain("Connector action failed: Gmail rejected the request");
+      expect(result.issues).toContain(
+        "Connector action failed: Gmail rejected the request"
+      );
     });
 
     it("returns failure when the connector reports unsuccessful without an error message", () => {
@@ -506,7 +535,9 @@ describe("create-agent-tool", () => {
 
   describe("appendComposioToolRouterInstructions", () => {
     it("preserves a custom prompt and appends search-then-execute guidance", () => {
-      const result = appendComposioToolRouterInstructions("Follow the user's custom policy.");
+      const result = appendComposioToolRouterInstructions(
+        "Follow the user's custom policy."
+      );
 
       expect(result).toContain("Follow the user's custom policy.");
       expect(result).toContain("COMPOSIO_SEARCH_TOOLS");

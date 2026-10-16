@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
+
 import { themeStylePropsSchema, themeStylesSchema } from "../theme";
 
-function omitKey<T extends Record<string, unknown>>(obj: T, key: string): Partial<T> {
-  return Object.fromEntries(Object.entries(obj).filter(([k]) => k !== key)) as Partial<T>;
+function omitKey<T extends Record<string, unknown>>(
+  obj: T,
+  key: string
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([k]) => k !== key)
+  ) as Partial<T>;
 }
 
 const validThemeProps = {

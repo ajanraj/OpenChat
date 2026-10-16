@@ -7,11 +7,17 @@ import type {
   ToolUIPart,
   UIMessage,
 } from "ai";
+
 import type { Doc } from "../../convex/_generated/dataModel";
 
 // Type alias for message parts array
 type MessageParts = Array<
-  TextUIPart | ReasoningUIPart | ReasoningFileUIPart | ToolUIPart | SourceUrlUIPart | FileUIPart
+  | TextUIPart
+  | ReasoningUIPart
+  | ReasoningFileUIPart
+  | ToolUIPart
+  | SourceUrlUIPart
+  | FileUIPart
 >;
 
 // Compile regex once at module level for performance
@@ -29,7 +35,9 @@ export interface Attachment {
  * Extract attachment objects from FileParts
  * Handles both storage IDs and generated URLs from queries
  */
-export function extractAttachmentsFromParts(parts?: MessageParts): Attachment[] | undefined {
+export function extractAttachmentsFromParts(
+  parts?: MessageParts
+): Attachment[] | undefined {
   if (!parts) {
     return;
   }
@@ -49,7 +57,9 @@ export function extractAttachmentsFromParts(parts?: MessageParts): Attachment[] 
 /**
  * Convert uploaded file attachments to FileParts for storage
  */
-export function convertAttachmentsToFileParts(attachments: Attachment[]): FileUIPart[] {
+export function convertAttachmentsToFileParts(
+  attachments: Attachment[]
+): FileUIPart[] {
   return attachments.map((att) => ({
     type: "file" as const,
     url: att.storageId || att.url, // Use storage ID if available, fallback to URL for backwards compatibility
@@ -61,7 +71,9 @@ export function convertAttachmentsToFileParts(attachments: Attachment[]): FileUI
 /**
  * Extract reasoning text from AI SDK response parts
  */
-export function extractReasoningFromResponse(responseParts: MessageParts): string | undefined {
+export function extractReasoningFromResponse(
+  responseParts: MessageParts
+): string | undefined {
   if (!responseParts) {
     return;
   }
@@ -77,12 +89,16 @@ export function extractReasoningFromResponse(responseParts: MessageParts): strin
 /**
  * Extract reasoning text from parts array (for backward compatibility display)
  */
-export function extractReasoningFromParts(parts?: MessageParts): string | undefined {
+export function extractReasoningFromParts(
+  parts?: MessageParts
+): string | undefined {
   if (!parts) {
     return;
   }
 
-  const reasoningPart = parts.find((part): part is ReasoningUIPart => part.type === "reasoning");
+  const reasoningPart = parts.find(
+    (part): part is ReasoningUIPart => part.type === "reasoning"
+  );
 
   return reasoningPart?.text;
 }
@@ -99,7 +115,7 @@ export function createPartsFromAIResponse(
     args?: unknown;
     result?: unknown;
     state: "call" | "result" | "partial-call";
-  }>,
+  }>
 ): MessageParts {
   const parts: MessageParts = [{ type: "text", text: textContent }];
 

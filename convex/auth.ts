@@ -1,6 +1,7 @@
 import Google from "@auth/core/providers/google";
 import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
 import { convexAuth } from "@convex-dev/auth/server";
+
 import { MODEL_DEFAULT, RECOMMENDED_MODELS } from "../src/lib/config";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
@@ -22,18 +23,20 @@ const initializeUserFields = () => ({
 const initializeRateLimits = async (
   ctx: MutationCtx,
   userId: Id<"users">,
-  isAnonymous: boolean,
+  isAnonymous: boolean
 ): Promise<void> => {
   try {
     const rateLimitPromises: Promise<unknown>[] = [];
 
     // Daily limits based on user type
-    const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+    const dailyLimitName = isAnonymous
+      ? "anonymousDaily"
+      : "authenticatedDaily";
     rateLimitPromises.push(
       rateLimiter.limit(ctx, dailyLimitName, {
         key: userId,
         count: 0,
-      }),
+      })
     );
 
     // Monthly limits for all users
@@ -41,7 +44,7 @@ const initializeRateLimits = async (
       rateLimiter.limit(ctx, "standardMonthly", {
         key: userId,
         count: 0,
-      }),
+      })
     );
 
     // Initialize premium credits counter for all users (will only be used by premium users)
@@ -49,7 +52,7 @@ const initializeRateLimits = async (
       rateLimiter.limit(ctx, "premiumMonthly", {
         key: userId,
         count: 0,
-      }),
+      })
     );
 
     await Promise.all(rateLimitPromises);
@@ -93,7 +96,7 @@ const getGooglePhotoUrl = (photo: unknown): string | undefined => {
 };
 
 const fetchGooglePrimaryPhoto = async (
-  accessToken: string,
+  accessToken: string
 ): Promise<{ defaultFlag?: boolean; url?: string }> => {
   try {
     const response = await fetch(GOOGLE_PEOPLE_PHOTOS_ENDPOINT, {
@@ -121,7 +124,9 @@ const fetchGooglePrimaryPhoto = async (
   }
 };
 
-const resolveOAuthProfileImage = (profile: Record<string, unknown>): string | undefined => {
+const resolveOAuthProfileImage = (
+  profile: Record<string, unknown>
+): string | undefined => {
   const image = readString(profile.image);
   if (image !== undefined) {
     return image;
@@ -130,7 +135,7 @@ const resolveOAuthProfileImage = (profile: Record<string, unknown>): string | un
 };
 
 const getOAuthProfileUpdates = (
-  profile: Record<string, unknown>,
+  profile: Record<string, unknown>
 ): { email?: string; image?: string; name?: string } => {
   const updates: { email?: string; image?: string; name?: string } = {};
   const name = readString(profile.name);

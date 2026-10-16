@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { ERROR_CODES } from "../../../src/lib/error-codes";
 import { assertServerSecret } from "../auth_helper";
 
@@ -21,7 +22,9 @@ describe("assertServerSecret", () => {
 
   it("accepts the configured secret", () => {
     vi.stubEnv("SERVER_ROUTE_SECRET", SECRET);
-    expect(() =>{  assertServerSecret(SECRET); }).not.toThrow();
+    expect(() => {
+      assertServerSecret(SECRET);
+    }).not.toThrow();
   });
 
   it.each([
@@ -38,7 +41,11 @@ describe("assertServerSecret", () => {
 
   it("refuses every call while the secret is not configured", () => {
     vi.stubEnv("SERVER_ROUTE_SECRET", "");
-    expect((refusal("") as ConvexError<string>).data).toBe(ERROR_CODES.UNAUTHORIZED);
-    expect((refusal("anything") as ConvexError<string>).data).toBe(ERROR_CODES.UNAUTHORIZED);
+    expect((refusal("") as ConvexError<string>).data).toBe(
+      ERROR_CODES.UNAUTHORIZED
+    );
+    expect((refusal("anything") as ConvexError<string>).data).toBe(
+      ERROR_CODES.UNAUTHORIZED
+    );
   });
 });

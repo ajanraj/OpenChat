@@ -6,8 +6,10 @@
 import { useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useCallback, useState } from "react";
+
 import { toast } from "@/components/ui/toast";
 import { processBranchError } from "@/lib/chat-error-utils";
+
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 
@@ -21,7 +23,12 @@ export function useChatOperations() {
   const deleteMessage = useMutation(api.messages.deleteMessageAndDescendants);
 
   const handleCreateChat = useCallback(
-    async (title: string, model: string, personaId?: string, profileId?: Id<"profiles">) => {
+    async (
+      title: string,
+      model: string,
+      personaId?: string,
+      profileId?: Id<"profiles">
+    ) => {
       try {
         const result = await createChat({
           title: title.substring(0, 50),
@@ -35,11 +42,15 @@ export function useChatOperations() {
         return null;
       }
     },
-    [createChat],
+    [createChat]
   );
 
   const handleModelChange = useCallback(
-    async (chatId: string | null, model: string, _user: Doc<"users"> | null) => {
+    async (
+      chatId: string | null,
+      model: string,
+      _user: Doc<"users"> | null
+    ) => {
       if (!chatId) {
         // For new chats, this will be handled by temporary state
         return true;
@@ -53,7 +64,7 @@ export function useChatOperations() {
         return false;
       }
     },
-    [updateChatModel],
+    [updateChatModel]
   );
 
   const handleBranch = useCallback(
@@ -95,7 +106,7 @@ export function useChatOperations() {
         setIsBranching(false);
       }
     },
-    [branchChat, router, isBranching],
+    [branchChat, router, isBranching]
   );
 
   const handleDeleteMessage = useCallback(
@@ -110,7 +121,7 @@ export function useChatOperations() {
         return null;
       }
     },
-    [deleteMessage],
+    [deleteMessage]
   );
 
   return {

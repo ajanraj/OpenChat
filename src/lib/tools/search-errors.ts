@@ -4,7 +4,11 @@ export class SearchError extends Error {
   provider: SearchProvider;
   code: string;
 
-  constructor(message: string, provider: SearchProvider, code = "SEARCH_ERROR") {
+  constructor(
+    message: string,
+    provider: SearchProvider,
+    code = "SEARCH_ERROR"
+  ) {
     super(`[${provider}] ${message}`);
     this.name = "SearchError";
     this.provider = provider;
@@ -40,7 +44,10 @@ export class SearchInvalidResponseError extends SearchError {
   }
 }
 
-export function handleSearchError(error: unknown, provider: SearchProvider): never {
+export function handleSearchError(
+  error: unknown,
+  provider: SearchProvider
+): never {
   // Handle search errors without console logging to avoid linting issues
 
   if (error instanceof SearchError) {
@@ -57,7 +64,10 @@ export function handleSearchError(error: unknown, provider: SearchProvider): nev
       throw new SearchRateLimitError(provider, error.message);
     }
 
-    if (error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT")) {
+    if (
+      error.message.includes("ENOTFOUND") ||
+      error.message.includes("ETIMEDOUT")
+    ) {
       throw new SearchNetworkError(provider, error.message);
     }
 

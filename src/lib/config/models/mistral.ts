@@ -1,4 +1,5 @@
 import { mistral } from "@ai-sdk/mistral";
+
 import {
   FILE_UPLOAD_FEATURE,
   PDF_PROCESSING_FEATURE,

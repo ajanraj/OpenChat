@@ -1,6 +1,12 @@
 import { useLocation } from "@tanstack/react-router";
-import { useCallback, createContext, useContext, useMemo, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import {
+  useCallback,
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 interface ChatSessionContextType {
   chatId: string | null;
@@ -18,7 +24,11 @@ const ChatSessionContext = createContext<ChatSessionContextType>({
 
 export const useChatSession = () => useContext(ChatSessionContext);
 
-export function ChatSessionProvider({ children }: { children: React.ReactNode }) {
+export function ChatSessionProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const location = useLocation();
   const pathname = location.pathname;
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
@@ -35,16 +45,19 @@ export function ChatSessionProvider({ children }: { children: React.ReactNode })
   const setIsDeleting = useCallback<Dispatch<SetStateAction<boolean>>>(
     (nextDeleting) => {
       setDeletingChatId((currentDeletingChatId) => {
-        const currentValue = chatId !== null && currentDeletingChatId === chatId;
+        const currentValue =
+          chatId !== null && currentDeletingChatId === chatId;
         const nextValue =
-          typeof nextDeleting === "function" ? nextDeleting(currentValue) : nextDeleting;
+          typeof nextDeleting === "function"
+            ? nextDeleting(currentValue)
+            : nextDeleting;
         if (!nextValue || chatId === null) {
           return null;
         }
         return chatId;
       });
     },
-    [chatId],
+    [chatId]
   );
 
   const contextValue = useMemo(
@@ -53,8 +66,12 @@ export function ChatSessionProvider({ children }: { children: React.ReactNode })
       isDeleting,
       setIsDeleting,
     }),
-    [chatId, isDeleting, setIsDeleting],
+    [chatId, isDeleting, setIsDeleting]
   );
 
-  return <ChatSessionContext.Provider value={contextValue}>{children}</ChatSessionContext.Provider>;
+  return (
+    <ChatSessionContext.Provider value={contextValue}>
+      {children}
+    </ChatSessionContext.Provider>
+  );
 }

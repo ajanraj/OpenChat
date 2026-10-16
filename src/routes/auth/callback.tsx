@@ -1,8 +1,14 @@
 import { useAuthToken } from "@convex-dev/auth/react";
 import { createFileRoute, useRouter, useSearch } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useMutation } from "convex/react";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useMutation,
+} from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { Loader } from "@/components/prompt-kit/loader";
 import { api } from "@/convex/_generated/api";
 import { getConnectorConfig } from "@/lib/config/tools";
@@ -35,7 +41,7 @@ function AuthenticatedCallback() {
         void router.navigate({ to: path });
       }, delay);
     },
-    [router],
+    [router]
   );
 
   // Cleanup timeout on unmount
@@ -45,7 +51,7 @@ function AuthenticatedCallback() {
         clearTimeout(timeoutRef.current);
       }
     },
-    [],
+    []
   );
 
   const handleCallback = useCallback(async () => {
@@ -78,7 +84,9 @@ function AuthenticatedCallback() {
       }
 
       // Get connectionRequestId from sessionStorage
-      const connectionRequestId = sessionStorage.getItem(`composio_connection_${connectorType}`);
+      const connectionRequestId = sessionStorage.getItem(
+        `composio_connection_${connectorType}`
+      );
 
       if (!connectionRequestId) {
         toast.error("Missing connection request ID");
@@ -95,11 +103,13 @@ function AuthenticatedCallback() {
         `/api/composio/status?connectionRequestId=${connectionRequestId}`,
         {
           headers: requestHeaders,
-        },
+        }
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
         toast.error(`Failed to verify connection: ${errorData.error}`);
         setStatus("error");
         redirectAfterDelay("/settings/connectors", 3000);
@@ -153,7 +163,7 @@ function AuthenticatedCallback() {
       <div className="text-center">
         {status === "checking" && (
           <>
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-primary border-b-2" />
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
             <p>Please wait, we are verifying your connection...</p>
           </>
         )}

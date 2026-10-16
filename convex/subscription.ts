@@ -1,15 +1,19 @@
 import { v } from "convex/values";
+
 import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation } from './_generated/server';
-import type { MutationCtx } from './_generated/server';
+import { internalMutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { rateLimiter } from "./rateLimiter";
 
-async function getSubscriptionSync(ctx: MutationCtx, stripeSubscriptionId: string) {
+async function getSubscriptionSync(
+  ctx: MutationCtx,
+  stripeSubscriptionId: string
+) {
   return await ctx.db
     .query("stripe_subscription_syncs")
     .withIndex("by_stripe_subscription_id", (q) =>
-      q.eq("stripeSubscriptionId", stripeSubscriptionId),
+      q.eq("stripeSubscriptionId", stripeSubscriptionId)
     )
     .unique();
 }
@@ -32,7 +36,9 @@ export const reserveSubscriptionSync = internalMutation({
       return 1;
     }
     const revision = sync.reservedRevision + 1;
-    await ctx.db.patch("stripe_subscription_syncs", sync._id, { reservedRevision: revision });
+    await ctx.db.patch("stripe_subscription_syncs", sync._id, {
+      reservedRevision: revision,
+    });
     return revision;
   },
 });
@@ -61,13 +67,20 @@ export const applySubscriptionSnapshot = internalMutation({
   handler: async (ctx, { revision, snapshot }) => {
     const sync = await getSubscriptionSync(ctx, snapshot.stripeSubscriptionId);
     if (!sync) {
-      throw new Error(`No reserved sync for subscription ${snapshot.stripeSubscriptionId}`);
+      throw new Error(
+        `No reserved sync for subscription ${snapshot.stripeSubscriptionId}`
+      );
     }
     if (revision <= sync.appliedRevision) {
       return false;
     }
-    await ctx.db.patch("stripe_subscription_syncs", sync._id, { appliedRevision: revision });
-    await ctx.runMutation(components.stripe.private.handleSubscriptionUpdated, snapshot);
+    await ctx.db.patch("stripe_subscription_syncs", sync._id, {
+      appliedRevision: revision,
+    });
+    await ctx.runMutation(
+      components.stripe.private.handleSubscriptionUpdated,
+      snapshot
+    );
     return true;
   },
 });
@@ -84,18 +97,25 @@ export const onInvoicePaid = internalMutation({
   returns: v.null(),
   handler: async (ctx, { userId, stripeInvoiceId }) => {
     const normalizedUserId = ctx.db.normalizeId("users", userId);
-    const user = normalizedUserId ? await ctx.db.get("users", normalizedUserId) : null;
+    const user = normalizedUserId
+      ? await ctx.db.get("users", normalizedUserId)
+      : null;
     if (!user) {
       return null;
     }
     const alreadyReset = await ctx.db
       .query("stripe_credit_resets")
-      .withIndex("by_stripe_invoice_id", (q) => q.eq("stripeInvoiceId", stripeInvoiceId))
+      .withIndex("by_stripe_invoice_id", (q) =>
+        q.eq("stripeInvoiceId", stripeInvoiceId)
+      )
       .unique();
     if (alreadyReset) {
       return null;
     }
-    await ctx.db.insert("stripe_credit_resets", { stripeInvoiceId, userId: user._id });
+    await ctx.db.insert("stripe_credit_resets", {
+      stripeInvoiceId,
+      userId: user._id,
+    });
     await resetUserRateLimits(ctx, user._id, user.isAnonymous ?? false);
     return null;
   },
@@ -104,7 +124,11 @@ export const onInvoicePaid = internalMutation({
 /**
  * Helper function to reset all rate limits for a user
  */
-async function resetUserRateLimits(ctx: MutationCtx, userId: Id<"users">, isAnonymous: boolean) {
+async function resetUserRateLimits(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  isAnonymous: boolean
+) {
   // Reset daily limits (for non-premium tracking)
   const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
 

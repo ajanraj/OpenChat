@@ -11,9 +11,10 @@ import {
   WrenchIcon,
 } from "@phosphor-icons/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { z } from "zod";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+
 import { ProviderIcon } from "@/components/common/provider-icon";
 import {
   AlertDialog,
@@ -36,7 +37,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useModelPreferences } from "@/hooks/use-model-preferences";
 import { useModelSettings } from "@/hooks/use-model-settings";
 import {
@@ -114,7 +119,8 @@ export function ModelsSettingsPage() {
 }
 
 function useModelsSettingsPageView() {
-  const { disabledModelsSet, setModelEnabled, bulkSetModelsDisabled } = useModelSettings();
+  const { disabledModelsSet, setModelEnabled, bulkSetModelsDisabled } =
+    useModelSettings();
   const { bulkSetFavoriteModels } = useModelPreferences();
   const navigate = useNavigate({ from: Route.fullPath });
   const { tier, features } = Route.useSearch();
@@ -153,10 +159,10 @@ function useModelsSettingsPageView() {
           return false;
         }
         return [...filters].every((f) =>
-          m.features.some((feat) => feat.id === f && feat.enabled),
+          m.features.some((feat) => feat.id === f && feat.enabled)
         );
       }),
-    [filters, freeOnly, premiumOnly],
+    [filters, freeOnly, premiumOnly]
   );
 
   const enabledCount = MODELS_OPTIONS.length - disabledModelsSet.size;
@@ -170,10 +176,17 @@ function useModelsSettingsPageView() {
       return;
     }
 
-    await setModelEnabled({ modelId: id, enabled: shouldEnable }).catch((error: unknown) => {
-      console.error(`Failed to ${shouldEnable ? "enable" : "disable"} model:`, error);
-      toast.error(`Failed to ${shouldEnable ? "enable" : "disable"} model. Please try again.`);
-    });
+    await setModelEnabled({ modelId: id, enabled: shouldEnable }).catch(
+      (error: unknown) => {
+        console.error(
+          `Failed to ${shouldEnable ? "enable" : "disable"} model:`,
+          error
+        );
+        toast.error(
+          `Failed to ${shouldEnable ? "enable" : "disable"} model. Please try again.`
+        );
+      }
+    );
   };
 
   const handleRecommended = async () => {
@@ -211,7 +224,10 @@ function useModelsSettingsPageView() {
       ? [...filters].filter((f) => f !== id)
       : [...filters, id];
     void navigate({
-      search: { tier, features: newFeatures.length > 0 ? newFeatures : undefined },
+      search: {
+        tier,
+        features: newFeatures.length > 0 ? newFeatures : undefined,
+      },
     });
   };
 
@@ -256,20 +272,20 @@ function useModelsSettingsPageView() {
     <div className="space-y-8">
       <header className="space-y-4">
         <div className="flex items-baseline justify-between">
-          <h1 className="font-semibold text-2xl tracking-tight">Models</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Models</h1>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
               {totalCount} available
             </span>
             <span className="text-muted-foreground/40">·</span>
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 text-xs dark:text-emerald-400">
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
               {enabledCount} enabled
             </span>
           </div>
         </div>
-        <p className="text-muted-foreground leading-relaxed">
-          Choose which models appear in your model selector. This won&apos;t affect existing
-          conversations.
+        <p className="leading-relaxed text-muted-foreground">
+          Choose which models appear in your model selector. This won&apos;t
+          affect existing conversations.
         </p>
       </header>
 
@@ -308,11 +324,16 @@ function useModelsSettingsPageView() {
                       <div
                         className={cn(
                           "relative flex size-6 items-center justify-center overflow-hidden rounded-md",
-                          getFeatureColorClasses(fid),
+                          getFeatureColorClasses(fid)
                         )}
                       >
                         <div className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
-                        <Icon className={cn("relative size-4", getFeatureColorClasses(fid))} />
+                        <Icon
+                          className={cn(
+                            "relative size-4",
+                            getFeatureColorClasses(fid)
+                          )}
+                        />
                       </div>
                       <span>{info.label}</span>
                     </div>
@@ -388,13 +409,15 @@ function useModelsSettingsPageView() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Unselect All Models?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to unselect all models? Only the default model will remain
-                  enabled.
+                  Are you sure you want to unselect all models? Only the default
+                  model will remain enabled.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleUnselectAll}>Unselect All</AlertDialogAction>
+                <AlertDialogAction onClick={handleUnselectAll}>
+                  Unselect All
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -404,13 +427,16 @@ function useModelsSettingsPageView() {
       <div className="flex flex-col gap-3">
         {filteredModels.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed bg-muted/20 py-16 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full border-2 border-muted-foreground/30 border-dashed">
+            <div className="flex size-12 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30">
               <FunnelIcon className="size-5 text-muted-foreground/60" />
             </div>
             <div className="space-y-1">
-              <h3 className="font-medium text-muted-foreground">No models found</h3>
-              <p className="max-w-sm text-muted-foreground/80 text-sm">
-                No models match your current filters. Try adjusting your filter criteria.
+              <h3 className="font-medium text-muted-foreground">
+                No models found
+              </h3>
+              <p className="max-w-sm text-sm text-muted-foreground/80">
+                No models match your current filters. Try adjusting your filter
+                criteria.
               </p>
             </div>
             <Button
@@ -429,7 +455,9 @@ function useModelsSettingsPageView() {
             displayProvider?: string;
           };
           const provider = PROVIDERS_OPTIONS.find(
-            (p) => p.id === (modelWithDisplayProvider.displayProvider || model.provider),
+            (p) =>
+              p.id ===
+              (modelWithDisplayProvider.displayProvider || model.provider)
           );
           const isEnabled = isCurrentlyEnabled(model.id);
 
@@ -438,7 +466,7 @@ function useModelsSettingsPageView() {
               className={cn(
                 "group relative flex rounded-xl border bg-card p-4",
                 "hover:border-border/80 hover:shadow-sm",
-                isEnabled && "border-primary/20 bg-primary/[0.02]",
+                isEnabled && "border-primary/20 bg-primary/[0.02]"
               )}
               key={model.id}
             >
@@ -446,25 +474,31 @@ function useModelsSettingsPageView() {
                 <div
                   className={cn(
                     "flex size-10 shrink-0 items-center justify-center rounded-lg border bg-background",
-                    isEnabled && "border-primary/20",
+                    isEnabled && "border-primary/20"
                   )}
                 >
                   {provider ? (
-                    <ProviderIcon className="size-5 text-muted-foreground" provider={provider} />
+                    <ProviderIcon
+                      className="size-5 text-muted-foreground"
+                      provider={provider}
+                    />
                   ) : null}
                 </div>
 
                 <div className="flex flex-1 flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <h3 className="font-medium text-sm">
+                      <h3 className="text-sm font-medium">
                         {getDisplayName(model.name, model.subName)}
                       </h3>
                       {model.usesPremiumCredits ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="flex items-center">
-                              <SketchLogoIcon className="size-3.5 text-amber-500" weight="fill" />
+                              <SketchLogoIcon
+                                className="size-3.5 text-amber-500"
+                                weight="fill"
+                              />
                             </div>
                           </TooltipTrigger>
                           <TooltipContent side="top">
@@ -485,25 +519,28 @@ function useModelsSettingsPageView() {
                         </Tooltip>
                       ) : null}
                     </div>
-                    <Switch checked={isEnabled} onCheckedChange={() => handleToggle(model.id)} />
+                    <Switch
+                      checked={isEnabled}
+                      onCheckedChange={() => handleToggle(model.id)}
+                    />
                   </div>
 
                   {model.description ? (
                     <div className="space-y-1">
-                      <p className="text-muted-foreground text-xs leading-relaxed">
+                      <p className="text-xs leading-relaxed text-muted-foreground">
                         {expanded[model.id]
-                          ? model.description.replaceAll('\n', " ")
+                          ? model.description.replaceAll("\n", " ")
                           : model.description.split("\n")[0]}
                       </p>
                       {model.description.split("\n").length > 1 ? (
                         <button
-                          className="cursor-pointer text-muted-foreground text-xs hover:text-foreground"
-                          onClick={() =>{ 
+                          className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => {
                             setExpanded((prev) => ({
                               ...prev,
                               [model.id]: !prev[model.id],
-                            })); }
-                          }
+                            }));
+                          }}
                           type="button"
                         >
                           {expanded[model.id] ? "Show less" : "Show more"}
@@ -528,20 +565,22 @@ function useModelsSettingsPageView() {
                           <Badge
                             className={cn(
                               "relative flex items-center gap-1 overflow-hidden rounded-full px-1.5 py-0.5 text-[10px]",
-                              getFeatureColorClasses(feat.id),
+                              getFeatureColorClasses(feat.id)
                             )}
                             key={feat.id}
                             variant="outline"
                           >
                             <div className="absolute inset-0 bg-current opacity-20 dark:opacity-15" />
                             <Icon className="relative size-2.5" />
-                            <span className="relative whitespace-nowrap">{info.label}</span>
+                            <span className="relative whitespace-nowrap">
+                              {info.label}
+                            </span>
                           </Badge>
                         );
                       })}
                     </div>
                     <button
-                      className="hidden h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-muted-foreground text-xs hover:bg-muted hover:text-foreground sm:flex"
+                      className="hidden h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground sm:flex"
                       onClick={() => handleCopy(model.id)}
                       type="button"
                     >

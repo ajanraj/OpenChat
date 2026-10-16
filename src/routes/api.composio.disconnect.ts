@@ -1,9 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
+
 import { api } from "@/convex/_generated/api";
 import { disconnectAccount } from "@/lib/composio-server";
 import { SUPPORTED_CONNECTORS } from "@/lib/config/tools";
 import { createErrorResponse } from "@/lib/error-utils";
-import { authMiddleware, badRequest, json, notFound } from "@/lib/middleware/auth";
+import {
+  authMiddleware,
+  badRequest,
+  json,
+  notFound,
+} from "@/lib/middleware/auth";
 import type { ConnectorType } from "@/lib/types";
 
 export const Route = createFileRoute("/api/composio/disconnect")({
@@ -18,7 +24,10 @@ export const Route = createFileRoute("/api/composio/disconnect")({
             return notFound("User not found");
           }
           if (user.isAnonymous) {
-            return json({ error: "Sign in with Google to use connectors" }, { status: 403 });
+            return json(
+              { error: "Sign in with Google to use connectors" },
+              { status: 403 }
+            );
           }
 
           let connectorType: ConnectorType;
@@ -33,7 +42,10 @@ export const Route = createFileRoute("/api/composio/disconnect")({
             return badRequest("Invalid connector type");
           }
 
-          const connectors = await client.query(api.connectors.listUserConnectors, {});
+          const connectors = await client.query(
+            api.connectors.listUserConnectors,
+            {}
+          );
           if (!connectors.some((c) => c.type === connectorType)) {
             return notFound("Connector not found");
           }

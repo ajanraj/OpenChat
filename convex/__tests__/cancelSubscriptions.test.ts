@@ -1,5 +1,6 @@
 import { getFunctionAddress } from "convex/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { cancelBillableSubscriptions } from "../stripe";
@@ -14,9 +15,15 @@ const mocks = vi.hoisted(() => ({
   retrieve: vi.fn<(id: string) => Promise<unknown>>(),
   listSubscriptions:
     vi.fn<
-      (params: { customer: string; status: string }) => Listed<{ id: string; status: string }>
+      (params: {
+        customer: string;
+        status: string;
+      }) => Listed<{ id: string; status: string }>
     >(),
-  listSessions: vi.fn<(params: { customer: string; status: string }) => Listed<{ id: string }>>(),
+  listSessions:
+    vi.fn<
+      (params: { customer: string; status: string }) => Listed<{ id: string }>
+    >(),
   expireSession: vi.fn<(id: string) => Promise<void>>(),
 }));
 
@@ -27,7 +34,9 @@ vi.mock("stripe", () => ({
       retrieve: mocks.retrieve,
       list: mocks.listSubscriptions,
     };
-    checkout = { sessions: { list: mocks.listSessions, expire: mocks.expireSession } };
+    checkout = {
+      sessions: { list: mocks.listSessions, expire: mocks.expireSession },
+    };
   },
 }));
 
@@ -61,12 +70,14 @@ function createCtx({
 }) {
   return {
     runQuery: vi.fn<(fn: unknown) => Promise<unknown>>(async (fn) =>
-      getFunctionAddress(fn).reference?.endsWith("/getCustomerByUserId") ? customer : synced,
+      getFunctionAddress(fn).reference?.endsWith("/getCustomerByUserId")
+        ? customer
+        : synced
     ),
     // reserveSubscriptionSync returns revision 1; applySubscriptionSnapshot reports applied
-    runMutation: vi.fn<(fn: unknown, args: Record<string, unknown>) => Promise<number | boolean>>(
-      async (_fn, args) => ("revision" in args ? true : 1),
-    ),
+    runMutation: vi.fn<
+      (fn: unknown, args: Record<string, unknown>) => Promise<number | boolean>
+    >(async (_fn, args) => ("revision" in args ? true : 1)),
   };
 }
 
@@ -85,7 +96,11 @@ beforeEach(() => {
     cancel_at_period_end: false,
     cancel_at: null,
     metadata: {},
-    items: { data: [{ current_period_end: 100, quantity: 1, price: { id: "price_1" } }] },
+    items: {
+      data: [
+        { current_period_end: 100, quantity: 1, price: { id: "price_1" } },
+      ],
+    },
   }));
   mocks.listSubscriptions.mockImplementation(() => listOf([]));
   mocks.listSessions.mockImplementation(() => listOf([]));
@@ -127,18 +142,24 @@ describe("cancelBillableSubscriptions", () => {
       listOf([
         { id: "sub_unsynced", status: "active" },
         { id: "sub_old", status: "canceled" },
-      ]),
+      ])
     );
     const ctx = createCtx({ customer: { stripeCustomerId: "cus_1" } });
 
     await cancelFor(ctx);
 
-    expect(mocks.listSessions).toHaveBeenCalledWith({ customer: "cus_1", status: "open" });
+    expect(mocks.listSessions).toHaveBeenCalledWith({
+      customer: "cus_1",
+      status: "open",
+    });
     expect(mocks.expireSession.mock.calls).toEqual([["cs_open"]]);
-    expect(mocks.listSubscriptions).toHaveBeenCalledWith({ customer: "cus_1", status: "all" });
+    expect(mocks.listSubscriptions).toHaveBeenCalledWith({
+      customer: "cus_1",
+      status: "all",
+    });
     // Expired before listing, so a checkout can't turn into a subscription the list missed
     expect(mocks.expireSession.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.listSubscriptions.mock.invocationCallOrder[0] ?? 0,
+      mocks.listSubscriptions.mock.invocationCallOrder[0] ?? 0
     );
     expect(mocks.cancel.mock.calls).toEqual([["sub_unsynced"]]);
     expect(ctx.runMutation).toHaveBeenCalledTimes(2);
@@ -147,7 +168,7 @@ describe("cancelBillableSubscriptions", () => {
   it("cancels a subscription found both in Stripe and the synced table once", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test");
     mocks.listSubscriptions.mockImplementation(() =>
-      listOf([{ id: "sub_both", status: "active" }]),
+      listOf([{ id: "sub_both", status: "active" }])
     );
     const ctx = createCtx({
       customer: { stripeCustomerId: "cus_1" },
@@ -160,14 +181,19 @@ describe("cancelBillableSubscriptions", () => {
 
     await cancelFor(ctx);
 
-    expect(mocks.cancel.mock.calls).toEqual([["sub_both"], ["sub_other_customer"]]);
+    expect(mocks.cancel.mock.calls).toEqual([
+      ["sub_both"],
+      ["sub_other_customer"],
+    ]);
   });
 
   it("doesn't re-cancel a subscription Stripe already shows as canceled", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test");
     // Canceled by an earlier attempt whose sync failed, so the local copy is still active
     liveStatus.set("sub_active", "canceled");
-    const ctx = createCtx({ synced: [{ stripeSubscriptionId: "sub_active", status: "active" }] });
+    const ctx = createCtx({
+      synced: [{ stripeSubscriptionId: "sub_active", status: "active" }],
+    });
 
     await cancelFor(ctx);
 
@@ -186,16 +212,23 @@ describe("cancelBillableSubscriptions", () => {
     });
 
     await expect(cancelFor(ctx)).rejects.toBeInstanceOf(AggregateError);
-    expect(mocks.cancel.mock.calls.map(([id]) => id)).toEqual(["sub_a", "sub_b"]);
+    expect(mocks.cancel.mock.calls.map(([id]) => id)).toEqual([
+      "sub_a",
+      "sub_b",
+    ]);
     expect(liveStatus.get("sub_b")).toBe("canceled");
   });
 
   it("still cancels subscriptions when a checkout can't be expired, then fails for a retry", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test");
-    mocks.listSessions.mockImplementation(() => listOf([{ id: "cs_just_paid" }]));
-    mocks.expireSession.mockRejectedValueOnce(new Error("Checkout Session is not open"));
+    mocks.listSessions.mockImplementation(() =>
+      listOf([{ id: "cs_just_paid" }])
+    );
+    mocks.expireSession.mockRejectedValueOnce(
+      new Error("Checkout Session is not open")
+    );
     mocks.listSubscriptions.mockImplementation(() =>
-      listOf([{ id: "sub_from_checkout", status: "active" }]),
+      listOf([{ id: "sub_from_checkout", status: "active" }])
     );
     const ctx = createCtx({ customer: { stripeCustomerId: "cus_1" } });
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { PROVIDER_LIMITS, SEARCH_CONFIG } from "../types";
 
 describe("PROVIDER_LIMITS", () => {

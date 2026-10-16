@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSearchTool, formatMarkdown, processResults, truncateContent } from "../search";
+
+import {
+  createSearchTool,
+  formatMarkdown,
+  processResults,
+  truncateContent,
+} from "../search";
 import { searchWithFallback } from "../search-provider-factory";
 import { SEARCH_CONFIG } from "../types";
 
@@ -142,7 +148,9 @@ describe("search utilities", () => {
 
       const processed = processResults(results);
 
-      expect(processed[0].content?.length).toBe(SEARCH_CONFIG.maxTextCharacters);
+      expect(processed[0].content?.length).toBe(
+        SEARCH_CONFIG.maxTextCharacters
+      );
       expect(processed[0].content?.endsWith("...")).toBe(true);
     });
 
@@ -237,7 +245,9 @@ describe("createSearchTool", () => {
   };
 
   const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
-    typeof value === "object" && value !== null && Symbol.asyncIterator in value;
+    typeof value === "object" &&
+    value !== null &&
+    Symbol.asyncIterator in value;
 
   it("calls onSearchSuccess once for successful searches", async () => {
     const mockedSearchWithFallback = vi.mocked(searchWithFallback);
@@ -257,8 +267,12 @@ describe("createSearchTool", () => {
     }
 
     const result = await tool.execute(
-      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
-      executionOptions,
+      {
+        query: "test query",
+        maxResults: SEARCH_CONFIG.maxResults,
+        scrapeContent: true,
+      },
+      executionOptions
     );
 
     if (isAsyncIterable(result)) {
@@ -281,8 +295,12 @@ describe("createSearchTool", () => {
     }
 
     const result = await tool.execute(
-      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
-      executionOptions,
+      {
+        query: "test query",
+        maxResults: SEARCH_CONFIG.maxResults,
+        scrapeContent: true,
+      },
+      executionOptions
     );
 
     if (isAsyncIterable(result)) {
@@ -313,8 +331,12 @@ describe("createSearchTool", () => {
     }
 
     const result = await tool.execute(
-      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
-      executionOptions,
+      {
+        query: "test query",
+        maxResults: SEARCH_CONFIG.maxResults,
+        scrapeContent: true,
+      },
+      executionOptions
     );
 
     if (isAsyncIterable(result)) {
@@ -336,13 +358,17 @@ describe("createSearchTool", () => {
 
     const { signal } = new AbortController();
     await tool.execute(
-      { query: "test query", maxResults: SEARCH_CONFIG.maxResults, scrapeContent: true },
-      { ...executionOptions, abortSignal: signal },
+      {
+        query: "test query",
+        maxResults: SEARCH_CONFIG.maxResults,
+        scrapeContent: true,
+      },
+      { ...executionOptions, abortSignal: signal }
     );
 
     expect(mockedSearchWithFallback).toHaveBeenCalledWith(
       "test query",
-      expect.objectContaining({ signal }),
+      expect.objectContaining({ signal })
     );
   });
 });

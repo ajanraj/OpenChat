@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   HOTKEY_EVENT_OPEN_MODEL_PICKER,
   HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT,
@@ -10,7 +11,9 @@ import {
 describe("hotkey-events", () => {
   it("exports stable event names", () => {
     expect(HOTKEY_EVENT_OPEN_MODEL_PICKER).toBe("openModelPicker");
-    expect(HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT).toBe("requestDeleteCurrentChat");
+    expect(HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT).toBe(
+      "requestDeleteCurrentChat"
+    );
   });
 });
 

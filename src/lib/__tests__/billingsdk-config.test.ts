@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { plans } from '../billingsdk-config';
-import type { CurrentPlan, Plan } from '../billingsdk-config';
+
+import { plans } from "../billingsdk-config";
+import type { CurrentPlan, Plan } from "../billingsdk-config";
 
 describe("billingsdk-config", () => {
   describe("plans array", () => {
@@ -137,7 +138,12 @@ describe("billingsdk-config", () => {
         throw new Error("Free plan not found");
       }
 
-      const statuses: CurrentPlan["status"][] = ["active", "inactive", "past_due", "cancelled"];
+      const statuses: CurrentPlan["status"][] = [
+        "active",
+        "inactive",
+        "past_due",
+        "cancelled",
+      ];
 
       for (const status of statuses) {
         const currentPlan: CurrentPlan = {

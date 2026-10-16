@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { TRANSITION_LAYOUT, TRANSITION_SUGGESTIONS } from "../motion";
 
 describe("Motion Transitions", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   classifyError,
   classifyStreamingError,
@@ -112,7 +113,9 @@ describe("classifyError", () => {
 
     expect(result.code).toBe("SYSTEM_ERROR");
     expect(result.message).toBe("Something went wrong");
-    expect(result.userFriendlyMessage).toBe("An unexpected error occurred. Please try again.");
+    expect(result.userFriendlyMessage).toBe(
+      "An unexpected error occurred. Please try again."
+    );
     expect(result.httpStatus).toBe(500);
   });
 

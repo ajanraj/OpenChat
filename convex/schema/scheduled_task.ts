@@ -5,7 +5,11 @@ export const ScheduledTask = v.object({
   profileId: v.optional(v.id("profiles")),
   title: v.string(),
   prompt: v.string(),
-  scheduleType: v.union(v.literal("onetime"), v.literal("daily"), v.literal("weekly")),
+  scheduleType: v.union(
+    v.literal("onetime"),
+    v.literal("daily"),
+    v.literal("weekly")
+  ),
   scheduledTime: v.string(), // "HH:MM"; weekly tasks use "D:HH:MM" (D: 0 = Sunday ... 6 = Saturday)
   scheduledDate: v.optional(v.string()), // "YYYY-MM-DD" format for onetime tasks
   timezone: v.string(),
@@ -13,7 +17,7 @@ export const ScheduledTask = v.object({
     v.literal("active"),
     v.literal("paused"),
     v.literal("archived"),
-    v.literal("running"),
+    v.literal("running")
   ),
   enableSearch: v.optional(v.boolean()),
   enabledToolSlugs: v.optional(v.array(v.string())),

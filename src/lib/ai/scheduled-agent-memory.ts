@@ -1,5 +1,5 @@
-import { tool } from "ai";
 import type { Redis } from "@upstash/redis";
+import { tool } from "ai";
 import type { ModelMessage, Tool } from "ai";
 import { z } from "zod";
 
@@ -30,8 +30,12 @@ export class ScheduledAgentMemory {
   constructor(private readonly redis: Redis) {}
 
   async loadHistory(taskId: string, limit: number): Promise<ModelMessage[]> {
-    const raw = await this.redis.get<HistoryEntry[]>(`${HISTORY_PREFIX}${taskId}`);
-    if (!raw || limit <= 0) {return [];}
+    const raw = await this.redis.get<HistoryEntry[]>(
+      `${HISTORY_PREFIX}${taskId}`
+    );
+    if (!raw || limit <= 0) {
+      return [];
+    }
     const entries = raw.slice(-limit * 2); // limit is turns, each turn = 2 messages
     return entries.map((e) => ({
       role: e.role,
@@ -39,12 +43,16 @@ export class ScheduledAgentMemory {
     }));
   }
 
-  async saveHistory(taskId: string, userPrompt: string, assistantResponse: string): Promise<void> {
+  async saveHistory(
+    taskId: string,
+    userPrompt: string,
+    assistantResponse: string
+  ): Promise<void> {
     const key = `${HISTORY_PREFIX}${taskId}`;
     const existing = (await this.redis.get<HistoryEntry[]>(key)) ?? [];
     existing.push(
       { role: "user", content: userPrompt },
-      { role: "assistant", content: assistantResponse },
+      { role: "assistant", content: assistantResponse }
     );
     const trimmed = existing.slice(-40); // Keep last 40 entries (20 turns)
     await this.redis.set(key, trimmed, { ex: HISTORY_TTL_SECONDS });
@@ -56,7 +64,9 @@ export class ScheduledAgentMemory {
 
   async saveWorkingMemory(userId: string, content: string): Promise<void> {
     const trimmed = content.trim().slice(0, MAX_WORKING_MEMORY_SIZE);
-    await this.redis.set(`${MEMORY_PREFIX}${userId}`, trimmed, { ex: MEMORY_TTL_SECONDS });
+    await this.redis.set(`${MEMORY_PREFIX}${userId}`, trimmed, {
+      ex: MEMORY_TTL_SECONDS,
+    });
   }
 
   createUpdateTool(userId: string): Tool {
@@ -67,7 +77,7 @@ export class ScheduledAgentMemory {
         memory: z
           .string()
           .describe(
-            "The full updated working memory content in markdown format. Always include ALL existing facts plus any new information — this replaces the entire memory.",
+            "The full updated working memory content in markdown format. Always include ALL existing facts plus any new information — this replaces the entire memory."
           ),
       }),
       execute: async ({ memory }) => {
@@ -78,7 +88,9 @@ export class ScheduledAgentMemory {
   }
 }
 
-export function formatWorkingMemoryPrompt(workingMemory: string | null): string {
+export function formatWorkingMemoryPrompt(
+  workingMemory: string | null
+): string {
   const memoryContent = workingMemory ?? WORKING_MEMORY_TEMPLATE;
 
   return `

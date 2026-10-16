@@ -1,17 +1,27 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { ConvexError, v } from 'convex/values';
-import type { Infer } from 'convex/values';
+import { ConvexError, v } from "convex/values";
+import type { Infer } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, mutation, query } from './_generated/server';
-import type { QueryCtx } from './_generated/server';
-import { assertServerSecret, ensureAuthenticated, getCurrentUserOrNull } from "./lib/auth_helper";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+import {
+  assertServerSecret,
+  ensureAuthenticated,
+  getCurrentUserOrNull,
+} from "./lib/auth_helper";
 import { deleteAuthAccounts, purgeUserDataBatch } from "./lib/cleanup_helper";
 import * as credits from "./lib/credits";
-import { hasActivePremium } from "./stripe";
 import { rateLimiter } from "./rateLimiter";
 import { User } from "./schema/user";
+import { hasActivePremium } from "./stripe";
 
 export const getCurrentUser = query({
   args: {},
@@ -21,7 +31,7 @@ export const getCurrentUser = query({
       _id: v.id("users"),
       _creationTime: v.number(),
       ...User.fields,
-    }),
+    })
   ),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -112,7 +122,9 @@ export const incrementStandardCredits = mutation({
     const isAnonymous = user.isAnonymous ?? false;
 
     if (!isPremium) {
-      const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+      const dailyLimitName = isAnonymous
+        ? "anonymousDaily"
+        : "authenticatedDaily";
       await rateLimiter.limit(ctx, dailyLimitName, {
         key: userId,
         count: creditsToConsume,
@@ -138,7 +150,9 @@ export const assertNotOverLimit = mutation({
   returns: v.null(),
   handler: async (ctx, { usesPremiumCredits }) => {
     const userId = await ensureAuthenticated(ctx);
-    await credits.assertMessageCreditAvailable(ctx, userId, { usesPremiumCredits });
+    await credits.assertMessageCreditAvailable(ctx, userId, {
+      usesPremiumCredits,
+    });
     return null;
   },
 });
@@ -153,7 +167,9 @@ export const consumeMessageCredit = mutation({
   returns: credits.creditReceiptValidator,
   handler: async (ctx, { usesPremiumCredits }) => {
     const userId = await ensureAuthenticated(ctx);
-    return await credits.consumeMessageCredit(ctx, userId, { usesPremiumCredits });
+    return await credits.consumeMessageCredit(ctx, userId, {
+      usesPremiumCredits,
+    });
   },
 });
 
@@ -198,9 +214,11 @@ const rateLimitBucket = v.object({
 async function getRateLimitBucket(
   ctx: QueryCtx,
   name: credits.CreditBucketName,
-  userId: Id<"users">,
+  userId: Id<"users">
 ): Promise<Infer<typeof rateLimitBucket>> {
-  const { value, ts, config } = await rateLimiter.getValue(ctx, name, { key: userId });
+  const { value, ts, config } = await rateLimiter.getValue(ctx, name, {
+    key: userId,
+  });
   return {
     value,
     ts,
@@ -222,7 +240,7 @@ export const getRateLimitStatus = query({
       daily: v.union(v.null(), rateLimitBucket),
       monthly: rateLimitBucket,
       premium: v.union(v.null(), rateLimitBucket),
-    }),
+    })
   ),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx);
@@ -231,7 +249,9 @@ export const getRateLimitStatus = query({
     }
 
     const isPremium = await hasActivePremium(ctx, user._id);
-    const dailyName = user.isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+    const dailyName = user.isAnonymous
+      ? "anonymousDaily"
+      : "authenticatedDaily";
     const [daily, monthly, premium] = await Promise.all([
       isPremium ? null : getRateLimitBucket(ctx, dailyName, user._id),
       getRateLimitBucket(ctx, "standardMonthly", user._id),
@@ -268,8 +288,14 @@ export const deleteAccount = mutation({
 
     await deleteAuthAccounts(ctx, userId);
     await ctx.db.delete("users", userId);
-    await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId });
-    await ctx.scheduler.runAfter(0, internal.account_deletion.revokeDeletedUserAccess, { userId });
+    await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, {
+      userId,
+    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.account_deletion.revokeDeletedUserAccess,
+      { userId }
+    );
     return null;
   },
 });
@@ -292,12 +318,19 @@ export const purgeDeletedUserData = internalMutation({
   returns: v.null(),
   handler: async (ctx, { userId, final }): Promise<null> => {
     if (!(await purgeUserDataBatch(ctx, userId))) {
-      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, { userId, final });
-    } else if (!final) {
-      await ctx.scheduler.runAfter(FINAL_PURGE_DELAY_MS, internal.users.purgeDeletedUserData, {
+      await ctx.scheduler.runAfter(0, internal.users.purgeDeletedUserData, {
         userId,
-        final: true,
+        final,
       });
+    } else if (!final) {
+      await ctx.scheduler.runAfter(
+        FINAL_PURGE_DELAY_MS,
+        internal.users.purgeDeletedUserData,
+        {
+          userId,
+          final: true,
+        }
+      );
     }
     return null;
   },
@@ -312,7 +345,7 @@ export const getUser = internalQuery({
       _id: v.id("users"),
       _creationTime: v.number(),
       ...User.fields,
-    }),
+    })
   ),
   handler: async (ctx, args) => await ctx.db.get("users", args.userId),
 });
@@ -382,7 +415,9 @@ export const incrementStandardCreditsInternal = internalMutation({
     const isAnonymous = user.isAnonymous ?? false;
 
     if (!isPremium) {
-      const dailyLimitName = isAnonymous ? "anonymousDaily" : "authenticatedDaily";
+      const dailyLimitName = isAnonymous
+        ? "anonymousDaily"
+        : "authenticatedDaily";
       await rateLimiter.limit(ctx, dailyLimitName, {
         key: userId,
         count: creditsToConsume,

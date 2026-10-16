@@ -1,17 +1,29 @@
 // The "-" prefix keeps TanStack Router from treating this test as a route.
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { AttachmentsSettingsPage } from "./attachments";
 
 type Status = "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted";
 
 const mocks = vi.hoisted(() => ({
-  usePaginatedQuery: vi.fn<() => { results: object[]; status: Status; loadMore: unknown }>(),
+  usePaginatedQuery:
+    vi.fn<() => { results: object[]; status: Status; loadMore: unknown }>(),
   loadMore: vi.fn<(numItems: number) => void>(),
-  deleteAttachments: vi.fn<(args: { attachmentIds: string[] }) => Promise<null>>(async () => null),
+  deleteAttachments: vi.fn<
+    (args: { attachmentIds: string[] }) => Promise<null>
+  >(async () => null),
 }));
 
-vi.mock("@tanstack/react-router", () => ({ createFileRoute: () => () => ({}) }));
+vi.mock("@tanstack/react-router", () => ({
+  createFileRoute: () => () => ({}),
+}));
 vi.mock("convex/react", () => ({
   usePaginatedQuery: mocks.usePaginatedQuery,
   useMutation: () => mocks.deleteAttachments,
@@ -64,11 +76,17 @@ describe("AttachmentsSettingsPage", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Select All" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete (150)" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" })
+    );
 
-    await waitFor(() =>{  expect(mocks.deleteAttachments).toHaveBeenCalledTimes(2); });
-    expect(mocks.deleteAttachments.mock.calls.map(([args]) => args.attachmentIds.length)).toEqual([
-      100, 50,
-    ]);
+    await waitFor(() => {
+      expect(mocks.deleteAttachments).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      mocks.deleteAttachments.mock.calls.map(
+        ([args]) => args.attachmentIds.length
+      )
+    ).toEqual([100, 50]);
   });
 });

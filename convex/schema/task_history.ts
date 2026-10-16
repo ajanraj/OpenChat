@@ -9,7 +9,7 @@ export const TaskHistory = v.object({
     v.literal("success"),
     v.literal("failure"),
     v.literal("cancelled"),
-    v.literal("timeout"),
+    v.literal("timeout")
   ),
   startTime: v.number(), // Execution start timestamp
   endTime: v.optional(v.number()), // Execution end timestamp
@@ -27,7 +27,7 @@ export const TaskHistory = v.object({
       serverDurationMs: v.optional(v.number()),
       includeSearch: v.optional(v.boolean()),
       toolkitSlugs: v.optional(v.array(v.string())),
-    }),
+    })
   ),
   isManualTrigger: v.optional(v.boolean()), // Track manual vs scheduled executions
   createdAt: v.number(),

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+
 import { ProfileManagementSection } from "@/components/profile/profile-management-section";
 import { PersonalizationSection } from "@/components/settings/personalization-section";
 import { VisualOptionsSection } from "@/components/settings/visual-options-section";

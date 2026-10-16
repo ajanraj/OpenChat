@@ -1,5 +1,5 @@
-import tailwindcss from "@tailwindcss/vite";
 import babel from "@rolldown/plugin-babel";
+import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
@@ -72,7 +72,12 @@ const config = defineConfig({
   ],
   // Fix for packages with ESM directory imports during SSR
   ssr: {
-    noExternal: ["streamdown", /@streamdown\/.*/, /@phosphor-icons\/.*/, /@ridemountainpig\/.*/],
+    noExternal: [
+      "streamdown",
+      /@streamdown\/.*/,
+      /@phosphor-icons\/.*/,
+      /@ridemountainpig\/.*/,
+    ],
   },
   // Pre-bundle icon packages for faster dev server startup
   optimizeDeps: {

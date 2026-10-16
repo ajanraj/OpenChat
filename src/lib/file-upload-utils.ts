@@ -4,7 +4,9 @@
  */
 
 import type { FileUIPart } from "ai";
+
 import { toast } from "@/components/ui/toast";
+
 import type { Id } from "../../convex/_generated/dataModel";
 import { humaniseUploadError } from "./chat-error-utils";
 
@@ -29,7 +31,7 @@ export async function uploadAndSaveFile(
     chatId: Id<"chats">;
     key: string;
     fileName: string;
-  }) => Promise<FileAttachment>,
+  }) => Promise<FileAttachment>
 ): Promise<FileAttachment | null> {
   try {
     const key = await uploadToR2(file);
@@ -56,13 +58,13 @@ export async function uploadFilesInParallel(
     chatId: Id<"chats">;
     key: string;
     fileName: string;
-  }) => Promise<FileAttachment>,
+  }) => Promise<FileAttachment>
 ): Promise<FileUIPart[]> {
   const fileAttachments: FileUIPart[] = [];
 
   // Upload all files in parallel
   const uploadPromises = files.map((file) =>
-    uploadAndSaveFile(file, chatId, uploadToR2, saveFileAttachment),
+    uploadAndSaveFile(file, chatId, uploadToR2, saveFileAttachment)
   );
   const uploadResults = await Promise.all(uploadPromises);
 

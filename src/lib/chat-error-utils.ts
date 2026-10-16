@@ -5,8 +5,13 @@
 
 import { isRateLimitError } from "@convex-dev/rate-limiter";
 import { ConvexError } from "convex/values";
+
 import { toast } from "@/components/ui/toast";
-import { getAllowedLabel, UPLOAD_ALLOWED_MIME, UPLOAD_MAX_LABEL } from "@/lib/config/upload";
+import {
+  getAllowedLabel,
+  UPLOAD_ALLOWED_MIME,
+  UPLOAD_MAX_LABEL,
+} from "@/lib/config/upload";
 import { ERROR_CODES } from "@/lib/error-codes";
 import { classifyError, shouldShowAsToast } from "@/lib/error-utils";
 
@@ -18,7 +23,10 @@ export function humaniseUploadError(err: unknown): string {
   if (isRateLimitError(err)) {
     return "Upload limit reached. Please wait a few minutes before uploading more files.";
   }
-  const code = err instanceof ConvexError && typeof err.data === "string" ? err.data : null;
+  const code =
+    err instanceof ConvexError && typeof err.data === "string"
+      ? err.data
+      : null;
   switch (code) {
     case ERROR_CODES.UNSUPPORTED_MODEL: {
       return "File uploads are not supported for the selected model.";
@@ -42,7 +50,8 @@ export function humaniseUploadError(err: unknown): string {
  * Processes branch operation errors and returns user-friendly messages
  */
 export function processBranchError(branchError: unknown): string {
-  const errorMsg = branchError instanceof Error ? branchError.message : String(branchError);
+  const errorMsg =
+    branchError instanceof Error ? branchError.message : String(branchError);
   if (errorMsg.includes("Can only branch from assistant messages")) {
     return "You can only branch from assistant messages";
   }

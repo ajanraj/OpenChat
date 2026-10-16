@@ -2,18 +2,21 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { getFunctionName } from "convex/server";
 import { ConvexError } from "convex/values";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { ERROR_CODES } from "../../src/lib/error-codes";
 import type { Id } from "../_generated/dataModel";
 import { revokeDeletedUserAccess } from "../account_deletion";
 import { deleteAccount, purgeDeletedUserData } from "../users";
-import { createFakeCtx, createFakeDb } from './fake_db.testutil';
-import type { FakeCtx, FakeDb } from './fake_db.testutil';
+import { createFakeCtx, createFakeDb } from "./fake_db.testutil";
+import type { FakeCtx, FakeDb } from "./fake_db.testutil";
 
 const mocks = vi.hoisted(() => ({
-  cancelBillableSubscriptions: vi.fn<(ctx: unknown, userId: string) => Promise<void>>(
-    async () => undefined,
+  cancelBillableSubscriptions: vi.fn<
+    (ctx: unknown, userId: string) => Promise<void>
+  >(async () => undefined),
+  revokeUserConnections: vi.fn<(userId: string) => Promise<void>>(
+    async () => undefined
   ),
-  revokeUserConnections: vi.fn<(userId: string) => Promise<void>>(async () => undefined),
 }));
 
 // Keep the real authTables, which the schema (and so the fake db) needs
@@ -54,7 +57,10 @@ vi.mock("@convex-dev/r2", () => ({
   },
 }));
 
-type Handler = (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;
+type Handler = (
+  ctx: unknown,
+  args: Record<string, unknown>
+) => Promise<unknown>;
 const asHandler = (fn: unknown) => fn as Handler;
 const authUser = vi.mocked(getAuthUserId);
 
@@ -74,7 +80,11 @@ function scheduled(ctx: FakeCtx) {
 function seedSignedInUser(db: FakeDb) {
   const userId = db.seed("users", { name: "User" }) as Id<"users">;
   const accountId = db.seed("authAccounts", { userId, provider: "google" });
-  db.seed("authVerificationCodes", { accountId, provider: "google", code: "c" });
+  db.seed("authVerificationCodes", {
+    accountId,
+    provider: "google",
+    code: "c",
+  });
   const sessionId = db.seed("authSessions", { userId, expirationTime: 1 });
   db.seed("authRefreshTokens", { sessionId, expirationTime: 1 });
   db.seed("authRefreshTokens", { sessionId, expirationTime: 2 });
@@ -93,7 +103,7 @@ describe("deleteAccount", () => {
     const ctx = createFakeCtx(createFakeDb());
 
     await expect(asHandler(deleteAccount)(ctx, {})).rejects.toEqual(
-      new ConvexError(ERROR_CODES.NOT_AUTHENTICATED),
+      new ConvexError(ERROR_CODES.NOT_AUTHENTICATED)
     );
   });
 
@@ -137,7 +147,9 @@ describe("deleteAccount", () => {
       other.sessionId,
     ]);
     expect(db.all("chats").map((c) => c._id)).toEqual([chatId]);
-    expect(scheduled(sessionsRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+    expect(scheduled(sessionsRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId }],
+    ]);
 
     await asHandler(purgeDeletedUserData)(createFakeCtx(db), { userId });
     expect(db.all("chats")).toEqual([]);
@@ -166,12 +178,20 @@ describe("purgeDeletedUserData", () => {
     const userId = "users:deleted" as Id<"users">;
     const chatId = db.seed("chats", { userId, title: "Big chat" });
     for (let i = 0; i < 2100; i += 1) {
-      db.seed("messages", { chatId, userId, role: "user", content: `m${i}`, createdAt: i });
+      db.seed("messages", {
+        chatId,
+        userId,
+        role: "user",
+        content: `m${i}`,
+        createdAt: i,
+      });
     }
 
     const firstRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(firstRun, { userId });
-    expect(scheduled(firstRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+    expect(scheduled(firstRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId }],
+    ]);
 
     const secondRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(secondRun, { userId });
@@ -194,7 +214,10 @@ describe("purgeDeletedUserData", () => {
     const userId = "users:deleted" as Id<"users">;
     const big = db.seed("authSessions", { userId, expirationTime: 1 });
     const small = db.seed("authSessions", { userId, expirationTime: 2 });
-    const someoneElse = db.seed("authSessions", { userId: "users:other", expirationTime: 3 });
+    const someoneElse = db.seed("authSessions", {
+      userId: "users:other",
+      expirationTime: 3,
+    });
     seedRefreshTokens(db, big, 2100);
     seedRefreshTokens(db, small, 3);
     seedRefreshTokens(db, someoneElse, 1);
@@ -202,15 +225,23 @@ describe("purgeDeletedUserData", () => {
 
     const firstRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(firstRun, { userId });
-    expect(scheduled(firstRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+    expect(scheduled(firstRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId }],
+    ]);
     // The session outlives the run that ran out of budget on its tokens
-    expect(db.all("authSessions").map((s) => s._id)).toEqual([big, small, someoneElse]);
+    expect(db.all("authSessions").map((s) => s._id)).toEqual([
+      big,
+      small,
+      someoneElse,
+    ]);
     expect(db.all("chats")).toHaveLength(1);
 
     const secondRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(secondRun, { userId });
     expect(db.all("authSessions").map((s) => s._id)).toEqual([someoneElse]);
-    expect(db.all("authRefreshTokens").map((t) => t.sessionId)).toEqual([someoneElse]);
+    expect(db.all("authRefreshTokens").map((t) => t.sessionId)).toEqual([
+      someoneElse,
+    ]);
     // That run stopped after the sessions, committing them on their own
     expect(db.all("chats")).toHaveLength(1);
 
@@ -232,7 +263,9 @@ describe("purgeDeletedUserData", () => {
 
     const firstRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(firstRun, { userId });
-    expect(scheduled(firstRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+    expect(scheduled(firstRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId }],
+    ]);
     const left = db.all("authSessions").length;
     expect(left).toBeGreaterThan(0);
     expect(left).toBeLessThan(1500);
@@ -240,7 +273,9 @@ describe("purgeDeletedUserData", () => {
     const secondRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(secondRun, { userId });
     expect(db.all("authSessions")).toEqual([]);
-    expect(scheduled(secondRun)).toEqual([[0, "users:purgeDeletedUserData", { userId }]]);
+    expect(scheduled(secondRun)).toEqual([
+      [0, "users:purgeDeletedUserData", { userId }],
+    ]);
 
     const thirdRun = createFakeCtx(db);
     await asHandler(purgeDeletedUserData)(thirdRun, { userId });
@@ -264,7 +299,9 @@ describe("revokeDeletedUserAccess", () => {
   });
 
   it("still revokes Composio when Stripe fails, then retries with backoff", async () => {
-    mocks.cancelBillableSubscriptions.mockRejectedValueOnce(new Error("Stripe down"));
+    mocks.cancelBillableSubscriptions.mockRejectedValueOnce(
+      new Error("Stripe down")
+    );
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const ctx = createFakeCtx(createFakeDb());
 
@@ -272,31 +309,48 @@ describe("revokeDeletedUserAccess", () => {
 
     expect(mocks.revokeUserConnections).toHaveBeenCalledWith(userId);
     expect(scheduled(ctx)).toEqual([
-      [60_000, "account_deletion:revokeDeletedUserAccess", { userId, attempt: 3 }],
+      [
+        60_000,
+        "account_deletion:revokeDeletedUserAccess",
+        { userId, attempt: 3 },
+      ],
     ]);
   });
 
   it("retries when only Composio fails", async () => {
-    mocks.revokeUserConnections.mockRejectedValueOnce(new Error("Composio down"));
+    mocks.revokeUserConnections.mockRejectedValueOnce(
+      new Error("Composio down")
+    );
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const ctx = createFakeCtx(createFakeDb());
 
     await asHandler(revokeDeletedUserAccess)(ctx, { userId });
 
     expect(scheduled(ctx)).toEqual([
-      [30_000, "account_deletion:revokeDeletedUserAccess", { userId, attempt: 2 }],
+      [
+        30_000,
+        "account_deletion:revokeDeletedUserAccess",
+        { userId, attempt: 2 },
+      ],
     ]);
   });
 
   it("gives up loudly after the last attempt", async () => {
-    mocks.cancelBillableSubscriptions.mockRejectedValueOnce(new Error("Stripe down"));
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.cancelBillableSubscriptions.mockRejectedValueOnce(
+      new Error("Stripe down")
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const ctx = createFakeCtx(createFakeDb());
 
-    await expect(asHandler(revokeDeletedUserAccess)(ctx, { userId, attempt: 5 })).rejects.toThrow(
-      "Stripe down",
-    );
+    await expect(
+      asHandler(revokeDeletedUserAccess)(ctx, { userId, attempt: 5 })
+    ).rejects.toThrow("Stripe down");
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
-    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining(userId), expect.any(Error));
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining(userId),
+      expect.any(Error)
+    );
   });
 });

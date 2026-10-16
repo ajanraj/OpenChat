@@ -2,7 +2,9 @@ import { act, renderHook } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { RateLimitState } from "@/lib/rate-limit-status";
+
 import { UserProvider, useUser } from "../user-provider";
 
 type FunctionReference = Parameters<typeof getFunctionName>[0];
@@ -10,7 +12,10 @@ interface MockUser {
   _id: string;
   isAnonymous: boolean;
 }
-type CachedAnswer = RateLimitState | boolean | { _id: string; provider: string }[];
+type CachedAnswer =
+  | RateLimitState
+  | boolean
+  | { _id: string; provider: string }[];
 
 const mocks = vi.hoisted(() => ({
   auth: { current: { isLoading: false, isAuthenticated: false } },
@@ -28,12 +33,17 @@ vi.mock("convex/react", () => ({
   useMutation: () => async () => null,
 }));
 vi.mock("@convex-dev/auth/react", () => ({
-  useAuthActions: () => ({ signIn: async () => undefined, signOut: mocks.signOut }),
+  useAuthActions: () => ({
+    signIn: async () => undefined,
+    signOut: mocks.signOut,
+  }),
   useAuthToken: () =>
     mocks.tokenUserId.current &&
     `header.${btoa(JSON.stringify({ sub: `${mocks.tokenUserId.current}|sessions:1` }))}.signature`,
 }));
-vi.mock("@/hooks/use-ensure-session", () => ({ useEnsureSession: () => async () => undefined }));
+vi.mock("@/hooks/use-ensure-session", () => ({
+  useEnsureSession: () => async () => undefined,
+}));
 vi.mock("@convex-dev/react-query", () => ({
   convexQuery: (query: FunctionReference, args: object | "skip") => ({
     queryKey: [getFunctionName(query), args],
@@ -41,11 +51,18 @@ vi.mock("@convex-dev/react-query", () => ({
 }));
 vi.mock("@tanstack/react-query", () => ({
   // Like TanStack, a disabled query still returns what its key has cached
-  useQuery: ({ queryKey }: { queryKey: [string, object | "skip" | undefined] }) =>
+  useQuery: ({
+    queryKey,
+  }: {
+    queryKey: [string, object | "skip" | undefined];
+  }) =>
     queryKey[0] === "users:getCurrentUser"
       ? { data: mocks.user.current, isLoading: false }
       : {
-          data: queryKey[1] === "skip" ? undefined : mocks.cached.current.get(queryKey[0]),
+          data:
+            queryKey[1] === "skip"
+              ? undefined
+              : mocks.cached.current.get(queryKey[0]),
           isLoading: false,
         },
 }));
@@ -118,16 +135,19 @@ describe("UserProvider loading", () => {
       user: null,
       isLoading: true,
     },
-  ])("reports $state", ({ isAuthenticated, token, cached, user, isLoading }) => {
-    mocks.auth.current = { isLoading: false, isAuthenticated };
-    mocks.tokenUserId.current = token;
-    mocks.user.current = cached;
+  ])(
+    "reports $state",
+    ({ isAuthenticated, token, cached, user, isLoading }) => {
+      mocks.auth.current = { isLoading: false, isAuthenticated };
+      mocks.tokenUserId.current = token;
+      mocks.user.current = cached;
 
-    const { result } = renderUser();
+      const { result } = renderUser();
 
-    expect(result.current.user).toEqual(user);
-    expect(result.current.isLoading).toBe(isLoading);
-  });
+      expect(result.current.user).toEqual(user);
+      expect(result.current.isLoading).toBe(isLoading);
+    }
+  );
 
   it("waits on a confirmed session's user however long it takes, and never signs it out", () => {
     vi.useFakeTimers();
@@ -155,7 +175,13 @@ describe("UserProvider loading", () => {
     const exhausted: RateLimitState = {
       isPremium: false,
       daily: { value: 0, ts: Date.now(), rate: 5, capacity: 5, period: day },
-      monthly: { value: 1400, ts: Date.now(), rate: 1500, capacity: 1500, period: 30 * day },
+      monthly: {
+        value: 1400,
+        ts: Date.now(),
+        rate: 1500,
+        capacity: 1500,
+        period: 30 * day,
+      },
       premium: null,
     };
     mocks.cached.current = new Map<string, CachedAnswer>([

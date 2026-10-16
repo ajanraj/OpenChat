@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   getOrderedGroupKeys,
   getRelativeTimeDescription,
@@ -176,7 +177,13 @@ describe("groupChatsByTime", () => {
 describe("getOrderedGroupKeys", () => {
   it("returns groups in correct order", () => {
     const keys = getOrderedGroupKeys();
-    expect(keys).toEqual(["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "Older"]);
+    expect(keys).toEqual([
+      "Today",
+      "Yesterday",
+      "Last 7 Days",
+      "Last 30 Days",
+      "Older",
+    ]);
   });
 });
 

@@ -1,16 +1,18 @@
 import { useMutation } from "convex/react";
 import { useCallback, useMemo } from "react";
+
 import { useProfile } from "@/providers/profile-provider";
-import { useUser } from "@/providers/user-provider";
-import { api } from "../../convex/_generated/api";
 import type { Profile } from "@/providers/profile-provider";
+import { useUser } from "@/providers/user-provider";
+
+import { api } from "../../convex/_generated/api";
 
 export function useModelPreferences() {
   const { user } = useUser();
   const { activeProfile } = useProfile();
 
   const toggleFavoriteModelMutation = useMutation(
-    api.profiles.toggleProfileFavoriteModel,
+    api.profiles.toggleProfileFavoriteModel
   ).withOptimisticUpdate((localStore, { profileId, modelId }) => {
     const profiles = localStore.getQuery(api.profiles.listProfiles, {});
     if (!profiles) {
@@ -37,12 +39,12 @@ export function useModelPreferences() {
           : [...favorites, modelId];
 
         return { ...p, favoriteModels: newFavorites };
-      }),
+      })
     );
   });
 
   const bulkSetFavoriteModelsMutation = useMutation(
-    api.profiles.bulkSetProfileFavoriteModels,
+    api.profiles.bulkSetProfileFavoriteModels
   ).withOptimisticUpdate((localStore, { profileId, modelIds }) => {
     const profiles = localStore.getQuery(api.profiles.listProfiles, {});
     if (!profiles) {
@@ -59,19 +61,28 @@ export function useModelPreferences() {
 
         const currentDisabled = p.disabledModels ?? [];
         const newFavorites = [...new Set(modelIds)];
-        const newDisabled = currentDisabled.filter((id) => !newFavorites.includes(id));
+        const newDisabled = currentDisabled.filter(
+          (id) => !newFavorites.includes(id)
+        );
 
-        return { ...p, favoriteModels: newFavorites, disabledModels: newDisabled };
-      }),
+        return {
+          ...p,
+          favoriteModels: newFavorites,
+          disabledModels: newDisabled,
+        };
+      })
     );
   });
 
   const favoriteModels = useMemo(
     () => activeProfile?.favoriteModels ?? user?.favoriteModels ?? [],
-    [activeProfile?.favoriteModels, user?.favoriteModels],
+    [activeProfile?.favoriteModels, user?.favoriteModels]
   );
 
-  const favoriteModelsSet = useMemo(() => new Set(favoriteModels), [favoriteModels]);
+  const favoriteModelsSet = useMemo(
+    () => new Set(favoriteModels),
+    [favoriteModels]
+  );
   const activeProfileId = activeProfile?._id;
 
   const toggleFavoriteModel = useCallback(
@@ -87,14 +98,17 @@ export function useModelPreferences() {
       }
 
       try {
-        await toggleFavoriteModelMutation({ profileId: activeProfileId, modelId });
+        await toggleFavoriteModelMutation({
+          profileId: activeProfileId,
+          modelId,
+        });
       } catch (error) {
         throw new Error(
-          `Failed to ${isFavorite ? "unpin" : "pin"} model: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `Failed to ${isFavorite ? "unpin" : "pin"} model: ${error instanceof Error ? error.message : "Unknown error"}`
         );
       }
     },
-    [activeProfileId, favoriteModels, toggleFavoriteModelMutation],
+    [activeProfileId, favoriteModels, toggleFavoriteModelMutation]
   );
 
   const bulkSetFavoriteModels = useCallback(
@@ -108,14 +122,17 @@ export function useModelPreferences() {
       }
 
       try {
-        await bulkSetFavoriteModelsMutation({ profileId: activeProfileId, modelIds });
+        await bulkSetFavoriteModelsMutation({
+          profileId: activeProfileId,
+          modelIds,
+        });
       } catch (error) {
         throw new Error(
-          `Failed to set favorite models: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `Failed to set favorite models: ${error instanceof Error ? error.message : "Unknown error"}`
         );
       }
     },
-    [activeProfileId, bulkSetFavoriteModelsMutation],
+    [activeProfileId, bulkSetFavoriteModelsMutation]
   );
 
   return {

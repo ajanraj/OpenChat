@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { cancelBillableSubscriptions } from "./stripe";
@@ -24,11 +25,11 @@ export const revokeDeletedUserAccess = internalAction({
       // Imported lazily: the module throws at load without COMPOSIO_API_KEY, which must not
       // block the Stripe cancel
       import("../src/lib/composio-server").then(({ revokeUserConnections }) =>
-        revokeUserConnections(userId),
+        revokeUserConnections(userId)
       ),
     ]);
     const failures = results.flatMap((result) =>
-      result.status === "rejected" ? [result.reason] : [],
+      result.status === "rejected" ? [result.reason] : []
     );
     if (failures.length === 0) {
       return null;
@@ -38,18 +39,18 @@ export const revokeDeletedUserAccess = internalAction({
     if (attempt >= REVOKE_MAX_ATTEMPTS) {
       console.error(
         `Giving up revoking access of deleted user ${userId} after ${attempt} attempts; expire their open Stripe checkouts, cancel their Stripe subscriptions and delete their Composio connected accounts (revoking grants on OpenChat's own auth configs) by hand:`,
-        error,
+        error
       );
       throw error;
     }
     console.warn(
       `Revoking access of deleted user ${userId} failed (attempt ${attempt}); retrying:`,
-      error,
+      error
     );
     await ctx.scheduler.runAfter(
       REVOKE_RETRY_BASE_MS * 2 ** (attempt - 1),
       internal.account_deletion.revokeDeletedUserAccess,
-      { userId, attempt: attempt + 1 },
+      { userId, attempt: attempt + 1 }
     );
     return null;
   },

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { uploadToR2 } from '../r2-upload';
-import type { GenerateUploadUrl } from '../r2-upload';
+
+import { uploadToR2 } from "../r2-upload";
+import type { GenerateUploadUrl } from "../r2-upload";
 
 const reserve = vi.fn<GenerateUploadUrl>(async () => ({
   key: "obj-key",
@@ -8,7 +9,9 @@ const reserve = vi.fn<GenerateUploadUrl>(async () => ({
 }));
 
 function mockFetch(status: number) {
-  const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status }));
+  const fetchMock = vi.fn<typeof fetch>(
+    async () => new Response(null, { status })
+  );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -26,17 +29,20 @@ describe("uploadToR2", () => {
     await expect(uploadToR2(blob, reserve)).resolves.toBe("obj-key");
 
     expect(reserve).toHaveBeenCalledWith({ contentType: "image/png", size: 5 });
-    expect(fetchMock).toHaveBeenCalledWith("https://r2.example/obj-key?signed", {
-      method: "PUT",
-      body: blob,
-      headers: { "Content-Type": "image/png" },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://r2.example/obj-key?signed",
+      {
+        method: "PUT",
+        body: blob,
+        headers: { "Content-Type": "image/png" },
+      }
+    );
   });
 
   it("throws when R2 rejects the upload", async () => {
     mockFetch(403);
-    await expect(uploadToR2(new Blob(["x"], { type: "image/png" }), reserve)).rejects.toThrow(
-      "status 403",
-    );
+    await expect(
+      uploadToR2(new Blob(["x"], { type: "image/png" }), reserve)
+    ).rejects.toThrow("status 403");
   });
 });

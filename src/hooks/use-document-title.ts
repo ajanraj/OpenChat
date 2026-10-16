@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+
 import { APP_NAME } from "@/lib/config";
 
 export function useDocumentTitle(chatTitle?: string, chatId?: string) {

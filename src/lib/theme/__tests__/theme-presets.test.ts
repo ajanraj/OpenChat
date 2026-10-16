@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { defaultPresets } from "../theme-presets";
 
 const WARM_COLOR_REGEX = /^#[c-f][0-9a-f]/i;
@@ -50,12 +51,21 @@ describe("Theme Presets", () => {
     });
 
     it("each preset has required color properties", () => {
-      const requiredColors = ["background", "foreground", "primary", "secondary"];
+      const requiredColors = [
+        "background",
+        "foreground",
+        "primary",
+        "secondary",
+      ];
 
       for (const preset of Object.values(defaultPresets)) {
         for (const color of requiredColors) {
-          expect(preset.styles.light[color as keyof typeof preset.styles.light]).toBeDefined();
-          expect(preset.styles.dark[color as keyof typeof preset.styles.dark]).toBeDefined();
+          expect(
+            preset.styles.light[color as keyof typeof preset.styles.light]
+          ).toBeDefined();
+          expect(
+            preset.styles.dark[color as keyof typeof preset.styles.dark]
+          ).toBeDefined();
         }
       }
     });

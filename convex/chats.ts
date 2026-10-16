@@ -1,15 +1,23 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { ConvexError, v } from 'convex/values';
-import type { Infer } from 'convex/values';
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
+import { ConvexError, v } from "convex/values";
+import type { Infer } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { detectRedactedContent } from "../src/lib/redacted-content-detector";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, mutation, query } from './_generated/server';
-import type { MutationCtx } from './_generated/server';
+import { internalMutation, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 // Import helper functions
-import { ensureAuthenticated, ensureChatAccess, tryEnsureChatAccess } from "./lib/auth_helper";
+import {
+  ensureAuthenticated,
+  ensureChatAccess,
+  tryEnsureChatAccess,
+} from "./lib/auth_helper";
 import { deleteChatCompletely, purgeChatsBatch } from "./lib/cleanup_helper";
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
 import { getOrCreateDefaultProfileId, resolveChatProfileId } from "./profiles";
@@ -76,7 +84,7 @@ export const getPublicChat = query({
       updatedAt: v.optional(v.number()),
       public: v.optional(v.boolean()),
       shareAttachments: v.optional(v.boolean()),
-    }),
+    })
   ),
   handler: async (ctx, { chatId }) => {
     const chat = await ctx.db.get("chats", chatId);
@@ -153,7 +161,9 @@ export const forkFromShared = mutation({
       const sanitizedParts = m.parts;
 
       // Map parentMessageId to new chat's message IDs
-      const parentMessageId = m.parentMessageId ? idMap.get(m.parentMessageId) : undefined;
+      const parentMessageId = m.parentMessageId
+        ? idMap.get(m.parentMessageId)
+        : undefined;
 
       const newMessageId = await ctx.db.insert("messages", {
         chatId: newChatId,
@@ -223,9 +233,11 @@ export const listChatsForUser = query({
       ? ctx.db
           .query("chats")
           .withIndex("by_user_and_profile_and_updated", (q) =>
-            q.eq("userId", userId).eq("profileId", profileId),
+            q.eq("userId", userId).eq("profileId", profileId)
           )
-      : ctx.db.query("chats").withIndex("by_user_and_updated", (q) => q.eq("userId", userId));
+      : ctx.db
+          .query("chats")
+          .withIndex("by_user_and_updated", (q) => q.eq("userId", userId));
     return await chats.order("desc").paginate(paginationOpts);
   },
 });
@@ -242,7 +254,7 @@ export const listPinnedChatsForUser = query({
     return await ctx.db
       .query("chats")
       .withIndex("by_user_and_profile_and_pinned", (q) =>
-        q.eq("userId", userId).eq("profileId", profileId).eq("isPinned", true),
+        q.eq("userId", userId).eq("profileId", profileId).eq("isPinned", true)
       )
       .order("desc")
       .take(PINNED_CHATS_LIMIT);
@@ -262,7 +274,10 @@ export const searchChats = query({
     return await ctx.db
       .query("chats")
       .withSearchIndex("search_title", (q) =>
-        q.search("title", search).eq("userId", userId).eq("profileId", args.profileId),
+        q
+          .search("title", search)
+          .eq("userId", userId)
+          .eq("profileId", args.profileId)
       )
       .take(CHAT_SEARCH_LIMIT);
   },
@@ -320,7 +335,7 @@ export const deleteChat = mutation({
 // Which chats a purge deletes: every chat created up to a time, or the listed chats
 const chatPurgeScope = v.union(
   v.object({ createdBefore: v.number() }),
-  v.object({ chatIds: v.array(v.id("chats")) }),
+  v.object({ chatIds: v.array(v.id("chats")) })
 );
 
 /**
@@ -330,7 +345,7 @@ const chatPurgeScope = v.union(
 async function purgeChatsInScope(
   ctx: MutationCtx,
   userId: Id<"users">,
-  scope: Infer<typeof chatPurgeScope>,
+  scope: Infer<typeof chatPurgeScope>
 ): Promise<void> {
   if ("createdBefore" in scope) {
     // Chats created after the request (e.g. while the purge runs) are kept
@@ -340,11 +355,16 @@ async function purgeChatsInScope(
       userId,
       ctx.db
         .query("chats")
-        .withIndex("by_user", (q) => q.eq("userId", userId).lte("_creationTime", createdBefore)),
-      true,
+        .withIndex("by_user", (q) =>
+          q.eq("userId", userId).lte("_creationTime", createdBefore)
+        ),
+      true
     );
     if (!done) {
-      await ctx.scheduler.runAfter(0, internal.chats.purgeChats, { userId, scope });
+      await ctx.scheduler.runAfter(0, internal.chats.purgeChats, {
+        userId,
+        scope,
+      });
     }
     return;
   }
@@ -418,10 +438,16 @@ export const branchChat = mutation({
   returns: v.object({ chatId: v.id("chats") }),
   handler: async (ctx, args) => {
     // Verify user owns the original chat
-    const { chat: originalChat, userId } = await ensureChatAccess(ctx, args.originalChatId);
+    const { chat: originalChat, userId } = await ensureChatAccess(
+      ctx,
+      args.originalChatId
+    );
 
     // Verify the branch message exists and belongs to the chat
-    const branchMessage = await ctx.db.get("messages", args.branchFromMessageId);
+    const branchMessage = await ctx.db.get(
+      "messages",
+      args.branchFromMessageId
+    );
     if (!branchMessage || branchMessage.chatId !== args.originalChatId) {
       throw new ConvexError(ERROR_CODES.MESSAGE_NOT_FOUND);
     }
@@ -432,7 +458,8 @@ export const branchChat = mutation({
     }
 
     // Get the branch message creation time for filtering
-    const branchTimestamp = branchMessage.createdAt ?? branchMessage._creationTime;
+    const branchTimestamp =
+      branchMessage.createdAt ?? branchMessage._creationTime;
 
     // Create new chat with same properties as original but mark as branched
     const now = Date.now();
@@ -442,7 +469,11 @@ export const branchChat = mutation({
       model: originalChat.model,
       personaId: originalChat.personaId,
       // The original's profile (legacy chats without one get the user's active profile)
-      profileId: await resolveChatProfileId(ctx, userId, originalChat.profileId),
+      profileId: await resolveChatProfileId(
+        ctx,
+        userId,
+        originalChat.profileId
+      ),
       originalChatId: args.originalChatId,
       createdAt: now,
       updatedAt: now,
@@ -456,7 +487,9 @@ export const branchChat = mutation({
     const idMap = new Map<Id<"messages">, Id<"messages">>();
     for await (const message of ctx.db
       .query("messages")
-      .withIndex("by_chat_and_created", (q) => q.eq("chatId", args.originalChatId))
+      .withIndex("by_chat_and_created", (q) =>
+        q.eq("chatId", args.originalChatId)
+      )
       .order("asc")) {
       if ((message.createdAt ?? message._creationTime) <= branchTimestamp) {
         const newMessageId = await ctx.db.insert("messages", {
@@ -465,7 +498,9 @@ export const branchChat = mutation({
           role: message.role,
           content: message.content,
           createdAt: message.createdAt,
-          parentMessageId: message.parentMessageId ? idMap.get(message.parentMessageId) : undefined,
+          parentMessageId: message.parentMessageId
+            ? idMap.get(message.parentMessageId)
+            : undefined,
           parts: message.parts,
           metadata: message.metadata,
         });
@@ -557,7 +592,9 @@ export const backfillChatProfiles = internalMutation({
     let updated = 0;
     let skipped = 0;
     for (const chat of page.page) {
-      const profile = chat.profileId ? await ctx.db.get("profiles", chat.profileId) : null;
+      const profile = chat.profileId
+        ? await ctx.db.get("profiles", chat.profileId)
+        : null;
       if (profile?.userId === chat.userId) {
         continue;
       }
@@ -578,7 +615,7 @@ export const backfillChatProfiles = internalMutation({
       });
     }
     console.log(
-      `backfillChatProfiles: scanned ${page.page.length}, updated ${updated}, skipped ${skipped}`,
+      `backfillChatProfiles: scanned ${page.page.length}, updated ${updated}, skipped ${skipped}`
     );
     return { scanned: page.page.length, updated, skipped, isDone: page.isDone };
   },

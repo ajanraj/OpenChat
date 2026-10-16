@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   COMMON_STYLES,
   DEFAULT_FONT_MONO,
@@ -113,16 +114,22 @@ describe("defaultDarkThemeStyles", () => {
   });
 
   it("extends light theme", () => {
-    expect(defaultDarkThemeStyles["font-sans"]).toBe(defaultLightThemeStyles["font-sans"]);
+    expect(defaultDarkThemeStyles["font-sans"]).toBe(
+      defaultLightThemeStyles["font-sans"]
+    );
     expect(defaultDarkThemeStyles.radius).toBe(defaultLightThemeStyles.radius);
   });
 
   it("has different background than light theme", () => {
-    expect(defaultDarkThemeStyles.background).not.toBe(defaultLightThemeStyles.background);
+    expect(defaultDarkThemeStyles.background).not.toBe(
+      defaultLightThemeStyles.background
+    );
   });
 
   it("has different foreground than light theme", () => {
-    expect(defaultDarkThemeStyles.foreground).not.toBe(defaultLightThemeStyles.foreground);
+    expect(defaultDarkThemeStyles.foreground).not.toBe(
+      defaultLightThemeStyles.foreground
+    );
   });
 
   it("uses oklch color format", () => {

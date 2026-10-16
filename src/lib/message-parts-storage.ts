@@ -1,5 +1,6 @@
-import { convexToJson, getConvexSize } from 'convex/values';
-import type { Value } from 'convex/values';
+import { convexToJson, getConvexSize } from "convex/values";
+import type { Value } from "convex/values";
+
 import { limitDepth } from "./depth-limiter";
 
 /**
@@ -33,7 +34,8 @@ const TRAILING_HIGH_SURROGATE = /[\uD800-\uDBFF]$/;
 
 function isToolPart(part: StoredPart): boolean {
   return (
-    typeof part.type === "string" && (part.type.startsWith("tool-") || part.type === "dynamic-tool")
+    typeof part.type === "string" &&
+    (part.type.startsWith("tool-") || part.type === "dynamic-tool")
   );
 }
 
@@ -70,7 +72,10 @@ function toPreview(value: unknown, originalSize: number): CompactedToolPayload {
  * Messages within the budget are stored unchanged. Oversized text or reasoning is left
  * as is, so the save still fails loudly in that case.
  */
-export function compactMessagePartsForStorage<T extends object>(parts: T[], content = ""): T[] {
+export function compactMessagePartsForStorage<T extends object>(
+  parts: T[],
+  content = ""
+): T[] {
   // limitDepth returns fresh copies, so the parts below can be updated in place
   const stored = limitDepth(parts, 14);
   const storedParts = stored as StoredPart[];

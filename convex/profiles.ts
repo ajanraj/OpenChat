@@ -1,10 +1,11 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
+
 import { MODEL_DEFAULT } from "../src/lib/config";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalQuery, mutation, query } from './_generated/server';
-import type { MutationCtx } from './_generated/server';
+import { internalQuery, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { Profile } from "./schema/profile";
 
 const MAX_PROFILES = 5;
@@ -13,7 +14,7 @@ const MAX_PROFILES = 5;
 async function getOwnedProfile(
   ctx: MutationCtx,
   userId: Id<"users">,
-  profileId: Id<"profiles"> | undefined,
+  profileId: Id<"profiles"> | undefined
 ): Promise<Doc<"profiles"> | null> {
   const profile = profileId ? await ctx.db.get("profiles", profileId) : null;
   return profile?.userId === userId ? profile : null;
@@ -27,11 +28,13 @@ async function getOwnedProfile(
 export async function getOrCreateDefaultProfileId(
   ctx: MutationCtx,
   user: Doc<"users">,
-  themeConfig?: string,
+  themeConfig?: string
 ): Promise<Id<"profiles">> {
   const existing = await ctx.db
     .query("profiles")
-    .withIndex("by_user_and_default", (q) => q.eq("userId", user._id).eq("isDefault", true))
+    .withIndex("by_user_and_default", (q) =>
+      q.eq("userId", user._id).eq("isDefault", true)
+    )
     .first();
   if (existing) {
     return existing._id;
@@ -65,7 +68,7 @@ export async function getOrCreateDefaultProfileId(
 export async function resolveChatProfileId(
   ctx: MutationCtx,
   userId: Id<"users">,
-  requested: Id<"profiles"> | undefined,
+  requested: Id<"profiles"> | undefined
 ): Promise<Id<"profiles">> {
   const profile = await getOwnedProfile(ctx, userId, requested);
   if (profile) {
@@ -86,7 +89,7 @@ export const listProfiles = query({
       _id: v.id("profiles"),
       _creationTime: v.number(),
       ...Profile.fields,
-    }),
+    })
   ),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -109,7 +112,7 @@ export const getProfile = query({
       _id: v.id("profiles"),
       _creationTime: v.number(),
       ...Profile.fields,
-    }),
+    })
   ),
   handler: async (ctx, { profileId }) => {
     const userId = await getAuthUserId(ctx);
@@ -132,11 +135,10 @@ export const getProfileInternal = internalQuery({
       _id: v.id("profiles"),
       _creationTime: v.number(),
       ...Profile.fields,
-    }),
+    })
   ),
-  handler: async (ctx, { profileId }) => 
-    await ctx.db.get("profiles", profileId)
-  ,
+  handler: async (ctx, { profileId }) =>
+    await ctx.db.get("profiles", profileId),
 });
 
 export const ensureDefaultProfile = mutation({
@@ -255,11 +257,16 @@ export const updateProfile = mutation({
 
     if (updates.name !== undefined) {
       const trimmed = updates.name.trim();
-      if (!trimmed) {throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);}
+      if (!trimmed) {
+        throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
+      }
       updates = { ...updates, name: trimmed };
     }
 
-    if (updates.favoriteModels !== undefined && updates.favoriteModels.length === 0) {
+    if (
+      updates.favoriteModels !== undefined &&
+      updates.favoriteModels.length === 0
+    ) {
       throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
     }
 
@@ -302,7 +309,7 @@ export const deleteProfile = mutation({
     const orphanedChats = await ctx.db
       .query("chats")
       .withIndex("by_user_and_profile_and_updated", (q) =>
-        q.eq("userId", userId).eq("profileId", profileId),
+        q.eq("userId", userId).eq("profileId", profileId)
       )
       .collect();
 
@@ -315,7 +322,9 @@ export const deleteProfile = mutation({
     // Reassign orphaned scheduled tasks to default profile
     const orphanedTasks = await ctx.db
       .query("scheduled_tasks")
-      .withIndex("by_user_and_profile", (q) => q.eq("userId", userId).eq("profileId", profileId))
+      .withIndex("by_user_and_profile", (q) =>
+        q.eq("userId", userId).eq("profileId", profileId)
+      )
       .collect();
 
     for (const task of orphanedTasks) {
@@ -358,7 +367,11 @@ export const setActiveProfile = mutation({
 });
 
 export const setProfileModelEnabled = mutation({
-  args: { profileId: v.id("profiles"), modelId: v.string(), enabled: v.boolean() },
+  args: {
+    profileId: v.id("profiles"),
+    modelId: v.string(),
+    enabled: v.boolean(),
+  },
   returns: v.null(),
   handler: async (ctx, { profileId, modelId, enabled }) => {
     const userId = await getAuthUserId(ctx);
@@ -431,7 +444,9 @@ export const bulkSetProfileModelsDisabled = mutation({
       newDisabled = [];
       newFavorites = currentFavorites;
     } else {
-      newFavorites = currentFavorites.filter((id) => !modelsToDisable.includes(id));
+      newFavorites = currentFavorites.filter(
+        (id) => !modelsToDisable.includes(id)
+      );
       newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
 
       if (newFavorites.length === 0 && currentFavorites.length > 0) {
@@ -511,7 +526,9 @@ export const bulkSetProfileFavoriteModels = mutation({
 
     const currentDisabled = profile.disabledModels ?? [];
     const newFavorites = [...new Set(modelIds)];
-    const newDisabled = currentDisabled.filter((id) => !newFavorites.includes(id));
+    const newDisabled = currentDisabled.filter(
+      (id) => !newFavorites.includes(id)
+    );
 
     await ctx.db.patch("profiles", profileId, {
       favoriteModels: newFavorites,

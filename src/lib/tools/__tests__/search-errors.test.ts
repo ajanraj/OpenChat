@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   handleSearchError,
   SearchAuthenticationError,
@@ -90,7 +91,10 @@ describe("SearchInvalidResponseError", () => {
   });
 
   it("accepts custom message", () => {
-    const error = new SearchInvalidResponseError("exa", "Missing results field");
+    const error = new SearchInvalidResponseError(
+      "exa",
+      "Missing results field"
+    );
 
     expect(error.message).toBe("[exa] Missing results field");
   });
@@ -100,26 +104,36 @@ describe("handleSearchError", () => {
   it("re-throws SearchError instances", () => {
     const originalError = new SearchError("Original", "exa");
 
-    expect(() => handleSearchError(originalError, "tavily")).toThrow(SearchError);
-    expect(() => handleSearchError(originalError, "tavily")).toThrow("[exa] Original");
+    expect(() => handleSearchError(originalError, "tavily")).toThrow(
+      SearchError
+    );
+    expect(() => handleSearchError(originalError, "tavily")).toThrow(
+      "[exa] Original"
+    );
   });
 
   it("converts 401 errors to SearchAuthenticationError", () => {
     const error = new Error("Request failed with status 401");
 
-    expect(() => handleSearchError(error, "exa")).toThrow(SearchAuthenticationError);
+    expect(() => handleSearchError(error, "exa")).toThrow(
+      SearchAuthenticationError
+    );
   });
 
   it("converts 403 errors to SearchAuthenticationError", () => {
     const error = new Error("Request failed with status 403");
 
-    expect(() => handleSearchError(error, "exa")).toThrow(SearchAuthenticationError);
+    expect(() => handleSearchError(error, "exa")).toThrow(
+      SearchAuthenticationError
+    );
   });
 
   it("converts 429 errors to SearchRateLimitError", () => {
     const error = new Error("Request failed with status 429");
 
-    expect(() => handleSearchError(error, "tavily")).toThrow(SearchRateLimitError);
+    expect(() => handleSearchError(error, "tavily")).toThrow(
+      SearchRateLimitError
+    );
   });
 
   it("converts ENOTFOUND errors to SearchNetworkError", () => {
@@ -138,12 +152,20 @@ describe("handleSearchError", () => {
     const error = new Error("Something went wrong");
 
     expect(() => handleSearchError(error, "exa")).toThrow(SearchError);
-    expect(() => handleSearchError(error, "exa")).toThrow("[exa] Something went wrong");
+    expect(() => handleSearchError(error, "exa")).toThrow(
+      "[exa] Something went wrong"
+    );
   });
 
   it("handles unknown error types", () => {
-    expect(() => handleSearchError("string error", "exa")).toThrow("[exa] Unknown error occurred");
-    expect(() => handleSearchError(null, "exa")).toThrow("[exa] Unknown error occurred");
-    expect(() => handleSearchError(undefined, "exa")).toThrow("[exa] Unknown error occurred");
+    expect(() => handleSearchError("string error", "exa")).toThrow(
+      "[exa] Unknown error occurred"
+    );
+    expect(() => handleSearchError(null, "exa")).toThrow(
+      "[exa] Unknown error occurred"
+    );
+    expect(() => handleSearchError(undefined, "exa")).toThrow(
+      "[exa] Unknown error occurred"
+    );
   });
 });

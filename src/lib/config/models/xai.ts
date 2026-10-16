@@ -1,4 +1,5 @@
 import { gateway } from "@ai-sdk/gateway";
+
 import {
   FILE_UPLOAD_FEATURE,
   PDF_PROCESSING_FEATURE,
@@ -75,7 +76,8 @@ export const XAI_MODELS = [
     premium: true,
     usesPremiumCredits: true,
     legacy: true,
-    description: "xAI's earlier flagship model.\nBuilt for general-purpose conversations.",
+    description:
+      "xAI's earlier flagship model.\nBuilt for general-purpose conversations.",
     api_sdk: gateway("xai/grok-3-latest"),
     features: [REASONING_FEATURE_DISABLED],
   },
@@ -86,7 +88,8 @@ export const XAI_MODELS = [
     premium: true,
     usesPremiumCredits: false,
     legacy: true,
-    description: "xAI's earlier cost-efficient reasoning model.\nDesigned for STEM tasks.",
+    description:
+      "xAI's earlier cost-efficient reasoning model.\nDesigned for STEM tasks.",
     api_sdk: gateway("xai/grok-3-mini"),
     features: [REASONING_FEATURE_BASIC, TOOL_CALLING_FEATURE],
   },

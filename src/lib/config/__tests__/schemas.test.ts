@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   ApiKeyUsageSchema,
   ModelFeatureSchema,
@@ -47,7 +48,9 @@ describe("ModelFeatureSchema", () => {
 
   it("rejects missing required fields", () => {
     expect(() => ModelFeatureSchema.parse({ id: "test" })).toThrow(/invalid/i);
-    expect(() => ModelFeatureSchema.parse({ enabled: true })).toThrow(/invalid/i);
+    expect(() => ModelFeatureSchema.parse({ enabled: true })).toThrow(
+      /invalid/i
+    );
   });
 });
 
@@ -65,8 +68,12 @@ describe("ApiKeyUsageSchema", () => {
   });
 
   it("rejects missing required fields", () => {
-    expect(() => ApiKeyUsageSchema.parse({ allowUserKey: true })).toThrow(/invalid/i);
-    expect(() => ApiKeyUsageSchema.parse({ userKeyOnly: false })).toThrow(/invalid/i);
+    expect(() => ApiKeyUsageSchema.parse({ allowUserKey: true })).toThrow(
+      /invalid/i
+    );
+    expect(() => ApiKeyUsageSchema.parse({ userKeyOnly: false })).toThrow(
+      /invalid/i
+    );
   });
 });
 
@@ -235,7 +242,7 @@ describe("ModelSchema", () => {
         id: "test",
         name: "Test",
         provider: "openai",
-      }),
+      })
     ).toThrow(/invalid/i);
   });
 });

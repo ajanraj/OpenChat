@@ -10,6 +10,7 @@ import {
   XLight,
 } from "@ridemountainpig/svgl-react";
 import type { ComponentType } from "react";
+
 import { GoogleCalendarIcon } from "@/components/icons/google-calendar";
 import { GoogleDocsIcon } from "@/components/icons/google-docs";
 import { GoogleSheetsIcon } from "@/components/icons/google-sheets";
@@ -37,14 +38,16 @@ export const CONNECTOR_CONFIGS: Record<ConnectorType, ConnectorConfig> = {
     displayName: "Google Calendar",
     icon: GoogleCalendarIcon,
     description: "View and schedule events in your Google Calendar.",
-    authConfigId: process.env.VITE_CALENDAR_AUTH_CONFIG_ID ?? "googlecalendar_oauth",
+    authConfigId:
+      process.env.VITE_CALENDAR_AUTH_CONFIG_ID ?? "googlecalendar_oauth",
   },
   googledrive: {
     type: "googledrive",
     displayName: "Google Drive",
     icon: GoogleDrive,
     description: "Access and manage your Google Drive files and folders.",
-    authConfigId: process.env.VITE_GOOGLE_DRIVE_AUTH_CONFIG_ID ?? "googledrive_oauth",
+    authConfigId:
+      process.env.VITE_GOOGLE_DRIVE_AUTH_CONFIG_ID ?? "googledrive_oauth",
   },
   notion: {
     type: "notion",
@@ -58,14 +61,16 @@ export const CONNECTOR_CONFIGS: Record<ConnectorType, ConnectorConfig> = {
     displayName: "Google Docs",
     icon: GoogleDocsIcon,
     description: "Create, edit, and collaborate on Google Docs documents.",
-    authConfigId: process.env.VITE_GOOGLE_DOCS_AUTH_CONFIG_ID ?? "googledocs_oauth",
+    authConfigId:
+      process.env.VITE_GOOGLE_DOCS_AUTH_CONFIG_ID ?? "googledocs_oauth",
   },
   googlesheets: {
     type: "googlesheets",
     displayName: "Google Sheets",
     icon: GoogleSheetsIcon,
     description: "Work with spreadsheets and data in Google Sheets.",
-    authConfigId: process.env.VITE_GOOGLE_SHEETS_AUTH_CONFIG_ID ?? "googlesheets_oauth",
+    authConfigId:
+      process.env.VITE_GOOGLE_SHEETS_AUTH_CONFIG_ID ?? "googlesheets_oauth",
   },
   slack: {
     type: "slack",
@@ -100,7 +105,7 @@ export const CONNECTOR_CONFIGS: Record<ConnectorType, ConnectorConfig> = {
 };
 
 export const SUPPORTED_CONNECTORS: ConnectorType[] = Object.keys(
-  CONNECTOR_CONFIGS,
+  CONNECTOR_CONFIGS
 ) as ConnectorType[];
 
 export const getConnectorConfig = (type: ConnectorType): ConnectorConfig => {
@@ -119,7 +124,10 @@ export { SUPPORTED_CONNECTORS as CONNECTOR_TOOL_NAMES };
  * This ensures consistency and reduces duplication
  */
 const getConnectorPatterns = (): Record<ConnectorType, string[]> => {
-  const patterns: Record<ConnectorType, string[]> = {} as Record<ConnectorType, string[]>;
+  const patterns: Record<ConnectorType, string[]> = {} as Record<
+    ConnectorType,
+    string[]
+  >;
 
   for (const [type, _config] of Object.entries(CONNECTOR_CONFIGS) as [
     ConnectorType,
@@ -174,13 +182,17 @@ export const isConnectorTool = (toolName: string): boolean => {
   const lowerToolName = toolName.toLowerCase();
 
   // Check if the tool name matches any connector type directly
-  if (SUPPORTED_CONNECTORS.some((connectorType) => lowerToolName.includes(connectorType))) {
+  if (
+    SUPPORTED_CONNECTORS.some((connectorType) =>
+      lowerToolName.includes(connectorType)
+    )
+  ) {
     return true;
   }
 
   // Check against additional patterns for each connector
   return Object.values(CONNECTOR_PATTERNS).some((patterns) =>
-    patterns.some((pattern) => lowerToolName.includes(pattern)),
+    patterns.some((pattern) => lowerToolName.includes(pattern))
   );
 };
 
@@ -189,7 +201,9 @@ export const isConnectorTool = (toolName: string): boolean => {
  * Dynamically checks against all configured connectors in CONNECTOR_CONFIGS
  * @throws {Error} When no matching connector type is found
  */
-export const getConnectorTypeFromToolName = (toolName: string): ConnectorType => {
+export const getConnectorTypeFromToolName = (
+  toolName: string
+): ConnectorType => {
   const lowerToolName = toolName.toLowerCase();
 
   // First check for direct connector type matches
@@ -209,6 +223,6 @@ export const getConnectorTypeFromToolName = (toolName: string): ConnectorType =>
   // Throw error for unmatched cases instead of silent fallback
   throw new Error(
     `Unable to determine connector type for tool: ${toolName}. ` +
-      "Please ensure the tool name contains one of the supported connector patterns.",
+      "Please ensure the tool name contains one of the supported connector patterns."
   );
 };

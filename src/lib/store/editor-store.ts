@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+
 import { defaultThemeState } from "../config/theme";
 import type { FontCategory, FontOption } from "../theme/theme-fonts";
 import { hasCustomFonts, updateThemeFont } from "../theme/theme-fonts";
@@ -39,7 +40,9 @@ const getSystemPreference = (): "light" | "dark" => {
   if (typeof window === "undefined") {
     return "light"; // Safe server-side default
   }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 };
 
 export const useEditorStore = create<EditorStore>()(
@@ -80,10 +83,14 @@ export const useEditorStore = create<EditorStore>()(
 
         if (
           !lastHistoryEntry ||
-          currentTime - lastHistoryEntry.timestamp >= HISTORY_OVERRIDE_THRESHOLD_MS
+          currentTime - lastHistoryEntry.timestamp >=
+            HISTORY_OVERRIDE_THRESHOLD_MS
         ) {
           // Add a new history entry
-          currentHistory = [...currentHistory, { state: oldThemeState, timestamp: currentTime }];
+          currentHistory = [
+            ...currentHistory,
+            { state: oldThemeState, timestamp: currentTime },
+          ];
           currentFuture = [];
         }
 
@@ -137,16 +144,26 @@ export const useEditorStore = create<EditorStore>()(
 
         const updatedLightStyles = {
           ...currentThemeState.styles.light,
-          ...updateThemeFont(currentThemeState.styles.light, category, fontOption),
+          ...updateThemeFont(
+            currentThemeState.styles.light,
+            category,
+            fontOption
+          ),
         };
         const updatedDarkStyles = {
           ...currentThemeState.styles.dark,
-          ...updateThemeFont(currentThemeState.styles.dark, category, fontOption),
+          ...updateThemeFont(
+            currentThemeState.styles.dark,
+            category,
+            fontOption
+          ),
         };
 
         // Determine custom font usage based on (updated) light styles
         const shouldMarkAsCustom = hasCustomFonts(updatedLightStyles);
-        const preset = shouldMarkAsCustom ? undefined : currentThemeState.preset;
+        const preset = shouldMarkAsCustom
+          ? undefined
+          : currentThemeState.preset;
 
         const newThemeState: ThemeEditorState = {
           ...currentThemeState,
@@ -201,18 +218,25 @@ export const useEditorStore = create<EditorStore>()(
       },
       hasUnsavedChanges: () => {
         const themeState = get().themeState;
-        const presetThemeStyles = getPresetThemeStyles(themeState.preset ?? "oschat");
-        const stylesChanged = !isDeepEqual(themeState.styles, presetThemeStyles);
+        const presetThemeStyles = getPresetThemeStyles(
+          themeState.preset ?? "oschat"
+        );
+        const stylesChanged = !isDeepEqual(
+          themeState.styles,
+          presetThemeStyles
+        );
         const hslChanged = !isDeepEqual(
           themeState.hslAdjustments,
-          defaultThemeState.hslAdjustments,
+          defaultThemeState.hslAdjustments
         );
         return stylesChanged || hslChanged;
       },
       resetToCurrentPreset: () => {
         const currentThemeState = get().themeState;
 
-        const presetThemeStyles = getPresetThemeStyles(currentThemeState.preset ?? "oschat");
+        const presetThemeStyles = getPresetThemeStyles(
+          currentThemeState.preset ?? "oschat"
+        );
         const newThemeState: ThemeEditorState = {
           ...currentThemeState,
           styles: presetThemeStyles,
@@ -308,6 +332,6 @@ export const useEditorStore = create<EditorStore>()(
           }
         }
       },
-    },
-  ),
+    }
+  )
 );

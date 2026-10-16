@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { convertAttachmentsToFileParts, createPartsFromAIResponse, extractAttachmentsFromParts, extractReasoningFromParts, extractReasoningFromResponse, isConvexStorageId } from '../ai-sdk-utils';
-import type { Attachment } from '../ai-sdk-utils';
+
+import {
+  convertAttachmentsToFileParts,
+  createPartsFromAIResponse,
+  extractAttachmentsFromParts,
+  extractReasoningFromParts,
+  extractReasoningFromResponse,
+  isConvexStorageId,
+} from "../ai-sdk-utils";
+import type { Attachment } from "../ai-sdk-utils";
 
 describe("isConvexStorageId", () => {
   it("returns true for valid 32-character lowercase alphanumeric string", () => {
@@ -25,7 +33,9 @@ describe("isConvexStorageId", () => {
   });
 
   it("returns false for strings that are too long", () => {
-    expect(isConvexStorageId("abc123def456ghi789jkl012mno345pqrstuvwxyz")).toBe(false);
+    expect(isConvexStorageId("abc123def456ghi789jkl012mno345pqrstuvwxyz")).toBe(
+      false
+    );
   });
 
   it("returns false for strings with uppercase letters", () => {
@@ -247,7 +257,11 @@ describe("createPartsFromAIResponse", () => {
       },
     ];
 
-    const result = createPartsFromAIResponse("Result", undefined, toolInvocations);
+    const result = createPartsFromAIResponse(
+      "Result",
+      undefined,
+      toolInvocations
+    );
 
     expect(result).toHaveLength(2);
     expect(result[1].type).toBe("tool-web_search");
@@ -267,7 +281,11 @@ describe("createPartsFromAIResponse", () => {
       },
     ];
 
-    const result = createPartsFromAIResponse("Result", undefined, toolInvocations);
+    const result = createPartsFromAIResponse(
+      "Result",
+      undefined,
+      toolInvocations
+    );
 
     expect(result).toHaveLength(3);
   });

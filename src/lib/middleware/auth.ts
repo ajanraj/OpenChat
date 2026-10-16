@@ -4,6 +4,7 @@
 
 import { createMiddleware } from "@tanstack/react-start";
 import { ConvexHttpClient } from "convex/browser";
+
 import type { Doc } from "@/convex/_generated/dataModel";
 
 // =============================================================================
@@ -30,7 +31,7 @@ function getConvexUrl(): string {
   const url = process.env.CONVEX_URL;
   if (!url) {
     throw new Error(
-      "Environment variable CONVEX_URL is missing. Please set it in your environment to the URL of your Convex deployment.",
+      "Environment variable CONVEX_URL is missing. Please set it in your environment to the URL of your Convex deployment."
     );
   }
   return url;
@@ -46,7 +47,7 @@ export function getServerRouteSecret(): string {
   const secret = process.env.SERVER_ROUTE_SECRET;
   if (!secret) {
     throw new Error(
-      "Environment variable SERVER_ROUTE_SECRET is missing. Set the same value in the web server env and in Convex (bunx convex env set SERVER_ROUTE_SECRET ...).",
+      "Environment variable SERVER_ROUTE_SECRET is missing. Set the same value in the web server env and in Convex (bunx convex env set SERVER_ROUTE_SECRET ...)."
     );
   }
   return secret;

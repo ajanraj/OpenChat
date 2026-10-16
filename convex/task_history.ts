@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
@@ -19,20 +20,22 @@ const taskHistoryEntityValidator = v.object({
 export async function pruneExecutionHistory(
   ctx: MutationCtx,
   taskId: Id<"scheduled_tasks">,
-  keepCount = 30,
+  keepCount = 30
 ): Promise<void> {
   const rows = await ctx.db
     .query("task_history")
     .withIndex("by_task_and_time", (q) => q.eq("taskId", taskId))
     .order("desc")
     .collect();
-  await Promise.all(rows.slice(keepCount).map((row) => ctx.db.delete("task_history", row._id)));
+  await Promise.all(
+    rows.slice(keepCount).map((row) => ctx.db.delete("task_history", row._id))
+  );
 }
 
 /** Deletes every execution row of a task; call before deleting the task itself. */
 export async function deleteExecutionHistory(
   ctx: MutationCtx,
-  taskId: Id<"scheduled_tasks">,
+  taskId: Id<"scheduled_tasks">
 ): Promise<void> {
   await pruneExecutionHistory(ctx, taskId, 0);
 }
@@ -86,7 +89,7 @@ export const getTaskExecutionStats = query({
         endTime: v.optional(v.number()),
         chatId: v.optional(v.id("chats")),
         isManualTrigger: v.optional(v.boolean()),
-      }),
+      })
     ),
   }),
   handler: async (ctx, args) => {
@@ -105,19 +108,28 @@ export const getTaskExecutionStats = query({
       .collect();
 
     const totalExecutions = allHistory.length;
-    const successfulExecutions = allHistory.filter((h) => h.status === "success").length;
+    const successfulExecutions = allHistory.filter(
+      (h) => h.status === "success"
+    ).length;
     const failedExecutions = allHistory.filter(
-      (h) => h.status === "failure" || h.status === "cancelled" || h.status === "timeout",
+      (h) =>
+        h.status === "failure" ||
+        h.status === "cancelled" ||
+        h.status === "timeout"
     ).length;
     const runningExecutions = allHistory.filter(
-      (h) => h.status === "running" || h.status === "pending",
+      (h) => h.status === "running" || h.status === "pending"
     ).length;
     const completedExecutions = successfulExecutions + failedExecutions;
     const successRate =
-      completedExecutions > 0 ? (successfulExecutions / completedExecutions) * 100 : 0;
+      completedExecutions > 0
+        ? (successfulExecutions / completedExecutions) * 100
+        : 0;
 
     // Calculate average duration for completed executions (only those with endTime)
-    const executionsWithEndTime = allHistory.filter((h) => h.endTime !== undefined);
+    const executionsWithEndTime = allHistory.filter(
+      (h) => h.endTime !== undefined
+    );
     const averageDuration =
       executionsWithEndTime.length > 0
         ? executionsWithEndTime.reduce((sum, h) => {
@@ -130,7 +142,7 @@ export const getTaskExecutionStats = query({
     const lastExecution =
       allHistory.length > 0
         ? allHistory.reduce((latest, current) =>
-            current.startTime > latest.startTime ? current : latest,
+            current.startTime > latest.startTime ? current : latest
           )
         : undefined;
 

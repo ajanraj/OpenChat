@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import type { RefObject } from 'react';
+import { useEffect } from "react";
+import type { RefObject } from "react";
 
 /**
  * Custom click-outside hook for edit components that ignores clicks on portal elements
@@ -7,7 +7,7 @@ import type { RefObject } from 'react';
  */
 export function useEditClickOutside<T extends HTMLElement>(
   ref: RefObject<T | null>,
-  handler: (event: MouseEvent | TouchEvent) => void,
+  handler: (event: MouseEvent | TouchEvent) => void
 ): void {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {

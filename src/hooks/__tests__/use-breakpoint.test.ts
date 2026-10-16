@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { useBreakpoint } from "../use-breakpoint";
 
 type ChangeListener = (event: string, callback: () => void) => void;
@@ -76,9 +77,12 @@ describe("useBreakpoint", () => {
       value: 600,
     });
 
-    const { result, rerender } = renderHook(({ breakpoint }) => useBreakpoint(breakpoint), {
-      initialProps: { breakpoint: 500 },
-    });
+    const { result, rerender } = renderHook(
+      ({ breakpoint }) => useBreakpoint(breakpoint),
+      {
+        initialProps: { breakpoint: 500 },
+      }
+    );
 
     // 600 > 500, so should be false
     expect(result.current).toBe(false);
@@ -160,6 +164,9 @@ describe("useBreakpoint", () => {
 
     unmount();
 
-    expect(removeEventListenerMock).toHaveBeenCalledWith("change", expect.any(Function));
+    expect(removeEventListenerMock).toHaveBeenCalledWith(
+      "change",
+      expect.any(Function)
+    );
   });
 });

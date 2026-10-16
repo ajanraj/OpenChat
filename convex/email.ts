@@ -1,6 +1,7 @@
 import { Resend } from "@convex-dev/resend";
 import { v } from "convex/values";
 import { marked } from "marked";
+
 import { components } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 
@@ -34,7 +35,10 @@ function markdownToSafeHtml(markdown: string): string {
 
   // Basic sanitization for email safety
   // Remove any script tags and their content
-  html = html.replaceAll(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  html = html.replaceAll(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    ""
+  );
 
   // Remove any on* event attributes
   html = html.replaceAll(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
@@ -46,22 +50,28 @@ function markdownToSafeHtml(markdown: string): string {
   // Remove data: URLs from images (except safe image formats)
   html = html.replaceAll(
     /src\s*=\s*["']?\s*data:(?!image\/(png|jpg|jpeg|gif|webp|svg\+xml))[^"'>]*/gi,
-    'src=""',
+    'src=""'
   );
 
   // Remove any style tags and their content (optional, but recommended for email)
-  html = html.replaceAll(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+  html = html.replaceAll(
+    /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
+    ""
+  );
 
   // Remove any meta tags
   html = html.replaceAll(/<meta\b[^>]*>/gi, "");
 
   // Remove any iframe tags
-  html = html.replaceAll(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
+  html = html.replaceAll(
+    /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
+    ""
+  );
 
   // Remove any object/embed tags
   html = html.replaceAll(
     /<(object|embed)\b[^<]*(?:(?!<\/(object|embed)>)<[^<]*)*<\/(object|embed)>/gi,
-    "",
+    ""
   );
 
   return html;

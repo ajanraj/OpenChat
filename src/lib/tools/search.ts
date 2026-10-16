@@ -1,14 +1,16 @@
 import { tool } from "ai";
 import { z } from "zod";
+
 import { classifyError } from "@/lib/error-utils";
+
 import { searchWithFallback } from "./search-provider-factory";
-import { SEARCH_CONFIG } from './types';
-import type { SearchOptions, SearchResult } from './types';
+import { SEARCH_CONFIG } from "./types";
+import type { SearchOptions, SearchResult } from "./types";
 
 // Result processing utilities
 export const truncateContent = (
   content: string,
-  maxLength: number = SEARCH_CONFIG.maxTextCharacters,
+  maxLength: number = SEARCH_CONFIG.maxTextCharacters
 ): string => {
   if (content.length <= maxLength) {
     return content;
@@ -38,49 +40,53 @@ interface SearchToolCallbacks {
   onSearchSuccess?: () => Promise<void> | void;
 }
 
-export const createSearchTool = ({ onSearchSuccess }: SearchToolCallbacks = {}) =>
+export const createSearchTool = ({
+  onSearchSuccess,
+}: SearchToolCallbacks = {}) =>
   tool({
     description:
       "Search the web for current information and facts. Use this when you need to verify current facts, find recent events, or get real-time data.",
     inputSchema: z.object({
-      query: z.string().describe("The search query string to find relevant web content"),
+      query: z
+        .string()
+        .describe("The search query string to find relevant web content"),
       maxResults: z
         .number()
         .optional()
         .default(SEARCH_CONFIG.maxResults)
         .describe(
-          "Maximum number of search results to return (default: 3). Use higher values (5-10) for comprehensive research, lower values (1-2) for quick facts",
+          "Maximum number of search results to return (default: 3). Use higher values (5-10) for comprehensive research, lower values (1-2) for quick facts"
         ),
       scrapeContent: z
         .boolean()
         .optional()
         .default(SEARCH_CONFIG.scrapeContent)
         .describe(
-          "Whether to fetch and include the full text content from web pages (default: true). Enable for detailed analysis, disable for faster searches when only titles/descriptions are needed",
+          "Whether to fetch and include the full text content from web pages (default: true). Enable for detailed analysis, disable for faster searches when only titles/descriptions are needed"
         ),
       includeDomains: z
         .array(z.string())
         .optional()
         .describe(
-          'Restrict search to specific domains (e.g., ["nytimes.com", "reuters.com"] for news). Use when you need information from trusted or specific sources',
+          'Restrict search to specific domains (e.g., ["nytimes.com", "reuters.com"] for news). Use when you need information from trusted or specific sources'
         ),
       excludeDomains: z
         .array(z.string())
         .optional()
         .describe(
-          'Exclude specific domains from search results (e.g., ["reddit.com", "pinterest.com"]). Use to filter out any website, forums, or unreliable sources',
+          'Exclude specific domains from search results (e.g., ["reddit.com", "pinterest.com"]). Use to filter out any website, forums, or unreliable sources'
         ),
       startPublishedDate: z
         .string()
         .optional()
         .describe(
-          "Filter results published after this date (YYYY-MM-DD format). Use for recent events, news, or time-sensitive information",
+          "Filter results published after this date (YYYY-MM-DD format). Use for recent events, news, or time-sensitive information"
         ),
       endPublishedDate: z
         .string()
         .optional()
         .describe(
-          "Filter results published before this date (YYYY-MM-DD format). Use to find historical information or exclude very recent unverified content",
+          "Filter results published before this date (YYYY-MM-DD format). Use to find historical information or exclude very recent unverified content"
         ),
       category: z
         .enum([
@@ -98,7 +104,7 @@ export const createSearchTool = ({ onSearchSuccess }: SearchToolCallbacks = {}) 
         ] as const)
         .optional()
         .describe(
-          'Focus search on specific content type for more targeted results. Options: "company" (businesses/corporations), "research paper" (academic papers), "news" (current events/articles), "linkedin profile" (professional profiles), "github" (code repositories), "tweet" (twitter/X posts), "movie" (film content), "song" (music), "personal site" (blogs/portfolios), "pdf" (PDF documents), "financial report" (financial documents)',
+          'Focus search on specific content type for more targeted results. Options: "company" (businesses/corporations), "research paper" (academic papers), "news" (current events/articles), "linkedin profile" (professional profiles), "github" (code repositories), "tweet" (twitter/X posts), "movie" (film content), "song" (music), "personal site" (blogs/portfolios), "pdf" (PDF documents), "financial report" (financial documents)'
         ),
     }),
     execute: async (
@@ -112,7 +118,7 @@ export const createSearchTool = ({ onSearchSuccess }: SearchToolCallbacks = {}) 
         endPublishedDate,
         category,
       },
-      { abortSignal },
+      { abortSignal }
     ) => {
       const options: SearchOptions = {
         maxResults,

@@ -1,9 +1,15 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, mutation, query } from './_generated/server';
-import type { MutationCtx } from './_generated/server';
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { getCurrentUserOrThrow } from "./lib/auth_helper";
 
 // Type for connector types
@@ -17,7 +23,7 @@ const CONNECTOR_TYPES = v.union(
   v.literal("slack"),
   v.literal("linear"),
   v.literal("github"),
-  v.literal("twitter"),
+  v.literal("twitter")
 );
 
 /**
@@ -35,7 +41,7 @@ export const listUserConnectors = query({
       isConnected: v.boolean(),
       enabled: v.optional(v.boolean()),
       displayName: v.optional(v.string()),
-    }),
+    })
   ),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -81,7 +87,9 @@ export const saveConnection = mutation({
     // Check if connector already exists
     const existingConnector = await ctx.db
       .query("connectors")
-      .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
+      )
       .unique();
 
     if (existingConnector) {
@@ -122,7 +130,9 @@ export const removeConnection = mutation({
     const userId = await ensureConnectorUser(ctx);
     const connector = await ctx.db
       .query("connectors")
-      .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
+      )
       .unique();
 
     if (!connector) {
@@ -148,7 +158,9 @@ export const setConnectorEnabled = mutation({
 
     const connector = await ctx.db
       .query("connectors")
-      .withIndex("by_user_and_type", (q) => q.eq("userId", userId).eq("type", args.type))
+      .withIndex("by_user_and_type", (q) =>
+        q.eq("userId", userId).eq("type", args.type)
+      )
       .unique();
 
     if (!connector) {
@@ -177,13 +189,13 @@ export const getConnectedConnectors = internalQuery({
       isConnected: v.boolean(),
       enabled: v.optional(v.boolean()),
       displayName: v.optional(v.string()),
-    }),
+    })
   ),
   handler: async (ctx, args) => {
     const connectors = await ctx.db
       .query("connectors")
       .withIndex("by_user_and_connected", (q) =>
-        q.eq("userId", args.userId).eq("isConnected", true),
+        q.eq("userId", args.userId).eq("isConnected", true)
       )
       .collect();
 
@@ -228,7 +240,7 @@ export const getAllUserConnectors = internalQuery({
       isConnected: v.boolean(),
       enabled: v.optional(v.boolean()),
       displayName: v.optional(v.string()),
-    }),
+    })
   ),
   handler: async (ctx, args) => {
     const connectors = await ctx.db

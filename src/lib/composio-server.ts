@@ -3,12 +3,13 @@ import {
   ComposioConnectedAccountNotRevokableError,
   ComposioConnectedAccountRevocationNotSupportedError,
 } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
-import type { ToolSet } from "ai";
 import type {
   ConnectedAccountListResponseItem,
   ToolRouterCreateSessionConfig,
 } from "@composio/core";
+import { VercelProvider } from "@composio/vercel";
+import type { ToolSet } from "ai";
+
 import { getAuthConfigId } from "./composio-utils";
 import type { ConnectorType } from "./types";
 
@@ -24,10 +25,17 @@ const composio = new Composio({
   allowTracking: false,
 });
 
-const normalizeToolkitSlugs = (toolkitSlugs: string[]): string[] =>
-  [...new Set(toolkitSlugs.map((slug) => slug.trim().toLowerCase()).filter((slug) => slug.length > 0))];
+const normalizeToolkitSlugs = (toolkitSlugs: string[]): string[] => [
+  ...new Set(
+    toolkitSlugs
+      .map((slug) => slug.trim().toLowerCase())
+      .filter((slug) => slug.length > 0)
+  ),
+];
 
-const createSessionConfig = (toolkitSlugs: string[]): ToolRouterCreateSessionConfig => ({
+const createSessionConfig = (
+  toolkitSlugs: string[]
+): ToolRouterCreateSessionConfig => ({
   toolkits: toolkitSlugs,
   manageConnections: false,
   sandbox: { enable: false },
@@ -45,19 +53,24 @@ export interface ComposioToolsSession {
  */
 const listUserConnectedAccounts = async (
   userId: string,
-  connectorType?: ConnectorType,
+  connectorType?: ConnectorType
 ): Promise<ConnectedAccountListResponseItem[]> => {
   const accounts: ConnectedAccountListResponseItem[] = [];
   let cursor: string | undefined;
   do {
-    const page = await composio.connectedAccounts.list({ userIds: [userId], cursor });
+    const page = await composio.connectedAccounts.list({
+      userIds: [userId],
+      cursor,
+    });
     accounts.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor);
 
   // Toolkit slugs are matched case-insensitively (Composio has used both cases).
   return connectorType
-    ? accounts.filter((account) => account.toolkit.slug.toLowerCase() === connectorType)
+    ? accounts.filter(
+        (account) => account.toolkit.slug.toLowerCase() === connectorType
+      )
     : accounts;
 };
 
@@ -68,17 +81,20 @@ const listUserConnectedAccounts = async (
 export const initiateConnection = async (
   userId: string,
   connectorType: ConnectorType,
-  callbackUrl?: string,
+  callbackUrl?: string
 ): Promise<{ redirectUrl: string; connectionRequestId: string }> => {
   const authConfigId = getAuthConfigId(connectorType);
 
   // Clean up the user's abandoned (non-active) attempts for this toolkit; keep working ones.
   try {
-    const existingAccounts = await listUserConnectedAccounts(userId, connectorType);
+    const existingAccounts = await listUserConnectedAccounts(
+      userId,
+      connectorType
+    );
     await Promise.all(
       existingAccounts
         .filter((account) => account.status !== "ACTIVE")
-        .map((account) => composio.connectedAccounts.delete(account.id)),
+        .map((account) => composio.connectedAccounts.delete(account.id))
     );
   } catch (error) {
     console.error("Failed to cleanup existing Composio connection:", error);
@@ -87,10 +103,14 @@ export const initiateConnection = async (
   // link() replaces initiate(), which Composio retired for managed OAuth configs on 2026-07-03.
   // allowMultiple: a still-active account (e.g. one whose Convex row was lost) would otherwise
   // make link throw. waitForConnection removes the replaced accounts once this one is active.
-  const connectionRequest = await composio.connectedAccounts.link(userId, authConfigId, {
-    allowMultiple: true,
-    ...(callbackUrl ? { callbackUrl } : {}),
-  });
+  const connectionRequest = await composio.connectedAccounts.link(
+    userId,
+    authConfigId,
+    {
+      allowMultiple: true,
+      ...(callbackUrl ? { callbackUrl } : {}),
+    }
+  );
 
   return {
     redirectUrl: connectionRequest.redirectUrl || "",
@@ -108,17 +128,19 @@ export const initiateConnection = async (
 export const waitForConnection = async (
   userId: string,
   connectionRequestId: string,
-  timeoutSeconds = 300,
+  timeoutSeconds = 300
 ): Promise<{ connectionId: string; isConnected: boolean } | null> => {
   const userAccounts = await listUserConnectedAccounts(userId);
-  const request = userAccounts.find((account) => account.id === connectionRequestId);
+  const request = userAccounts.find(
+    (account) => account.id === connectionRequestId
+  );
   if (!request) {
     return null;
   }
 
   const connectedAccount = await composio.connectedAccounts.waitForConnection(
     connectionRequestId,
-    timeoutSeconds * 1000, // Convert seconds to milliseconds
+    timeoutSeconds * 1000 // Convert seconds to milliseconds
   );
 
   const isConnected = connectedAccount.status === "ACTIVE";
@@ -130,10 +152,12 @@ export const waitForConnection = async (
     const replaced = userAccounts.filter(
       (account) =>
         account.toolkit.slug.toLowerCase() === toolkit &&
-        Date.parse(account.createdAt) < requestCreatedAt,
+        Date.parse(account.createdAt) < requestCreatedAt
     );
     try {
-      await Promise.all(replaced.map((account) => composio.connectedAccounts.delete(account.id)));
+      await Promise.all(
+        replaced.map((account) => composio.connectedAccounts.delete(account.id))
+      );
     } catch (error) {
       console.error("Failed to remove replaced Composio connections:", error);
     }
@@ -152,10 +176,12 @@ export const waitForConnection = async (
  */
 export const disconnectAccount = async (
   userId: string,
-  connectorType: ConnectorType,
+  connectorType: ConnectorType
 ): Promise<void> => {
   const accounts = await listUserConnectedAccounts(userId, connectorType);
-  await Promise.all(accounts.map((account) => composio.connectedAccounts.delete(account.id)));
+  await Promise.all(
+    accounts.map((account) => composio.connectedAccounts.delete(account.id))
+  );
 };
 
 /**
@@ -177,18 +203,21 @@ export const revokeUserConnections = async (userId: string): Promise<void> => {
           // Expected for toolkits without programmatic revocation (e.g. API keys) and for
           // accounts that never finished authenticating
           if (
-            !(error instanceof ComposioConnectedAccountRevocationNotSupportedError) &&
+            !(
+              error instanceof
+              ComposioConnectedAccountRevocationNotSupportedError
+            ) &&
             !(error instanceof ComposioConnectedAccountNotRevokableError)
           ) {
             console.warn(
               `Failed to revoke Composio ${account.toolkit.slug} account ${account.id} upstream; deleting it anyway:`,
-              error,
+              error
             );
           }
         }
       }
       await composio.connectedAccounts.delete(account.id);
-    }),
+    })
   );
 };
 
@@ -199,14 +228,21 @@ const SESSION_DELETE_TIMEOUT_MS = 5000;
  * Settles like `promise`, but rejects with the abort reason as soon as `signal` aborts. For SDK
  * calls whose typings take no signal: the request keeps running, it just stops being waited on.
  */
-const untilAborted = <T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> => {
+const untilAborted = <T>(
+  promise: Promise<T>,
+  signal: AbortSignal | undefined
+): Promise<T> => {
   if (!signal) {
     return promise;
   }
   return new Promise<T>((resolve, reject) => {
-    const onAbort = () =>{  reject(signal.reason); };
+    const onAbort = () => {
+      reject(signal.reason);
+    };
     // Attached first, so `promise` rejecting after an abort is still handled
-    promise.then(resolve, reject).finally(() =>{  signal.removeEventListener("abort", onAbort); });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
     if (signal.aborted) {
       onAbort();
       return;
@@ -223,7 +259,7 @@ const untilAborted = <T>(promise: Promise<T>, signal: AbortSignal | undefined): 
 export const getComposioTools = async (
   userId: string,
   toolkitSlugs: string[],
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<ComposioToolsSession | null> => {
   const normalizedToolkits = normalizeToolkitSlugs(toolkitSlugs);
 
@@ -233,12 +269,18 @@ export const getComposioTools = async (
 
   try {
     // Tool Router sessions retain task memory, so each agent run needs a fresh session.
-    const session = await composio.create(userId, createSessionConfig(normalizedToolkits), {
-      signal,
-    });
+    const session = await composio.create(
+      userId,
+      createSessionConfig(normalizedToolkits),
+      {
+        signal,
+      }
+    );
     const close = async (): Promise<void> => {
       try {
-        await session.delete({ signal: AbortSignal.timeout(SESSION_DELETE_TIMEOUT_MS) });
+        await session.delete({
+          signal: AbortSignal.timeout(SESSION_DELETE_TIMEOUT_MS),
+        });
       } catch (error) {
         console.error("Failed to delete Composio session:", error);
       }

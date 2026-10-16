@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
+import { describe, expect, it, vi } from "vitest";
+
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx, QueryCtx } from "../_generated/server";
 import {
@@ -10,26 +11,37 @@ import {
   hasActivePremium,
   syncSubscriptionFromStripe,
 } from "../stripe";
-import { applySubscriptionSnapshot, onInvoicePaid, reserveSubscriptionSync } from "../subscription";
+import {
+  applySubscriptionSnapshot,
+  onInvoicePaid,
+  reserveSubscriptionSync,
+} from "../subscription";
 
 const mocks = vi.hoisted(() => ({
   createCustomer: vi.fn<() => Promise<{ customerId: string }>>(async () => ({
     customerId: "cus_new",
   })),
-  createCheckoutSession: vi.fn<() => Promise<{ sessionId: string; url: string | null }>>(
-    async () => ({ sessionId: "cs_new", url: "https://checkout.stripe.com/new" }),
-  ),
-  createCustomerPortalSession: vi.fn<() => Promise<{ url: string }>>(async () => ({
-    url: "https://billing.stripe.com/portal",
+  createCheckoutSession: vi.fn<
+    () => Promise<{ sessionId: string; url: string | null }>
+  >(async () => ({
+    sessionId: "cs_new",
+    url: "https://checkout.stripe.com/new",
   })),
+  createCustomerPortalSession: vi.fn<() => Promise<{ url: string }>>(
+    async () => ({
+      url: "https://billing.stripe.com/portal",
+    })
+  ),
   processEvent: vi.fn<() => Promise<void>>(async () => undefined),
   retrieveSubscription: vi.fn<(id: string) => Promise<unknown>>(),
-  listCheckoutSessions: vi.fn<() => Promise<{ data: Array<{ url: string | null }> }>>(async () => ({
+  listCheckoutSessions: vi.fn<
+    () => Promise<{ data: Array<{ url: string | null }> }>
+  >(async () => ({
     data: [],
   })),
-  rateLimiterReset: vi.fn<(ctx: unknown, name: string, options: { key: string }) => Promise<void>>(
-    async () => undefined,
-  ),
+  rateLimiterReset: vi.fn<
+    (ctx: unknown, name: string, options: { key: string }) => Promise<void>
+  >(async () => undefined),
 }));
 
 vi.mock("../rateLimiter", () => ({
@@ -65,14 +77,20 @@ const USER_ID = "users:user1" as Id<"users">;
 type Row = Record<string, unknown> & { _id: string; _table: string };
 
 /** Minimal in-memory ctx.db supporting the index lookups our billing mutations use. */
-function fakeDb(user: { _id: Id<"users">; isAnonymous: boolean } | null = null) {
+function fakeDb(
+  user: { _id: Id<"users">; isAnonymous: boolean } | null = null
+) {
   const rows: Row[] = [];
   return {
     rows,
-    normalizeId: (_table: string, id: string) => (user && id === user._id ? id : null),
+    normalizeId: (_table: string, id: string) =>
+      user && id === user._id ? id : null,
     get: async () => user,
     query: (table: string) => ({
-      withIndex: (_index: string, build: (q: { eq: (f: string, v: unknown) => void }) => void) => {
+      withIndex: (
+        _index: string,
+        build: (q: { eq: (f: string, v: unknown) => void }) => void
+      ) => {
         let field = "";
         let value: unknown;
         build({
@@ -82,7 +100,8 @@ function fakeDb(user: { _id: Id<"users">; isAnonymous: boolean } | null = null) 
           },
         });
         return {
-          unique: async () => rows.find((r) => r._table === table && r[field] === value) ?? null,
+          unique: async () =>
+            rows.find((r) => r._table === table && r[field] === value) ?? null,
         };
       },
     }),
@@ -91,7 +110,11 @@ function fakeDb(user: { _id: Id<"users">; isAnonymous: boolean } | null = null) 
       rows.push({ ...doc, _id, _table: table });
       return _id;
     },
-    patch: async (_table: string, id: string, fields: Record<string, unknown>) => {
+    patch: async (
+      _table: string,
+      id: string,
+      fields: Record<string, unknown>
+    ) => {
       Object.assign(rows.find((r) => r._id === id) ?? {}, fields);
     },
   };
@@ -106,13 +129,20 @@ describe("getOrCreateCustomerId", () => {
 
   it("reuses the customer linked to this user", async () => {
     mocks.createCustomer.mockClear();
-    await expect(getOrCreateCustomerId(ctxWithCustomer({ stripeCustomerId: "cus_old" }), user)).resolves.toBe("cus_old");
+    await expect(
+      getOrCreateCustomerId(
+        ctxWithCustomer({ stripeCustomerId: "cus_old" }),
+        user
+      )
+    ).resolves.toBe("cus_old");
     expect(mocks.createCustomer).not.toHaveBeenCalled();
   });
 
   it("creates a customer linked by userId instead of matching by email", async () => {
     mocks.createCustomer.mockClear();
-    await expect(getOrCreateCustomerId(ctxWithCustomer(null), user)).resolves.toBe("cus_new");
+    await expect(
+      getOrCreateCustomerId(ctxWithCustomer(null), user)
+    ).resolves.toBe("cus_new");
     expect(mocks.createCustomer).toHaveBeenCalledWith(expect.anything(), {
       email: user.email,
       name: user.name,
@@ -124,7 +154,7 @@ describe("getOrCreateCustomerId", () => {
 
 function ctxWithStatuses(statuses: string[]) {
   const runQuery = vi.fn<() => Promise<Array<{ status: string }>>>(async () =>
-    statuses.map((status) => ({ status })),
+    statuses.map((status) => ({ status }))
   );
   return { runQuery } as unknown as Pick<QueryCtx, "runQuery">;
 }
@@ -138,24 +168,35 @@ describe("hasActivePremium", () => {
     [["canceled", "incomplete_expired", "unpaid"], false],
     [[], false],
   ])("statuses %j -> %s", async (statuses, expected) => {
-    await expect(hasActivePremium(ctxWithStatuses(statuses), USER_ID)).resolves.toBe(expected);
+    await expect(
+      hasActivePremium(ctxWithStatuses(statuses), USER_ID)
+    ).resolves.toBe(expected);
   });
 });
 
 describe("onInvoicePaid", () => {
-  type Handler = (ctx: unknown, args: { userId: string; stripeInvoiceId: string }) => Promise<null>;
+  type Handler = (
+    ctx: unknown,
+    args: { userId: string; stripeInvoiceId: string }
+  ) => Promise<null>;
   const handler = onInvoicePaid as unknown as Handler;
   const existingUser = { _id: USER_ID, isAnonymous: false };
 
   it("ignores user IDs that aren't existing users", async () => {
     mocks.rateLimiterReset.mockClear();
-    await handler({ db: fakeDb(null) }, { userId: "not-a-user", stripeInvoiceId: "in_1" });
+    await handler(
+      { db: fakeDb(null) },
+      { userId: "not-a-user", stripeInvoiceId: "in_1" }
+    );
     expect(mocks.rateLimiterReset).not.toHaveBeenCalled();
   });
 
   it("ignores valid user IDs whose user was deleted", async () => {
     mocks.rateLimiterReset.mockClear();
-    const db = { ...fakeDb(null), normalizeId: (_table: string, id: string) => id };
+    const db = {
+      ...fakeDb(null),
+      normalizeId: (_table: string, id: string) => id,
+    };
     await handler({ db }, { userId: USER_ID, stripeInvoiceId: "in_1" });
     expect(mocks.rateLimiterReset).not.toHaveBeenCalled();
     expect(db.rows).toEqual([]);
@@ -163,9 +204,18 @@ describe("onInvoicePaid", () => {
 
   it("resets the user's daily and monthly credits", async () => {
     mocks.rateLimiterReset.mockClear();
-    await handler({ db: fakeDb(existingUser) }, { userId: USER_ID, stripeInvoiceId: "in_1" });
-    const resetNames = mocks.rateLimiterReset.mock.calls.map(([, name]) => name);
-    expect(resetNames).toEqual(["authenticatedDaily", "standardMonthly", "premiumMonthly"]);
+    await handler(
+      { db: fakeDb(existingUser) },
+      { userId: USER_ID, stripeInvoiceId: "in_1" }
+    );
+    const resetNames = mocks.rateLimiterReset.mock.calls.map(
+      ([, name]) => name
+    );
+    expect(resetNames).toEqual([
+      "authenticatedDaily",
+      "standardMonthly",
+      "premiumMonthly",
+    ]);
     for (const [, , options] of mocks.rateLimiterReset.mock.calls) {
       expect(options).toEqual({ key: USER_ID });
     }
@@ -173,9 +223,14 @@ describe("onInvoicePaid", () => {
 
   it("fails (so Stripe redelivers) when a credit reset fails", async () => {
     mocks.rateLimiterReset.mockClear();
-    mocks.rateLimiterReset.mockRejectedValueOnce(new Error("rate limiter unavailable"));
+    mocks.rateLimiterReset.mockRejectedValueOnce(
+      new Error("rate limiter unavailable")
+    );
     await expect(
-      handler({ db: fakeDb(existingUser) }, { userId: USER_ID, stripeInvoiceId: "in_1" }),
+      handler(
+        { db: fakeDb(existingUser) },
+        { userId: USER_ID, stripeInvoiceId: "in_1" }
+      )
     ).rejects.toThrow("rate limiter unavailable");
   });
 
@@ -191,19 +246,25 @@ describe("onInvoicePaid", () => {
 });
 
 describe("subscription sync revisions", () => {
-  type Reserve = (ctx: unknown, args: { stripeSubscriptionId: string }) => Promise<number>;
+  type Reserve = (
+    ctx: unknown,
+    args: { stripeSubscriptionId: string }
+  ) => Promise<number>;
   type Apply = (
     ctx: unknown,
-    args: { revision: number; snapshot: Record<string, unknown> },
+    args: { revision: number; snapshot: Record<string, unknown> }
   ) => Promise<boolean>;
   const reserve = reserveSubscriptionSync as unknown as Reserve;
   const apply = applySubscriptionSnapshot as unknown as Apply;
-  const snapshot = (status: string) => ({ stripeSubscriptionId: "sub_1", status });
+  const snapshot = (status: string) => ({
+    stripeSubscriptionId: "sub_1",
+    status,
+  });
 
   const setup = () => {
-    const runMutation = vi.fn<(ref: unknown, args: { status: string }) => Promise<null>>(
-      async () => null,
-    );
+    const runMutation = vi.fn<
+      (ref: unknown, args: { status: string }) => Promise<null>
+    >(async () => null);
     const ctx = { db: fakeDb(), runMutation };
     const stored = () => runMutation.mock.calls.map(([, args]) => args.status);
     return { ctx, stored };
@@ -211,9 +272,15 @@ describe("subscription sync revisions", () => {
 
   it("reserves increasing revisions per subscription", async () => {
     const { ctx } = setup();
-    await expect(reserve(ctx, { stripeSubscriptionId: "sub_1" })).resolves.toBe(1);
-    await expect(reserve(ctx, { stripeSubscriptionId: "sub_1" })).resolves.toBe(2);
-    await expect(reserve(ctx, { stripeSubscriptionId: "sub_2" })).resolves.toBe(1);
+    await expect(reserve(ctx, { stripeSubscriptionId: "sub_1" })).resolves.toBe(
+      1
+    );
+    await expect(reserve(ctx, { stripeSubscriptionId: "sub_1" })).resolves.toBe(
+      2
+    );
+    await expect(reserve(ctx, { stripeSubscriptionId: "sub_2" })).resolves.toBe(
+      1
+    );
   });
 
   // Concurrent deliveries: read A (active) reserves first, read B (canceled) reserves later but
@@ -222,8 +289,12 @@ describe("subscription sync revisions", () => {
     const { ctx, stored } = setup();
     const a = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
     const b = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
-    await expect(apply(ctx, { revision: b, snapshot: snapshot("canceled") })).resolves.toBe(true);
-    await expect(apply(ctx, { revision: a, snapshot: snapshot("active") })).resolves.toBe(false);
+    await expect(
+      apply(ctx, { revision: b, snapshot: snapshot("canceled") })
+    ).resolves.toBe(true);
+    await expect(
+      apply(ctx, { revision: a, snapshot: snapshot("active") })
+    ).resolves.toBe(false);
     expect(stored()).toEqual(["canceled"]);
   });
 
@@ -240,7 +311,9 @@ describe("subscription sync revisions", () => {
     const { ctx, stored } = setup();
     await reserve(ctx, { stripeSubscriptionId: "sub_1" }); // read failed, never applied
     const retry = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
-    await expect(apply(ctx, { revision: retry, snapshot: snapshot("canceled") })).resolves.toBe(true);
+    await expect(
+      apply(ctx, { revision: retry, snapshot: snapshot("canceled") })
+    ).resolves.toBe(true);
     expect(stored()).toEqual(["canceled"]);
   });
 });
@@ -254,20 +327,32 @@ describe("syncSubscriptionFromStripe", () => {
       cancel_at_period_end: false,
       cancel_at: null,
       metadata: { userId: USER_ID },
-      items: { data: [{ current_period_end: 1_800_000_000, quantity: 1, price: { id: "p_1" } }] },
+      items: {
+        data: [
+          {
+            current_period_end: 1_800_000_000,
+            quantity: 1,
+            price: { id: "p_1" },
+          },
+        ],
+      },
     });
     const runMutation = vi
-      .fn<(ref: unknown, args: Record<string, unknown>) => Promise<number | null>>()
+      .fn<
+        (ref: unknown, args: Record<string, unknown>) => Promise<number | null>
+      >()
       .mockResolvedValueOnce(1)
       .mockResolvedValue(null);
     const { default: StripeClass } = await import("stripe");
     await syncSubscriptionFromStripe(
       { runMutation } as unknown as ActionCtx,
       new StripeClass("sk_test"),
-      "sub_1",
+      "sub_1"
     );
     expect(mocks.retrieveSubscription).toHaveBeenLastCalledWith("sub_1");
-    expect(runMutation.mock.calls[0]?.[1]).toEqual({ stripeSubscriptionId: "sub_1" });
+    expect(runMutation.mock.calls[0]?.[1]).toEqual({
+      stripeSubscriptionId: "sub_1",
+    });
     expect(runMutation.mock.calls[1]?.[1]).toMatchObject({
       revision: 1,
       snapshot: {
@@ -286,7 +371,11 @@ describe("syncSubscriptionFromStripe", () => {
     const runMutation = vi.fn<() => Promise<number>>(async () => 1);
     const { default: StripeClass } = await import("stripe");
     await expect(
-      syncSubscriptionFromStripe({ runMutation }, new StripeClass("sk_test"), "sub_1"),
+      syncSubscriptionFromStripe(
+        { runMutation },
+        new StripeClass("sk_test"),
+        "sub_1"
+      )
     ).rejects.toThrow("Stripe down");
     // Only the revision was reserved; nothing was stored
     expect(runMutation).toHaveBeenCalledOnce();
@@ -296,14 +385,14 @@ describe("syncSubscriptionFromStripe", () => {
 describe("handleStripeEvent", () => {
   const run = async (event: Record<string, unknown>) => {
     mocks.processEvent.mockClear();
-    const runMutation = vi.fn<(ref: unknown, args: Record<string, unknown>) => Promise<null>>(
-      async () => null,
-    );
+    const runMutation = vi.fn<
+      (ref: unknown, args: Record<string, unknown>) => Promise<null>
+    >(async () => null);
     const { default: StripeClass } = await import("stripe");
     await handleStripeEvent(
       { runMutation } as unknown as ActionCtx,
       new StripeClass("sk_test"),
-      event as unknown as Stripe.Event,
+      event as unknown as Stripe.Event
     );
     return runMutation;
   };
@@ -312,20 +401,26 @@ describe("handleStripeEvent", () => {
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
-  ])("%s re-reads the subscription and skips the event snapshot", async (type) => {
-    mocks.retrieveSubscription.mockResolvedValueOnce({
-      id: "sub_1",
-      customer: "cus_1",
-      status: "active",
-      cancel_at_period_end: false,
-      cancel_at: null,
-      metadata: {},
-      items: { data: [] },
-    });
-    await run({ type, data: { object: { id: "sub_1", status: "canceled" } } });
-    expect(mocks.processEvent).not.toHaveBeenCalled();
-    expect(mocks.retrieveSubscription).toHaveBeenLastCalledWith("sub_1");
-  });
+  ])(
+    "%s re-reads the subscription and skips the event snapshot",
+    async (type) => {
+      mocks.retrieveSubscription.mockResolvedValueOnce({
+        id: "sub_1",
+        customer: "cus_1",
+        status: "active",
+        cancel_at_period_end: false,
+        cancel_at: null,
+        metadata: {},
+        items: { data: [] },
+      });
+      await run({
+        type,
+        data: { object: { id: "sub_1", status: "canceled" } },
+      });
+      expect(mocks.processEvent).not.toHaveBeenCalled();
+      expect(mocks.retrieveSubscription).toHaveBeenLastCalledWith("sub_1");
+    }
+  );
 
   it("invoice.paid syncs the invoice and resets credits once per invoice id", async () => {
     const runMutation = await run({
@@ -339,20 +434,33 @@ describe("handleStripeEvent", () => {
       },
     });
     expect(mocks.processEvent).toHaveBeenCalledOnce();
-    expect(runMutation.mock.calls[0]?.[1]).toEqual({ userId: USER_ID, stripeInvoiceId: "in_1" });
+    expect(runMutation.mock.calls[0]?.[1]).toEqual({
+      userId: USER_ID,
+      stripeInvoiceId: "in_1",
+    });
   });
 
   it("other events use the component's default syncing", async () => {
-    const runMutation = await run({ type: "customer.updated", data: { object: { id: "cus_1" } } });
+    const runMutation = await run({
+      type: "customer.updated",
+      data: { object: { id: "cus_1" } },
+    });
     expect(mocks.processEvent).toHaveBeenCalledOnce();
     expect(runMutation).not.toHaveBeenCalled();
   });
 });
 
 describe("createCheckout", () => {
-  type Handler = (ctx: unknown, args: Record<string, never>) => Promise<{ url: string }>;
+  type Handler = (
+    ctx: unknown,
+    args: Record<string, never>
+  ) => Promise<{ url: string }>;
   const handler = createCheckout as unknown as Handler;
-  const signedInUser = { _id: USER_ID, email: "a@example.com", isAnonymous: false };
+  const signedInUser = {
+    _id: USER_ID,
+    email: "a@example.com",
+    isAnonymous: false,
+  };
 
   const ctxWith = (statuses: string[]) => ({
     runQuery: vi
@@ -373,7 +481,7 @@ describe("createCheckout", () => {
       });
       expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
       vi.unstubAllEnvs();
-    },
+    }
   );
 
   it("reuses the user's open checkout instead of creating another", async () => {
@@ -394,7 +502,9 @@ describe("createCheckout", () => {
     vi.stubEnv("STRIPE_PREMIUM_PRICE_ID", "price_test");
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test");
     mocks.createCheckoutSession.mockClear();
-    await expect(handler(ctxWith([]), {})).resolves.toEqual({ url: "https://checkout.stripe.com/new" });
+    await expect(handler(ctxWith([]), {})).resolves.toEqual({
+      url: "https://checkout.stripe.com/new",
+    });
     expect(mocks.createCheckoutSession).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -402,8 +512,11 @@ describe("createCheckout", () => {
         customerId: "cus_1",
         mode: "subscription",
         subscriptionMetadata: { userId: USER_ID },
-        params: { managed_payments: { enabled: true }, allow_promotion_codes: true },
-      }),
+        params: {
+          managed_payments: { enabled: true },
+          allow_promotion_codes: true,
+        },
+      })
     );
     vi.unstubAllEnvs();
   });

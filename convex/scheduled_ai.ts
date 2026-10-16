@@ -1,23 +1,24 @@
 "use node";
 
-import type { Tool, UIMessage, UIMessageStreamWriter } from "ai";
 import { Redis } from "@upstash/redis";
-import {
-  ScheduledAgentMemory,
-  formatWorkingMemoryPrompt,
-} from "../src/lib/ai/scheduled-agent-memory";
+import type { Tool, UIMessage, UIMessageStreamWriter } from "ai";
 import { ConvexError, v } from "convex/values";
 import dayjs from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
+
 import { createScheduledAgent } from "../src/lib/ai/agent";
+import {
+  ScheduledAgentMemory,
+  formatWorkingMemoryPrompt,
+} from "../src/lib/ai/scheduled-agent-memory";
 import { MODELS_MAP } from "../src/lib/config";
 import { SCHEDULED_AGENT_MODEL_ID } from "../src/lib/config/models/minimax";
 import type { ConnectorStatusLists } from "../src/lib/connector-utils";
 import { createAgentTool } from "../src/lib/create-agent-tool";
 import { limitDepth } from "../src/lib/depth-limiter";
-import { ERROR_CODES, getErrorMessage } from '../src/lib/error-codes';
-import type { ErrorCode } from '../src/lib/error-codes';
+import { ERROR_CODES, getErrorMessage } from "../src/lib/error-codes";
+import type { ErrorCode } from "../src/lib/error-codes";
 import { buildSystemPrompt } from "../src/lib/prompt_config";
 import { createMeteredSearchTool } from "../src/lib/tools/search-credit-metering";
 import { internal } from "./_generated/api";
@@ -65,7 +66,10 @@ export const executeTask = internalAction({
     // Every path must end here (or the claim expires as "timeout")
     const finish = async (
       outcome: "success" | "failure" | "paused",
-      details: { errorMessage?: string; metadata?: Doc<"task_history">["metadata"] } = {},
+      details: {
+        errorMessage?: string;
+        metadata?: Doc<"task_history">["metadata"];
+      } = {}
     ): Promise<null> =>
       await ctx.runMutation(internal.scheduled_tasks.finishTaskExecution, {
         taskId: task._id,
@@ -78,7 +82,9 @@ export const executeTask = internalAction({
     // Started too late (the action queue lagged): no generation time is left, and running on could
     // outlive the claim, so end the run before charging a credit, creating a chat, or calling tools
     if (startTime >= generationDeadline) {
-      return await finish("failure", { errorMessage: "The run could not start in time." });
+      return await finish("failure", {
+        errorMessage: "The run could not start in time.",
+      });
     }
 
     try {
@@ -86,26 +92,36 @@ export const executeTask = internalAction({
       const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
       const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
       if (!redisUrl || !redisToken) {
-        throw new Error("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars");
+        throw new Error(
+          "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars"
+        );
       }
 
       // Get user details
-      const user: Doc<"users"> | null = await ctx.runQuery(internal.users.getUser, {
-        userId: task.userId,
-      });
+      const user: Doc<"users"> | null = await ctx.runQuery(
+        internal.users.getUser,
+        {
+          userId: task.userId,
+        }
+      );
       if (!user) {
         throw new Error("User not found");
       }
 
       // Get profile if assigned (validate ownership to prevent cross-user data leakage)
       const fetchedProfile = task.profileId
-        ? await ctx.runQuery(internal.profiles.getProfileInternal, { profileId: task.profileId })
+        ? await ctx.runQuery(internal.profiles.getProfileInternal, {
+            profileId: task.profileId,
+          })
         : null;
-      const profile = fetchedProfile?.userId === task.userId ? fetchedProfile : null;
+      const profile =
+        fetchedProfile?.userId === task.userId ? fetchedProfile : null;
 
       const selectedModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
       if (!selectedModel) {
-        throw new Error(`Scheduled agent model ${SCHEDULED_AGENT_MODEL_ID} is not configured`);
+        throw new Error(
+          `Scheduled agent model ${SCHEDULED_AGENT_MODEL_ID} is not configured`
+        );
       }
 
       // Enforce subscription access and charge the credit up front, before creating the chat,
@@ -117,11 +133,14 @@ export const executeTask = internalAction({
       };
       try {
         if (selectedModel.skipRateLimit) {
-          await ctx.runMutation(internal.users.assertNotOverLimitInternal, creditArgs);
+          await ctx.runMutation(
+            internal.users.assertNotOverLimitInternal,
+            creditArgs
+          );
         } else {
           chargedCredit = await ctx.runMutation(
             internal.users.consumeMessageCreditInternal,
-            creditArgs,
+            creditArgs
           );
         }
       } catch (error) {
@@ -130,14 +149,18 @@ export const executeTask = internalAction({
           typeof error.data === "string" &&
           PAUSING_LIMIT_ERRORS.has(error.data)
         ) {
-          await finish("paused", { errorMessage: getErrorMessage(error.data as ErrorCode) });
+          await finish("paused", {
+            errorMessage: getErrorMessage(error.data as ErrorCode),
+          });
           return null;
         }
         throw error;
       }
 
       // Create a new chat for each task execution, titled with the run time in the user's zone
-      const executionDate = dayjs().tz(task.timezone).format("YYYY-MM-DD HH:mm");
+      const executionDate = dayjs()
+        .tz(task.timezone)
+        .format("YYYY-MM-DD HH:mm");
       const chat = await ctx.runMutation(internal.chats.createChatInternal, {
         userId: task.userId,
         title: `${task.title} - ${executionDate}`,
@@ -161,13 +184,19 @@ export const executeTask = internalAction({
       let connectorsStatus: ConnectorStatusLists | undefined;
       try {
         // Get user's connected connectors (Gmail, Google Calendar, Notion, etc.)
-        const connectedConnectors = await ctx.runQuery(internal.connectors.getConnectedConnectors, {
-          userId: task.userId,
-        });
+        const connectedConnectors = await ctx.runQuery(
+          internal.connectors.getConnectedConnectors,
+          {
+            userId: task.userId,
+          }
+        );
         // Also get all connectors (including disabled) for status reporting
-        const allUserConnectors = await ctx.runQuery(internal.connectors.getAllUserConnectors, {
-          userId: task.userId,
-        });
+        const allUserConnectors = await ctx.runQuery(
+          internal.connectors.getAllUserConnectors,
+          {
+            userId: task.userId,
+          }
+        );
 
         // console.log('Connected connectors:', connectedConnectors);
 
@@ -186,7 +215,7 @@ export const executeTask = internalAction({
           .filter((c) => c.isConnected && c.enabled === false)
           .map((c) => c.type.toUpperCase());
         const presentTypes = new Set(
-          allUserConnectors.filter((c) => c.isConnected).map((c) => c.type),
+          allUserConnectors.filter((c) => c.isConnected).map((c) => c.type)
         );
         // Supported types (server-safe, without importing UI modules)
         const SUPPORTED_TYPES = [
@@ -201,9 +230,9 @@ export const executeTask = internalAction({
           "github",
           "twitter",
         ] as const;
-        const notConnectedSlugs = SUPPORTED_TYPES.filter((t) => !presentTypes.has(t)).map((t) =>
-          t.toUpperCase(),
-        );
+        const notConnectedSlugs = SUPPORTED_TYPES.filter(
+          (t) => !presentTypes.has(t)
+        ).map((t) => t.toUpperCase());
 
         connectorsStatus = {
           enabled: enabledSlugs,
@@ -224,7 +253,7 @@ export const executeTask = internalAction({
         task.emailNotifications, // Enable email mode when notifications are enabled
         true, // Enable task mode for autonomous execution
         connectorsStatus,
-        profile,
+        profile
       );
 
       // console.log('Selected model:', selectedModel);
@@ -238,7 +267,7 @@ export const executeTask = internalAction({
           content: task.prompt,
           parts: [{ type: "text", text: task.prompt }],
           metadata: {},
-        },
+        }
       );
 
       // Execute AI request using Agent from ai-sdk-tools
@@ -256,10 +285,13 @@ export const executeTask = internalAction({
       const meteredSearchTool = createMeteredSearchTool({
         enableSearch: Boolean(task.enableSearch),
         consumeStandardCredits: async (count) => {
-          await ctx.runMutation(internal.users.incrementStandardCreditsInternal, {
-            userId: task.userId,
-            count,
-          });
+          await ctx.runMutation(
+            internal.users.incrementStandardCreditsInternal,
+            {
+              userId: task.userId,
+              count,
+            }
+          );
         },
       });
 
@@ -352,7 +384,9 @@ export const executeTask = internalAction({
 
       // Construct UI-compatible parts for the final message
       // Since Agent abstracts steps, we only save the final response to Convex
-      const assistantParts: NonNullable<UIMessage["parts"]> = [{ type: "text", text: textContent }];
+      const assistantParts: NonNullable<UIMessage["parts"]> = [
+        { type: "text", text: textContent },
+      ];
 
       // Limit depth of parts to prevent Convex nesting limit errors
       const depthLimitedParts = limitDepth(assistantParts, 14);
@@ -405,7 +439,10 @@ export const executeTask = internalAction({
             receipt: chargedCredit,
           })
           .catch((refundError: unknown) => {
-            console.error("Failed to refund scheduled task credit:", refundError);
+            console.error(
+              "Failed to refund scheduled task credit:",
+              refundError
+            );
           });
       }
       // One-time tasks are archived; recurring tasks keep the next run booked at claim time

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { ThemeEditorState } from "../../types/theme";
 import { applyThemeToElement } from "../apply-theme";
 
@@ -29,7 +30,9 @@ const defaultHslAdjustments = {
 };
 
 // Helper to create a valid ThemeEditorState
-const createThemeState = (overrides: Partial<ThemeEditorState> = {}): ThemeEditorState => ({
+const createThemeState = (
+  overrides: Partial<ThemeEditorState> = {}
+): ThemeEditorState => ({
   currentMode: "light",
   styles: {
     light: mockLightStyles as never,
@@ -54,7 +57,9 @@ describe("applyThemeToElement", () => {
     const themeState = createThemeState();
 
     // Should not throw
-    expect(() =>{  applyThemeToElement(themeState, null as unknown as HTMLElement); }).not.toThrow();
+    expect(() => {
+      applyThemeToElement(themeState, null as unknown as HTMLElement);
+    }).not.toThrow();
   });
 
   it("applies light mode class correctly", () => {
@@ -79,8 +84,12 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(themeState, mockElement);
 
-    expect(mockElement.style.getPropertyValue("--background")).toBe("oklch(1 0 0)");
-    expect(mockElement.style.getPropertyValue("--foreground")).toBe("oklch(0.141 0.005 285.823)");
+    expect(mockElement.style.getPropertyValue("--background")).toBe(
+      "oklch(1 0 0)"
+    );
+    expect(mockElement.style.getPropertyValue("--foreground")).toBe(
+      "oklch(0.141 0.005 285.823)"
+    );
   });
 
   it("sets color CSS variables for dark mode", () => {
@@ -88,8 +97,12 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(themeState, mockElement);
 
-    expect(mockElement.style.getPropertyValue("--background")).toBe("oklch(0.2 0 0)");
-    expect(mockElement.style.getPropertyValue("--foreground")).toBe("oklch(0.985 0 0)");
+    expect(mockElement.style.getPropertyValue("--background")).toBe(
+      "oklch(0.2 0 0)"
+    );
+    expect(mockElement.style.getPropertyValue("--foreground")).toBe(
+      "oklch(0.985 0 0)"
+    );
   });
 
   it("sets common styles like radius", () => {

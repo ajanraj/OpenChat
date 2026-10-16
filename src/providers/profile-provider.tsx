@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { useEditorStore } from "../lib/store/editor-store";
@@ -32,7 +33,10 @@ interface ProfileContextType {
    * has no profile, or for a signed-out visitor (so no chats yet); undefined while unknown.
    */
   chatListProfileId: Id<"profiles"> | null | undefined;
-  setActiveProfile: (profileId: Id<"profiles">, currentChatId?: string | null) => void;
+  setActiveProfile: (
+    profileId: Id<"profiles">,
+    currentChatId?: string | null
+  ) => void;
   isProfilesLoading: boolean;
   slideDirection: number;
   getLastChatForProfile: (profileId: Id<"profiles">) => string | null;
@@ -65,7 +69,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   });
 
   const { data: profiles = [], isLoading } = useTanStackQuery({
-    ...convexQuery(api.profiles.listProfiles, user && !user.isAnonymous ? {} : "skip"),
+    ...convexQuery(
+      api.profiles.listProfiles,
+      user && !user.isAnonymous ? {} : "skip"
+    ),
     enabled: Boolean(user) && !user?.isAnonymous,
     // Dropped with its account, so a later session waits for its own instead of showing these
     gcTime: 0,
@@ -103,7 +110,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // (adjusting state during render instead of in an effect).
   if (
     optimisticActiveProfileId &&
-    (!user || user.isAnonymous || user.activeProfileId === optimisticActiveProfileId)
+    (!user ||
+      user.isAnonymous ||
+      user.activeProfileId === optimisticActiveProfileId)
   ) {
     setOptimisticActiveProfileId(undefined);
   }
@@ -113,7 +122,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!activeProfileId || profiles.length === 0) {
       return profiles.find((p) => p.isDefault);
     }
-    return profiles.find((p) => p._id === activeProfileId) ?? profiles.find((p) => p.isDefault);
+    return (
+      profiles.find((p) => p._id === activeProfileId) ??
+      profiles.find((p) => p.isDefault)
+    );
   }, [activeProfileId, profiles]);
   // The stored id lets chats load alongside the profiles (anonymous users never load profiles; their
   // first chat creates a default profile and makes it active)
@@ -123,27 +135,32 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Apply theme config when active profile changes
   const prevProfileIdRef = useRef<Id<"profiles"> | undefined>(undefined);
-  const themeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const themeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
   const lastSavedThemeRef = useRef<string>("");
   // Tracks whether a theme edit is pending flush (survives debounce-effect cleanup)
   const pendingThemeSaveRef = useRef(false);
 
   // Saves a theme edit still waiting on its debounce to the profile it was made for, right away.
   // Best-effort: a session that has already ended can't save it.
-  const flushPendingThemeSave = useCallback((profileId: Id<"profiles"> | undefined) => {
-    if (!pendingThemeSaveRef.current) {
-      return;
-    }
-    clearTimeout(themeSaveTimerRef.current);
-    themeSaveTimerRef.current = undefined;
-    pendingThemeSaveRef.current = false;
-    const serialized = JSON.stringify(themeStateRef.current);
-    if (profileId && serialized !== lastSavedThemeRef.current) {
-      void updateProfileMutRef
-        .current({ profileId, updates: { themeConfig: serialized } })
-        .catch(() => undefined);
-    }
-  }, []);
+  const flushPendingThemeSave = useCallback(
+    (profileId: Id<"profiles"> | undefined) => {
+      if (!pendingThemeSaveRef.current) {
+        return;
+      }
+      clearTimeout(themeSaveTimerRef.current);
+      themeSaveTimerRef.current = undefined;
+      pendingThemeSaveRef.current = false;
+      const serialized = JSON.stringify(themeStateRef.current);
+      if (profileId && serialized !== lastSavedThemeRef.current) {
+        void updateProfileMutRef
+          .current({ profileId, updates: { themeConfig: serialized } })
+          .catch(() => undefined);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (!activeProfile || activeProfile._id === prevProfileIdRef.current) {
@@ -157,18 +174,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     if (activeProfile.themeConfig) {
       try {
-        const parsed = JSON.parse(activeProfile.themeConfig) as ThemeEditorState;
+        const parsed = JSON.parse(
+          activeProfile.themeConfig
+        ) as ThemeEditorState;
         setThemeState(parsed);
         // Track what we applied so debounce won't re-save the same value
         lastSavedThemeRef.current = activeProfile.themeConfig;
       } catch {
         // Invalid theme config — snapshot current state to prevent stale save
-        lastSavedThemeRef.current = JSON.stringify(useEditorStore.getState().themeState);
+        lastSavedThemeRef.current = JSON.stringify(
+          useEditorStore.getState().themeState
+        );
       }
     } else {
       // No theme config on this profile — snapshot current Zustand state
       // so the debounce doesn't save the previous profile's theme here
-      lastSavedThemeRef.current = JSON.stringify(useEditorStore.getState().themeState);
+      lastSavedThemeRef.current = JSON.stringify(
+        useEditorStore.getState().themeState
+      );
     }
   }, [activeProfile, setThemeState, flushPendingThemeSave]);
 
@@ -231,22 +254,27 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // tree), so the save still goes out as that account; a session whose token was already rejected
   // can't save. Nothing stays pending, or scheduled, for the next account.
   const userId = user?._id;
-  useEffect(() => 
-    () =>{  flushPendingThemeSave(prevProfileIdRef.current); }
-  , [userId, flushPendingThemeSave]);
+  useEffect(
+    () => () => {
+      flushPendingThemeSave(prevProfileIdRef.current);
+    },
+    [userId, flushPendingThemeSave]
+  );
 
   const [slideDirection, setSlideDirection] = useState(0);
   const chatByProfileRef = useRef<Map<string, string>>(new Map());
   const profileSwitchRequestRef = useRef(0);
 
   const getLastChatForProfile = useCallback(
-    (profileId: Id<"profiles">) => chatByProfileRef.current.get(profileId) ?? null,
-    [],
+    (profileId: Id<"profiles">) =>
+      chatByProfileRef.current.get(profileId) ?? null,
+    []
   );
 
   // --- Profile switch guard ---
   const beforeProfileSwitchRef = useRef<(() => boolean) | null>(null);
-  const [pendingSwitch, setPendingSwitch] = useState<PendingProfileSwitch | null>(null);
+  const [pendingSwitch, setPendingSwitch] =
+    useState<PendingProfileSwitch | null>(null);
 
   const executeSwitch = useCallback(
     (profileId: Id<"profiles">, currentChatId?: string | null) => {
@@ -260,7 +288,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       } else if (activeProfile && currentChatId === null) {
         chatByProfileRef.current.delete(activeProfile._id);
       }
-      const currentIndex = profiles.findIndex((p) => p._id === activeProfile?._id);
+      const currentIndex = profiles.findIndex(
+        (p) => p._id === activeProfile?._id
+      );
       const nextIndex = profiles.findIndex((p) => p._id === profileId);
       setSlideDirection(nextIndex > currentIndex ? 1 : -1);
       const requestId = profileSwitchRequestRef.current + 1;
@@ -274,7 +304,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         setOptimisticActiveProfileId(undefined);
       });
     },
-    [setActive, profiles, activeProfile],
+    [setActive, profiles, activeProfile]
   );
 
   const setActiveProfile = useCallback(
@@ -285,16 +315,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
       executeSwitch(profileId, currentChatId);
     },
-    [executeSwitch],
+    [executeSwitch]
   );
 
   const executePendingSwitch = useCallback(() => {
-    if (!pendingSwitch) {return;}
+    if (!pendingSwitch) {
+      return;
+    }
     executeSwitch(pendingSwitch.profileId, pendingSwitch.currentChatId);
     setPendingSwitch(null);
   }, [pendingSwitch, executeSwitch]);
 
-  const clearPendingSwitch = useCallback(() =>{  setPendingSwitch(null); }, []);
+  const clearPendingSwitch = useCallback(() => {
+    setPendingSwitch(null);
+  }, []);
 
   const registerBeforeProfileSwitch = useCallback((fn: () => boolean) => {
     beforeProfileSwitchRef.current = fn;
@@ -332,10 +366,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       clearPendingSwitch,
       registerBeforeProfileSwitch,
       unregisterBeforeProfileSwitch,
-    ],
+    ]
   );
 
-  return <ProfileContext.Provider value={contextValue}>{children}</ProfileContext.Provider>;
+  return (
+    <ProfileContext.Provider value={contextValue}>
+      {children}
+    </ProfileContext.Provider>
+  );
 }
 
 export function useProfile() {

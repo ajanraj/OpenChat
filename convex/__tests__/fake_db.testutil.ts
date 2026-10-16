@@ -5,17 +5,24 @@
  * two dots so Convex doesn't deploy it and Vitest doesn't run it as a test file.)
  */
 import { vi } from "vitest";
+
 import type { TableNames } from "../_generated/dataModel";
 import schema from "../schema";
 
-export type Row = Record<string, unknown> & { _id: string; _creationTime: number };
+export type Row = Record<string, unknown> & {
+  _id: string;
+  _creationTime: number;
+};
 
 interface Bound {
   field: string;
   op: "eq" | "gt" | "gte" | "lt" | "lte";
   value: unknown;
 }
-type RangeBuilder = Record<Bound["op"], (field: string, value: unknown) => RangeBuilder>;
+type RangeBuilder = Record<
+  Bound["op"],
+  (field: string, value: unknown) => RangeBuilder
+>;
 interface SearchBuilder {
   search: (field: string, text: string) => SearchBuilder;
   eq: (field: string, value: unknown) => SearchBuilder;
@@ -31,17 +38,29 @@ const LIMITS = {
 
 // Convex orders values by type (undefined < null < number < boolean < string), then by value
 function typeRank(value: unknown): number {
-  if (value === undefined) {return 0;}
-  if (value === null) {return 1;}
-  if (typeof value === "number") {return 2;}
-  if (typeof value === "boolean") {return 3;}
+  if (value === undefined) {
+    return 0;
+  }
+  if (value === null) {
+    return 1;
+  }
+  if (typeof value === "number") {
+    return 2;
+  }
+  if (typeof value === "boolean") {
+    return 3;
+  }
   return 4;
 }
 
 function compareValues(a: unknown, b: unknown): number {
   const rankDiff = typeRank(a) - typeRank(b);
-  if (rankDiff !== 0) {return rankDiff;}
-  if (typeof a === "number" && typeof b === "number") {return a - b;}
+  if (rankDiff !== 0) {
+    return rankDiff;
+  }
+  if (typeof a === "number" && typeof b === "number") {
+    return a - b;
+  }
   const [sa, sb] = [String(a), String(b)];
   return sa < sb ? -1 : sa > sb ? 1 : 0;
 }
@@ -62,23 +81,35 @@ function matchesBound(row: Row, { field, op, value }: Bound): boolean {
 interface ExportedTable {
   tableName: string;
   indexes: Array<{ indexDescriptor: string; fields: string[] }>;
-  searchIndexes: Array<{ indexDescriptor: string; searchField: string; filterFields: string[] }>;
+  searchIndexes: Array<{
+    indexDescriptor: string;
+    searchField: string;
+    filterFields: string[];
+  }>;
 }
 // The schema's deploy-time JSON, which lists every table's indexes and search indexes
 const exportedTables = (
-  JSON.parse((schema as unknown as { export(): string }).export()) as { tables: ExportedTable[] }
+  JSON.parse((schema as unknown as { export(): string }).export()) as {
+    tables: ExportedTable[];
+  }
 ).tables;
 
 function tableDefinition(table: TableNames): ExportedTable {
   const found = exportedTables.find((t) => t.tableName === table);
-  if (!found) {throw new Error(`Table ${table} is not defined in the schema`);}
+  if (!found) {
+    throw new Error(`Table ${table} is not defined in the schema`);
+  }
   return found;
 }
 
 // Like Convex, every index ends with _creationTime
 function indexFields(table: TableNames, index: string): string[] {
-  if (index === "by_creation_time") {return ["_creationTime"];}
-  const found = tableDefinition(table).indexes.find((i) => i.indexDescriptor === index);
+  if (index === "by_creation_time") {
+    return ["_creationTime"];
+  }
+  const found = tableDefinition(table).indexes.find(
+    (i) => i.indexDescriptor === index
+  );
   if (!found) {
     throw new Error(`Index ${table}.${index} is not defined in the schema`);
   }
@@ -86,7 +117,9 @@ function indexFields(table: TableNames, index: string): string[] {
 }
 
 function tokens(text: unknown): string[] {
-  return typeof text === "string" ? text.toLowerCase().split(/\W+/).filter(Boolean) : [];
+  return typeof text === "string"
+    ? text.toLowerCase().split(/\W+/).filter(Boolean)
+    : [];
 }
 
 export type FakeDb = ReturnType<typeof createFakeDb>;
@@ -109,10 +142,14 @@ export function createFakeDb() {
 
   // Resolves `(table, id)` or legacy `(id)` call arguments to a row
   const findRow = (tableOrId: string, maybeId?: string) => {
-    if (maybeId === undefined) {return rows.get(tableOrId);}
+    if (maybeId === undefined) {
+      return rows.get(tableOrId);
+    }
     const found = rows.get(maybeId);
     if (found && found.table !== tableOrId) {
-      throw new Error(`document ${maybeId} is in table ${found.table}, not ${tableOrId}`);
+      throw new Error(
+        `document ${maybeId} is in table ${found.table}, not ${tableOrId}`
+      );
     }
     return found;
   };
@@ -139,9 +176,12 @@ export function createFakeDb() {
       // Like Convex: equalities on a prefix of the index fields, then ranges on the next field
       const eqCount = this.bounds.filter((b) => b.op === "eq").length;
       this.bounds.forEach((bound, i) => {
-        const expected = bound.op === "eq" ? this.fields[i] : this.fields[eqCount];
+        const expected =
+          bound.op === "eq" ? this.fields[i] : this.fields[eqCount];
         if (bound.field !== expected) {
-          throw new Error(`${this.table}.${index}: "${bound.field}" is out of index order`);
+          throw new Error(
+            `${this.table}.${index}: "${bound.field}" is out of index order`
+          );
         }
       });
       return this;
@@ -149,15 +189,19 @@ export function createFakeDb() {
 
     withSearchIndex(index: string, build: (q: SearchBuilder) => unknown) {
       const definition = tableDefinition(this.table).searchIndexes.find(
-        (i) => i.indexDescriptor === index,
+        (i) => i.indexDescriptor === index
       );
       if (!definition) {
-        throw new Error(`Search index ${this.table}.${index} is not defined in the schema`);
+        throw new Error(
+          `Search index ${this.table}.${index} is not defined in the schema`
+        );
       }
       const builder: SearchBuilder = {
         search: (field, text) => {
           if (field !== definition.searchField) {
-            throw new Error(`${field} is not the search field of ${this.table}.${index}`);
+            throw new Error(
+              `${field} is not the search field of ${this.table}.${index}`
+            );
           }
           this.searchField = field;
           this.searchTerms = tokens(text);
@@ -165,7 +209,9 @@ export function createFakeDb() {
         },
         eq: (field, value) => {
           if (!definition.filterFields.includes(field)) {
-            throw new Error(`${field} is not a filter field of ${this.table}.${index}`);
+            throw new Error(
+              `${field} is not a filter field of ${this.table}.${index}`
+            );
           }
           this.bounds.push({ field, op: "eq", value });
           return builder;
@@ -181,14 +227,17 @@ export function createFakeDb() {
     }
 
     filter(): never {
-      throw new Error("The fake db doesn't support filter(); query through an index instead");
+      throw new Error(
+        "The fake db doesn't support filter(); query through an index instead"
+      );
     }
 
     private matching(): Row[] {
       const found = [...rows.values()]
         .filter(
           ({ table, doc }) =>
-            table === this.table && this.bounds.every((b) => matchesBound(doc, b)),
+            table === this.table &&
+            this.bounds.every((b) => matchesBound(doc, b))
         )
         .map(({ doc }) => doc);
       if (this.searchField) {
@@ -196,16 +245,22 @@ export function createFakeDb() {
         const terms = this.searchTerms;
         const last = terms.at(-1);
         // Like Convex, a search with no terms matches nothing
-        if (last === undefined) {return [];}
+        if (last === undefined) {
+          return [];
+        }
         // Any term matches a word; the last term also matches as a prefix
         return found.filter((doc) =>
-          tokens(doc[field]).some((word) => terms.includes(word) || word.startsWith(last)),
+          tokens(doc[field]).some(
+            (word) => terms.includes(word) || word.startsWith(last)
+          )
         );
       }
       found.sort((a, b) => {
         for (const key of this.fields) {
           const cmp = compareValues(a[key], b[key]);
-          if (cmp !== 0) {return cmp;}
+          if (cmp !== 0) {
+            return cmp;
+          }
         }
         return 0;
       });
@@ -227,11 +282,19 @@ export function createFakeDb() {
 
     async unique() {
       const found = this.matching();
-      if (found.length > 1) {throw new Error(`unique() matched ${found.length} documents`);}
+      if (found.length > 1) {
+        throw new Error(`unique() matched ${found.length} documents`);
+      }
       return found[0] ? read(found[0]) : null;
     }
 
-    async paginate({ numItems, cursor }: { numItems: number; cursor: string | null }) {
+    async paginate({
+      numItems,
+      cursor,
+    }: {
+      numItems: number;
+      cursor: string | null;
+    }) {
       const all = this.matching();
       const start = cursor ? Number(cursor) : 0;
       const page = all.slice(start, start + numItems).map(read);
@@ -265,7 +328,9 @@ export function createFakeDb() {
     },
     /** All documents of a table, in insertion order. */
     all(table: TableNames): Row[] {
-      return [...rows.values()].filter((r) => r.table === table).map(({ doc }) => ({ ...doc }));
+      return [...rows.values()]
+        .filter((r) => r.table === table)
+        .map(({ doc }) => ({ ...doc }));
     },
     // get/patch/delete accept the table-first form (`db.get("chats", id)`) and the legacy id-only
     // form; a table name that doesn't match the document fails like a wrong-table Id would.
@@ -284,12 +349,19 @@ export function createFakeDb() {
     async patch(
       tableOrId: string,
       idOrFields: string | Record<string, unknown>,
-      maybeFields?: Record<string, unknown>,
+      maybeFields?: Record<string, unknown>
     ) {
       const [id, fields] =
-        typeof idOrFields === "string" ? [idOrFields, maybeFields ?? {}] : [tableOrId, idOrFields];
-      const found = findRow(tableOrId, typeof idOrFields === "string" ? idOrFields : undefined);
-      if (!found) {throw new Error(`patch of missing document ${id}`);}
+        typeof idOrFields === "string"
+          ? [idOrFields, maybeFields ?? {}]
+          : [tableOrId, idOrFields];
+      const found = findRow(
+        tableOrId,
+        typeof idOrFields === "string" ? idOrFields : undefined
+      );
+      if (!found) {
+        throw new Error(`patch of missing document ${id}`);
+      }
       stats.writes += 1;
       for (const [key, value] of Object.entries(fields)) {
         if (value === undefined) {
@@ -315,13 +387,16 @@ export function createFakeDb() {
  */
 export function createFakeCtx(db: FakeDb) {
   const start = { ...db.stats };
-  const metric = (used: number, limit: number) => ({ used, remaining: limit - used });
-  const runAfter = vi.fn<(delayMs: number, fn: unknown, args: unknown) => Promise<string>>(
-    async () => "scheduled:1",
-  );
-  const runAt = vi.fn<(timestamp: number, fn: unknown, args: unknown) => Promise<string>>(
-    async () => "scheduled:1",
-  );
+  const metric = (used: number, limit: number) => ({
+    used,
+    remaining: limit - used,
+  });
+  const runAfter = vi.fn<
+    (delayMs: number, fn: unknown, args: unknown) => Promise<string>
+  >(async () => "scheduled:1");
+  const runAt = vi.fn<
+    (timestamp: number, fn: unknown, args: unknown) => Promise<string>
+  >(async () => "scheduled:1");
   return {
     db,
     scheduler: {
@@ -331,12 +406,21 @@ export function createFakeCtx(db: FakeDb) {
     },
     meta: {
       getTransactionMetrics: async () => ({
-        documentsWritten: metric(db.stats.writes - start.writes, LIMITS.documentsWritten),
-        documentsRead: metric(db.stats.reads - start.reads, LIMITS.documentsRead),
-        databaseQueries: metric(db.stats.queries - start.queries, LIMITS.databaseQueries),
+        documentsWritten: metric(
+          db.stats.writes - start.writes,
+          LIMITS.documentsWritten
+        ),
+        documentsRead: metric(
+          db.stats.reads - start.reads,
+          LIMITS.documentsRead
+        ),
+        databaseQueries: metric(
+          db.stats.queries - start.queries,
+          LIMITS.databaseQueries
+        ),
         functionsScheduled: metric(
           runAfter.mock.calls.length + runAt.mock.calls.length,
-          LIMITS.functionsScheduled,
+          LIMITS.functionsScheduled
         ),
         bytesRead: metric(db.stats.bytesRead - start.bytesRead, 16 * MiB),
         bytesWritten: metric(0, 16 * MiB),

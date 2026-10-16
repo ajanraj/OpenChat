@@ -13,7 +13,8 @@ export type ApiKeyProvider =
 
 // API key validation patterns
 export const API_KEY_PATTERNS = {
-  openai: /^sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}(?:T3BlbkFJ[A-Za-z0-9_-]{20,})?$/,
+  openai:
+    /^sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}(?:T3BlbkFJ[A-Za-z0-9_-]{20,})?$/,
   anthropic: /^sk-ant-[a-zA-Z0-9_-]{8,}$/,
   gemini: /^AIza[a-zA-Z0-9_-]{35,}$/,
 } as const;
@@ -53,7 +54,9 @@ function getModelDisplayName(model: Model): string {
  */
 export function getApiKeyProviders() {
   // Filter models that allow user API keys
-  const apiKeyModels = MODELS_RAW.filter((model) => model.apiKeyUsage?.allowUserKey === true);
+  const apiKeyModels = MODELS_RAW.filter(
+    (model) => model.apiKeyUsage?.allowUserKey === true
+  );
 
   // Group models by provider
   const providerGroups = new Map<string, string[]>();
@@ -68,13 +71,15 @@ export function getApiKeyProviders() {
   }
 
   // Return only providers that have models with API key support
-  return PROVIDER_CONFIGS.filter((config) => providerGroups.has(config.id)).map((config) => ({
-    id: config.id,
-    title: config.title,
-    placeholder: config.placeholder,
-    docs: config.docs,
-    models: providerGroups.get(config.id) || [],
-  }));
+  return PROVIDER_CONFIGS.filter((config) => providerGroups.has(config.id)).map(
+    (config) => ({
+      id: config.id,
+      title: config.title,
+      placeholder: config.placeholder,
+      docs: config.docs,
+      models: providerGroups.get(config.id) || [],
+    })
+  );
 }
 
 /**
@@ -82,7 +87,7 @@ export function getApiKeyProviders() {
  */
 export function validateApiKey(
   provider: ApiKeyProvider,
-  key: string,
+  key: string
 ): { isValid: boolean; error?: string } {
   if (!key.trim()) {
     return { isValid: false, error: "API key is required" };
@@ -98,7 +103,8 @@ export function validateApiKey(
       case "openai": {
         return {
           isValid: false,
-          error: "OpenAI API keys should start with 'sk-' followed by at least 20 characters",
+          error:
+            "OpenAI API keys should start with 'sk-' followed by at least 20 characters",
         };
       }
       case "anthropic": {
@@ -111,7 +117,8 @@ export function validateApiKey(
       case "gemini": {
         return {
           isValid: false,
-          error: "Google API keys should start with 'AIza' followed by 35+ characters",
+          error:
+            "Google API keys should start with 'AIza' followed by 35+ characters",
         };
       }
       default: {

@@ -1,8 +1,9 @@
 import { useMutation } from "convex/react";
 import { useCallback } from "react";
+
+import { toast } from "@/components/ui/toast";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { toast } from "@/components/ui/toast";
 import type { ProfileIconName } from "@/lib/config/profile-icons";
 
 interface CreateProfileData {
@@ -30,6 +31,6 @@ export function useCreateProfile(onSuccess?: (id: Id<"profiles">) => void) {
         return null;
       }
     },
-    [createProfile, onSuccess],
+    [createProfile, onSuccess]
   );
 }

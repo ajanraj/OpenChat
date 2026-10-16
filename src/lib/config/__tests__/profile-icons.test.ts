@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ICON_MAP, PROFILE_ICONS, getDefaultIconForIndex } from "../profile-icons";
+
+import {
+  ICON_MAP,
+  PROFILE_ICONS,
+  getDefaultIconForIndex,
+} from "../profile-icons";
 
 describe("profile-icons config", () => {
   it("contains unique icon names", () => {

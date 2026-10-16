@@ -1,6 +1,6 @@
 import { handleSearchError } from "../search-errors";
-import { PROVIDER_LIMITS, SEARCH_CONFIG } from '../types';
-import type { SearchAdapter, SearchOptions, SearchResult } from '../types';
+import { PROVIDER_LIMITS, SEARCH_CONFIG } from "../types";
+import type { SearchAdapter, SearchOptions, SearchResult } from "../types";
 
 export class TavilySearchProvider implements SearchAdapter {
   readonly name = "tavily";
@@ -14,7 +14,10 @@ export class TavilySearchProvider implements SearchAdapter {
     this.apiKey = apiKey;
   }
 
-  async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+  async search(
+    query: string,
+    options: SearchOptions = {}
+  ): Promise<SearchResult[]> {
     const {
       maxResults = SEARCH_CONFIG.maxResults,
       scrapeContent = SEARCH_CONFIG.scrapeContent,
@@ -26,7 +29,9 @@ export class TavilySearchProvider implements SearchAdapter {
     } = options;
 
     const limit = Math.min(maxResults, PROVIDER_LIMITS.tavily.maxResults);
-    const chunksPerSource = scrapeContent ? PROVIDER_LIMITS.tavily.maxChunks : 3;
+    const chunksPerSource = scrapeContent
+      ? PROVIDER_LIMITS.tavily.maxChunks
+      : 3;
 
     try {
       const requestBody = {
@@ -52,7 +57,9 @@ export class TavilySearchProvider implements SearchAdapter {
       });
 
       if (!response.ok) {
-        throw new Error(`Tavily Search failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Tavily Search failed: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -63,7 +70,10 @@ export class TavilySearchProvider implements SearchAdapter {
     }
   }
 
-  private formatResults(results: unknown[], includeContent: boolean): SearchResult[] {
+  private formatResults(
+    results: unknown[],
+    includeContent: boolean
+  ): SearchResult[] {
     return results.map((result: unknown) => {
       const item = result as {
         url?: string;
@@ -95,7 +105,7 @@ export class TavilySearchProvider implements SearchAdapter {
     if (includeContent && item.raw_content) {
       const truncatedContent =
         item.raw_content.length > SEARCH_CONFIG.maxTextCharacters
-          ? `${item.raw_content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3)  }...`
+          ? `${item.raw_content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3)}...`
           : item.raw_content;
       markdown += `\n\n> ${truncatedContent}`;
     }

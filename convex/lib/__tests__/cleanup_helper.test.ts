@@ -1,16 +1,23 @@
 import { getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { createFakeCtx, createFakeDb } from "../../__tests__/fake_db.testutil";
+import type { FakeCtx, FakeDb } from "../../__tests__/fake_db.testutil";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
-import { createFakeCtx, createFakeDb } from '../../__tests__/fake_db.testutil';
-import type { FakeCtx, FakeDb } from '../../__tests__/fake_db.testutil';
-import { purgeChatsBatch, purgeUserDataBatch, removeBranchReferences } from "../cleanup_helper";
+import {
+  purgeChatsBatch,
+  purgeUserDataBatch,
+  removeBranchReferences,
+} from "../cleanup_helper";
 
 const mocks = vi.hoisted(() => ({
-  r2DeleteObject: vi.fn<(ctx: unknown, key: string) => Promise<void>>(async () => undefined),
-  rateLimiterReset: vi.fn<(ctx: unknown, name: string, args: { key: string }) => Promise<void>>(
-    async () => undefined,
+  r2DeleteObject: vi.fn<(ctx: unknown, key: string) => Promise<void>>(
+    async () => undefined
   ),
+  rateLimiterReset: vi.fn<
+    (ctx: unknown, name: string, args: { key: string }) => Promise<void>
+  >(async () => undefined),
 }));
 
 vi.mock("@convex-dev/r2", () => ({
@@ -46,8 +53,17 @@ function seedUser(db: FakeDb) {
   return db.seed("users", { name: "User" }) as Id<"users">;
 }
 
-function seedChat(db: FakeDb, userId: Id<"users">, fields: Record<string, unknown> = {}) {
-  return db.seed("chats", { userId, title: "Chat", updatedAt: 1, ...fields }) as Id<"chats">;
+function seedChat(
+  db: FakeDb,
+  userId: Id<"users">,
+  fields: Record<string, unknown> = {}
+) {
+  return db.seed("chats", {
+    userId,
+    title: "Chat",
+    updatedAt: 1,
+    ...fields,
+  }) as Id<"chats">;
 }
 
 describe("removeBranchReferences", () => {
@@ -58,8 +74,12 @@ describe("removeBranchReferences", () => {
     const parent = seedChat(db, userId);
     const otherParent = seedChat(db, userId);
     const branch = seedChat(db, userId, { originalChatId: parent });
-    const unrelatedBranch = seedChat(db, userId, { originalChatId: otherParent });
-    const otherUsersBranch = seedChat(db, otherUserId, { originalChatId: parent });
+    const unrelatedBranch = seedChat(db, userId, {
+      originalChatId: otherParent,
+    });
+    const otherUsersBranch = seedChat(db, otherUserId, {
+      originalChatId: parent,
+    });
 
     await removeBranchReferences(asCtx(createFakeCtx(db)), parent, userId);
 
@@ -81,7 +101,13 @@ describe("purgeChatsBatch", () => {
     const parent = seedChat(db, userId);
     const deletedBranch = seedChat(db, userId, { originalChatId: parent });
     const survivingBranch = seedChat(db, userId, { originalChatId: parent });
-    db.seed("messages", { chatId: parent, userId, role: "user", content: "hi", createdAt: 1 });
+    db.seed("messages", {
+      chatId: parent,
+      userId,
+      role: "user",
+      content: "hi",
+      createdAt: 1,
+    });
     db.seed("messages", {
       chatId: deletedBranch,
       userId,
@@ -98,7 +124,7 @@ describe("purgeChatsBatch", () => {
       asCtx(createFakeCtx(db)),
       userId,
       each(chats as unknown as Doc<"chats">[]),
-      true,
+      true
     );
 
     expect(done).toBe(true);
@@ -106,7 +132,10 @@ describe("purgeChatsBatch", () => {
     expect(db.all("chats")[0].originalChatId).toBeUndefined();
     expect(db.all("messages")).toEqual([]);
     expect(db.all("chat_attachments")).toEqual([]);
-    expect(mocks.r2DeleteObject).toHaveBeenCalledWith(expect.anything(), "uploads/legacy.png");
+    expect(mocks.r2DeleteObject).toHaveBeenCalledWith(
+      expect.anything(),
+      "uploads/legacy.png"
+    );
   });
 
   it("stops at its budget and resumes a partly deleted chat on the next run", async () => {
@@ -114,14 +143,20 @@ describe("purgeChatsBatch", () => {
     const userId = seedUser(db);
     const chatId = seedChat(db, userId);
     for (let i = 0; i < 2100; i += 1) {
-      db.seed("messages", { chatId, userId, role: "user", content: `m${i}`, createdAt: i });
+      db.seed("messages", {
+        chatId,
+        userId,
+        role: "user",
+        content: `m${i}`,
+        createdAt: i,
+      });
     }
     const run = () =>
       purgeChatsBatch(
         asCtx(createFakeCtx(db)),
         userId,
         each(db.all("chats") as unknown as Doc<"chats">[]),
-        false,
+        false
       );
 
     await expect(run()).resolves.toBe(false);
@@ -139,8 +174,15 @@ describe("purgeChatsBatch", () => {
       seedChat(db, userId, { originalChatId: parent });
     }
     const parentDoc = db.all("chats")[0] as unknown as Doc<"chats">;
-    const linked = () => db.all("chats").filter((chat) => chat.originalChatId === parent);
-    const run = () => purgeChatsBatch(asCtx(createFakeCtx(db)), userId, each([parentDoc]), true);
+    const linked = () =>
+      db.all("chats").filter((chat) => chat.originalChatId === parent);
+    const run = () =>
+      purgeChatsBatch(
+        asCtx(createFakeCtx(db)),
+        userId,
+        each([parentDoc]),
+        true
+      );
 
     // The first run stops partway through the branches, keeping the parent
     await expect(run()).resolves.toBe(false);
@@ -168,7 +210,7 @@ describe("purgeChatsBatch", () => {
         asCtx(createFakeCtx(db)),
         userId,
         each(db.all("chats") as unknown as Doc<"chats">[]),
-        true,
+        true
       );
 
     await expect(run()).resolves.toBe(false);
@@ -189,7 +231,7 @@ describe("purgeChatsBatch", () => {
       asCtx(ctx),
       userId,
       each(db.all("chats") as unknown as Doc<"chats">[]),
-      false,
+      false
     );
 
     expect(done).toBe(true);
@@ -213,9 +255,20 @@ describe("purgeUserDataBatch", () => {
     db.seed("task_history", { taskId, startTime: 1 });
     db.seed("task_history", { taskId, startTime: 2 });
     const chatId = seedChat(db, userId);
-    db.seed("messages", { chatId, userId, role: "user", content: "hi", createdAt: 1 });
+    db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "hi",
+      createdAt: 1,
+    });
     // Legacy message without a userId, only reachable through its chat
-    db.seed("messages", { chatId, role: "assistant", content: "hello", createdAt: 2 });
+    db.seed("messages", {
+      chatId,
+      role: "assistant",
+      content: "hello",
+      createdAt: 2,
+    });
     db.seed("chat_attachments", { userId, chatId, key: "uploads/a.png" });
     db.seed("feedback", { userId, message: "great" });
     db.seed("profiles", { userId, isDefault: true });
@@ -241,7 +294,12 @@ describe("purgeUserDataBatch", () => {
     const otherUserId = seedUser(db);
     seedAccountData(db, userId);
     const otherChat = seedChat(db, otherUserId);
-    db.seed("messages", { chatId: otherChat, userId: otherUserId, role: "user", content: "x" });
+    db.seed("messages", {
+      chatId: otherChat,
+      userId: otherUserId,
+      role: "user",
+      content: "x",
+    });
     db.seed("stripe_credit_resets", { userId, stripeInvoiceId: "in_1" });
     const ctx = createFakeCtx(db);
 
@@ -259,7 +317,9 @@ describe("purgeUserDataBatch", () => {
     expect(mocks.r2DeleteObject).toHaveBeenCalledWith(ctx, "uploads/a.png");
     // Its upload URL expired long ago, so the key needs no re-check
     expect(ctx.scheduler.runAt).not.toHaveBeenCalled();
-    expect(mocks.rateLimiterReset.mock.calls.map(([, name, args]) => [name, args])).toEqual([
+    expect(
+      mocks.rateLimiterReset.mock.calls.map(([, name, args]) => [name, args])
+    ).toEqual([
       ["authenticatedDaily", { key: userId }],
       ["standardMonthly", { key: userId }],
     ]);
@@ -270,16 +330,26 @@ describe("purgeUserDataBatch", () => {
     const userId = seedUser(db);
     const chatId = seedChat(db, userId);
     for (let i = 0; i < 2100; i += 1) {
-      db.seed("messages", { chatId, userId, role: "user", content: `m${i}`, createdAt: i });
+      db.seed("messages", {
+        chatId,
+        userId,
+        role: "user",
+        content: `m${i}`,
+        createdAt: i,
+      });
     }
 
-    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(false);
+    await expect(
+      purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)
+    ).resolves.toBe(false);
     const left = db.all("messages").length;
     expect(left).toBeGreaterThan(0);
     expect(left).toBeLessThan(2100);
     expect(mocks.rateLimiterReset).not.toHaveBeenCalled();
 
-    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(true);
+    await expect(
+      purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)
+    ).resolves.toBe(true);
     expect(db.all("messages")).toEqual([]);
     expect(db.all("chats")).toEqual([]);
   });
@@ -291,9 +361,13 @@ describe("purgeUserDataBatch", () => {
       db.seed("chat_attachments", { userId, key: `uploads/${i}.png` });
     }
 
-    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(false);
+    await expect(
+      purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)
+    ).resolves.toBe(false);
     expect(mocks.r2DeleteObject).toHaveBeenCalledTimes(100);
-    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(true);
+    await expect(
+      purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)
+    ).resolves.toBe(true);
     expect(mocks.r2DeleteObject).toHaveBeenCalledTimes(150);
     expect(db.all("chat_attachments")).toEqual([]);
   });
@@ -303,14 +377,18 @@ describe("purgeUserDataBatch", () => {
     const userId = seedUser(db);
     db.seed("chat_attachments", { userId, key: "uploads/broken.png" });
     mocks.r2DeleteObject.mockRejectedValueOnce(new Error("R2 config missing"));
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
-    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(true);
+    await expect(
+      purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)
+    ).resolves.toBe(true);
 
     expect(db.all("chat_attachments")).toEqual([]);
     expect(consoleError).toHaveBeenCalledWith(
       expect.stringContaining("uploads/broken.png"),
-      expect.any(Error),
+      expect.any(Error)
     );
     consoleError.mockRestore();
   });

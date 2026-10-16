@@ -107,7 +107,10 @@ function cleanJsonSchema(schema: JSONSchema7): JSONSchema7 {
 /**
  * Convert a single Composio tool to AI SDK v5 format
  */
-export function convertComposioTool(_toolName: string, composioTool: ComposioTool): Tool {
+export function convertComposioTool(
+  _toolName: string,
+  composioTool: ComposioTool
+): Tool {
   // Clean the JSON Schema to fix compatibility issues
   const cleanedSchema = cleanJsonSchema(composioTool.parameters.jsonSchema);
 
@@ -129,7 +132,7 @@ export function convertComposioTool(_toolName: string, composioTool: ComposioToo
  * Convert all Composio tools to AI SDK v5 format
  */
 export function convertComposioTools(
-  composioTools: Record<string, ComposioTool>,
+  composioTools: Record<string, ComposioTool>
 ): Record<string, Tool> {
   const convertedTools: Record<string, Tool> = {};
 
@@ -169,7 +172,7 @@ export function isComposioTool(obj: unknown): obj is ComposioTool {
  * Validate that all tools in an object are Composio tools
  */
 export function validateComposioTools(
-  tools: Record<string, unknown>,
+  tools: Record<string, unknown>
 ): tools is Record<string, ComposioTool> {
   return Object.values(tools).every(isComposioTool);
 }

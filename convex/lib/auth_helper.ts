@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
+
 import { ERROR_CODES } from "../../src/lib/error-codes";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -11,7 +12,9 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
  * @example
  * const userId = await ensureAuthenticated(ctx);
  */
-export async function ensureAuthenticated(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
+export async function ensureAuthenticated(
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
@@ -29,7 +32,7 @@ export async function ensureAuthenticated(ctx: QueryCtx | MutationCtx): Promise<
  */
 export async function ensureChatAccess(
   ctx: QueryCtx | MutationCtx,
-  chatId: Id<"chats">,
+  chatId: Id<"chats">
 ): Promise<{ chat: Doc<"chats">; userId: Id<"users"> }> {
   const userId = await ensureAuthenticated(ctx);
   const chat = await ctx.db.get("chats", chatId);
@@ -53,7 +56,7 @@ export async function ensureChatAccess(
  */
 export async function tryEnsureChatAccess(
   ctx: QueryCtx | MutationCtx,
-  chatId: Id<"chats">,
+  chatId: Id<"chats">
 ): Promise<{ chat: Doc<"chats">; userId: Id<"users"> } | null> {
   try {
     return await ensureChatAccess(ctx, chatId);
@@ -72,7 +75,7 @@ export async function tryEnsureChatAccess(
  */
 export async function ensureMessageAccess(
   ctx: QueryCtx | MutationCtx,
-  messageId: Id<"messages">,
+  messageId: Id<"messages">
 ): Promise<{
   message: Doc<"messages">;
   chat: Doc<"chats">;
@@ -103,7 +106,7 @@ export async function ensureMessageAccess(
  * if (!user) return [];
  */
 export async function getCurrentUserOrNull(
-  ctx: QueryCtx | MutationCtx,
+  ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users"> | null> {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
@@ -119,7 +122,9 @@ export async function getCurrentUserOrNull(
  * @example
  * const user = await getCurrentUserOrThrow(ctx);
  */
-export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
+export async function getCurrentUserOrThrow(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> {
   const userId = await ensureAuthenticated(ctx);
   const user = await ctx.db.get("users", userId);
 

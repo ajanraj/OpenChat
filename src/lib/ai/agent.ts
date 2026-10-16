@@ -9,11 +9,10 @@ export const createScheduledAgent = ({
   model: LanguageModel;
   systemPrompt: string;
   tools: Record<string, Tool>;
-}) => 
+}) =>
   new ToolLoopAgent({
     model,
     instructions: systemPrompt,
     tools,
     stopWhen: isStepCount(10),
-  })
-;
+  });

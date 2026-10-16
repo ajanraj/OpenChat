@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { API_KEY_PATTERNS, getApiKeyProviders, validateApiKey } from "../api-keys";
+
+import {
+  API_KEY_PATTERNS,
+  getApiKeyProviders,
+  validateApiKey,
+} from "../api-keys";
 
 describe("API Keys Config", () => {
   describe("API_KEY_PATTERNS", () => {
@@ -20,9 +25,15 @@ describe("API Keys Config", () => {
 
     describe("OpenAI pattern", () => {
       it("matches valid sk- format keys", () => {
-        expect(API_KEY_PATTERNS.openai.test("sk-proj-12345678901234567890")).toBe(true);
-        expect(API_KEY_PATTERNS.openai.test("sk-svcacct-12345678901234567890")).toBe(true);
-        expect(API_KEY_PATTERNS.openai.test("sk-admin-12345678901234567890")).toBe(true);
+        expect(
+          API_KEY_PATTERNS.openai.test("sk-proj-12345678901234567890")
+        ).toBe(true);
+        expect(
+          API_KEY_PATTERNS.openai.test("sk-svcacct-12345678901234567890")
+        ).toBe(true);
+        expect(
+          API_KEY_PATTERNS.openai.test("sk-admin-12345678901234567890")
+        ).toBe(true);
       });
 
       it("rejects invalid keys", () => {
@@ -35,7 +46,9 @@ describe("API Keys Config", () => {
     describe("Anthropic pattern", () => {
       it("matches valid sk-ant- format keys", () => {
         expect(API_KEY_PATTERNS.anthropic.test("sk-ant-abcdefgh")).toBe(true);
-        expect(API_KEY_PATTERNS.anthropic.test("sk-ant-api03-1234567890abcdefghij")).toBe(true);
+        expect(
+          API_KEY_PATTERNS.anthropic.test("sk-ant-api03-1234567890abcdefghij")
+        ).toBe(true);
       });
 
       it("rejects invalid keys", () => {
@@ -47,7 +60,11 @@ describe("API Keys Config", () => {
 
     describe("Gemini pattern", () => {
       it("matches valid AIza format keys", () => {
-        expect(API_KEY_PATTERNS.gemini.test("AIza12345678901234567890123456789012345")).toBe(true);
+        expect(
+          API_KEY_PATTERNS.gemini.test(
+            "AIza12345678901234567890123456789012345"
+          )
+        ).toBe(true);
       });
 
       it("rejects invalid keys", () => {
@@ -98,7 +115,10 @@ describe("API Keys Config", () => {
     });
 
     it("returns valid for correct Gemini key format", () => {
-      const result = validateApiKey("gemini", "AIza12345678901234567890123456789012345");
+      const result = validateApiKey(
+        "gemini",
+        "AIza12345678901234567890123456789012345"
+      );
       expect(result.isValid).toBe(true);
       expect(result.error).toBeUndefined();
     });

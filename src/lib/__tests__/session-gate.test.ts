@@ -1,16 +1,27 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { createSessionGate, SESSION_TIMEOUT_MS } from "../session-gate";
 
-const SIGNED_OUT = { isLoading: false, isAuthenticated: false, hasToken: false };
+const SIGNED_OUT = {
+  isLoading: false,
+  isAuthenticated: false,
+  hasToken: false,
+};
 // A returning user's stored token, before the backend confirms it
 const RESTORING = { isLoading: true, isAuthenticated: false, hasToken: true };
 // A token the backend hasn't accepted: a fresh sign-in's until it is confirmed, or a stored one it
 // rejected. useConvexAuth() reads both as signed out
-const UNCONFIRMED = { isLoading: false, isAuthenticated: false, hasToken: true };
+const UNCONFIRMED = {
+  isLoading: false,
+  isAuthenticated: false,
+  hasToken: true,
+};
 const SIGNED_IN = { isLoading: false, isAuthenticated: true, hasToken: true };
 
 function guestAuth(
-  signIn = vi.fn<() => Promise<{ signingIn: boolean }>>(async () => ({ signingIn: true })),
+  signIn = vi.fn<() => Promise<{ signingIn: boolean }>>(async () => ({
+    signingIn: true,
+  }))
 ) {
   return { signIn, signOut: vi.fn<() => Promise<void>>(async () => undefined) };
 }
@@ -214,7 +225,7 @@ describe("createSessionGate", () => {
       () =>
         new Promise<void>((resolve) => {
           finishSignOut = resolve;
-        }),
+        })
     );
 
     const failure = gate.ensure(auth).catch((error: Error) => error);
@@ -264,8 +275,8 @@ describe("createSessionGate", () => {
         () =>
           new Promise<{ signingIn: boolean }>((resolve) => {
             finishSignIn = resolve;
-          }),
-      ),
+          })
+      )
     );
 
     const failure = gate.ensure(auth).catch((error: Error) => error);

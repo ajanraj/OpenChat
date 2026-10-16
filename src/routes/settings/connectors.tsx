@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+
 import { ConnectorGrid } from "@/components/layout/settings/connectors/ConnectorGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
@@ -29,7 +30,9 @@ interface ConnectPayload {
   connectionRequestId: string;
 }
 
-type ConnectResult = { ok: true; payload: ConnectPayload } | { ok: false; errorMessage: string };
+type ConnectResult =
+  | { ok: true; payload: ConnectPayload }
+  | { ok: false; errorMessage: string };
 
 const getErrorMessage = (value: unknown, fallback: string): string => {
   if (
@@ -69,7 +72,7 @@ const getAuthHeaders = (authToken: string | null) => ({
 
 const requestConnectorConnect = async (
   type: ConnectorType,
-  authToken: string | null,
+  authToken: string | null
 ): Promise<ConnectResult> => {
   const displayName = getConnectorConfig(type).displayName;
   const fallbackError = `Failed to connect to ${displayName}`;
@@ -83,7 +86,10 @@ const requestConnectorConnect = async (
 
     const payload: unknown = await response.json();
     if (!response.ok) {
-      return { ok: false, errorMessage: getErrorMessage(payload, fallbackError) };
+      return {
+        ok: false,
+        errorMessage: getErrorMessage(payload, fallbackError),
+      };
     }
 
     if (!isConnectPayload(payload)) {
@@ -102,7 +108,7 @@ const requestConnectorConnect = async (
 
 const requestConnectorDisconnect = async (
   type: ConnectorType,
-  authToken: string | null,
+  authToken: string | null
 ): Promise<string | null> => {
   const displayName = getConnectorConfig(type).displayName;
   const fallbackError = `Failed to disconnect ${displayName}`;
@@ -129,7 +135,13 @@ const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   {
     name: "Google Workspace",
     description: "Seamlessly integrate your Google productivity suite",
-    types: ["gmail", "googlecalendar", "googledrive", "googledocs", "googlesheets"],
+    types: [
+      "gmail",
+      "googlecalendar",
+      "googledrive",
+      "googledocs",
+      "googlesheets",
+    ],
   },
   {
     name: "Communication",
@@ -146,24 +158,28 @@ const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
 export function ConnectorsSettingsPage() {
   const authToken = useAuthToken();
   const { user, connectors, isConnectorsLoading } = useUser();
-  const setConnectorEnabled = useMutation(api.connectors.setConnectorEnabled).withOptimisticUpdate(
-    (localStore, { type, enabled }) => {
-      const currentConnectors = localStore.getQuery(api.connectors.listUserConnectors);
-      if (currentConnectors) {
-        const updatedConnectors = currentConnectors.map((connector) =>
-          connector.type === type ? { ...connector, enabled } : connector,
-        );
-        localStore.setQuery(api.connectors.listUserConnectors, {}, updatedConnectors);
-      }
-    },
-  );
+  const setConnectorEnabled = useMutation(
+    api.connectors.setConnectorEnabled
+  ).withOptimisticUpdate((localStore, { type, enabled }) => {
+    const currentConnectors = localStore.getQuery(
+      api.connectors.listUserConnectors
+    );
+    if (currentConnectors) {
+      const updatedConnectors = currentConnectors.map((connector) =>
+        connector.type === type ? { ...connector, enabled } : connector
+      );
+      localStore.setQuery(
+        api.connectors.listUserConnectors,
+        {},
+        updatedConnectors
+      );
+    }
+  });
   const [connectionStates, setConnectionStates] = useState<
     Record<ConnectorType, SimpleConnectionState>
   >(() => {
-    const initialStates: Record<ConnectorType, SimpleConnectionState> = {} as Record<
-      ConnectorType,
-      SimpleConnectionState
-    >;
+    const initialStates: Record<ConnectorType, SimpleConnectionState> =
+      {} as Record<ConnectorType, SimpleConnectionState>;
     for (const type of SUPPORTED_CONNECTORS) {
       initialStates[type] = { status: "idle" };
     }
@@ -185,7 +201,10 @@ export function ConnectorsSettingsPage() {
 
       const result = await requestConnectorConnect(type, authToken);
       if (!result.ok) {
-        console.error(`Failed to connect to ${displayName}:`, result.errorMessage);
+        console.error(
+          `Failed to connect to ${displayName}:`,
+          result.errorMessage
+        );
         toast.error(result.errorMessage);
         setConnectionStates((prev) => ({
           ...prev,
@@ -194,10 +213,13 @@ export function ConnectorsSettingsPage() {
         return;
       }
 
-      sessionStorage.setItem(`composio_connection_${type}`, result.payload.connectionRequestId);
+      sessionStorage.setItem(
+        `composio_connection_${type}`,
+        result.payload.connectionRequestId
+      );
       window.location.href = result.payload.redirectUrl;
     },
-    [authToken, user],
+    [authToken, user]
   );
 
   const handleDisconnect = useCallback(
@@ -217,7 +239,7 @@ export function ConnectorsSettingsPage() {
 
       toast.success(`${displayName} disconnected successfully`);
     },
-    [authToken, user],
+    [authToken, user]
   );
 
   const handleToggleEnabled = useCallback(
@@ -228,36 +250,42 @@ export function ConnectorsSettingsPage() {
       }
       await setConnectorEnabled({ type, enabled });
     },
-    [user, setConnectorEnabled],
+    [user, setConnectorEnabled]
   );
 
   const connectingStates = Object.fromEntries(
-    Object.entries(connectionStates).map(([key, { status }]) => [key, status === "connecting"]),
+    Object.entries(connectionStates).map(([key, { status }]) => [
+      key,
+      status === "connecting",
+    ])
   ) as Record<ConnectorType, boolean>;
 
   const connectedCount = connectors.filter((c) => c.isConnected).length;
-  const enabledCount = connectors.filter((c) => c.isConnected && c.enabled !== false).length;
+  const enabledCount = connectors.filter(
+    (c) => c.isConnected && c.enabled !== false
+  ).length;
 
   return (
     <div className="space-y-8">
       <header className="space-y-4">
         <div className="flex items-baseline justify-between">
-          <h1 className="font-semibold text-2xl tracking-tight">Connectors</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Connectors</h1>
           {!isConnectorsLoading && connectedCount > 0 && (
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
                 {connectedCount} connected
               </span>
               <span className="text-muted-foreground/40">·</span>
-              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 text-xs dark:text-emerald-400">
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 {enabledCount} active
               </span>
             </div>
           )}
         </div>
-        <p className="text-muted-foreground leading-relaxed">
-          Connect your favorite services to supercharge your conversations. Once connected, you can
-          interact with these platforms directly through chat.
+        <p className="leading-relaxed text-muted-foreground">
+          Connect your favorite services to supercharge your conversations. Once
+          connected, you can interact with these platforms directly through
+          chat.
         </p>
       </header>
 
@@ -271,7 +299,10 @@ export function ConnectorsSettingsPage() {
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {category.types.map((type) => (
-                  <Skeleton className="h-36 rounded-xl" key={`loading-${type}`} />
+                  <Skeleton
+                    className="h-36 rounded-xl"
+                    key={`loading-${type}`}
+                  />
                 ))}
               </div>
             </div>
@@ -287,12 +318,14 @@ export function ConnectorsSettingsPage() {
             >
               <div className="space-y-1">
                 <h2
-                  className="font-medium text-foreground text-sm tracking-wide"
+                  className="text-sm font-medium tracking-wide text-foreground"
                   id={`category-${category.name}`}
                 >
                   {category.name}
                 </h2>
-                <p className="text-muted-foreground/80 text-xs">{category.description}</p>
+                <p className="text-xs text-muted-foreground/80">
+                  {category.description}
+                </p>
               </div>
               <ConnectorGrid
                 connectingStates={connectingStates}

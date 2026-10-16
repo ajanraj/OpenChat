@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { sanitizeMessageParts } from "../sanitization_helper";
 
 describe("sanitizeMessageParts", () => {
@@ -110,7 +111,9 @@ describe("sanitizeMessageParts", () => {
       const result = sanitizeMessageParts(parts, { hideFiles: false });
 
       expect(result[0].input).toEqual({ query: "weather today" });
-      expect(result[0].output).toEqual([{ title: "Weather", url: "https://weather.com" }]);
+      expect(result[0].output).toEqual([
+        { title: "Weather", url: "https://weather.com" },
+      ]);
     });
   });
 
@@ -139,7 +142,9 @@ describe("sanitizeMessageParts", () => {
       ];
       const result = sanitizeMessageParts(parts, { hideFiles: false });
 
-      expect(result[0].url).toBe("https://storage.example.com/files/public-doc.pdf");
+      expect(result[0].url).toBe(
+        "https://storage.example.com/files/public-doc.pdf"
+      );
     });
 
     it("redacts reasoning file URLs when hideFiles is true", () => {
@@ -194,7 +199,9 @@ describe("sanitizeMessageParts", () => {
 
   describe("error handling", () => {
     it("returns safe placeholder when processing throws", () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       try {
         // Create a part that will throw when cloned
         const badPart = {

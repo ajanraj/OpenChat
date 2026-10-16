@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PostHog } from "posthog-node";
 import { z } from "zod";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { createErrorResponse } from "@/lib/error-utils";
-import { authMiddleware, badRequest, json, unauthorized } from "@/lib/middleware/auth";
+import {
+  authMiddleware,
+  badRequest,
+  json,
+  unauthorized,
+} from "@/lib/middleware/auth";
 
 const createChatSchema = z.object({
   title: z.string().min(1, "Title is required"),

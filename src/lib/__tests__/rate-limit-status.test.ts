@@ -1,7 +1,12 @@
 import { DAY, HOUR } from "@convex-dev/rate-limiter";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getNextRateLimitReset, measureServerClockOffset, resolveRateLimitStatus } from '../rate-limit-status';
-import type { RateLimitState } from '../rate-limit-status';
+
+import {
+  getNextRateLimitReset,
+  measureServerClockOffset,
+  resolveRateLimitStatus,
+} from "../rate-limit-status";
+import type { RateLimitState } from "../rate-limit-status";
 
 const WINDOW_START = Date.UTC(2026, 9, 1, 8);
 const MONTH = 30 * DAY;
@@ -34,7 +39,10 @@ describe("resolveRateLimitStatus", () => {
   });
 
   it("refills an exhausted daily window once it has ended", () => {
-    const status = resolveRateLimitStatus(freeUser(0), WINDOW_START + DAY + HOUR);
+    const status = resolveRateLimitStatus(
+      freeUser(0),
+      WINDOW_START + DAY + HOUR
+    );
 
     expect(status.dailyRemaining).toBe(5);
     expect(status.dailyCount).toBe(0);
@@ -43,13 +51,19 @@ describe("resolveRateLimitStatus", () => {
   });
 
   it("points the reset at the current window after several have passed", () => {
-    const status = resolveRateLimitStatus(freeUser(1), WINDOW_START + 3.5 * DAY);
+    const status = resolveRateLimitStatus(
+      freeUser(1),
+      WINDOW_START + 3.5 * DAY
+    );
 
     expect(status.dailyReset).toBe(WINDOW_START + 4 * DAY);
   });
 
   it("does not count back into an earlier window when the client clock is behind", () => {
-    const status = resolveRateLimitStatus(freeUser(3), WINDOW_START - 5 * 60 * 1000);
+    const status = resolveRateLimitStatus(
+      freeUser(3),
+      WINDOW_START - 5 * 60 * 1000
+    );
 
     expect(status.dailyRemaining).toBe(3);
     expect(status.dailyReset).toBe(WINDOW_START + DAY);
@@ -77,7 +91,7 @@ describe("resolveRateLimitStatus", () => {
         monthly: bucket(1450, WINDOW_START, 1500, MONTH),
         premium: bucket(90, WINDOW_START, 100, MONTH),
       },
-      WINDOW_START + DAY,
+      WINDOW_START + DAY
     );
 
     expect(status).toMatchObject({
@@ -108,7 +122,7 @@ describe("getNextRateLimitReset", () => {
         monthly: bucket(1500, 0, 1500, MONTH),
         premium: null,
       },
-      WINDOW_START,
+      WINDOW_START
     );
 
     expect(getNextRateLimitReset(status)).toBeUndefined();

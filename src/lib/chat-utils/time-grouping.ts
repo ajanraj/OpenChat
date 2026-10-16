@@ -1,6 +1,11 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
 
-export type TimeGroup = "Today" | "Yesterday" | "Last 7 Days" | "Last 30 Days" | "Older";
+export type TimeGroup =
+  | "Today"
+  | "Yesterday"
+  | "Last 7 Days"
+  | "Last 30 Days"
+  | "Older";
 
 export type GroupedChats = Record<string, Doc<"chats">[]>;
 
@@ -66,7 +71,7 @@ export function getTimeGroup(timestamp: number): TimeGroup {
   const chatStartOfDay = new Date(
     chatDate.getFullYear(),
     chatDate.getMonth(),
-    chatDate.getDate(),
+    chatDate.getDate()
   ).getTime();
 
   // Compare against cached boundaries
@@ -115,7 +120,8 @@ export function groupChatsByTime(chats: Doc<"chats">[]): GroupedChats {
       continue;
     }
 
-    const timestamp = chat.updatedAt || chat.createdAt || chat._creationTime || 0;
+    const timestamp =
+      chat.updatedAt || chat.createdAt || chat._creationTime || 0;
     const group = getTimeGroup(timestamp);
     groups[group].push(chat);
   }
@@ -142,7 +148,10 @@ export function getOrderedGroupKeys(): TimeGroup[] {
 /**
  * Check if a group has any chats
  */
-export function hasChatsInGroup(groups: GroupedChats, groupKey: TimeGroup): boolean {
+export function hasChatsInGroup(
+  groups: GroupedChats,
+  groupKey: TimeGroup
+): boolean {
   return groups[groupKey] && groups[groupKey].length > 0;
 }
 

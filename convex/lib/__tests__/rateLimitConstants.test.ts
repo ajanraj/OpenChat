@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { PERIODS, RATE_LIMITS } from "../rateLimitConstants";
 
 describe("RATE_LIMITS", () => {
@@ -23,7 +24,9 @@ describe("RATE_LIMITS", () => {
   });
 
   it("authenticated limit is greater than anonymous limit", () => {
-    expect(RATE_LIMITS.AUTHENTICATED_DAILY).toBeGreaterThan(RATE_LIMITS.ANONYMOUS_DAILY);
+    expect(RATE_LIMITS.AUTHENTICATED_DAILY).toBeGreaterThan(
+      RATE_LIMITS.ANONYMOUS_DAILY
+    );
   });
 });
 
@@ -41,6 +44,8 @@ describe("PERIODS", () => {
   });
 
   it("monthly period equals daily times monthly period days", () => {
-    expect(PERIODS.MONTHLY).toBe(PERIODS.DAILY * RATE_LIMITS.MONTHLY_PERIOD_DAYS);
+    expect(PERIODS.MONTHLY).toBe(
+      PERIODS.DAILY * RATE_LIMITS.MONTHLY_PERIOD_DAYS
+    );
   });
 });

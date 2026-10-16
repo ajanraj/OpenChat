@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   convertTo12Hour,
   convertTo24Hour,
@@ -98,7 +99,7 @@ describe("formatTime12Hour", () => {
 
   it("throws error for invalid format", () => {
     expect(() => formatTime12Hour("invalid")).toThrow(
-      'Invalid time format. Expected "HH:mm" format',
+      'Invalid time format. Expected "HH:mm" format'
     );
     expect(() => formatTime12Hour("")).toThrow("Invalid time format");
     expect(() => formatTime12Hour("25:00")).toThrow("Invalid time format");
@@ -307,41 +308,47 @@ describe("parseWeeklyTime", () => {
 
   it("throws error for non-string input", () => {
     expect(() => parseWeeklyTime(123 as unknown as string)).toThrow(
-      "scheduledTime must be a string",
+      "scheduledTime must be a string"
     );
   });
 
   it("throws error for empty string", () => {
     expect(() => parseWeeklyTime("")).toThrow("scheduledTime cannot be empty");
-    expect(() => parseWeeklyTime("   ")).toThrow("scheduledTime cannot be empty");
+    expect(() => parseWeeklyTime("   ")).toThrow(
+      "scheduledTime cannot be empty"
+    );
   });
 
   it("throws error for invalid day", () => {
-    expect(() => parseWeeklyTime("7:09:30")).toThrow("Day must be a number between 0 and 6");
-    expect(() => parseWeeklyTime("-1:09:30")).toThrow("Day must be a number between 0 and 6");
+    expect(() => parseWeeklyTime("7:09:30")).toThrow(
+      "Day must be a number between 0 and 6"
+    );
+    expect(() => parseWeeklyTime("-1:09:30")).toThrow(
+      "Day must be a number between 0 and 6"
+    );
   });
 
   it("throws error for invalid hour", () => {
     expect(() => parseWeeklyTime("1:25:30")).toThrow(
-      "Hour must be a valid two-digit number between 00 and 23",
+      "Hour must be a valid two-digit number between 00 and 23"
     );
     expect(() => parseWeeklyTime("1:9:30")).toThrow(
-      "Hour must be a valid two-digit number between 00 and 23",
+      "Hour must be a valid two-digit number between 00 and 23"
     );
   });
 
   it("throws error for invalid minute", () => {
     expect(() => parseWeeklyTime("1:09:60")).toThrow(
-      "Minute must be a valid two-digit number between 00 and 59",
+      "Minute must be a valid two-digit number between 00 and 59"
     );
     expect(() => parseWeeklyTime("1:09:5")).toThrow(
-      "Minute must be a valid two-digit number between 00 and 59",
+      "Minute must be a valid two-digit number between 00 and 59"
     );
   });
 
   it("throws error for invalid format", () => {
     expect(() => parseWeeklyTime("invalid")).toThrow(
-      'scheduledTime must be in format "day:HH:MM" or "HH:MM"',
+      'scheduledTime must be in format "day:HH:MM" or "HH:MM"'
     );
   });
 });
@@ -355,18 +362,26 @@ describe("formatWeeklyTime", () => {
 
   it("throws error for non-number day", () => {
     expect(() => formatWeeklyTime("1" as unknown as number, "09:30")).toThrow(
-      "day must be a number",
+      "day must be a number"
     );
   });
 
   it("throws error for invalid day range", () => {
-    expect(() => formatWeeklyTime(7, "09:30")).toThrow("day must be an integer between 0 and 6");
-    expect(() => formatWeeklyTime(-1, "09:30")).toThrow("day must be an integer between 0 and 6");
-    expect(() => formatWeeklyTime(1.5, "09:30")).toThrow("day must be an integer between 0 and 6");
+    expect(() => formatWeeklyTime(7, "09:30")).toThrow(
+      "day must be an integer between 0 and 6"
+    );
+    expect(() => formatWeeklyTime(-1, "09:30")).toThrow(
+      "day must be an integer between 0 and 6"
+    );
+    expect(() => formatWeeklyTime(1.5, "09:30")).toThrow(
+      "day must be an integer between 0 and 6"
+    );
   });
 
   it("throws error for non-string time", () => {
-    expect(() => formatWeeklyTime(1, 930 as unknown as string)).toThrow("time must be a string");
+    expect(() => formatWeeklyTime(1, 930 as unknown as string)).toThrow(
+      "time must be a string"
+    );
   });
 
   it("throws error for empty time", () => {
@@ -375,8 +390,12 @@ describe("formatWeeklyTime", () => {
   });
 
   it("throws error for invalid time format", () => {
-    expect(() => formatWeeklyTime(1, "9:30")).toThrow('time must be in format "HH:MM"');
-    expect(() => formatWeeklyTime(1, "25:00")).toThrow('time must be in format "HH:MM"');
+    expect(() => formatWeeklyTime(1, "9:30")).toThrow(
+      'time must be in format "HH:MM"'
+    );
+    expect(() => formatWeeklyTime(1, "25:00")).toThrow(
+      'time must be in format "HH:MM"'
+    );
   });
 });
 

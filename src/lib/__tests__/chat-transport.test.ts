@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { chatTransport, setChatAuthToken } from "../chat-transport";
 
-const fetchMock = vi.fn<(url: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
-  async () => new Response("", { headers: { "Content-Type": "text/event-stream" } }),
+const fetchMock = vi.fn<
+  (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+>(
+  async () =>
+    new Response("", { headers: { "Content-Type": "text/event-stream" } })
 );
 
 async function sendAndReadAuthorization() {
@@ -14,7 +18,9 @@ async function sendAndReadAuthorization() {
     trigger: "submit-message",
     messageId: undefined,
   });
-  return new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("authorization");
+  return new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get(
+    "authorization"
+  );
 }
 
 describe("chatTransport", () => {
@@ -31,9 +37,13 @@ describe("chatTransport", () => {
 
     // ...and after their guest sign-in, or a token refresh, the same transport sends the new one
     setChatAuthToken("guest-token");
-    await expect(sendAndReadAuthorization()).resolves.toBe("Bearer guest-token");
+    await expect(sendAndReadAuthorization()).resolves.toBe(
+      "Bearer guest-token"
+    );
 
     setChatAuthToken("refreshed-token");
-    await expect(sendAndReadAuthorization()).resolves.toBe("Bearer refreshed-token");
+    await expect(sendAndReadAuthorization()).resolves.toBe(
+      "Bearer refreshed-token"
+    );
   });
 });

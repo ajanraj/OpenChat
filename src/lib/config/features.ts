@@ -11,7 +11,12 @@ export const PDF_PROCESSING_FEATURE = {
   enabled: true,
   label: "Supports PDF uploads and analysis",
 };
-const OPTIONAL_REASONING_EFFORTS: ReasoningEffort[] = ["none", "low", "medium", "high"];
+const OPTIONAL_REASONING_EFFORTS: ReasoningEffort[] = [
+  "none",
+  "low",
+  "medium",
+  "high",
+];
 const ALWAYS_REASONING_EFFORTS: ReasoningEffort[] = ["low", "medium", "high"];
 const MAX_REASONING_EFFORTS: ReasoningEffort[] = ["xhigh", "high", "low"];
 const TOGGLE_REASONING_EFFORTS: ReasoningEffort[] = ["none", "high"];

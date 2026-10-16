@@ -1,6 +1,6 @@
 import { handleSearchError } from "../search-errors";
-import { PROVIDER_LIMITS, SEARCH_CONFIG } from '../types';
-import type { SearchAdapter, SearchOptions, SearchResult } from '../types';
+import { PROVIDER_LIMITS, SEARCH_CONFIG } from "../types";
+import type { SearchAdapter, SearchOptions, SearchResult } from "../types";
 
 export class BraveSearchProvider implements SearchAdapter {
   readonly name = "brave";
@@ -14,7 +14,10 @@ export class BraveSearchProvider implements SearchAdapter {
     this.apiKey = apiKey;
   }
 
-  async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+  async search(
+    query: string,
+    options: SearchOptions = {}
+  ): Promise<SearchResult[]> {
     const {
       maxResults = SEARCH_CONFIG.maxResults,
       scrapeContent = SEARCH_CONFIG.scrapeContent,
@@ -51,7 +54,9 @@ export class BraveSearchProvider implements SearchAdapter {
       });
 
       if (!response.ok) {
-        throw new Error(`Brave Search failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Brave Search failed: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -62,7 +67,10 @@ export class BraveSearchProvider implements SearchAdapter {
     }
   }
 
-  private formatResults(results: unknown[], includeContent: boolean): SearchResult[] {
+  private formatResults(
+    results: unknown[],
+    includeContent: boolean
+  ): SearchResult[] {
     return results.map((result: unknown) => {
       const item = result as {
         url?: string;

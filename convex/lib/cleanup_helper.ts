@@ -1,4 +1,5 @@
 import { R2 } from "@convex-dev/r2";
+
 import { components, internal } from "../_generated/api";
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
@@ -14,8 +15,11 @@ const RECHECK_MARGIN_MS = 60 * 1000;
  * When to re-check an attachment's R2 key: just after the upload URL issued with its row (at
  * `_creationTime`) expires. Null once that has passed, since the object can no longer change.
  */
-export function uploadRecheckTime(attachment: Doc<"chat_attachments">): number | null {
-  const recheckAt = attachment._creationTime + UPLOAD_URL_LIFETIME_MS + RECHECK_MARGIN_MS;
+export function uploadRecheckTime(
+  attachment: Doc<"chat_attachments">
+): number | null {
+  const recheckAt =
+    attachment._creationTime + UPLOAD_URL_LIFETIME_MS + RECHECK_MARGIN_MS;
   return recheckAt > Date.now() ? recheckAt : null;
 }
 
@@ -27,13 +31,17 @@ export function uploadRecheckTime(attachment: Doc<"chat_attachments">): number |
  */
 export async function scheduleDeletedUploadCheck(
   ctx: MutationCtx,
-  attachment: Doc<"chat_attachments">,
+  attachment: Doc<"chat_attachments">
 ): Promise<void> {
   const recheckAt = uploadRecheckTime(attachment);
   if (recheckAt !== null) {
-    await ctx.scheduler.runAt(recheckAt, internal.files.enforceAttachmentPolicy, {
-      key: attachment.key,
-    });
+    await ctx.scheduler.runAt(
+      recheckAt,
+      internal.files.enforceAttachmentPolicy,
+      {
+        key: attachment.key,
+      }
+    );
   }
 }
 
@@ -46,7 +54,7 @@ export async function scheduleDeletedUploadCheck(
  */
 export async function deleteMessagesForChat(
   ctx: MutationCtx,
-  chatId: Id<"chats">,
+  chatId: Id<"chats">
 ): Promise<Id<"messages">[]> {
   const messages = await ctx.db
     .query("messages")
@@ -69,12 +77,15 @@ export async function deleteMessagesForChat(
 async function deleteAttachment(
   ctx: MutationCtx,
   r2: R2,
-  attachment: Doc<"chat_attachments">,
+  attachment: Doc<"chat_attachments">
 ): Promise<void> {
   try {
     await r2.deleteObject(ctx, attachment.key);
   } catch (error) {
-    console.error(`Failed to delete R2 object "${attachment.key}"; it is now orphaned:`, error);
+    console.error(
+      `Failed to delete R2 object "${attachment.key}"; it is now orphaned:`,
+      error
+    );
   }
   await ctx.db.delete("chat_attachments", attachment._id);
   await scheduleDeletedUploadCheck(ctx, attachment);
@@ -89,7 +100,7 @@ async function deleteAttachment(
  */
 export async function deleteAttachmentsForChat(
   ctx: MutationCtx,
-  chatId: Id<"chats">,
+  chatId: Id<"chats">
 ): Promise<void> {
   const r2 = new R2(components.r2);
   const attachments = await ctx.db
@@ -97,7 +108,9 @@ export async function deleteAttachmentsForChat(
     .withIndex("by_chatId", (q) => q.eq("chatId", chatId))
     .collect();
 
-  await Promise.all(attachments.map((attachment) => deleteAttachment(ctx, r2, attachment)));
+  await Promise.all(
+    attachments.map((attachment) => deleteAttachment(ctx, r2, attachment))
+  );
 }
 
 /**
@@ -110,12 +123,12 @@ export async function deleteAttachmentsForChat(
 export async function removeBranchReferences(
   ctx: MutationCtx,
   originalChatId: Id<"chats">,
-  userId: Id<"users">,
+  userId: Id<"users">
 ): Promise<void> {
   const branchedChats = await ctx.db
     .query("chats")
     .withIndex("by_user_and_original_chat", (q) =>
-      q.eq("userId", userId).eq("originalChatId", originalChatId),
+      q.eq("userId", userId).eq("originalChatId", originalChatId)
     )
     .collect();
 
@@ -124,8 +137,8 @@ export async function removeBranchReferences(
       ctx.db.patch("chats", branchedChat._id, {
         originalChatId: undefined,
         updatedAt: Date.now(),
-      }),
-    ),
+      })
+    )
   );
 }
 
@@ -139,13 +152,16 @@ export async function removeBranchReferences(
 export async function deleteChatCompletely(
   ctx: MutationCtx,
   chatId: Id<"chats">,
-  userId: Id<"users">,
+  userId: Id<"users">
 ): Promise<void> {
   // Remove branch references first
   await removeBranchReferences(ctx, chatId, userId);
 
   // Delete messages and attachments in parallel
-  await Promise.all([deleteMessagesForChat(ctx, chatId), deleteAttachmentsForChat(ctx, chatId)]);
+  await Promise.all([
+    deleteMessagesForChat(ctx, chatId),
+    deleteAttachmentsForChat(ctx, chatId),
+  ]);
 
   // Finally delete the chat itself
   await ctx.db.delete("chats", chatId);
@@ -159,7 +175,10 @@ export async function deleteChatCompletely(
  * @example
  * await deleteAuthAccounts(ctx, userId);
  */
-export async function deleteAuthAccounts(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
+export async function deleteAuthAccounts(
+  ctx: MutationCtx,
+  userId: Id<"users">
+): Promise<void> {
   for await (const account of ctx.db
     .query("authAccounts")
     .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))) {
@@ -203,7 +222,7 @@ async function hasPurgeBudget(ctx: MutationCtx): Promise<boolean> {
 async function purgeEach<Row>(
   ctx: MutationCtx,
   rows: AsyncIterable<Row>,
-  purge: (row: Row) => Promise<boolean>,
+  purge: (row: Row) => Promise<boolean>
 ): Promise<boolean> {
   for await (const row of rows) {
     if (!((await hasPurgeBudget(ctx)) && (await purge(row)))) {
@@ -252,20 +271,24 @@ export async function purgeChatsBatch(
   ctx: MutationCtx,
   userId: Id<"users">,
   chats: AsyncIterable<Doc<"chats">>,
-  unlinkBranches: boolean,
+  unlinkBranches: boolean
 ): Promise<boolean> {
   const { deleteRow, deleteAttachment } = createPurger(ctx);
   return await purgeEach(ctx, chats, async (chat) => {
     const done =
       (await purgeEach(
         ctx,
-        ctx.db.query("chat_attachments").withIndex("by_chatId", (q) => q.eq("chatId", chat._id)),
-        deleteAttachment,
+        ctx.db
+          .query("chat_attachments")
+          .withIndex("by_chatId", (q) => q.eq("chatId", chat._id)),
+        deleteAttachment
       )) &&
       (await purgeEach(
         ctx,
-        ctx.db.query("messages").withIndex("by_chat_and_created", (q) => q.eq("chatId", chat._id)),
-        deleteRow,
+        ctx.db
+          .query("messages")
+          .withIndex("by_chat_and_created", (q) => q.eq("chatId", chat._id)),
+        deleteRow
       )) &&
       (!unlinkBranches ||
         (await purgeEach(
@@ -273,7 +296,7 @@ export async function purgeChatsBatch(
           ctx.db
             .query("chats")
             .withIndex("by_user_and_original_chat", (q) =>
-              q.eq("userId", userId).eq("originalChatId", chat._id),
+              q.eq("userId", userId).eq("originalChatId", chat._id)
             ),
           async (branch) => {
             // Also unlinks branches being deleted too: the patch moves each branch out of this
@@ -283,7 +306,7 @@ export async function purgeChatsBatch(
               updatedAt: Date.now(),
             });
             return true;
-          },
+          }
         )));
     if (!done) {
       return false;
@@ -301,7 +324,10 @@ export async function purgeChatsBatch(
  * @example
  * const done = await purgeUserDataBatch(ctx, userId);
  */
-export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">): Promise<boolean> {
+export async function purgeUserDataBatch(
+  ctx: MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
   const { deleteRow, deleteAttachment } = createPurger(ctx);
   let sessionsDeleted = 0;
 
@@ -311,21 +337,23 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("authSessions").withIndex("userId", (q) => q.eq("userId", userId)),
+        ctx.db
+          .query("authSessions")
+          .withIndex("userId", (q) => q.eq("userId", userId)),
         async (session) => {
           const tokensDone = await purgeEach(
             ctx,
             ctx.db
               .query("authRefreshTokens")
               .withIndex("sessionId", (q) => q.eq("sessionId", session._id)),
-            deleteRow,
+            deleteRow
           );
           if (!tokensDone) {
             return false;
           }
           sessionsDeleted += 1;
           return await deleteRow(session);
-        },
+        }
       ),
     // A run that deleted sessions stops here, so a later step that throws can't roll them back
     async () => sessionsDeleted === 0,
@@ -333,13 +361,20 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("scheduled_tasks").withIndex("by_user", (q) => q.eq("userId", userId)),
+        ctx.db
+          .query("scheduled_tasks")
+          .withIndex("by_user", (q) => q.eq("userId", userId)),
         async (task) => {
           if (task.scheduledFunctionId) {
             try {
-              await ctx.scheduler.cancel(task.scheduledFunctionId as Id<"_scheduled_functions">);
+              await ctx.scheduler.cancel(
+                task.scheduledFunctionId as Id<"_scheduled_functions">
+              );
             } catch (error) {
-              console.error(`Failed to cancel the scheduled run of task ${task._id}:`, error);
+              console.error(
+                `Failed to cancel the scheduled run of task ${task._id}:`,
+                error
+              );
             }
           }
           const historyDone = await purgeEach(
@@ -347,57 +382,71 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
             ctx.db
               .query("task_history")
               .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id)),
-            deleteRow,
+            deleteRow
           );
           if (!historyDone) {
             return false;
           }
           return await deleteRow(task);
-        },
+        }
       ),
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("chat_attachments").withIndex("by_userId", (q) => q.eq("userId", userId)),
-        deleteAttachment,
+        ctx.db
+          .query("chat_attachments")
+          .withIndex("by_userId", (q) => q.eq("userId", userId)),
+        deleteAttachment
       ),
     () =>
       purgeChatsBatch(
         ctx,
         userId,
-        ctx.db.query("chats").withIndex("by_user", (q) => q.eq("userId", userId)),
+        ctx.db
+          .query("chats")
+          .withIndex("by_user", (q) => q.eq("userId", userId)),
         // Every chat of the user goes, so no branch link needs clearing
-        false,
+        false
       ),
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("messages").withIndex("by_user", (q) => q.eq("userId", userId)),
-        deleteRow,
+        ctx.db
+          .query("messages")
+          .withIndex("by_user", (q) => q.eq("userId", userId)),
+        deleteRow
       ),
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("feedback").withIndex("by_user", (q) => q.eq("userId", userId)),
-        deleteRow,
+        ctx.db
+          .query("feedback")
+          .withIndex("by_user", (q) => q.eq("userId", userId)),
+        deleteRow
       ),
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("profiles").withIndex("by_user", (q) => q.eq("userId", userId)),
-        deleteRow,
+        ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", userId)),
+        deleteRow
       ),
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("connectors").withIndex("by_user", (q) => q.eq("userId", userId)),
-        deleteRow,
+        ctx.db
+          .query("connectors")
+          .withIndex("by_user", (q) => q.eq("userId", userId)),
+        deleteRow
       ),
     () =>
       purgeEach(
         ctx,
-        ctx.db.query("user_api_keys").withIndex("by_user_provider", (q) => q.eq("userId", userId)),
-        deleteRow,
+        ctx.db
+          .query("user_api_keys")
+          .withIndex("by_user_provider", (q) => q.eq("userId", userId)),
+        deleteRow
       ),
   ];
 
@@ -410,8 +459,8 @@ export async function purgeUserDataBatch(ctx: MutationCtx, userId: Id<"users">):
   // Rate-limit buckets are keyed by user id; resetting a limit deletes the user's buckets
   await Promise.all(
     Object.keys(rateLimiter.limits ?? {}).map((name) =>
-      rateLimiter.reset(ctx, name, { key: userId }),
-    ),
+      rateLimiter.reset(ctx, name, { key: userId })
+    )
   );
   return true;
 }

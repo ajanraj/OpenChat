@@ -11,11 +11,13 @@ import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import { CONNECTOR_CONFIGS } from '@/lib/config/tools';
-import type { ConnectorConfig } from '@/lib/config/tools';
+
+import { CONNECTOR_CONFIGS } from "@/lib/config/tools";
+import type { ConnectorConfig } from "@/lib/config/tools";
 // Import the authoritative type from connector-utils
 import type { ConnectorStatusLists } from "@/lib/connector-utils";
 import type { ConnectorType } from "@/lib/types";
+
 import type { Doc } from "../../convex/_generated/dataModel";
 
 // Extend dayjs with plugins
@@ -76,18 +78,20 @@ export const PERSONAS = [
 ];
 
 // Add a map for O(1) lookup by id
-export const PERSONAS_MAP: Record<string, (typeof PERSONAS)[0]> = Object.fromEntries(
-  PERSONAS.map((persona) => [persona.id, persona]),
-);
+export const PERSONAS_MAP: Record<string, (typeof PERSONAS)[0]> =
+  Object.fromEntries(PERSONAS.map((persona) => [persona.id, persona]));
 
 const ALL_INTEGRATIONS = Object.values(CONNECTOR_CONFIGS)
-  .sort((a: ConnectorConfig, b: ConnectorConfig) => a.displayName.localeCompare(b.displayName))
+  .sort((a: ConnectorConfig, b: ConnectorConfig) =>
+    a.displayName.localeCompare(b.displayName)
+  )
   .map((c: ConnectorConfig) => `- ${c.displayName}: ${c.description}`)
   .join("\n");
 
 const generateAllPossibleIntegrations = (): string => ALL_INTEGRATIONS;
 
-const isConnectorType = (s: string): s is ConnectorType => s in CONNECTOR_CONFIGS;
+const isConnectorType = (s: string): s is ConnectorType =>
+  s in CONNECTOR_CONFIGS;
 
 const mapToolkitSlugToDisplayName = (slug: string): string => {
   const key = slug.toLowerCase();
@@ -101,7 +105,9 @@ const mapToolkitSlugToDisplayName = (slug: string): string => {
 /**
  * Helper function to format date and time in the user's timezone
  */
-const formatDateInTimezone = (timezone?: string): { date: string; time: string } => {
+const formatDateInTimezone = (
+  timezone?: string
+): { date: string; time: string } => {
   const now = new Date();
   // console.log('Current date/time:', now);
   if (timezone) {
@@ -128,7 +134,7 @@ const formatDateInTimezone = (timezone?: string): { date: string; time: string }
 
 export const getSystemPromptDefault = (
   timezone?: string,
-  connectorsStatus?: ConnectorStatusLists,
+  connectorsStatus?: ConnectorStatusLists
 ) => {
   const { date, time } = formatDateInTimezone(timezone);
   const enabled = connectorsStatus?.enabled ?? [];
@@ -179,7 +185,9 @@ ${generateAllPossibleIntegrations()}
 Currently enabled integrations for this user:
 ${
   enabled.length > 0
-    ? enabled.map((slug: string) => `- ${mapToolkitSlugToDisplayName(slug)}`).join("\n")
+    ? enabled
+        .map((slug: string) => `- ${mapToolkitSlugToDisplayName(slug)}`)
+        .join("\n")
     : "- None enabled."
 }
 
@@ -205,7 +213,7 @@ If the user asks about an integration that is not in "Currently enabled", direct
 
 export const getTaskPromptDefault = (
   timezone?: string,
-  connectorsStatus?: ConnectorStatusLists,
+  connectorsStatus?: ConnectorStatusLists
 ) => {
   const { date, time } = formatDateInTimezone(timezone);
   const enabled = connectorsStatus?.enabled ?? [];
@@ -249,7 +257,9 @@ ${generateAllPossibleIntegrations()}
 Currently enabled integrations:
 ${
   enabled.length > 0
-    ? enabled.map((slug: string) => `- ${mapToolkitSlugToDisplayName(slug)}`).join("\n")
+    ? enabled
+        .map((slug: string) => `- ${mapToolkitSlugToDisplayName(slug)}`)
+        .join("\n")
     : "- None enabled."
 }
 
@@ -428,7 +438,7 @@ export function buildSystemPrompt(
   emailMode?: boolean,
   taskMode?: boolean,
   connectorsStatus?: ConnectorStatusLists,
-  profile?: ProfileData | null,
+  profile?: ProfileData | null
 ) {
   // Choose the appropriate base prompt based on mode
   let prompt =
@@ -476,13 +486,21 @@ export function buildSystemPrompt(
   const occupation = profile?.occupation || user.occupation;
   const traits = profile?.traits || user.traits;
   const about = profile?.about || user.about;
-  if (preferredName) {details.push(`Preferred Name: ${preferredName}`);}
-  if (occupation) {details.push(`Occupation: ${occupation}`);}
-  if (traits) {details.push(`Traits: ${traits}`);}
-  if (about) {details.push(`About: ${about}`);}
+  if (preferredName) {
+    details.push(`Preferred Name: ${preferredName}`);
+  }
+  if (occupation) {
+    details.push(`Occupation: ${occupation}`);
+  }
+  if (traits) {
+    details.push(`Traits: ${traits}`);
+  }
+  if (about) {
+    details.push(`About: ${about}`);
+  }
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(
-        "\n",
+        "\n"
       )}`
     : prompt;
 }

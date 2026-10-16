@@ -1,5 +1,6 @@
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { z } from "zod";
+
 import { ModelSchema } from "../schemas";
 import { ANTHROPIC_MODELS } from "./anthropic";
 import { DEEPSEEK_MODELS } from "./deepseek";
@@ -48,8 +49,7 @@ export const MODELS = MODELS_RAW.map((m) => ({
 }));
 
 // Add a map for O(1) lookup by id
-export const MODELS_MAP: Record<string, (typeof MODELS)[0]> = Object.fromEntries(
-  MODELS.map((model) => [model.id, model]),
-);
+export const MODELS_MAP: Record<string, (typeof MODELS)[0]> =
+  Object.fromEntries(MODELS.map((model) => [model.id, model]));
 
 export const MODELS_OPTIONS = MODELS.filter((model) => !model.retired);

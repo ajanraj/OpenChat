@@ -1,6 +1,8 @@
 import { useMemo } from "react";
+
 import { MODELS_OPTIONS, PROVIDERS_OPTIONS } from "@/lib/config";
 import { useUser } from "@/providers/user-provider";
+
 import { useModelPreferences } from "./use-model-preferences";
 
 export interface EnrichedModel {
@@ -32,42 +34,49 @@ export function useEnrichedModels() {
   const { favoriteModelsSet } = useModelPreferences();
 
   // Transform API keys array to Map for O(1) lookups
-  const apiKeysMap = useMemo(() => new Map(apiKeys.map((key) => [key.provider, true])), [apiKeys]);
+  const apiKeysMap = useMemo(
+    () => new Map(apiKeys.map((key) => [key.provider, true])),
+    [apiKeys]
+  );
 
-  const enrichedModels = useMemo(() => 
-    MODELS_OPTIONS.map((model): EnrichedModel => {
-      // Compute availability once
-      const userHasKey = apiKeysMap.has(model.provider);
-      const requiresKey = model.apiKeyUsage?.userKeyOnly ?? false;
-      const canUseWithKey = !requiresKey || userHasKey;
-      const requiresPremium = model.premium ?? false;
-      const canUseAsPremium = !requiresPremium || hasPremium || userHasKey;
-      const available = canUseWithKey && canUseAsPremium;
-      // Pre-compute features map for O(1) feature lookups
-      const featuresMap = model.features.reduce< Record<string, boolean>>(
-        (acc, feature) => {
-          acc[feature.id] = feature.enabled;
-          return acc;
-        },
-        {},
-      );
+  const enrichedModels = useMemo(
+    () =>
+      MODELS_OPTIONS.map((model): EnrichedModel => {
+        // Compute availability once
+        const userHasKey = apiKeysMap.has(model.provider);
+        const requiresKey = model.apiKeyUsage?.userKeyOnly ?? false;
+        const canUseWithKey = !requiresKey || userHasKey;
+        const requiresPremium = model.premium ?? false;
+        const canUseAsPremium = !requiresPremium || hasPremium || userHasKey;
+        const available = canUseWithKey && canUseAsPremium;
+        // Pre-compute features map for O(1) feature lookups
+        const featuresMap = model.features.reduce<Record<string, boolean>>(
+          (acc, feature) => {
+            acc[feature.id] = feature.enabled;
+            return acc;
+          },
+          {}
+        );
 
-      // Find provider info once - use displayProvider for UI, fallback to provider
-      const modelWithDisplayProvider = model as typeof model & {
-        displayProvider?: string;
-      };
-      const providerInfo = PROVIDERS_OPTIONS.find(
-        (p) => p.id === (modelWithDisplayProvider.displayProvider || model.provider),
-      );
+        // Find provider info once - use displayProvider for UI, fallback to provider
+        const modelWithDisplayProvider = model as typeof model & {
+          displayProvider?: string;
+        };
+        const providerInfo = PROVIDERS_OPTIONS.find(
+          (p) =>
+            p.id ===
+            (modelWithDisplayProvider.displayProvider || model.provider)
+        );
 
-      return {
-        ...model,
-        providerInfo,
-        available,
-        featuresMap,
-      };
-    })
-  , [apiKeysMap, hasPremium]);
+        return {
+          ...model,
+          providerInfo,
+          available,
+          featuresMap,
+        };
+      }),
+    [apiKeysMap, hasPremium]
+  );
 
   // Separate models by category for efficient filtering
   const categorizedModels = useMemo(() => {

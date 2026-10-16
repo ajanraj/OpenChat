@@ -1,5 +1,6 @@
 import type { JSONSchema7 } from "ai";
 import { describe, expect, it, vi } from "vitest";
+
 import {
   convertComposioTool,
   convertComposioTools,
@@ -21,7 +22,9 @@ interface ComposioToolMock {
 }
 
 // Mock composio tool for testing
-const createMockComposioTool = (overrides: Partial<ComposioToolMock> = {}): ComposioToolMock => ({
+const createMockComposioTool = (
+  overrides: Partial<ComposioToolMock> = {}
+): ComposioToolMock => ({
   description: "Test tool description",
   parameters: {
     jsonSchema: {
@@ -171,11 +174,13 @@ describe("composio-tool-adapter", () => {
     });
 
     it("preserves execute function", async () => {
-      const mockExecute = vi.fn<ComposioToolMock["execute"]>().mockResolvedValue({
-        data: { test: "value" },
-        error: null,
-        successful: true,
-      });
+      const mockExecute = vi
+        .fn<ComposioToolMock["execute"]>()
+        .mockResolvedValue({
+          data: { test: "value" },
+          error: null,
+          successful: true,
+        });
       const composioTool = createMockComposioTool({ execute: mockExecute });
 
       const converted = convertComposioTool("testTool", composioTool);

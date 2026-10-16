@@ -41,7 +41,11 @@ export function getUploadPolicyError(file: {
   if (!(file.type && isAllowedUploadMime(file.type))) {
     return ERROR_CODES.UNSUPPORTED_FILE_TYPE;
   }
-  if (file.size === undefined || !Number.isSafeInteger(file.size) || file.size < 0) {
+  if (
+    file.size === undefined ||
+    !Number.isSafeInteger(file.size) ||
+    file.size < 0
+  ) {
     return ERROR_CODES.INVALID_INPUT;
   }
   if (file.size > UPLOAD_MAX_BYTES) {
@@ -54,9 +58,8 @@ export function getUploadPolicyError(file: {
 export const UPLOAD_ACCEPT: string = [...UPLOAD_ALLOWED_MIME].join(",");
 
 // Allowed image types for paste (clipboard typically provides images only)
-export const PASTE_ALLOWED_MIME: readonly UploadAllowedMime[] = UPLOAD_ALLOWED_MIME.filter((t) =>
-  t.startsWith("image/"),
-);
+export const PASTE_ALLOWED_MIME: readonly UploadAllowedMime[] =
+  UPLOAD_ALLOWED_MIME.filter((t) => t.startsWith("image/"));
 
 // Human-friendly labels derived from MIME types
 const MIME_LABEL_MAP: Readonly<Record<string, string>> = {
@@ -69,7 +72,9 @@ const MIME_LABEL_MAP: Readonly<Record<string, string>> = {
   "application/pdf": "PDF",
 };
 
-export function getAllowedLabel(mimes: readonly string[] = UPLOAD_ALLOWED_MIME): string {
+export function getAllowedLabel(
+  mimes: readonly string[] = UPLOAD_ALLOWED_MIME
+): string {
   const labels = [...new Set(mimes.map((t) => MIME_LABEL_MAP[t] ?? t))];
   if (labels.length <= 1) {
     return labels.join(", ");

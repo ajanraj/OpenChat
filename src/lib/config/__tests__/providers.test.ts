@@ -1,7 +1,14 @@
-import { createElement } from "react";
 import { render } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { FluxIcon, KimiIcon, MinimaxIcon, ZAIIcon } from "@/components/icons/provider-brand-icons";
+
+import {
+  FluxIcon,
+  KimiIcon,
+  MinimaxIcon,
+  ZAIIcon,
+} from "@/components/icons/provider-brand-icons";
+
 import { PROVIDERS, PROVIDERS_OPTIONS } from "../providers";
 
 const providerIconMappings = [
@@ -79,21 +86,33 @@ describe("Providers Config", () => {
   });
 
   describe("Provider icon variations", () => {
-    it.each(providerIconMappings)("uses the expected icon for $id", ({ icon, id }) => {
-      expect(PROVIDERS.find((provider) => provider.id === id)?.icon).toBe(icon);
-    });
+    it.each(providerIconMappings)(
+      "uses the expected icon for $id",
+      ({ icon, id }) => {
+        expect(PROVIDERS.find((provider) => provider.id === id)?.icon).toBe(
+          icon
+        );
+      }
+    );
 
-    it.each(localProviderIcons)("renders the local $title icon", ({ icon, title }) => {
-      const { container } = render(createElement(icon, { className: "size-5" }));
-      const svg = container.querySelector("svg");
+    it.each(localProviderIcons)(
+      "renders the local $title icon",
+      ({ icon, title }) => {
+        const { container } = render(
+          createElement(icon, { className: "size-5" })
+        );
+        const svg = container.querySelector("svg");
 
-      expect(svg?.getAttribute("class")).toBe("size-5");
-      expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
-      expect(svg?.querySelector("title")?.textContent).toBe(title);
-    });
+        expect(svg?.getAttribute("class")).toBe("size-5");
+        expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
+        expect(svg?.querySelector("title")?.textContent).toBe(title);
+      }
+    );
 
     it("renders Kimi without an opaque app-tile background", () => {
-      const { container } = render(createElement(KimiIcon, { className: "size-5" }));
+      const { container } = render(
+        createElement(KimiIcon, { className: "size-5" })
+      );
       const svg = container.querySelector("svg");
 
       expect(svg?.querySelectorAll("path")).toHaveLength(2);

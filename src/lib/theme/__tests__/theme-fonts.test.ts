@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   getCurrentFontSelection,
   getFontOptions,
@@ -71,7 +72,9 @@ describe("getFontOptions", () => {
   });
 
   it("throws for unknown category", () => {
-    expect(() => getFontOptions("serif" as "sans")).toThrow("Unknown font category");
+    expect(() => getFontOptions("serif" as "sans")).toThrow(
+      "Unknown font category"
+    );
   });
 });
 

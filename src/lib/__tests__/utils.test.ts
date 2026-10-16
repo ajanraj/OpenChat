@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { cn, isDeepEqual } from "../utils";
 
 describe("cn (className utility)", () => {
@@ -68,7 +69,9 @@ describe("isDeepEqual", () => {
   it("handles nested objects", () => {
     expect(isDeepEqual({ a: { b: 1 } }, { a: { b: 1 } })).toBe(true);
     expect(isDeepEqual({ a: { b: 1 } }, { a: { b: 2 } })).toBe(false);
-    expect(isDeepEqual({ a: { b: { c: 1 } } }, { a: { b: { c: 1 } } })).toBe(true);
+    expect(isDeepEqual({ a: { b: { c: 1 } } }, { a: { b: { c: 1 } } })).toBe(
+      true
+    );
   });
 
   it("handles arrays", () => {

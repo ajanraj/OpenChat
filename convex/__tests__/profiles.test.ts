@@ -1,9 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import type { Id } from "../_generated/dataModel";
 import { deleteProfile, ensureDefaultProfile } from "../profiles";
-import { createFakeCtx, createFakeDb } from './fake_db.testutil';
-import type { FakeDb } from './fake_db.testutil';
+import { createFakeCtx, createFakeDb } from "./fake_db.testutil";
+import type { FakeDb } from "./fake_db.testutil";
 
 // Keep the real authTables, which the schema (and so the fake db) needs
 vi.mock(import("@convex-dev/auth/server"), async (importOriginal) => ({
@@ -18,7 +19,10 @@ vi.mock("../_generated/server", () => ({
   internalQuery: (def: { handler: unknown }) => def.handler,
 }));
 
-type Handler = (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;
+type Handler = (
+  ctx: unknown,
+  args: Record<string, unknown>
+) => Promise<unknown>;
 const asHandler = (fn: unknown) => fn as Handler;
 
 afterEach(() => {
@@ -27,12 +31,19 @@ afterEach(() => {
 
 function setup() {
   const db = createFakeDb();
-  const userId = db.seed("users", { name: "User", preferredModel: "model-a" }) as Id<"users">;
+  const userId = db.seed("users", {
+    name: "User",
+    preferredModel: "model-a",
+  }) as Id<"users">;
   vi.mocked(getAuthUserId).mockResolvedValue(userId);
   return { db, userId };
 }
 
-function seedProfile(db: FakeDb, userId: Id<"users">, fields: Record<string, unknown> = {}) {
+function seedProfile(
+  db: FakeDb,
+  userId: Id<"users">,
+  fields: Record<string, unknown> = {}
+) {
   return db.seed("profiles", {
     userId,
     name: "Work",
@@ -43,9 +54,13 @@ function seedProfile(db: FakeDb, userId: Id<"users">, fields: Record<string, unk
   }) as Id<"profiles">;
 }
 
-const byId = (db: FakeDb, table: "chats" | "scheduled_tasks" | "users", id: string) =>
-  db.all(table).find((row) => row._id === id);
-const defaultProfiles = (db: FakeDb) => db.all("profiles").filter((p) => p.isDefault === true);
+const byId = (
+  db: FakeDb,
+  table: "chats" | "scheduled_tasks" | "users",
+  id: string
+) => db.all(table).find((row) => row._id === id);
+const defaultProfiles = (db: FakeDb) =>
+  db.all("profiles").filter((p) => p.isDefault === true);
 
 describe("deleteProfile", () => {
   it("reassigns the profile's chats and scheduled tasks to the default profile", async () => {
@@ -53,8 +68,16 @@ describe("deleteProfile", () => {
     const defaultId = seedProfile(db, userId, { isDefault: true, order: 0 });
     const workId = seedProfile(db, userId);
     await db.patch("users", userId, { activeProfileId: workId });
-    const chatId = db.seed("chats", { userId, profileId: workId, updatedAt: 1 });
-    const keptChatId = db.seed("chats", { userId, profileId: defaultId, updatedAt: 2 });
+    const chatId = db.seed("chats", {
+      userId,
+      profileId: workId,
+      updatedAt: 1,
+    });
+    const keptChatId = db.seed("chats", {
+      userId,
+      profileId: defaultId,
+      updatedAt: 2,
+    });
     const taskId = db.seed("scheduled_tasks", { userId, profileId: workId });
 
     await asHandler(deleteProfile)(createFakeCtx(db), { profileId: workId });
@@ -69,7 +92,11 @@ describe("deleteProfile", () => {
   it("creates the default profile to reassign to when the user has none", async () => {
     const { db, userId } = setup();
     const workId = seedProfile(db, userId);
-    const chatId = db.seed("chats", { userId, profileId: workId, updatedAt: 1 });
+    const chatId = db.seed("chats", {
+      userId,
+      profileId: workId,
+      updatedAt: 1,
+    });
 
     await asHandler(deleteProfile)(createFakeCtx(db), { profileId: workId });
 
@@ -116,7 +143,9 @@ describe("ensureDefaultProfile", () => {
     const { db, userId } = setup();
     const defaultId = seedProfile(db, userId, { isDefault: true, order: 0 });
 
-    await expect(asHandler(ensureDefaultProfile)(createFakeCtx(db), {})).resolves.toBe(defaultId);
+    await expect(
+      asHandler(ensureDefaultProfile)(createFakeCtx(db), {})
+    ).resolves.toBe(defaultId);
     expect(defaultProfiles(db)).toHaveLength(1);
   });
 });

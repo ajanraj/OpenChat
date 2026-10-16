@@ -1,4 +1,5 @@
 import { DefaultChatTransport } from "ai";
+
 import { API_ROUTE_CHAT } from "./routes";
 
 let authToken: string | null = null;

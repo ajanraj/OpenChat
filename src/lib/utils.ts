@@ -1,5 +1,5 @@
-import { clsx } from 'clsx';
-import type { ClassValue } from 'clsx';
+import { clsx } from "clsx";
+import type { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -30,7 +30,12 @@ export function isDeepEqual(a: unknown, b: unknown): boolean {
     if (!keysB.includes(key)) {
       return false;
     }
-    if (!isDeepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
+    if (
+      !isDeepEqual(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key]
+      )
+    ) {
       return false;
     }
   }

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
+
 import { ShareView } from "@/components/share/share-view";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -54,7 +55,7 @@ function ShareChatPage() {
     return (
       <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
         <div className="text-center">
-          <h1 className="mb-4 font-medium text-2xl">Chat Not Found</h1>
+          <h1 className="mb-4 text-2xl font-medium">Chat Not Found</h1>
           <p className="text-muted-foreground">
             This chat may have been deleted or is not publicly available.
           </p>
@@ -74,12 +75,12 @@ function ShareChatPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
-      <div className="mb-8 flex items-center justify-center gap-2 font-medium text-sm">
+      <div className="mb-8 flex items-center justify-center gap-2 text-sm font-medium">
         <time className="text-foreground" dateTime={createdAtDateTime}>
           {createdAtLabel}
         </time>
       </div>
-      <h1 className="mb-4 text-center font-medium text-4xl tracking-tight md:text-5xl">
+      <h1 className="mb-4 text-center text-4xl font-medium tracking-tight md:text-5xl">
         {chat.title || "Chat"}
       </h1>
       <p className="mb-8 text-center text-lg text-muted-foreground">

@@ -1,12 +1,18 @@
+import type { UIMessage } from "ai";
 import type { ConvexHttpClient } from "convex/browser";
-import { getFunctionName } from 'convex/server';
-import type { FunctionReference } from 'convex/server';
+import { getFunctionName } from "convex/server";
+import type { FunctionReference } from "convex/server";
 import { ConvexError } from "convex/values";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { UIMessage } from "ai";
-import { createMessageCreditTracker, shouldRefundGeneration } from "../message-credits";
 
-const getServerRouteSecret = vi.hoisted(() => vi.fn<() => string>(() => "route-secret"));
+import {
+  createMessageCreditTracker,
+  shouldRefundGeneration,
+} from "../message-credits";
+
+const getServerRouteSecret = vi.hoisted(() =>
+  vi.fn<() => string>(() => "route-secret")
+);
 
 vi.mock("@/lib/middleware/auth", () => ({ getServerRouteSecret }));
 
@@ -16,19 +22,24 @@ const CHARGED_RECEIPT = [{ bucket: "premiumMonthly", windowStart: 1 }];
 
 // consumeMessageCredit answers with the charge's receipt unless mutationImpl overrides it
 function setup(mutationImpl?: (name: string) => Promise<unknown>) {
-  const mutation = vi.fn<(...call: MutationCall) => Promise<unknown>>(async (fn) => {
-    const name = getFunctionName(fn);
-    if (mutationImpl) {
-      return await mutationImpl(name);
+  const mutation = vi.fn<(...call: MutationCall) => Promise<unknown>>(
+    async (fn) => {
+      const name = getFunctionName(fn);
+      if (mutationImpl) {
+        return await mutationImpl(name);
+      }
+      return name === "users:consumeMessageCredit" ? CHARGED_RECEIPT : null;
     }
-    return name === "users:consumeMessageCredit" ? CHARGED_RECEIPT : null;
-  });
+  );
   const controller = new AbortController();
   const credits = createMessageCreditTracker(
     { mutation } as unknown as Pick<ConvexHttpClient, "mutation">,
-    controller.signal,
+    controller.signal
   );
-  const calls = () => mutation.mock.calls.map(([fn, args]) => [getFunctionName(fn), args] as const);
+  const calls = () =>
+    mutation.mock.calls.map(
+      ([fn, args]) => [getFunctionName(fn), args] as const
+    );
   return { credits, controller, calls };
 }
 
@@ -46,7 +57,10 @@ describe("createMessageCreditTracker", () => {
 
     expect(calls()).toEqual([
       ["users:consumeMessageCredit", { usesPremiumCredits: true }],
-      ["users:refundMessageCredit", { serverSecret: "route-secret", receipt: CHARGED_RECEIPT }],
+      [
+        "users:refundMessageCredit",
+        { serverSecret: "route-secret", receipt: CHARGED_RECEIPT },
+      ],
     ]);
   });
 
@@ -56,7 +70,9 @@ describe("createMessageCreditTracker", () => {
     });
     const { credits, calls } = setup();
 
-    await expect(credits.charge(false)).rejects.toThrow("SERVER_ROUTE_SECRET is missing");
+    await expect(credits.charge(false)).rejects.toThrow(
+      "SERVER_ROUTE_SECRET is missing"
+    );
     await credits.refund();
 
     expect(calls()).toEqual([]);
@@ -77,7 +93,9 @@ describe("createMessageCreditTracker", () => {
     controller.abort();
     await credits.refund();
 
-    expect(calls().map(([name]) => name)).toEqual(["users:consumeMessageCredit"]);
+    expect(calls().map(([name]) => name)).toEqual([
+      "users:consumeMessageCredit",
+    ]);
   });
 
   it("does not refund a charge that was rejected for exhausted credits", async () => {
@@ -91,11 +109,15 @@ describe("createMessageCreditTracker", () => {
     await expect(credits.charge(false)).rejects.toThrow(ConvexError);
     await credits.refund();
 
-    expect(calls().map(([name]) => name)).toEqual(["users:consumeMessageCredit"]);
+    expect(calls().map(([name]) => name)).toEqual([
+      "users:consumeMessageCredit",
+    ]);
   });
 
   it("logs instead of throwing when the refund fails", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const { credits } = setup(async (name) => {
       if (name === "users:refundMessageCredit") {
         throw new Error("network down");
@@ -107,7 +129,7 @@ describe("createMessageCreditTracker", () => {
     await expect(credits.refund()).resolves.toBeUndefined();
     expect(consoleError).toHaveBeenCalledWith(
       "Failed to refund message credit:",
-      expect.any(Error),
+      expect.any(Error)
     );
   });
 });
@@ -117,18 +139,26 @@ describe("shouldRefundGeneration", () => {
     shouldRefundGeneration({ hasResult: true, generationFailed: true, parts });
 
   it("refunds when no attempt streamed", () => {
-    expect(shouldRefundGeneration({ hasResult: false, generationFailed: false, parts: [] })).toBe(
-      true,
-    );
+    expect(
+      shouldRefundGeneration({
+        hasResult: false,
+        generationFailed: false,
+        parts: [],
+      })
+    ).toBe(true);
   });
 
   it("refunds a provider failure before any output", () => {
     expect(failed([])).toBe(true);
-    expect(failed([{ type: "step-start" }, { type: "text", text: "  " }])).toBe(true);
+    expect(failed([{ type: "step-start" }, { type: "text", text: "  " }])).toBe(
+      true
+    );
   });
 
   it("keeps the charge once output reached the client", () => {
-    expect(failed([{ type: "step-start" }, { type: "text", text: "Partial answer" }])).toBe(false);
+    expect(
+      failed([{ type: "step-start" }, { type: "text", text: "Partial answer" }])
+    ).toBe(false);
     expect(failed([{ type: "reasoning", text: "Thinking" }])).toBe(false);
     expect(
       failed([
@@ -139,13 +169,17 @@ describe("shouldRefundGeneration", () => {
           state: "input-available",
           input: {},
         },
-      ]),
+      ])
     ).toBe(false);
   });
 
   it("keeps the charge for a successful generation, even if a later save fails", () => {
-    expect(shouldRefundGeneration({ hasResult: true, generationFailed: false, parts: [] })).toBe(
-      false,
-    );
+    expect(
+      shouldRefundGeneration({
+        hasResult: true,
+        generationFailed: false,
+        parts: [],
+      })
+    ).toBe(false);
   });
 });

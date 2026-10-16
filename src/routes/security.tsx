@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+
 import { LegalHeader } from "@/components/layout/legal/legal-header";
 
 export const Route = createFileRoute("/security")({
@@ -11,7 +12,7 @@ function SecurityPage() {
     <div>
       <LegalHeader />
       <div className="container mx-auto max-w-5xl px-4 py-8">
-        <div className="prose dark:prose-invert prose-headings:mt-8 prose-headings:mb-4 prose-ol:mb-6 prose-p:mb-4 prose-ul:mb-6 max-w-none">
+        <div className="prose max-w-none dark:prose-invert prose-headings:mt-8 prose-headings:mb-4 prose-p:mb-4 prose-ol:mb-6 prose-ul:mb-6">
           <h1>Security Policy</h1>
 
           <p>
@@ -19,8 +20,8 @@ function SecurityPage() {
           </p>
 
           <p>
-            At OS Chat, we take security seriously. This policy outlines how we protect your data
-            and maintain the security of our AI application.
+            At OS Chat, we take security seriously. This policy outlines how we
+            protect your data and maintain the security of our AI application.
           </p>
 
           <h3>1. Data Protection</h3>
@@ -30,14 +31,16 @@ function SecurityPage() {
           </p>
           <ul>
             <li>
-              <strong>API Keys:</strong> Encrypted using AES-GCM 256-bit encryption with PBKDF2 key
-              derivation (100,000 iterations)
+              <strong>API Keys:</strong> Encrypted using AES-GCM 256-bit
+              encryption with PBKDF2 key derivation (100,000 iterations)
             </li>
             <li>
-              <strong>Data in Transit:</strong> All communications use HTTPS/TLS encryption
+              <strong>Data in Transit:</strong> All communications use HTTPS/TLS
+              encryption
             </li>
             <li>
-              <strong>User Isolation:</strong> User-specific encryption keys ensure data isolation
+              <strong>User Isolation:</strong> User-specific encryption keys
+              ensure data isolation
             </li>
           </ul>
 
@@ -48,7 +51,10 @@ function SecurityPage() {
             <li>Authentication via Google OAuth through Convex Auth</li>
             <li>Users can only access their own data</li>
             <li>Server-side validation for all data access requests</li>
-            <li>Rate limiting: 5 messages/day anonymous, 20 messages/day authenticated</li>
+            <li>
+              Rate limiting: 5 messages/day anonymous, 20 messages/day
+              authenticated
+            </li>
             <li>Session management with automatic expiration</li>
           </ul>
 
@@ -59,17 +65,19 @@ function SecurityPage() {
           </p>
           <ul>
             <li>
-              <strong>Convex Backend:</strong> Managed serverless backend with built-in security
-              features
+              <strong>Convex Backend:</strong> Managed serverless backend with
+              built-in security features
             </li>
             <li>
-              <strong>TanStack Start:</strong> Modern framework with security best practices
+              <strong>TanStack Start:</strong> Modern framework with security
+              best practices
             </li>
             <li>
               <strong>TypeScript:</strong> Type-safe development to reduce bugs
             </li>
             <li>
-              <strong>Vercel Hosting:</strong> Secure hosting with DDoS protection
+              <strong>Vercel Hosting:</strong> Secure hosting with DDoS
+              protection
             </li>
           </ul>
 
@@ -89,7 +97,9 @@ function SecurityPage() {
             <strong>AI Providers:</strong>
           </p>
           <ul>
-            <li>We use established AI providers (OpenAI, Anthropic, Google, etc.)</li>
+            <li>
+              We use established AI providers (OpenAI, Anthropic, Google, etc.)
+            </li>
             <li>API calls are made over encrypted connections</li>
             <li>Only necessary message data is sent to AI providers</li>
             <li>API keys are encrypted and stored securely</li>
@@ -106,8 +116,8 @@ function SecurityPage() {
               <strong>Vercel:</strong> Hosting and analytics
             </li>
             <li>
-              <strong>Stripe:</strong> Payment processing via Stripe Managed Payments (PCI
-              compliant)
+              <strong>Stripe:</strong> Payment processing via Stripe Managed
+              Payments (PCI compliant)
             </li>
             <li>We don't store payment card information</li>
           </ul>
@@ -130,7 +140,9 @@ function SecurityPage() {
           <ul>
             <li>Users can delete their chat history at any time</li>
             <li>Account deletion removes all associated data</li>
-            <li>We retain data only as long as necessary for service functionality</li>
+            <li>
+              We retain data only as long as necessary for service functionality
+            </li>
           </ul>
 
           <h3>5. Security Practices</h3>
@@ -168,27 +180,34 @@ function SecurityPage() {
           <p>If you discover a security vulnerability:</p>
           <ul>
             <li>
-              Please report it to: <a href="mailto:support@oschat.ai">support@oschat.ai</a>
+              Please report it to:{" "}
+              <a href="mailto:support@oschat.ai">support@oschat.ai</a>
             </li>
             <li>Include details about the issue and how to reproduce it</li>
             <li>Allow us reasonable time to investigate and fix the issue</li>
-            <li>Please don't publicly disclose the issue until we've had a chance to address it</li>
+            <li>
+              Please don't publicly disclose the issue until we've had a chance
+              to address it
+            </li>
           </ul>
 
           <h3>9. Updates to This Policy</h3>
 
           <p>
-            We may update this security policy as our practices evolve. Check back periodically for
-            updates. The "Last Updated" date shows when we last made changes.
+            We may update this security policy as our practices evolve. Check
+            back periodically for updates. The "Last Updated" date shows when we
+            last made changes.
           </p>
 
           <h3>10. Contact Us</h3>
 
           <p>For security questions or concerns:</p>
           <p>
-            <strong>Email:</strong> <a href="mailto:support@oschat.ai">support@oschat.ai</a>
+            <strong>Email:</strong>{" "}
+            <a href="mailto:support@oschat.ai">support@oschat.ai</a>
             <br />
-            <strong>Website:</strong> <a href="https://oschat.ai">https://oschat.ai</a>
+            <strong>Website:</strong>{" "}
+            <a href="https://oschat.ai">https://oschat.ai</a>
           </p>
         </div>
       </div>

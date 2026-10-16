@@ -1,6 +1,7 @@
-import { getConvexSize } from 'convex/values';
-import type { Value } from 'convex/values';
+import { getConvexSize } from "convex/values";
+import type { Value } from "convex/values";
 import { describe, expect, it } from "vitest";
+
 import {
   compactMessagePartsForStorage,
   MESSAGE_SIZE_BUDGET_BYTES,
@@ -12,7 +13,10 @@ type Part = Record<string, unknown>;
 /** Tool output of roughly `kilobytes` KB, like a connector dump of many emails. */
 function bigOutput(kilobytes: number) {
   return {
-    items: Array.from({ length: kilobytes }, (_, id) => ({ id, body: "x".repeat(1000) })),
+    items: Array.from({ length: kilobytes }, (_, id) => ({
+      id,
+      body: "x".repeat(1000),
+    })),
   };
 }
 
@@ -31,9 +35,14 @@ const textPart: Part = { type: "text", text: "Here is your summary." };
 
 describe("compactMessagePartsForStorage", () => {
   it("stores messages within the budget unchanged", () => {
-    const parts = [textPart, toolPart({ results: [{ title: "a", url: "https://a.test" }] })];
+    const parts = [
+      textPart,
+      toolPart({ results: [{ title: "a", url: "https://a.test" }] }),
+    ];
 
-    expect(compactMessagePartsForStorage(parts, "Here is your summary.")).toEqual(parts);
+    expect(
+      compactMessagePartsForStorage(parts, "Here is your summary.")
+    ).toEqual(parts);
   });
 
   it("replaces an oversized tool output with a short preview", () => {
@@ -50,7 +59,9 @@ describe("compactMessagePartsForStorage", () => {
     const { preview } = stored[1].output as { preview: string };
     expect(preview.length).toBeLessThanOrEqual(TOOL_PAYLOAD_PREVIEW_CHARS);
     expect(preview.startsWith('{"items":[{"id":0')).toBe(true);
-    expect(getConvexSize(stored as Value[])).toBeLessThan(MESSAGE_SIZE_BUDGET_BYTES);
+    expect(getConvexSize(stored as Value[])).toBeLessThan(
+      MESSAGE_SIZE_BUDGET_BYTES
+    );
   });
 
   it("compacts the largest payloads first and keeps the rest", () => {
@@ -65,25 +76,44 @@ describe("compactMessagePartsForStorage", () => {
   it("counts the text content toward the budget", () => {
     const parts = [toolPart(bigOutput(500))];
 
-    expect(compactMessagePartsForStorage(parts, "").at(0)?.output).toEqual(bigOutput(500));
-    expect(compactMessagePartsForStorage(parts, "y".repeat(500_000)).at(0)?.output).toMatchObject({
+    expect(compactMessagePartsForStorage(parts, "").at(0)?.output).toEqual(
+      bigOutput(500)
+    );
+    expect(
+      compactMessagePartsForStorage(parts, "y".repeat(500_000)).at(0)?.output
+    ).toMatchObject({
       truncated: true,
     });
   });
 
   it.each([
-    ["a reserved $ field name", { $schema: "https://json-schema.org", ok: true }],
+    [
+      "a reserved $ field name",
+      { $schema: "https://json-schema.org", ok: true },
+    ],
     ["a non-ASCII field name", { Статус: "open" }],
-  ])("replaces a small payload with %s, which Convex cannot store", (_label, input) => {
-    const stored = compactMessagePartsForStorage([toolPart({ fine: true }, input)]);
+  ])(
+    "replaces a small payload with %s, which Convex cannot store",
+    (_label, input) => {
+      const stored = compactMessagePartsForStorage([
+        toolPart({ fine: true }, input),
+      ]);
 
-    expect(stored[0].input).toMatchObject({ truncated: true, originalSize: 0 });
-    expect((stored[0].input as { preview: string }).preview).toBe(JSON.stringify(input));
-    expect(stored[0].output).toEqual({ fine: true });
-  });
+      expect(stored[0].input).toMatchObject({
+        truncated: true,
+        originalSize: 0,
+      });
+      expect((stored[0].input as { preview: string }).preview).toBe(
+        JSON.stringify(input)
+      );
+      expect(stored[0].output).toEqual({ fine: true });
+    }
+  );
 
   it("leaves oversized text alone so the save still fails loudly", () => {
-    const parts = [{ type: "text", text: "z".repeat(MESSAGE_SIZE_BUDGET_BYTES + 1) }];
+    const parts = [
+      { type: "text", text: "z".repeat(MESSAGE_SIZE_BUDGET_BYTES + 1) },
+    ];
 
     expect(compactMessagePartsForStorage(parts)).toEqual(parts);
   });

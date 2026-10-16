@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { openrouter } from "../openrouter";
 
 describe("openrouter configuration", () => {

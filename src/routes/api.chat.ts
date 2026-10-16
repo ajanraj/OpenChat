@@ -1,18 +1,29 @@
 import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  consumeStream,
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  generateImage,
+  isStepCount,
+  smoothStream,
+  streamText,
+  toUIMessageStream,
+} from "ai";
+import type { FileUIPart, Tool, UIMessage } from "ai";
 import { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
-import { consumeStream, convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, generateImage, isStepCount, smoothStream, streamText, toUIMessageStream } from 'ai';
-import type { FileUIPart, Tool, UIMessage } from 'ai';
 import type { ConvexHttpClient } from "convex/browser";
-import { ConvexError } from 'convex/values';
-import type { Infer } from 'convex/values';
+import { ConvexError } from "convex/values";
+import type { Infer } from "convex/values";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { Message } from "@/convex/schema/message";
 import { MODEL_DEFAULT, MODELS_MAP } from "@/lib/config";
-import { ReasoningEffortSchema } from '@/lib/config/schemas';
-import type { ReasoningEffort } from '@/lib/config/schemas';
+import { ReasoningEffortSchema } from "@/lib/config/schemas";
+import type { ReasoningEffort } from "@/lib/config/schemas";
 import { calculateConnectorStatus } from "@/lib/connector-utils";
 import { createAgentTool } from "@/lib/create-agent-tool";
 import { ERROR_CODES } from "@/lib/error-codes";
@@ -23,18 +34,27 @@ import {
   createStreamingError,
   shouldShowInConversation,
 } from "@/lib/error-utils";
-import { createMessageCreditTracker, shouldRefundGeneration } from '@/lib/message-credits';
-import type { MessageCreditTracker } from '@/lib/message-credits';
+import {
+  createMessageCreditTracker,
+  shouldRefundGeneration,
+} from "@/lib/message-credits";
+import type { MessageCreditTracker } from "@/lib/message-credits";
 import { compactMessagePartsForStorage } from "@/lib/message-parts-storage";
 import { authMiddleware, getServerRouteSecret } from "@/lib/middleware/auth";
-import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
+import {
+  getOpenRouterReasoningOptions,
+  resolveReasoningEffort,
+} from "@/lib/model-utils";
+import {
+  getOpenAIStreamModel,
+  isOpenAITransportEligible,
+} from "@/lib/openai-websocket-transport";
+import type { OpenAIWebSocketFetch } from "@/lib/openai-websocket-transport";
 import { buildSystemPrompt, PERSONAS_MAP } from "@/lib/prompt_config";
 import {
   detectProviderErrorFromObject,
   detectProviderErrorInText,
 } from "@/lib/provider-error-detector";
-import { getOpenAIStreamModel, isOpenAITransportEligible } from '@/lib/openai-websocket-transport';
-import type { OpenAIWebSocketFetch } from '@/lib/openai-websocket-transport';
 import { sanitizeUserInput } from "@/lib/sanitize";
 import { uploadBlobToR2 } from "@/lib/server-upload-helpers";
 import { createMeteredSearchTool } from "@/lib/tools/search-credit-metering";
@@ -50,7 +70,7 @@ async function saveErrorMessage(
   modelId?: string,
   modelName?: string,
   enableSearch?: boolean,
-  reasoningEffort?: ReasoningEffort,
+  reasoningEffort?: ReasoningEffort
 ) {
   try {
     if (!userMsgId) {
@@ -61,22 +81,25 @@ async function saveErrorMessage(
     const errorPart = createErrorPart(
       classified.code,
       classified.userFriendlyMessage,
-      classified.message,
+      classified.message
     );
 
-    const { messageId } = await client.mutation(api.messages.saveAssistantMessage, {
-      chatId,
-      role: "assistant",
-      content: "", // Empty content to avoid duplication and search pollution
-      parentMessageId: userMsgId,
-      parts: [errorPart],
-      metadata: {
-        modelId: modelId || "error",
-        modelName: modelName || "Error",
-        includeSearch: enableSearch,
-        reasoningEffort: reasoningEffort || "none",
-      },
-    });
+    const { messageId } = await client.mutation(
+      api.messages.saveAssistantMessage,
+      {
+        chatId,
+        role: "assistant",
+        content: "", // Empty content to avoid duplication and search pollution
+        parentMessageId: userMsgId,
+        parts: [errorPart],
+        metadata: {
+          modelId: modelId || "error",
+          modelName: modelName || "Error",
+          includeSearch: enableSearch,
+          reasoningEffort: reasoningEffort || "none",
+        },
+      }
+    );
 
     return messageId;
   } catch (error) {
@@ -85,7 +108,13 @@ async function saveErrorMessage(
   }
 }
 
-type SupportedProvider = "openrouter" | "openai" | "anthropic" | "mistral" | "meta" | "Qwen";
+type SupportedProvider =
+  | "openrouter"
+  | "openai"
+  | "anthropic"
+  | "mistral"
+  | "meta"
+  | "Qwen";
 
 /**
  * Helper function to save user message to chat if not in reload mode
@@ -94,14 +123,14 @@ async function saveUserMessage(
   messages: UIMessage[],
   chatId: Id<"chats">,
   client: ConvexHttpClient | undefined,
-  reloadAssistantMessageId?: Id<"messages">,
+  reloadAssistantMessageId?: Id<"messages">
 ): Promise<Id<"messages"> | null> {
   if (!reloadAssistantMessageId && client) {
     const userMessage = messages.at(-1);
     if (userMessage && userMessage.role === "user") {
       // Use parts directly since schema now matches AI SDK v5
       const userParts = (userMessage.parts || []).map((p) =>
-        p.type === "text" ? { ...p, text: sanitizeUserInput(p.text) } : p,
+        p.type === "text" ? { ...p, text: sanitizeUserInput(p.text) } : p
       );
 
       // Extract text content for backwards compatibility
@@ -110,13 +139,16 @@ async function saveUserMessage(
         .map((part) => part.text)
         .join("");
 
-      const { messageId } = await client.mutation(api.messages.sendUserMessageToChat, {
-        chatId,
-        role: "user",
-        content: sanitizeUserInput(textContent),
-        parts: userParts,
-        metadata: {}, // Empty metadata for user messages
-      });
+      const { messageId } = await client.mutation(
+        api.messages.sendUserMessageToChat,
+        {
+          chatId,
+          role: "user",
+          content: sanitizeUserInput(textContent),
+          parts: userParts,
+          metadata: {}, // Empty metadata for user messages
+        }
+      );
       return messageId;
     }
   }
@@ -154,16 +186,20 @@ const shouldEnableThinking = (modelId: string): boolean => {
  * Helper function to check if a model supports tool calling
  * based on its features configuration
  */
-const supportsToolCalling = (selectedModel: (typeof MODELS_MAP)[string]): boolean =>
+const supportsToolCalling = (
+  selectedModel: (typeof MODELS_MAP)[string]
+): boolean =>
   selectedModel.features?.some(
-    (feature) => feature.id === "tool-calling" && feature.enabled === true,
+    (feature) => feature.id === "tool-calling" && feature.enabled === true
   ) ?? false;
 
-type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOptions"]>;
+type ProviderOptions = NonNullable<
+  Parameters<typeof streamText>[0]["providerOptions"]
+>;
 
 const buildGoogleProviderOptions = (
   modelId: string,
-  reasoningEffort?: ReasoningEffort,
+  reasoningEffort?: ReasoningEffort
 ): GoogleLanguageModelOptions => {
   if (shouldEnableThinking(modelId) && reasoningEffort !== "none") {
     const options = {
@@ -179,7 +215,7 @@ const buildGoogleProviderOptions = (
 
 const buildOpenAIProviderOptions = (
   modelId: string,
-  reasoningEffort?: ReasoningEffort,
+  reasoningEffort?: ReasoningEffort
 ): OpenAIResponsesProviderOptions => {
   if (shouldEnableThinking(modelId) && reasoningEffort !== "none") {
     const options = {
@@ -250,7 +286,9 @@ async function handleImageGeneration({
     // Providers return different formats (e.g. Flux 3 defaults to JPEG), so keep the reported type.
     const { mediaType } = image;
     const extension = mediaType.split("/")[1] ?? "png";
-    const imageBlob = new Blob([new Uint8Array(image.uint8Array)], { type: mediaType });
+    const imageBlob = new Blob([new Uint8Array(image.uint8Array)], {
+      type: mediaType,
+    });
 
     if (!client) {
       throw new Error("Authentication token required for image upload");
@@ -309,7 +347,7 @@ async function handleImageGeneration({
         error,
         client,
         selectedModel.id,
-        selectedModel.name,
+        selectedModel.name
       );
     }
     return createErrorResponse(error);
@@ -341,7 +379,10 @@ export const Route = createFileRoute("/api/chat")({
 
         // Platform credit for this request: charged before generating, refunded at most
         // once if the generation itself fails (never for aborts or failed saves)
-        const credits = createMessageCreditTracker(context.client, request.signal);
+        const credits = createMessageCreditTracker(
+          context.client,
+          request.signal
+        );
 
         try {
           const {
@@ -358,44 +399,64 @@ export const Route = createFileRoute("/api/chat")({
           } = (await request.json()) as ChatRequest;
 
           if (!(messages && chatId)) {
-            return createErrorResponse(new Error("Missing required information"));
+            return createErrorResponse(
+              new Error("Missing required information")
+            );
           }
 
           // --- Enhanced Input Validation ---
           if (!Array.isArray(messages) || messages.length === 0) {
-            return createErrorResponse(new Error("'messages' must be a non-empty array."));
+            return createErrorResponse(
+              new Error("'messages' must be a non-empty array.")
+            );
           }
 
           if (messages.some((message) => message?.role === "system")) {
-            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
+            return createErrorResponse(
+              new ConvexError(ERROR_CODES.INVALID_INPUT)
+            );
           }
 
           if (typeof chatId !== "string" || chatId.trim() === "") {
-            return createErrorResponse(new Error("'chatId' must be a non-empty string."));
+            return createErrorResponse(
+              new Error("'chatId' must be a non-empty string.")
+            );
           }
 
           const requestedModel = MODELS_MAP[model];
           if (!requestedModel) {
-            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
+            return createErrorResponse(
+              new ConvexError(ERROR_CODES.INVALID_INPUT)
+            );
           }
 
-          const selectedModel = requestedModel.retired ? MODELS_MAP[MODEL_DEFAULT] : requestedModel;
+          const selectedModel = requestedModel.retired
+            ? MODELS_MAP[MODEL_DEFAULT]
+            : requestedModel;
           if (!selectedModel) {
-            return createErrorResponse(new Error("Default model is unavailable."));
+            return createErrorResponse(
+              new Error("Default model is unavailable.")
+            );
           }
 
           const parsedReasoningEffort =
-            ReasoningEffortSchema.optional().safeParse(requestedReasoningEffort);
+            ReasoningEffortSchema.optional().safeParse(
+              requestedReasoningEffort
+            );
           if (!parsedReasoningEffort.success) {
-            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
+            return createErrorResponse(
+              new ConvexError(ERROR_CODES.INVALID_INPUT)
+            );
           }
 
           const resolvedReasoningEffort = resolveReasoningEffort(
             selectedModel.id,
-            parsedReasoningEffort.data,
+            parsedReasoningEffort.data
           );
           if (!resolvedReasoningEffort.success) {
-            return createErrorResponse(new ConvexError(ERROR_CODES.INVALID_INPUT));
+            return createErrorResponse(
+              new ConvexError(ERROR_CODES.INVALID_INPUT)
+            );
           }
           const { effort: reasoningEffort } = resolvedReasoningEffort;
 
@@ -406,27 +467,34 @@ export const Route = createFileRoute("/api/chat")({
 
           // --- Optimized Parallel Database Queries ---
           // Run independent queries in parallel to reduce latency
-          const [userKeys, isUserPremiumForPremiumModels, userConnectors, chatDoc] =
-            await Promise.all([
-              // Get user API keys if model allows user keys
-              selectedModel.apiKeyUsage?.allowUserKey
-                ? client.query(api.api_keys.getApiKeys, {}).catch(() => [])
-                : Promise.resolve([]),
-              // Check premium status for premium models (only if needed)
-              selectedModel.premium
-                ? client.query(api.users.userHasPremium, {}).catch(() => false)
-                : Promise.resolve(false),
-              // Get user connectors from database (authoritative source)
-              user
-                ? client.query(api.connectors.listUserConnectors, {}).catch(() => [])
-                : Promise.resolve([]),
-              // Fetch the chat document (authoritative source for profileId)
-              client.query(api.chats.getChat, { chatId }).catch(() => null),
-            ]);
+          const [
+            userKeys,
+            isUserPremiumForPremiumModels,
+            userConnectors,
+            chatDoc,
+          ] = await Promise.all([
+            // Get user API keys if model allows user keys
+            selectedModel.apiKeyUsage?.allowUserKey
+              ? client.query(api.api_keys.getApiKeys, {}).catch(() => [])
+              : Promise.resolve([]),
+            // Check premium status for premium models (only if needed)
+            selectedModel.premium
+              ? client.query(api.users.userHasPremium, {}).catch(() => false)
+              : Promise.resolve(false),
+            // Get user connectors from database (authoritative source)
+            user
+              ? client
+                  .query(api.connectors.listUserConnectors, {})
+                  .catch(() => [])
+              : Promise.resolve([]),
+            // Fetch the chat document (authoritative source for profileId)
+            client.query(api.chats.getChat, { chatId }).catch(() => null),
+          ]);
 
           // Resolve profile from chat's bound profileId (authoritative),
           // falling back to client-provided / active profile for new chats
-          const chatProfileId = chatDoc?.profileId ?? profileId ?? user?.activeProfileId;
+          const chatProfileId =
+            chatDoc?.profileId ?? profileId ?? user?.activeProfileId;
           const chatProfile = chatProfileId
             ? await client
                 .query(api.profiles.getProfile, { profileId: chatProfileId })
@@ -443,7 +511,7 @@ export const Route = createFileRoute("/api/chat")({
 
           if (apiKeyUsage?.allowUserKey && Array.isArray(userKeys)) {
             keyEntry = userKeys.find(
-              (k: { provider: string }) => k.provider === selectedModel.provider,
+              (k: { provider: string }) => k.provider === selectedModel.provider
             );
             if (keyEntry) {
               // Outside the try: a missing secret is a server misconfiguration (500)
@@ -455,14 +523,20 @@ export const Route = createFileRoute("/api/chat")({
                 });
               } catch (error) {
                 // If this is a critical error (auth failure), we should return early
-                if (error instanceof ConvexError && error.data === ERROR_CODES.NOT_AUTHENTICATED) {
+                if (
+                  error instanceof ConvexError &&
+                  error.data === ERROR_CODES.NOT_AUTHENTICATED
+                ) {
                   return createErrorResponse(error);
                 }
                 // Convex rejected the server secret: fail loudly rather than silently
                 // billing the platform key for a user who brought their own
-                if (error instanceof ConvexError && error.data === ERROR_CODES.UNAUTHORIZED) {
+                if (
+                  error instanceof ConvexError &&
+                  error.data === ERROR_CODES.UNAUTHORIZED
+                ) {
                   throw new Error(
-                    "Convex rejected SERVER_ROUTE_SECRET; set the same value in the web server and Convex env.",
+                    "Convex rejected SERVER_ROUTE_SECRET; set the same value in the web server and Convex env."
                   );
                 }
                 // Other failures (e.g. an undecryptable key) fall back to the platform key
@@ -473,7 +547,7 @@ export const Route = createFileRoute("/api/chat")({
           // Determine if we should use a user-provided API key
           const useUserKey = Boolean(
             (apiKeyUsage?.userKeyOnly && userApiKey) ||
-            (keyEntry?.mode === "priority" && userApiKey),
+            (keyEntry?.mode === "priority" && userApiKey)
           );
 
           // Reject early if model requires user key only but no user API key provided
@@ -483,23 +557,29 @@ export const Route = createFileRoute("/api/chat")({
 
           // Check if this is an image generation model
           const isImageGenerationModel = selectedModel.features?.some(
-            (feature) => feature.id === "image-generation" && feature.enabled,
+            (feature) => feature.id === "image-generation" && feature.enabled
           );
 
           // Guests cannot generate images (the UI hides these models from them)
           if (isImageGenerationModel && (!user || user.isAnonymous)) {
-            return createErrorResponse(new ConvexError(ERROR_CODES.UNAUTHORIZED));
+            return createErrorResponse(
+              new ConvexError(ERROR_CODES.UNAUTHORIZED)
+            );
           }
 
           // --- Premium Model Access Check ---
           // Only applies if user is NOT using their own API key
-          if (selectedModel.premium && !useUserKey && !isUserPremiumForPremiumModels) {
+          if (
+            selectedModel.premium &&
+            !useUserKey &&
+            !isUserPremiumForPremiumModels
+          ) {
             // Save user message first
             const userMsgId = await saveUserMessage(
               messages,
               chatId,
               client,
-              reloadAssistantMessageId,
+              reloadAssistantMessageId
             );
 
             // Create premium access error
@@ -514,7 +594,7 @@ export const Route = createFileRoute("/api/chat")({
               selectedModel.id,
               selectedModel.name,
               enableSearch,
-              reasoningEffort,
+              reasoningEffort
             );
 
             // Return proper HTTP error response
@@ -555,7 +635,7 @@ export const Route = createFileRoute("/api/chat")({
               messages,
               chatId,
               client,
-              reloadAssistantMessageId,
+              reloadAssistantMessageId
             );
 
             // Save error message to conversation
@@ -567,16 +647,19 @@ export const Route = createFileRoute("/api/chat")({
               selectedModel.id,
               selectedModel.name,
               enableSearch,
-              reasoningEffort,
+              reasoningEffort
             );
 
             // Return proper HTTP error response (not 200)
             return createErrorResponse(rateLimitError);
           }
 
-          const basePrompt = personaId ? PERSONAS_MAP[personaId]?.prompt : undefined;
+          const basePrompt = personaId
+            ? PERSONAS_MAP[personaId]?.prompt
+            : undefined;
           const enableTools =
-            supportsToolCalling(selectedModel) && connectorsStatus.enabled.length > 0;
+            supportsToolCalling(selectedModel) &&
+            connectorsStatus.enabled.length > 0;
           const finalSystemPrompt = buildSystemPrompt(
             user,
             basePrompt,
@@ -586,7 +669,7 @@ export const Route = createFileRoute("/api/chat")({
             undefined,
             undefined,
             connectorsStatus,
-            chatProfile,
+            chatProfile
           );
 
           // Handle image generation models differently
@@ -627,10 +710,12 @@ export const Route = createFileRoute("/api/chat")({
                   lastMessage.parts
                     ?.filter((part) => part.type === "text")
                     .map((part) => part.text)
-                    .join("") || "",
+                    .join("") || ""
                 ),
                 newParts: lastMessage.parts?.map((part) =>
-                  part.type === "text" ? { ...part, text: sanitizeUserInput(part.text) } : part,
+                  part.type === "text"
+                    ? { ...part, text: sanitizeUserInput(part.text) }
+                    : part
                 ),
               });
 
@@ -644,16 +729,27 @@ export const Route = createFileRoute("/api/chat")({
             }
           } else {
             // --- Normal Flow ---
-            userMsgId = await saveUserMessage(messages, chatId, client, reloadAssistantMessageId);
+            userMsgId = await saveUserMessage(
+              messages,
+              chatId,
+              client,
+              reloadAssistantMessageId
+            );
           }
 
-          const makeOptions = (useUser: boolean): ProviderOptions | undefined => {
+          const makeOptions = (
+            useUser: boolean
+          ): ProviderOptions | undefined => {
             const key = useUser ? userApiKey : undefined;
-            const apiKey = typeof key === "string" && key.length > 0 ? key : undefined;
+            const apiKey =
+              typeof key === "string" && key.length > 0 ? key : undefined;
             const userTag = user?._id ? `user_${user._id}` : undefined;
 
             if (selectedModel.provider === "gemini") {
-              const options = buildGoogleProviderOptions(selectedModel.id, reasoningEffort);
+              const options = buildGoogleProviderOptions(
+                selectedModel.id,
+                reasoningEffort
+              );
               return {
                 google: {
                   ...options,
@@ -662,7 +758,10 @@ export const Route = createFileRoute("/api/chat")({
               };
             }
             if (selectedModel.provider === "openai") {
-              const options = buildOpenAIProviderOptions(selectedModel.id, reasoningEffort);
+              const options = buildOpenAIProviderOptions(
+                selectedModel.id,
+                reasoningEffort
+              );
               return {
                 openai: {
                   ...options,
@@ -676,7 +775,10 @@ export const Route = createFileRoute("/api/chat")({
               };
             }
             if (selectedModel.provider === "openrouter") {
-              const options = getOpenRouterReasoningOptions(selectedModel.id, reasoningEffort);
+              const options = getOpenRouterReasoningOptions(
+                selectedModel.id,
+                reasoningEffort
+              );
               return {
                 openrouter: {
                   ...options,
@@ -751,7 +853,7 @@ export const Route = createFileRoute("/api/chat")({
                     const transportModel = getOpenAIStreamModel(
                       selectedModel,
                       wsFetch,
-                      shouldEnableThinking(selectedModel.id),
+                      shouldEnableThinking(selectedModel.id)
                     );
                     if (transportModel) {
                       modelForStream = transportModel;
@@ -762,7 +864,7 @@ export const Route = createFileRoute("/api/chat")({
                   } catch (transportError) {
                     console.error(
                       "OpenAI WebSocket transport init failed; falling back to HTTP transport.",
-                      transportError,
+                      transportError
                     );
                   }
                 }
@@ -806,7 +908,7 @@ export const Route = createFileRoute("/api/chat")({
                       // First, try to detect provider-specific error patterns
                       const detectedError = detectProviderErrorFromObject(
                         error,
-                        selectedModel.provider,
+                        selectedModel.provider
                       );
 
                       if (detectedError) {
@@ -820,11 +922,14 @@ export const Route = createFileRoute("/api/chat")({
                             selectedModel.id,
                             selectedModel.name,
                             enableSearch,
-                            reasoningEffort,
+                            reasoningEffort
                           );
                           errorMessageSaved = true; // Mark that error message was saved
                         } catch (saveError) {
-                          console.error("Failed to save error message in onError:", saveError);
+                          console.error(
+                            "Failed to save error message in onError:",
+                            saveError
+                          );
                         }
                         closeTransport?.();
                         return; // Exit early - error saved, no throwing
@@ -841,11 +946,14 @@ export const Route = createFileRoute("/api/chat")({
                             selectedModel.id,
                             selectedModel.name,
                             enableSearch,
-                            reasoningEffort,
+                            reasoningEffort
                           );
                           errorMessageSaved = true; // Mark that error message was saved
                         } catch (saveError) {
-                          console.error("Failed to save fallback error message:", saveError);
+                          console.error(
+                            "Failed to save fallback error message:",
+                            saveError
+                          );
                         }
                       }
                       closeTransport?.();
@@ -855,9 +963,11 @@ export const Route = createFileRoute("/api/chat")({
                       finalUsage = {
                         inputTokens: usage.inputTokens ?? 0,
                         outputTokens: usage.outputTokens ?? 0,
-                        reasoningTokens: usage.outputTokenDetails.reasoningTokens ?? 0,
+                        reasoningTokens:
+                          usage.outputTokenDetails.reasoningTokens ?? 0,
                         totalTokens: usage.totalTokens ?? 0,
-                        cachedInputTokens: usage.inputTokenDetails.cacheReadTokens ?? 0,
+                        cachedInputTokens:
+                          usage.inputTokenDetails.cacheReadTokens ?? 0,
                       };
                       closeTransport?.();
                     },
@@ -886,7 +996,7 @@ export const Route = createFileRoute("/api/chat")({
                         // Check accumulated text for provider error patterns
                         const detectedError = detectProviderErrorInText(
                           accumulatedText,
-                          selectedModel.provider,
+                          selectedModel.provider
                         );
                         if (detectedError && !providerTextErrorDetected) {
                           providerTextErrorDetected = true;
@@ -901,11 +1011,14 @@ export const Route = createFileRoute("/api/chat")({
                               selectedModel.id,
                               selectedModel.name,
                               enableSearch,
-                              reasoningEffort,
+                              reasoningEffort
                             );
                             errorMessageSaved = true; // Mark that error message was saved
                           } catch (saveError) {
-                            console.error("Failed to save stream error message:", saveError);
+                            console.error(
+                              "Failed to save stream error message:",
+                              saveError
+                            );
                           }
                           break streamLoop;
                         }
@@ -930,7 +1043,7 @@ export const Route = createFileRoute("/api/chat")({
                     stream: streamResult.stream,
                     sendReasoning: true,
                     sendSources: true,
-                  }),
+                  })
                 );
 
                 return streamResult;
@@ -953,12 +1066,13 @@ export const Route = createFileRoute("/api/chat")({
                         selectedModel.id,
                         selectedModel.name,
                         enableSearch,
-                        reasoningEffort,
+                        reasoningEffort
                       );
                     }
 
                     const fallbackIsPossible =
-                      primaryIsUserKey || (!primaryIsUserKey && Boolean(userApiKey));
+                      primaryIsUserKey ||
+                      (!primaryIsUserKey && Boolean(userApiKey));
 
                     if (!fallbackIsPossible) {
                       throw primaryError;
@@ -986,7 +1100,7 @@ export const Route = createFileRoute("/api/chat")({
                           selectedModel.id,
                           selectedModel.name,
                           enableSearch,
-                          reasoningEffort,
+                          reasoningEffort
                         );
                       }
                       throw fallbackError;
@@ -1007,7 +1121,7 @@ export const Route = createFileRoute("/api/chat")({
                       selectedModel.id,
                       selectedModel.name,
                       enableSearch,
-                      reasoningEffort,
+                      reasoningEffort
                     );
                   }
                   throw streamError;
@@ -1030,13 +1144,15 @@ export const Route = createFileRoute("/api/chat")({
                 return; // Don't save if no result or error message was already saved
               }
 
-              const sanitizedParts = (responseMessage.parts ?? []).filter((part) => {
-                if (!part || typeof part !== "object") {
-                  return true;
-                }
+              const sanitizedParts = (responseMessage.parts ?? []).filter(
+                (part) => {
+                  if (!part || typeof part !== "object") {
+                    return true;
+                  }
 
-                return (part as { transient?: unknown }).transient !== true;
-              });
+                  return (part as { transient?: unknown }).transient !== true;
+                }
+              );
 
               // Extract agent token usage from boundary markers and add to main usage
               const additionalAgentTokens = {
@@ -1046,7 +1162,7 @@ export const Route = createFileRoute("/api/chat")({
               };
 
               const agentBoundaryParts = sanitizedParts.filter(
-                (part) => part.type === "data-agent-boundary",
+                (part) => part.type === "data-agent-boundary"
               );
 
               for (const boundaryPart of agentBoundaryParts) {
@@ -1075,9 +1191,12 @@ export const Route = createFileRoute("/api/chat")({
                 ...baseMetadata,
                 serverDurationMs: Date.now() - startTime,
                 // Add agent tokens to main token counts for unified tracking
-                inputTokens: finalUsage.inputTokens + additionalAgentTokens.inputTokens,
-                outputTokens: finalUsage.outputTokens + additionalAgentTokens.outputTokens,
-                totalTokens: finalUsage.totalTokens + additionalAgentTokens.totalTokens,
+                inputTokens:
+                  finalUsage.inputTokens + additionalAgentTokens.inputTokens,
+                outputTokens:
+                  finalUsage.outputTokens + additionalAgentTokens.outputTokens,
+                totalTokens:
+                  finalUsage.totalTokens + additionalAgentTokens.totalTokens,
                 reasoningTokens: finalUsage.reasoningTokens,
                 cachedInputTokens: finalUsage.cachedInputTokens,
               };
@@ -1093,7 +1212,10 @@ export const Route = createFileRoute("/api/chat")({
                 role: "assistant",
                 content: capturedText,
                 parentMessageId: userMsgId || undefined,
-                parts: compactMessagePartsForStorage(sanitizedParts, capturedText),
+                parts: compactMessagePartsForStorage(
+                  sanitizedParts,
+                  capturedText
+                ),
                 metadata: finalMetadata,
               });
 
@@ -1105,7 +1227,10 @@ export const Route = createFileRoute("/api/chat")({
             },
             onError: (error) => {
               // First, try to detect provider-specific error patterns
-              const detectedError = detectProviderErrorFromObject(error, selectedModel.provider);
+              const detectedError = detectProviderErrorFromObject(
+                error,
+                selectedModel.provider
+              );
 
               if (detectedError) {
                 // Return the provider-specific user-friendly message

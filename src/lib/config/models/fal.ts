@@ -1,4 +1,5 @@
 import { fal } from "@ai-sdk/fal";
+
 import { IMAGE_GENERATION_FEATURE } from "../features";
 
 export const FAL_MODELS = [

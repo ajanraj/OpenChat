@@ -1,5 +1,6 @@
 export const HOTKEY_EVENT_OPEN_MODEL_PICKER = "openModelPicker";
-export const HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT = "requestDeleteCurrentChat";
+export const HOTKEY_EVENT_REQUEST_DELETE_CURRENT_CHAT =
+  "requestDeleteCurrentChat";
 
 export function isInputLikeTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {

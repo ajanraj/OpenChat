@@ -3,13 +3,14 @@
  */
 
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
+
 import type { api } from "../../convex/_generated/api";
 
 type GenerateUploadUrlRef = typeof api.files.generateUploadUrl;
 
 /** files.generateUploadUrl bound to a caller (a React mutation or a token-authenticated fetch). */
 export type GenerateUploadUrl = (
-  args: FunctionArgs<GenerateUploadUrlRef>,
+  args: FunctionArgs<GenerateUploadUrlRef>
 ) => Promise<FunctionReturnType<GenerateUploadUrlRef>>;
 
 /**
@@ -19,9 +20,12 @@ export type GenerateUploadUrl = (
  */
 export async function uploadToR2(
   blob: Blob,
-  generateUploadUrl: GenerateUploadUrl,
+  generateUploadUrl: GenerateUploadUrl
 ): Promise<string> {
-  const { key, url } = await generateUploadUrl({ contentType: blob.type, size: blob.size });
+  const { key, url } = await generateUploadUrl({
+    contentType: blob.type,
+    size: blob.size,
+  });
   const response = await fetch(url, {
     method: "PUT",
     body: blob,

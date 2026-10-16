@@ -8,7 +8,7 @@ interface MeteredSearchToolOptions {
 }
 
 export const consumeOneStandardCreditForSearch = async (
-  consumeStandardCredits: ConsumeStandardCredits,
+  consumeStandardCredits: ConsumeStandardCredits
 ): Promise<void> => {
   await consumeStandardCredits(1);
 };

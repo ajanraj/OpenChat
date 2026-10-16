@@ -12,7 +12,7 @@ export const Connector = v.object({
     v.literal("slack"),
     v.literal("linear"),
     v.literal("github"),
-    v.literal("twitter"),
+    v.literal("twitter")
   ),
   connectionId: v.string(),
   isConnected: v.boolean(),

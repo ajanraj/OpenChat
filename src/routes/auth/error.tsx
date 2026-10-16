@@ -1,6 +1,7 @@
 import { ArrowLeft } from "@phosphor-icons/react";
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { Suspense } from "react";
+
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/auth/error")({
@@ -11,19 +12,25 @@ export const Route = createFileRoute("/auth/error")({
 function AuthErrorContent() {
   const search = useSearch({ from: "/auth/error" });
   const message =
-    (search as { message?: string }).message || "An error occurred during authentication.";
+    (search as { message?: string }).message ||
+    "An error occurred during authentication.";
 
   return (
     <div className="w-full max-w-md space-y-8">
       <div className="text-center">
-        <h1 className="font-medium text-3xl text-white tracking-tight sm:text-4xl">
+        <h1 className="text-3xl font-medium tracking-tight text-white sm:text-4xl">
           Authentication Error
         </h1>
         <div className="mt-6 rounded-md bg-red-500/10 p-4">
           <p className="text-red-400">{message}</p>
         </div>
         <div className="mt-8">
-          <Button asChild className="w-full text-base sm:text-base" size="lg" variant="secondary">
+          <Button
+            asChild
+            className="w-full text-base sm:text-base"
+            size="lg"
+            variant="secondary"
+          >
             <Link to="/auth">Try Again</Link>
           </Button>
         </div>
@@ -42,7 +49,9 @@ function AuthErrorPage() {
           to="/"
         >
           <ArrowLeft className="size-5 text-white" />
-          <span className="ml-2 hidden font-base text-sm sm:inline-block">Back to Chat</span>
+          <span className="font-base ml-2 hidden text-sm sm:inline-block">
+            Back to Chat
+          </span>
         </Link>
       </header>
 

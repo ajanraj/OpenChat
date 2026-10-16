@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import dayjs from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
+
 import { ERROR_CODES } from "../../src/lib/error-codes";
 
 dayjs.extend(utc);
@@ -36,7 +37,9 @@ function invalidInput(): never {
 
 function isValidTimeZone(timeZone: string): boolean {
   try {
-    return Boolean(new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone);
+    return Boolean(
+      new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone
+    );
   } catch {
     return false;
   }
@@ -62,14 +65,19 @@ function parseSchedule(schedule: TaskSchedule): ParsedSchedule {
   }
 
   const weekly = schedule.scheduleType === "weekly";
-  const match = (weekly ? WEEKLY_PATTERN : TIME_PATTERN).exec(schedule.scheduledTime);
+  const match = (weekly ? WEEKLY_PATTERN : TIME_PATTERN).exec(
+    schedule.scheduledTime
+  );
   if (!match) {
     invalidInput();
   }
   const [hour, minute] = weekly ? match.slice(2) : match.slice(1);
   const time = `${hour.padStart(2, "0")}:${minute}`;
 
-  if (schedule.scheduleType === "onetime" && schedule.scheduledDate !== undefined) {
+  if (
+    schedule.scheduleType === "onetime" &&
+    schedule.scheduledDate !== undefined
+  ) {
     if (!isCalendarDate(schedule.scheduledDate)) {
       invalidInput();
     }
@@ -86,7 +94,8 @@ function zonedDate(timestamp: number, timeZone: string): string {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(timestamp);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value;
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
@@ -115,9 +124,13 @@ export function validateSchedule(schedule: TaskSchedule): void {
  *
  * Used by create, update, resume, and every recurring reschedule.
  */
-export function calculateNextExecution(schedule: TaskSchedule, now = Date.now()): number {
+export function calculateNextExecution(
+  schedule: TaskSchedule,
+  now = Date.now()
+): number {
   const { time, weekday, date } = parseSchedule(schedule);
-  const at = (day: string) => dayjs.tz(`${day}T${time}`, schedule.timezone).valueOf();
+  const at = (day: string) =>
+    dayjs.tz(`${day}T${time}`, schedule.timezone).valueOf();
   const today = zonedDate(now, schedule.timezone);
 
   if (schedule.scheduleType === "onetime") {
@@ -126,7 +139,9 @@ export function calculateNextExecution(schedule: TaskSchedule, now = Date.now())
 
   const step = schedule.scheduleType === "weekly" ? 7 : 1;
   let day =
-    weekday === undefined ? today : addDays(today, (weekday - dayjs.utc(today).day() + 7) % 7);
+    weekday === undefined
+      ? today
+      : addDays(today, (weekday - dayjs.utc(today).day() + 7) % 7);
   let next = at(day);
   while (next <= now) {
     day = addDays(day, step);

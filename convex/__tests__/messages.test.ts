@@ -1,12 +1,19 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import type { Id } from "../_generated/dataModel";
-import { deleteMessageAndDescendants, patchMessageContent, searchMessages } from "../messages";
+import {
+  deleteMessageAndDescendants,
+  patchMessageContent,
+  searchMessages,
+} from "../messages";
 import { createFakeCtx, createFakeDb } from "./fake_db.testutil";
 
 const mocks = vi.hoisted(() => ({
-  r2DeleteObject: vi.fn<(ctx: unknown, key: string) => Promise<void>>(async () => undefined),
+  r2DeleteObject: vi.fn<(ctx: unknown, key: string) => Promise<void>>(
+    async () => undefined
+  ),
 }));
 
 // Keep the real authTables, which the schema (and so the fake db) needs
@@ -28,7 +35,10 @@ vi.mock("@convex-dev/r2", () => ({
   },
 }));
 
-type Handler = (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;
+type Handler = (
+  ctx: unknown,
+  args: Record<string, unknown>
+) => Promise<unknown>;
 const asHandler = (fn: unknown) => fn as Handler;
 
 afterEach(() => {
@@ -42,11 +52,20 @@ function setup() {
   const userId = db.seed("users", { name: "User" }) as Id<"users">;
   vi.mocked(getAuthUserId).mockResolvedValue(userId);
   const profileId = seedProfile(db, userId, "Work");
-  const chatId = db.seed("chats", { userId, profileId, title: "Trip planning", updatedAt: 1 });
+  const chatId = db.seed("chats", {
+    userId,
+    profileId,
+    title: "Trip planning",
+    updatedAt: 1,
+  });
   return { db, userId, profileId, chatId, ctx: createFakeCtx(db) };
 }
 
-function seedProfile(db: ReturnType<typeof createFakeDb>, userId: Id<"users">, name: string) {
+function seedProfile(
+  db: ReturnType<typeof createFakeDb>,
+  userId: Id<"users">,
+  name: string
+) {
   return db.seed("profiles", {
     userId,
     name,
@@ -66,11 +85,23 @@ describe("deleteMessageAndDescendants", () => {
       content: "hi",
       createdAt: 1,
     });
-    db.seed("messages", { chatId, userId, role: "assistant", content: "hey", createdAt: 2 });
+    db.seed("messages", {
+      chatId,
+      userId,
+      role: "assistant",
+      content: "hey",
+      createdAt: 2,
+    });
     db.seed("chat_attachments", { userId, chatId, key: "uploads/a.png" });
-    const branch = db.seed("chats", { userId, title: "Branch", originalChatId: chatId });
+    const branch = db.seed("chats", {
+      userId,
+      title: "Branch",
+      originalChatId: chatId,
+    });
 
-    await expect(asHandler(deleteMessageAndDescendants)(ctx, { messageId: first })).resolves.toEqual({
+    await expect(
+      asHandler(deleteMessageAndDescendants)(ctx, { messageId: first })
+    ).resolves.toEqual({
       chatDeleted: true,
     });
 
@@ -99,7 +130,11 @@ describe("patchMessageContent", () => {
     });
     vi.spyOn(Date, "now").mockReturnValue(attachment._creationTime + 60_000);
 
-    await asHandler(patchMessageContent)(ctx, { messageId, newContent: "no file", newParts: [] });
+    await asHandler(patchMessageContent)(ctx, {
+      messageId,
+      newContent: "no file",
+      newParts: [],
+    });
 
     expect(db.all("chat_attachments")).toEqual([]);
     expect(mocks.r2DeleteObject).toHaveBeenCalledWith(ctx, "uploads/a.png");
@@ -108,7 +143,7 @@ describe("patchMessageContent", () => {
         time,
         getFunctionName(fn as Parameters<typeof getFunctionName>[0]),
         args,
-      ]),
+      ])
     ).toEqual([
       [
         attachment._creationTime + 16 * 60_000,
@@ -128,12 +163,33 @@ describe("searchMessages", () => {
       title: "Home",
     });
     const legacyChatId = db.seed("chats", { userId, title: "Legacy" });
-    db.seed("messages", { chatId: homeChatId, userId, role: "user", content: "Lisbon at home" });
-    db.seed("messages", { chatId: legacyChatId, userId, role: "user", content: "old Lisbon" });
-    db.seed("messages", { chatId, userId, role: "user", content: "flights to Lisbon" });
+    db.seed("messages", {
+      chatId: homeChatId,
+      userId,
+      role: "user",
+      content: "Lisbon at home",
+    });
+    db.seed("messages", {
+      chatId: legacyChatId,
+      userId,
+      role: "user",
+      content: "old Lisbon",
+    });
+    db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "flights to Lisbon",
+    });
 
-    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([
-      expect.objectContaining({ chatId, content: "flights to Lisbon", chatTitle: "Trip planning" }),
+    await expect(
+      asHandler(searchMessages)(ctx, { query: "lisbon", profileId })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        chatId,
+        content: "flights to Lisbon",
+        chatTitle: "Trip planning",
+      }),
     ]);
   });
 
@@ -144,12 +200,36 @@ describe("searchMessages", () => {
       profileId: seedProfile(db, userId, "Home"),
       title: "Home",
     });
-    db.seed("messages", { chatId: homeChatId, userId, role: "user", content: "Lisbon elsewhere" });
-    db.seed("messages", { chatId, userId, role: "user", content: "Lisbon one" });
-    db.seed("messages", { chatId, userId, role: "user", content: "Lisbon two" });
-    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon three" });
+    db.seed("messages", {
+      chatId: homeChatId,
+      userId,
+      role: "user",
+      content: "Lisbon elsewhere",
+    });
+    db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "Lisbon one",
+    });
+    db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "Lisbon two",
+    });
+    const unread = db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "Lisbon three",
+    });
 
-    const found = await asHandler(searchMessages)(ctx, { query: "lisbon", profileId, limit: 2 });
+    const found = await asHandler(searchMessages)(ctx, {
+      query: "lisbon",
+      profileId,
+      limit: 2,
+    });
 
     expect(found).toEqual([
       expect.objectContaining({ content: "Lisbon one" }),
@@ -166,11 +246,23 @@ describe("searchMessages", () => {
       title: "Home",
     });
     for (let i = 0; i < 100; i++) {
-      db.seed("messages", { chatId: homeChatId, userId, role: "user", content: `Lisbon ${i}` });
+      db.seed("messages", {
+        chatId: homeChatId,
+        userId,
+        role: "user",
+        content: `Lisbon ${i}`,
+      });
     }
-    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
+    const unread = db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "Lisbon at work",
+    });
 
-    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([]);
+    await expect(
+      asHandler(searchMessages)(ctx, { query: "lisbon", profileId })
+    ).resolves.toEqual([]);
     expect(db.readIds).not.toContain(unread);
   });
 
@@ -191,9 +283,16 @@ describe("searchMessages", () => {
         parts,
       });
     }
-    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
+    const unread = db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "Lisbon at work",
+    });
 
-    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([]);
+    await expect(
+      asHandler(searchMessages)(ctx, { query: "lisbon", profileId })
+    ).resolves.toEqual([]);
     expect(db.readIds).not.toContain(unread);
   });
 
@@ -206,11 +305,23 @@ describe("searchMessages", () => {
         profileId: homeProfileId,
         title: "x".repeat(900_000),
       });
-      db.seed("messages", { chatId: homeChatId, userId, role: "user", content: "Lisbon" });
+      db.seed("messages", {
+        chatId: homeChatId,
+        userId,
+        role: "user",
+        content: "Lisbon",
+      });
     }
-    const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
+    const unread = db.seed("messages", {
+      chatId,
+      userId,
+      role: "user",
+      content: "Lisbon at work",
+    });
 
-    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([]);
+    await expect(
+      asHandler(searchMessages)(ctx, { query: "lisbon", profileId })
+    ).resolves.toEqual([]);
     expect(db.readIds).not.toContain(unread);
   });
 });

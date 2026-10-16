@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   CONNECTOR_CONFIGS,
   CONNECTOR_TOOL_NAMES,
@@ -21,7 +22,9 @@ describe("CONNECTOR_CONFIGS", () => {
 
   it("contains google calendar config", () => {
     expect(CONNECTOR_CONFIGS.googlecalendar).toBeDefined();
-    expect(CONNECTOR_CONFIGS.googlecalendar.displayName).toBe("Google Calendar");
+    expect(CONNECTOR_CONFIGS.googlecalendar.displayName).toBe(
+      "Google Calendar"
+    );
   });
 
   it("each connector config has required properties", () => {
@@ -73,7 +76,7 @@ describe("getConnectorConfig", () => {
 
   it("throws for invalid connector type", () => {
     expect(() => getConnectorConfig("invalid" as unknown as "gmail")).toThrow(
-      "Unknown connector type: invalid",
+      "Unknown connector type: invalid"
     );
   });
 });
@@ -124,8 +127,12 @@ describe("getConnectorTypeFromToolName", () => {
   });
 
   it("returns correct type for alternative patterns", () => {
-    expect(getConnectorTypeFromToolName("calendar_create_event")).toBe("googlecalendar");
-    expect(getConnectorTypeFromToolName("drive_list_files")).toBe("googledrive");
+    expect(getConnectorTypeFromToolName("calendar_create_event")).toBe(
+      "googlecalendar"
+    );
+    expect(getConnectorTypeFromToolName("drive_list_files")).toBe(
+      "googledrive"
+    );
   });
 
   it("is case insensitive", () => {
@@ -135,10 +142,10 @@ describe("getConnectorTypeFromToolName", () => {
 
   it("throws for unknown tool names", () => {
     expect(() => getConnectorTypeFromToolName("web_search")).toThrow(
-      "Unable to determine connector type",
+      "Unable to determine connector type"
     );
     expect(() => getConnectorTypeFromToolName("calculator")).toThrow(
-      "Unable to determine connector type",
+      "Unable to determine connector type"
     );
   });
 });

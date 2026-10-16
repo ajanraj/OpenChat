@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getDisplayName, getFirstName, getUserTimezone, isUserAuthenticated } from "../user-utils";
+
+import {
+  getDisplayName,
+  getFirstName,
+  getUserTimezone,
+  isUserAuthenticated,
+} from "../user-utils";
 
 describe("user-utils", () => {
   describe("getFirstName", () => {

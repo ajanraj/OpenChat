@@ -1,9 +1,15 @@
 import { classifyError } from "@/lib/error-utils";
+
 import { BraveSearchProvider } from "./providers/brave-search";
 import { ExaSearchProvider } from "./providers/exa-search";
 import { TavilySearchProvider } from "./providers/tavily-search";
-import { SEARCH_CONFIG } from './types';
-import type { SearchAdapter, SearchOptions, SearchProvider, SearchResult } from './types';
+import { SEARCH_CONFIG } from "./types";
+import type {
+  SearchAdapter,
+  SearchOptions,
+  SearchProvider,
+  SearchResult,
+} from "./types";
 
 // Cache for provider instances
 const instances = new Map<SearchProvider, SearchAdapter>();
@@ -62,7 +68,7 @@ export function getProvider(provider?: SearchProvider): SearchAdapter {
 export async function searchWithFallback(
   query: string,
   options?: SearchOptions,
-  providers?: SearchProvider[],
+  providers?: SearchProvider[]
 ): Promise<SearchResult[]> {
   // If no providers specified, create a smart fallback order starting with default
   const providersToTry =
@@ -72,11 +78,16 @@ export async function searchWithFallback(
       const allProviders: SearchProvider[] = ["brave", "tavily", "exa"];
 
       // Start with default provider, then add others
-      return [defaultProvider, ...allProviders.filter((p) => p !== defaultProvider)];
+      return [
+        defaultProvider,
+        ...allProviders.filter((p) => p !== defaultProvider),
+      ];
     })();
 
   // Try each provider sequentially until one succeeds
-  const tryProvider = async (providerIndex: number): Promise<SearchResult[]> => {
+  const tryProvider = async (
+    providerIndex: number
+  ): Promise<SearchResult[]> => {
     if (providerIndex >= providersToTry.length) {
       throw new Error("All search providers failed");
     }
@@ -94,10 +105,13 @@ export async function searchWithFallback(
       return await adapter.search(query, options);
     } catch (error) {
       // If this is the last provider or the search was aborted, throw the error
-      if (providerIndex === providersToTry.length - 1 || options?.signal?.aborted) {
+      if (
+        providerIndex === providersToTry.length - 1 ||
+        options?.signal?.aborted
+      ) {
         const classified = classifyError(error);
         throw new Error(
-          `All search providers failed. Last error: ${classified.userFriendlyMessage}`,
+          `All search providers failed. Last error: ${classified.userFriendlyMessage}`
         );
       }
       // Otherwise, try the next provider

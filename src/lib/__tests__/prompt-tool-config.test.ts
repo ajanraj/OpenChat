@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   getSupportedConnectorsWithPrompts,
   getToolSpecificPrompts,
@@ -26,14 +27,22 @@ describe("TOOL_SPECIFIC_PROMPTS", () => {
   it("has googleCalendar prompt configuration", () => {
     expect(TOOL_SPECIFIC_PROMPTS.googleCalendar).toBeDefined();
     expect(TOOL_SPECIFIC_PROMPTS.googleCalendar.content).toContain("calendar");
-    expect(TOOL_SPECIFIC_PROMPTS.googleCalendar.connectors).toContain("googlecalendar");
+    expect(TOOL_SPECIFIC_PROMPTS.googleCalendar.connectors).toContain(
+      "googlecalendar"
+    );
   });
 
   it("has googleWorkspace prompt configuration", () => {
     expect(TOOL_SPECIFIC_PROMPTS.googleWorkspace).toBeDefined();
-    expect(TOOL_SPECIFIC_PROMPTS.googleWorkspace.content).toContain("Google Docs");
-    expect(TOOL_SPECIFIC_PROMPTS.googleWorkspace.connectors).toContain("googledocs");
-    expect(TOOL_SPECIFIC_PROMPTS.googleWorkspace.connectors).toContain("googlesheets");
+    expect(TOOL_SPECIFIC_PROMPTS.googleWorkspace.content).toContain(
+      "Google Docs"
+    );
+    expect(TOOL_SPECIFIC_PROMPTS.googleWorkspace.connectors).toContain(
+      "googledocs"
+    );
+    expect(TOOL_SPECIFIC_PROMPTS.googleWorkspace.connectors).toContain(
+      "googlesheets"
+    );
   });
 
   it("each tool prompt has required properties", () => {

@@ -1,6 +1,7 @@
 import { getFunctionName } from "convex/server";
 import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { ERROR_CODES } from "../../src/lib/error-codes";
 import { executeTask } from "../scheduled_ai";
 
@@ -11,10 +12,15 @@ import { executeTask } from "../scheduled_ai";
  */
 
 const mocks = vi.hoisted(() => ({
-  model: { id: "scheduled-model", name: "Scheduled", premium: false, skipRateLimit: false },
-  generate: vi.fn<(options: { timeout?: number }) => Promise<{ text: string; usage: object }>>(
-    async () => ({ text: "Done", usage: {} }),
-  ),
+  model: {
+    id: "scheduled-model",
+    name: "Scheduled",
+    premium: false,
+    skipRateLimit: false,
+  },
+  generate: vi.fn<
+    (options: { timeout?: number }) => Promise<{ text: string; usage: object }>
+  >(async () => ({ text: "Done", usage: {} })),
 }));
 
 vi.mock("../_generated/server", () => ({
@@ -44,13 +50,20 @@ vi.mock("../../src/lib/ai/scheduled-agent-memory", () => ({
 }));
 
 vi.mock("@upstash/redis", () => ({ Redis: class {} }));
-vi.mock("../../src/lib/create-agent-tool", () => ({ createAgentTool: () => ({}) }));
-vi.mock("../../src/lib/prompt_config", () => ({ buildSystemPrompt: () => "system" }));
+vi.mock("../../src/lib/create-agent-tool", () => ({
+  createAgentTool: () => ({}),
+}));
+vi.mock("../../src/lib/prompt_config", () => ({
+  buildSystemPrompt: () => "system",
+}));
 vi.mock("../../src/lib/tools/search-credit-metering", () => ({
   createMeteredSearchTool: () => null,
 }));
 
-type Handler = (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;
+type Handler = (
+  ctx: unknown,
+  args: Record<string, unknown>
+) => Promise<unknown>;
 type FunctionRef = Parameters<typeof getFunctionName>[0];
 
 const TASK_ID = "scheduled_tasks:task1";
@@ -82,7 +95,9 @@ function createCtx(overrides: Record<string, () => Promise<unknown>> = {}) {
   const mutationResults: Record<string, () => Promise<unknown>> = {
     "users:consumeMessageCreditInternal": async () => CHARGED_RECEIPT,
     "chats:createChatInternal": async () => ({ chatId: "chats:chat1" }),
-    "messages:sendUserMessageToChatInternal": async () => ({ messageId: "messages:m1" }),
+    "messages:sendUserMessageToChatInternal": async () => ({
+      messageId: "messages:m1",
+    }),
     ...overrides,
   };
   const queryResults: Record<string, unknown> = {
@@ -90,26 +105,38 @@ function createCtx(overrides: Record<string, () => Promise<unknown>> = {}) {
     "connectors:getConnectedConnectors": [],
     "connectors:getAllUserConnectors": [],
   };
-  const runMutation = vi.fn<(fn: FunctionRef, args: unknown) => Promise<unknown>>(
-    async (fn) => (await mutationResults[getFunctionName(fn)]?.()) ?? null,
-  );
+  const runMutation = vi.fn<
+    (fn: FunctionRef, args: unknown) => Promise<unknown>
+  >(async (fn) => (await mutationResults[getFunctionName(fn)]?.()) ?? null);
   const runQuery = vi.fn<(fn: FunctionRef, args: unknown) => Promise<unknown>>(
-    async (fn) => queryResults[getFunctionName(fn)] ?? null,
+    async (fn) => queryResults[getFunctionName(fn)] ?? null
   );
-  return { runMutation, runQuery, scheduler: { runAfter: vi.fn<() => Promise<void>>() } };
+  return {
+    runMutation,
+    runQuery,
+    scheduler: { runAfter: vi.fn<() => Promise<void>>() },
+  };
 }
 
 /** Mutations the run called, as [function name, args]. */
 const calls = (ctx: ReturnType<typeof createCtx>) =>
-  ctx.runMutation.mock.calls.map(([fn, args]) => [getFunctionName(fn), args] as const);
+  ctx.runMutation.mock.calls.map(
+    ([fn, args]) => [getFunctionName(fn), args] as const
+  );
 const called = (ctx: ReturnType<typeof createCtx>, name: string) =>
   calls(ctx).filter(([fn]) => fn === name);
 const outcome = (ctx: ReturnType<typeof createCtx>) =>
-  (called(ctx, "scheduled_tasks:finishTaskExecution")[0]?.[1] as { outcome: string } | undefined)
-    ?.outcome;
+  (
+    called(ctx, "scheduled_tasks:finishTaskExecution")[0]?.[1] as
+      | { outcome: string }
+      | undefined
+  )?.outcome;
 
 const run = (ctx: ReturnType<typeof createCtx>) =>
-  (executeTask as unknown as Handler)(ctx, { task: TASK, executionId: EXECUTION_ID });
+  (executeTask as unknown as Handler)(ctx, {
+    task: TASK,
+    executionId: EXECUTION_ID,
+  });
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -134,10 +161,16 @@ describe("executeTask", () => {
     expect(
       calls(ctx)
         .map(([fn]) => fn)
-        .filter((fn) => fn.startsWith("scheduled_tasks:")),
-    ).toEqual(["scheduled_tasks:updateTaskChatId", "scheduled_tasks:finishTaskExecution"]);
+        .filter((fn) => fn.startsWith("scheduled_tasks:"))
+    ).toEqual([
+      "scheduled_tasks:updateTaskChatId",
+      "scheduled_tasks:finishTaskExecution",
+    ]);
     expect(called(ctx, "scheduled_tasks:updateTaskChatId")).toEqual([
-      ["scheduled_tasks:updateTaskChatId", { taskId: TASK_ID, chatId: "chats:chat1" }],
+      [
+        "scheduled_tasks:updateTaskChatId",
+        { taskId: TASK_ID, chatId: "chats:chat1" },
+      ],
     ]);
     expect(called(ctx, "scheduled_tasks:finishTaskExecution")).toEqual([
       [
@@ -191,7 +224,10 @@ describe("executeTask credits", () => {
     await run(ctx);
 
     expect(called(ctx, "users:refundMessageCreditInternal")).toEqual([
-      ["users:refundMessageCreditInternal", { userId: USER_ID, receipt: CHARGED_RECEIPT }],
+      [
+        "users:refundMessageCreditInternal",
+        { userId: USER_ID, receipt: CHARGED_RECEIPT },
+      ],
     ]);
     expect(outcome(ctx)).toBe("failure");
   });

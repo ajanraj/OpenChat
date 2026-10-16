@@ -22,7 +22,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       expect(() => module.getProvider("brave")).toThrow(
-        "BRAVE_API_KEY environment variable is not set",
+        "BRAVE_API_KEY environment variable is not set"
       );
     });
 
@@ -31,7 +31,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       expect(() => module.getProvider("tavily")).toThrow(
-        "TAVILY_API_KEY environment variable is not set",
+        "TAVILY_API_KEY environment variable is not set"
       );
     });
 
@@ -40,7 +40,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       expect(() => module.getProvider("exa")).toThrow(
-        "EXA_API_KEY environment variable is not set",
+        "EXA_API_KEY environment variable is not set"
       );
     });
 
@@ -48,7 +48,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       expect(() => module.getProvider("unknown" as never)).toThrow(
-        "Unknown search provider: unknown",
+        "Unknown search provider: unknown"
       );
     });
 
@@ -109,7 +109,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       await expect(module.searchWithFallback("test query")).rejects.toThrow(
-        "All search providers failed",
+        "All search providers failed"
       );
     });
 
@@ -125,10 +125,15 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       await expect(
-        module.searchWithFallback("test query", { signal: controller.signal }, ["brave", "tavily"]),
+        module.searchWithFallback("test query", { signal: controller.signal }, [
+          "brave",
+          "tavily",
+        ])
       ).rejects.toThrow("All search providers failed");
       expect(fetchMock).toHaveBeenCalledOnce();
-      expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal: controller.signal });
+      expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+        signal: controller.signal,
+      });
     });
 
     it("accepts query parameter", async () => {

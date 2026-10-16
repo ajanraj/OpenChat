@@ -74,9 +74,11 @@ Actions are configured through Config.NOTION_ACTIONS.
  * @param requestedToolkits Array of connector slugs (e.g., ["GMAIL", "NOTION"])
  * @returns Combined prompt string with only relevant tool instructions
  */
-export const getToolSpecificPrompts = (requestedToolkits: readonly string[]): string => {
+export const getToolSpecificPrompts = (
+  requestedToolkits: readonly string[]
+): string => {
   const normalizedToolkits = requestedToolkits.map((toolkit) =>
-    toolkit.toLowerCase(),
+    toolkit.toLowerCase()
   ) as ConnectorType[];
 
   const relevantPrompts: string[] = [];
@@ -84,7 +86,7 @@ export const getToolSpecificPrompts = (requestedToolkits: readonly string[]): st
   // Find matching tool prompts
   for (const toolPrompt of Object.values(TOOL_SPECIFIC_PROMPTS)) {
     const hasMatchingConnector = toolPrompt.connectors.some((connector) =>
-      normalizedToolkits.includes(connector),
+      normalizedToolkits.includes(connector)
     );
 
     if (hasMatchingConnector) {

@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { mutation, query } from "./_generated/server";
 import { assertServerSecret } from "./lib/auth_helper";
@@ -7,7 +8,7 @@ import { assertServerSecret } from "./lib/auth_helper";
 const API_KEY_SECRET = process.env.API_KEY_SECRET;
 if (!API_KEY_SECRET) {
   throw new Error(
-    "CRITICAL SECURITY ERROR: API_KEY_SECRET environment variable is required but not set. API keys cannot be stored securely without encryption. Set API_KEY_SECRET to continue.",
+    "CRITICAL SECURITY ERROR: API_KEY_SECRET environment variable is required but not set. API keys cannot be stored securely without encryption. Set API_KEY_SECRET to continue."
   );
 }
 
@@ -75,11 +76,14 @@ async function getKey(userId: string): Promise<CryptoKey> {
     stringToArrayBuffer(API_KEY_SECRET),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"],
+    ["deriveKey"]
   );
 
   // Create a unique salt per user using a hash for additional security
-  const userIdHash = await crypto.subtle.digest("SHA-256", stringToArrayBuffer(userId));
+  const userIdHash = await crypto.subtle.digest(
+    "SHA-256",
+    stringToArrayBuffer(userId)
+  );
   const userSalt = `convex-api-keys-${arrayBufferToHex(userIdHash)}`;
 
   return crypto.subtle.deriveKey(
@@ -92,7 +96,7 @@ async function getKey(userId: string): Promise<CryptoKey> {
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt", "decrypt"],
+    ["encrypt", "decrypt"]
   );
 }
 
@@ -106,7 +110,11 @@ async function encrypt(text: string, userId: string): Promise<string> {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const data = stringToArrayBuffer(text);
 
-    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      data
+    );
 
     return `${arrayBufferToHex(iv.buffer)}:${arrayBufferToHex(encrypted)}`;
   } catch {
@@ -132,7 +140,7 @@ async function decrypt(payload: string, userId: string): Promise<string> {
   const colonCount = (payload.match(/:/g) || []).length;
   if (colonCount !== 1) {
     throw new Error(
-      "Invalid payload format: must contain exactly one colon separator between IV and data parts",
+      "Invalid payload format: must contain exactly one colon separator between IV and data parts"
     );
   }
 
@@ -142,7 +150,11 @@ async function decrypt(payload: string, userId: string): Promise<string> {
   const data = hexToArrayBuffer(dataHex);
 
   try {
-    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      data
+    );
     return arrayBufferToString(decrypted);
   } catch {
     // Silently handle decryption errors to prevent sensitive information leakage
@@ -160,7 +172,7 @@ export const getApiKeys = query({
       messageCount: v.optional(v.number()),
       createdAt: v.optional(v.number()),
       updatedAt: v.optional(v.number()),
-    }),
+    })
   ),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -172,14 +184,16 @@ export const getApiKeys = query({
       .query("user_api_keys")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId))
       .collect();
-    return keys.map(({ _id, provider, mode, messageCount, createdAt, updatedAt }) => ({
-      _id,
-      provider,
-      mode,
-      messageCount,
-      createdAt,
-      updatedAt,
-    }));
+    return keys.map(
+      ({ _id, provider, mode, messageCount, createdAt, updatedAt }) => ({
+        _id,
+        provider,
+        mode,
+        messageCount,
+        createdAt,
+        updatedAt,
+      })
+    );
   },
 });
 
@@ -192,7 +206,7 @@ export const saveApiKey = mutation({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
     key: v.string(),
     mode: v.optional(v.union(v.literal("priority"), v.literal("fallback"))),
@@ -207,7 +221,9 @@ export const saveApiKey = mutation({
       encrypt(key, userId),
       ctx.db
         .query("user_api_keys")
-        .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+        .withIndex("by_user_provider", (q) =>
+          q.eq("userId", userId).eq("provider", provider)
+        )
         .unique(),
     ]);
     const now = Date.now();
@@ -243,7 +259,7 @@ export const deleteApiKey = mutation({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
   },
   returns: v.null(),
@@ -254,7 +270,9 @@ export const deleteApiKey = mutation({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (existing) {
       await ctx.db.delete("user_api_keys", existing._id);
@@ -272,7 +290,7 @@ export const updateApiKeyMode = mutation({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
     mode: v.union(v.literal("priority"), v.literal("fallback")),
   },
@@ -284,10 +302,15 @@ export const updateApiKeyMode = mutation({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (existing) {
-      await ctx.db.patch("user_api_keys", existing._id, { mode, updatedAt: Date.now() });
+      await ctx.db.patch("user_api_keys", existing._id, {
+        mode,
+        updatedAt: Date.now(),
+      });
     }
     return null;
   },
@@ -304,7 +327,7 @@ export const getDecryptedKey = query({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
     serverSecret: v.string(),
   },
@@ -317,7 +340,9 @@ export const getDecryptedKey = query({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (!existing) {
       return null;
@@ -340,11 +365,15 @@ export const incrementUserApiKeyUsage = mutation({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (existing) {
       const currentCount = existing.messageCount || 0;
-      await ctx.db.patch("user_api_keys", existing._id, { messageCount: currentCount + 1 });
+      await ctx.db.patch("user_api_keys", existing._id, {
+        messageCount: currentCount + 1,
+      });
     }
     return null;
   },

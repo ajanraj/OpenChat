@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { defaultThemeState } from "../../config/theme";
 import { getPresetThemeStyles } from "../theme-preset-helper";
 import { defaultPresets } from "../theme-presets";
@@ -42,7 +43,9 @@ describe("getPresetThemeStyles", () => {
       const styles = getPresetThemeStyles("claude");
 
       // Claude has a specific primary color that differs from default
-      expect(styles.light.primary).toBe(defaultPresets.claude.styles.light.primary);
+      expect(styles.light.primary).toBe(
+        defaultPresets.claude.styles.light.primary
+      );
     });
   });
 

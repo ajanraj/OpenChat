@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   buildSystemPrompt,
   EMAIL_PROMPT_INSTRUCTIONS,
@@ -190,12 +191,25 @@ describe("buildSystemPrompt", () => {
   });
 
   it("adds email instructions when enabled", () => {
-    const result = buildSystemPrompt(null, undefined, false, false, undefined, true);
+    const result = buildSystemPrompt(
+      null,
+      undefined,
+      false,
+      false,
+      undefined,
+      true
+    );
     expect(result).toContain("email_formatting");
   });
 
   it("adds timezone when provided", () => {
-    const result = buildSystemPrompt(null, undefined, false, false, "America/New_York");
+    const result = buildSystemPrompt(
+      null,
+      undefined,
+      false,
+      false,
+      "America/New_York"
+    );
     expect(result).toContain("America/New_York");
   });
 
@@ -207,7 +221,7 @@ describe("buildSystemPrompt", () => {
       false,
       "America/New_York",
       false,
-      true,
+      true
     );
     expect(result).toContain("scheduled task");
   });
@@ -258,7 +272,7 @@ describe("buildSystemPrompt", () => {
       false,
       false,
       undefined,
-      profile,
+      profile
     );
 
     expect(result).toContain("Name: Jane Doe");

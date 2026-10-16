@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+
 import type { toast } from "@/components/ui/toast";
+
 import type { convertConvexToAISDK } from "../ai-sdk-utils";
-import { createPlaceholderId, createTempMessageId, validateQueryParam } from "../message-utils";
+import {
+  createPlaceholderId,
+  createTempMessageId,
+  validateQueryParam,
+} from "../message-utils";
 
 // Mock dependencies
 vi.mock("@/components/ui/toast", () => ({

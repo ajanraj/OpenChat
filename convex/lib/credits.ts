@@ -1,8 +1,9 @@
 import { calculateRateLimit } from "@convex-dev/rate-limiter";
-import { ConvexError, v } from 'convex/values';
-import type { Infer } from 'convex/values';
-import { ERROR_CODES } from '../../src/lib/error-codes';
-import type { ErrorCode } from '../../src/lib/error-codes';
+import { ConvexError, v } from "convex/values";
+import type { Infer } from "convex/values";
+
+import { ERROR_CODES } from "../../src/lib/error-codes";
+import type { ErrorCode } from "../../src/lib/error-codes";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { rateLimiter } from "../rateLimiter";
@@ -26,14 +27,14 @@ export const creditBucketValidator = v.union(
   v.literal("anonymousDaily"),
   v.literal("authenticatedDaily"),
   v.literal("standardMonthly"),
-  v.literal("premiumMonthly"),
+  v.literal("premiumMonthly")
 );
 
 export type CreditBucketName = Infer<typeof creditBucketValidator>;
 
 /** What a charge drew from: each bucket with the start of the window its token came from. */
 export const creditReceiptValidator = v.array(
-  v.object({ bucket: creditBucketValidator, windowStart: v.number() }),
+  v.object({ bucket: creditBucketValidator, windowStart: v.number() })
 );
 
 export type CreditReceipt = Infer<typeof creditReceiptValidator>;
@@ -54,7 +55,7 @@ export interface MessageCreditOptions {
 async function getMessageCreditBuckets(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
-  { usesPremiumCredits, requiresPremium }: MessageCreditOptions,
+  { usesPremiumCredits, requiresPremium }: MessageCreditOptions
 ): Promise<CreditBucket[]> {
   const user = await ctx.db.get("users", userId);
   if (!user) {
@@ -66,7 +67,12 @@ async function getMessageCreditBuckets(
     throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
   }
   if (isPremium && usesPremiumCredits) {
-    return [{ name: "premiumMonthly", limitReached: ERROR_CODES.PREMIUM_LIMIT_REACHED }];
+    return [
+      {
+        name: "premiumMonthly",
+        limitReached: ERROR_CODES.PREMIUM_LIMIT_REACHED,
+      },
+    ];
   }
 
   const monthly: CreditBucket = {
@@ -88,7 +94,7 @@ async function getMessageCreditBuckets(
 async function assertBucketsHaveCredit(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
-  buckets: CreditBucket[],
+  buckets: CreditBucket[]
 ): Promise<void> {
   for (const bucket of buckets) {
     const { ok } = await rateLimiter.check(ctx, bucket.name, { key: userId });
@@ -105,7 +111,7 @@ async function assertBucketsHaveCredit(
 export async function assertMessageCreditAvailable(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
-  options: MessageCreditOptions = {},
+  options: MessageCreditOptions = {}
 ): Promise<void> {
   const buckets = await getMessageCreditBuckets(ctx, userId, options);
   await assertBucketsHaveCredit(ctx, userId, buckets);
@@ -121,7 +127,7 @@ export async function assertMessageCreditAvailable(
 export async function consumeMessageCredit(
   ctx: MutationCtx,
   userId: Id<"users">,
-  options: MessageCreditOptions = {},
+  options: MessageCreditOptions = {}
 ): Promise<CreditReceipt> {
   const buckets = await getMessageCreditBuckets(ctx, userId, options);
   await assertBucketsHaveCredit(ctx, userId, buckets);
@@ -146,12 +152,16 @@ export async function consumeMessageCredit(
 export async function refundMessageCredit(
   ctx: MutationCtx,
   userId: Id<"users">,
-  receipt: CreditReceipt,
+  receipt: CreditReceipt
 ): Promise<void> {
   const now = Date.now();
-  const windowStarts = new Map(receipt.map((entry) => [entry.bucket, entry.windowStart]));
+  const windowStarts = new Map(
+    receipt.map((entry) => [entry.bucket, entry.windowStart])
+  );
   for (const [name, windowStart] of windowStarts) {
-    const { value, ts, config } = await rateLimiter.getValue(ctx, name, { key: userId });
+    const { value, ts, config } = await rateLimiter.getValue(ctx, name, {
+      key: userId,
+    });
     if (calculateRateLimit({ value, ts }, config, now).ts !== windowStart) {
       continue;
     }

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+
 import { RECOMMENDED_MODELS } from "../constants";
-import { MODELS, MODELS_DATA, MODELS_MAP, MODELS_OPTIONS, MODELS_RAW } from "../models/index";
+import {
+  MODELS,
+  MODELS_DATA,
+  MODELS_MAP,
+  MODELS_OPTIONS,
+  MODELS_RAW,
+} from "../models/index";
 import { ModelSchema } from "../schemas";
 
 describe("Models Configuration", () => {
@@ -131,27 +138,29 @@ describe("Models Configuration", () => {
 
   describe("Model features", () => {
     it("some models have features array", () => {
-      const modelsWithFeatures = MODELS.filter((m) => m.features && m.features.length > 0);
+      const modelsWithFeatures = MODELS.filter(
+        (m) => m.features && m.features.length > 0
+      );
       expect(modelsWithFeatures.length).toBeGreaterThan(0);
     });
 
     it("some models support reasoning", () => {
       const reasoningModels = MODELS.filter((m) =>
-        m.features?.some((f) => f.id === "reasoning" && f.enabled),
+        m.features?.some((f) => f.id === "reasoning" && f.enabled)
       );
       expect(reasoningModels.length).toBeGreaterThan(0);
     });
 
     it("some models support file upload", () => {
       const fileUploadModels = MODELS.filter((m) =>
-        m.features?.some((f) => f.id === "file-upload" && f.enabled),
+        m.features?.some((f) => f.id === "file-upload" && f.enabled)
       );
       expect(fileUploadModels.length).toBeGreaterThan(0);
     });
 
     it("some models support tool calling", () => {
       const toolCallingModels = MODELS.filter((m) =>
-        m.features?.some((f) => f.id === "tool-calling" && f.enabled),
+        m.features?.some((f) => f.id === "tool-calling" && f.enabled)
       );
       expect(toolCallingModels.length).toBeGreaterThan(0);
     });
@@ -172,7 +181,7 @@ describe("Models Configuration", () => {
       expect(
         MODELS.filter((model) => !model.premium)
           .map((model) => model.id)
-          .sort(),
+          .sort()
       ).toEqual(["gpt-5.4-nano", "openrouter/free"]);
     });
 
@@ -233,17 +242,23 @@ describe("Models Configuration", () => {
           model.premium &&
           !model.legacy &&
           model.id !== "gemini-3.1-pro-preview" &&
-          !model.features.some((feature) => feature.id === "image-generation" && feature.enabled),
+          !model.features.some(
+            (feature) => feature.id === "image-generation" && feature.enabled
+          )
       );
 
       for (const model of newChatModels) {
-        expect(model.usesPremiumCredits).toBe(premiumCreditModelIds.has(model.id));
+        expect(model.usesPremiumCredits).toBe(
+          premiumCreditModelIds.has(model.id)
+        );
       }
     });
 
     it("gates every image model behind subscription and premium credits", () => {
       const imageModels = MODELS.filter((model) =>
-        model.features.some((feature) => feature.id === "image-generation" && feature.enabled),
+        model.features.some(
+          (feature) => feature.id === "image-generation" && feature.enabled
+        )
       );
 
       expect(imageModels.length).toBeGreaterThan(0);
@@ -268,7 +283,9 @@ describe("Models Configuration", () => {
         const model = MODELS_MAP[modelId];
         expect(model).toBeDefined();
         if (!model) {
-          throw new Error(`Recommended model ${modelId} is missing from the catalog`);
+          throw new Error(
+            `Recommended model ${modelId} is missing from the catalog`
+          );
         }
         expect(model.legacy).not.toBe(true);
         expect(model.retired).not.toBe(true);

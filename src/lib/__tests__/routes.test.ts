@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { API_ROUTE_CHAT, API_ROUTE_CREATE_CHAT } from "../routes";
 
 describe("API Routes", () => {

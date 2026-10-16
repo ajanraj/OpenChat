@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { __filenameUtilsTesting__, sanitizeAndValidateFileName } from "@/lib/filename";
+
+import {
+  __filenameUtilsTesting__,
+  sanitizeAndValidateFileName,
+} from "@/lib/filename";
 
 describe("sanitizeAndValidateFileName", () => {
   it("returns default for empty or whitespace-only names", () => {

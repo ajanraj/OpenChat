@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { limitDepth } from "../depth-limiter";
 
 describe("limitDepth", () => {

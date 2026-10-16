@@ -5,6 +5,7 @@
  */
 
 import { fetchAction, fetchMutation } from "convex/nextjs";
+
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { uploadToR2 } from "./r2-upload";
@@ -22,7 +23,7 @@ export async function uploadBlobToR2(
     isGenerated?: boolean;
     /** SERVER_ROUTE_SECRET; lets credit-paid server uploads skip the user's upload rate limit */
     serverSecret?: string;
-  },
+  }
 ): Promise<{
   key: string;
   url?: string;
@@ -33,8 +34,8 @@ export async function uploadBlobToR2(
     fetchMutation(
       api.files.generateUploadUrl,
       { ...args, serverSecret: options.serverSecret },
-      auth,
-    ),
+      auth
+    )
   );
 
   // Syncs R2 metadata, re-validates the stored object, and attaches it to the chat
@@ -49,7 +50,7 @@ export async function uploadBlobToR2(
       chatId: options.chatId,
       fileName: options.fileName ?? "file",
     },
-    auth,
+    auth
   );
 
   return {

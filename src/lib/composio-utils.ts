@@ -16,13 +16,17 @@ export const getAuthConfigId = (connectorType: ConnectorType): string => {
       return process.env.VITE_NOTION_AUTH_CONFIG_ID || "notion_oauth";
     }
     case "googledrive": {
-      return process.env.VITE_GOOGLE_DRIVE_AUTH_CONFIG_ID || "googledrive_oauth";
+      return (
+        process.env.VITE_GOOGLE_DRIVE_AUTH_CONFIG_ID || "googledrive_oauth"
+      );
     }
     case "googledocs": {
       return process.env.VITE_GOOGLE_DOCS_AUTH_CONFIG_ID || "googledocs_oauth";
     }
     case "googlesheets": {
-      return process.env.VITE_GOOGLE_SHEETS_AUTH_CONFIG_ID || "googlesheets_oauth";
+      return (
+        process.env.VITE_GOOGLE_SHEETS_AUTH_CONFIG_ID || "googlesheets_oauth"
+      );
     }
     case "slack": {
       return process.env.VITE_SLACK_AUTH_CONFIG_ID || "slack_oauth";

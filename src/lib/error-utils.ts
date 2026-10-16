@@ -4,8 +4,9 @@
 
 import { ConvexError } from "convex/values";
 import { z } from "zod";
-import { ERROR_CODES, getErrorMessage } from './error-codes';
-import type { ErrorCode } from './error-codes';
+
+import { ERROR_CODES, getErrorMessage } from "./error-codes";
+import type { ErrorCode } from "./error-codes";
 import type { DetectedError } from "./provider-error-detector";
 
 export type ErrorDisplayType = "conversation" | "toast" | "both";
@@ -360,7 +361,8 @@ export function createStreamingError(error: unknown): {
 
   return {
     shouldSaveToConversation:
-      classified.displayType === "conversation" || classified.displayType === "both",
+      classified.displayType === "conversation" ||
+      classified.displayType === "both",
     errorPayload,
   };
 }
@@ -368,7 +370,11 @@ export function createStreamingError(error: unknown): {
 /**
  * Create an ErrorUIPart for conversation display
  */
-export function createErrorPart(code: string, message: string, rawError?: string) {
+export function createErrorPart(
+  code: string,
+  message: string,
+  rawError?: string
+) {
   return {
     type: "error" as const,
     error: {
@@ -384,7 +390,10 @@ export function createErrorPart(code: string, message: string, rawError?: string
  */
 export function shouldShowInConversation(error: unknown): boolean {
   const classified = classifyError(error);
-  return classified.displayType === "conversation" || classified.displayType === "both";
+  return (
+    classified.displayType === "conversation" ||
+    classified.displayType === "both"
+  );
 }
 
 /**
@@ -392,7 +401,9 @@ export function shouldShowInConversation(error: unknown): boolean {
  */
 export function shouldShowAsToast(error: unknown): boolean {
   const classified = classifyError(error);
-  return classified.displayType === "toast" || classified.displayType === "both";
+  return (
+    classified.displayType === "toast" || classified.displayType === "both"
+  );
 }
 
 /**
@@ -450,5 +461,9 @@ export function createErrorPartFromDetectedError(detectedError: {
   isAuthError?: boolean;
 }) {
   const classified = classifyStreamingError(detectedError);
-  return createErrorPart(classified.code, classified.userFriendlyMessage, detectedError.message);
+  return createErrorPart(
+    classified.code,
+    classified.userFriendlyMessage,
+    detectedError.message
+  );
 }

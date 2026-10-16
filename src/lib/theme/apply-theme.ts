@@ -1,5 +1,9 @@
 import { COMMON_STYLES } from "../config/theme";
-import type { ThemeEditorState, ThemeStyleProps, ThemeStyles } from "../types/theme";
+import type {
+  ThemeEditorState,
+  ThemeStyleProps,
+  ThemeStyles,
+} from "../types/theme";
 
 type Theme = "dark" | "light";
 
@@ -31,7 +35,9 @@ const normalizeFontKey = (value: string): string =>
 
 // Build a normalized map to allow case/spacing-insensitive lookups
 const NORMALIZED_FONT_VAR_MAP: Readonly<Record<string, string>> = Object.freeze(
-  Object.fromEntries(Object.entries(FONT_VAR_MAP).map(([k, v]) => [normalizeFontKey(k), v])),
+  Object.fromEntries(
+    Object.entries(FONT_VAR_MAP).map(([k, v]) => [normalizeFontKey(k), v])
+  )
 );
 
 const DEFAULT_FALLBACKS: Readonly<Record<"sans" | "mono", string>> = {
@@ -40,7 +46,7 @@ const DEFAULT_FALLBACKS: Readonly<Record<"sans" | "mono", string>> = {
 } as const;
 
 const extractPrimaryAndRest = (
-  familyList: string | undefined,
+  familyList: string | undefined
 ): { primary: string | null; rest: string } => {
   if (!familyList) {
     return { primary: null, rest: "" };
@@ -54,7 +60,7 @@ const extractPrimaryAndRest = (
 
 const buildActiveFontValue = (
   fullFamily: string | undefined,
-  category: "sans" | "mono",
+  category: "sans" | "mono"
 ): string | null => {
   const { primary, rest } = extractPrimaryAndRest(fullFamily);
   if (!primary) {
@@ -65,7 +71,8 @@ const buildActiveFontValue = (
     // Fallback to the original list if we don't have a mapped next/font variable
     return fullFamily ?? null;
   }
-  const restList = rest.length > 0 ? `, ${rest}` : `, ${DEFAULT_FALLBACKS[category]}`;
+  const restList =
+    rest.length > 0 ? `, ${rest}` : `, ${DEFAULT_FALLBACKS[category]}`;
   return `var(${varName})${restList}`;
 };
 
@@ -77,7 +84,7 @@ const updateThemeClass = (root: HTMLElement, mode: Theme) => {
 const applyStyleToElement = (
   element: HTMLElement,
   key: string,
-  value: string | null | undefined,
+  value: string | null | undefined
 ) => {
   if (value === null || value === undefined || value === "") {
     element.style.removeProperty(`--${key}`);
@@ -89,7 +96,9 @@ const applyStyleToElement = (
 const applyCommonStyles = (root: HTMLElement, themeStyles: ThemeStyleProps) => {
   for (const [key, value] of Object.entries(themeStyles)) {
     if (
-      COMMON_NON_COLOR_KEYS.includes(key as (typeof COMMON_NON_COLOR_KEYS)[number]) &&
+      COMMON_NON_COLOR_KEYS.includes(
+        key as (typeof COMMON_NON_COLOR_KEYS)[number]
+      ) &&
       typeof value === "string"
     ) {
       // Avoid overriding Tailwind v4 font tokens; fonts are driven via --active-font-*
@@ -101,11 +110,17 @@ const applyCommonStyles = (root: HTMLElement, themeStyles: ThemeStyleProps) => {
   }
 };
 
-const applyThemeColors = (root: HTMLElement, themeStyles: ThemeStyles, mode: Theme) => {
+const applyThemeColors = (
+  root: HTMLElement,
+  themeStyles: ThemeStyles,
+  mode: Theme
+) => {
   for (const [key, value] of Object.entries(themeStyles[mode])) {
     if (
       typeof value === "string" &&
-      !COMMON_NON_COLOR_KEYS.includes(key as (typeof COMMON_NON_COLOR_KEYS)[number])
+      !COMMON_NON_COLOR_KEYS.includes(
+        key as (typeof COMMON_NON_COLOR_KEYS)[number]
+      )
     ) {
       applyStyleToElement(root, key, value);
     }
@@ -113,7 +128,10 @@ const applyThemeColors = (root: HTMLElement, themeStyles: ThemeStyles, mode: The
 };
 
 // Exported function to apply theme styles to an element
-export const applyThemeToElement = (themeState: ThemeEditorState, rootElement: HTMLElement) => {
+export const applyThemeToElement = (
+  themeState: ThemeEditorState,
+  rootElement: HTMLElement
+) => {
   const { currentMode: mode, styles: themeStyles } = themeState;
 
   if (!rootElement) {
@@ -127,8 +145,14 @@ export const applyThemeToElement = (themeState: ThemeEditorState, rootElement: H
   applyThemeColors(rootElement, themeStyles, mode);
 
   // Set active font variables to drive Tailwind v4 tokens via @theme inline
-  const activeSans = buildActiveFontValue(themeStyles.light["font-sans"], "sans");
-  const activeMono = buildActiveFontValue(themeStyles.light["font-mono"], "mono");
+  const activeSans = buildActiveFontValue(
+    themeStyles.light["font-sans"],
+    "sans"
+  );
+  const activeMono = buildActiveFontValue(
+    themeStyles.light["font-mono"],
+    "mono"
+  );
   applyStyleToElement(rootElement, "active-font-sans", activeSans);
   applyStyleToElement(rootElement, "active-font-mono", activeMono);
 };

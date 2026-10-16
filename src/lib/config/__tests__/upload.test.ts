@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   formatBytes,
   getAllowedLabel,
@@ -106,7 +107,9 @@ describe("getAllowedLabel", () => {
   });
 
   it("returns formatted list for multiple MIME types", () => {
-    expect(getAllowedLabel(["image/jpeg", "image/png", "image/gif"])).toBe("JPG, PNG and GIF");
+    expect(getAllowedLabel(["image/jpeg", "image/png", "image/gif"])).toBe(
+      "JPG, PNG and GIF"
+    );
   });
 
   it("handles unknown MIME types by returning them as-is", () => {
@@ -127,23 +130,31 @@ describe("getAllowedLabel", () => {
 describe("getUploadPolicyError", () => {
   it("accepts allowed types up to the size cap", () => {
     expect(getUploadPolicyError({ type: "image/png", size: 0 })).toBeNull();
-    expect(getUploadPolicyError({ type: "application/pdf", size: UPLOAD_MAX_BYTES })).toBeNull();
+    expect(
+      getUploadPolicyError({ type: "application/pdf", size: UPLOAD_MAX_BYTES })
+    ).toBeNull();
   });
 
   it("rejects types outside the allow-list, including a missing type", () => {
-    expect(getUploadPolicyError({ type: "text/html", size: 10 })).toBe("UNSUPPORTED_FILE_TYPE");
-    expect(getUploadPolicyError({ type: "", size: 10 })).toBe("UNSUPPORTED_FILE_TYPE");
+    expect(getUploadPolicyError({ type: "text/html", size: 10 })).toBe(
+      "UNSUPPORTED_FILE_TYPE"
+    );
+    expect(getUploadPolicyError({ type: "", size: 10 })).toBe(
+      "UNSUPPORTED_FILE_TYPE"
+    );
   });
 
   it("rejects files over the cap", () => {
-    expect(getUploadPolicyError({ type: "image/png", size: UPLOAD_MAX_BYTES + 1 })).toBe(
-      "FILE_TOO_LARGE",
-    );
+    expect(
+      getUploadPolicyError({ type: "image/png", size: UPLOAD_MAX_BYTES + 1 })
+    ).toBe("FILE_TOO_LARGE");
   });
 
   it("rejects sizes that are not byte counts", () => {
     for (const size of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(getUploadPolicyError({ type: "image/png", size })).toBe("INVALID_INPUT");
+      expect(getUploadPolicyError({ type: "image/png", size })).toBe(
+        "INVALID_INPUT"
+      );
     }
   });
 });

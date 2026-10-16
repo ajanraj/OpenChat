@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   detectRedactedContent,
   detectRedactedInParts,
@@ -46,7 +47,9 @@ describe("detectRedactedInParts", () => {
   });
 
   it("detects redacted tool calls with REDACTED input", () => {
-    const parts = [{ type: "tool-call", input: "REDACTED", output: "some output" }];
+    const parts = [
+      { type: "tool-call", input: "REDACTED", output: "some output" },
+    ];
     expect(detectRedactedInParts(parts)).toEqual({
       redactedFiles: 0,
       redactedTools: 1,
@@ -55,7 +58,9 @@ describe("detectRedactedInParts", () => {
   });
 
   it("detects redacted tool calls with REDACTED output", () => {
-    const parts = [{ type: "tool-result", input: "some input", output: "REDACTED" }];
+    const parts = [
+      { type: "tool-result", input: "some input", output: "REDACTED" },
+    ];
     expect(detectRedactedInParts(parts)).toEqual({
       redactedFiles: 0,
       redactedTools: 1,
@@ -172,7 +177,9 @@ describe("detectRedactedContent", () => {
       },
     ];
     const result = detectRedactedContent(messages);
-    expect(result.description).toBe("Contains private 1 file, 1 tool call, and 1 message part");
+    expect(result.description).toBe(
+      "Contains private 1 file, 1 tool call, and 1 message part"
+    );
   });
 
   it("skips invalid messages", () => {

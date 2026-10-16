@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { ANTHROPIC_MODELS } from "../anthropic";
 import { DEEPSEEK_MODELS } from "../deepseek";
 import { FAL_MODELS } from "../fal";
@@ -24,7 +25,7 @@ const testModelArray = (
     api_sdk?: unknown;
   }>,
   providerName: string,
-  expectedProviders: string[],
+  expectedProviders: string[]
 ) => {
   describe(`${providerName} Models`, () => {
     it("is a non-empty array", () => {
@@ -59,7 +60,9 @@ const testModelArray = (
     });
 
     it("some models have features defined", () => {
-      const modelsWithFeatures = models.filter((m) => m.features && m.features.length > 0);
+      const modelsWithFeatures = models.filter(
+        (m) => m.features && m.features.length > 0
+      );
 
       expect(modelsWithFeatures.length).toBeGreaterThan(0);
     });
@@ -73,7 +76,7 @@ const getNonLegacyModelIds = (
   models: Array<{
     id: string;
     legacy?: boolean;
-  }>,
+  }>
 ) =>
   models
     .filter((model) => !model.legacy)
@@ -82,7 +85,10 @@ const getNonLegacyModelIds = (
 
 // Test each provider's models
 testModelArray(OPENAI_MODELS, "OpenAI", ["openai", ...GATEWAY_PROVIDERS]);
-testModelArray(ANTHROPIC_MODELS, "Anthropic", ["anthropic", ...GATEWAY_PROVIDERS]);
+testModelArray(ANTHROPIC_MODELS, "Anthropic", [
+  "anthropic",
+  ...GATEWAY_PROVIDERS,
+]);
 testModelArray(GOOGLE_MODELS, "Google", ["gemini", ...GATEWAY_PROVIDERS]);
 testModelArray(DEEPSEEK_MODELS, "DeepSeek", ["deepseek", ...GATEWAY_PROVIDERS]);
 testModelArray(XAI_MODELS, "xAI", ["xai", ...GATEWAY_PROVIDERS]);
@@ -93,7 +99,10 @@ testModelArray(MOONSHOT_MODELS, "Moonshot", ["moonshot", ...GATEWAY_PROVIDERS]);
 testModelArray(ZAI_MODELS, "Zai", ["zai", ...GATEWAY_PROVIDERS]);
 testModelArray(MINIMAX_MODELS, "Minimax", ["minimax", ...GATEWAY_PROVIDERS]);
 testModelArray(QWEN_MODELS, "Qwen", ["qwen", ...GATEWAY_PROVIDERS]);
-testModelArray(OPENROUTER_MODELS, "OpenRouter", ["openrouter", ...GATEWAY_PROVIDERS]);
+testModelArray(OPENROUTER_MODELS, "OpenRouter", [
+  "openrouter",
+  ...GATEWAY_PROVIDERS,
+]);
 
 describe("Model Provider Specific Tests", () => {
   describe("OpenAI Models", () => {
@@ -104,20 +113,32 @@ describe("Model Provider Specific Tests", () => {
     });
 
     it("includes GPT-5.4 mini and nano variants and marks prior mini/nano as legacy", () => {
-      expect(OPENAI_MODELS.some((model) => model.id === "gpt-5.4-mini")).toBe(true);
-      expect(OPENAI_MODELS.some((model) => model.id === "gpt-5.4-nano")).toBe(true);
-      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.legacy).toBe(true);
-      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.legacy).toBe(true);
+      expect(OPENAI_MODELS.some((model) => model.id === "gpt-5.4-mini")).toBe(
+        true
+      );
+      expect(OPENAI_MODELS.some((model) => model.id === "gpt-5.4-nano")).toBe(
+        true
+      );
+      expect(
+        OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.legacy
+      ).toBe(true);
+      expect(
+        OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.legacy
+      ).toBe(true);
     });
 
     it("marks legacy GPT-5 mini and nano with legacy flag", () => {
-      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.legacy).toBe(true);
-      expect(OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.legacy).toBe(true);
+      expect(
+        OPENAI_MODELS.find((model) => model.id === "gpt-5-mini")?.legacy
+      ).toBe(true);
+      expect(
+        OPENAI_MODELS.find((model) => model.id === "gpt-5-nano")?.legacy
+      ).toBe(true);
     });
 
     it("includes image generation models", () => {
       const imageModels = OPENAI_MODELS.filter((m) =>
-        m.features?.some((f) => f.id === "image-generation" && f.enabled),
+        m.features?.some((f) => f.id === "image-generation" && f.enabled)
       );
 
       expect(imageModels.length).toBeGreaterThan(0);
@@ -125,7 +146,7 @@ describe("Model Provider Specific Tests", () => {
 
     it("includes reasoning models", () => {
       const reasoningModels = OPENAI_MODELS.filter((m) =>
-        m.features?.some((f) => f.id === "reasoning" && f.enabled),
+        m.features?.some((f) => f.id === "reasoning" && f.enabled)
       );
 
       expect(reasoningModels.length).toBeGreaterThan(0);
@@ -134,15 +155,21 @@ describe("Model Provider Specific Tests", () => {
 
   describe("Anthropic Models", () => {
     it("includes Claude 4.5 models", () => {
-      const claude45Models = ANTHROPIC_MODELS.filter((m) => m.id.includes("claude-4-5"));
+      const claude45Models = ANTHROPIC_MODELS.filter((m) =>
+        m.id.includes("claude-4-5")
+      );
 
       expect(claude45Models.length).toBeGreaterThan(0);
     });
 
     it("includes Opus, Sonnet, and Haiku variants", () => {
       const opusModels = ANTHROPIC_MODELS.filter((m) => m.id.includes("opus"));
-      const sonnetModels = ANTHROPIC_MODELS.filter((m) => m.id.includes("sonnet"));
-      const haikuModels = ANTHROPIC_MODELS.filter((m) => m.id.includes("haiku"));
+      const sonnetModels = ANTHROPIC_MODELS.filter((m) =>
+        m.id.includes("sonnet")
+      );
+      const haikuModels = ANTHROPIC_MODELS.filter((m) =>
+        m.id.includes("haiku")
+      );
 
       expect(opusModels.length).toBeGreaterThan(0);
       expect(sonnetModels.length).toBeGreaterThan(0);
@@ -152,7 +179,9 @@ describe("Model Provider Specific Tests", () => {
 
   describe("Google Models", () => {
     it("includes Gemini 2.5 models", () => {
-      const gemini25Models = GOOGLE_MODELS.filter((m) => m.id.includes("gemini-2.5"));
+      const gemini25Models = GOOGLE_MODELS.filter((m) =>
+        m.id.includes("gemini-2.5")
+      );
 
       expect(gemini25Models.length).toBeGreaterThan(0);
     });
@@ -161,14 +190,16 @@ describe("Model Provider Specific Tests", () => {
       const imagenModels = GOOGLE_MODELS.filter(
         (m) =>
           m.id.includes("imagen") ||
-          m.features?.some((f) => f.id === "image-generation" && f.enabled),
+          m.features?.some((f) => f.id === "image-generation" && f.enabled)
       );
 
       expect(imagenModels.length).toBeGreaterThan(0);
     });
 
     it("includes thinking variants", () => {
-      const thinkingModels = GOOGLE_MODELS.filter((m) => m.id.includes("thinking"));
+      const thinkingModels = GOOGLE_MODELS.filter((m) =>
+        m.id.includes("thinking")
+      );
 
       expect(thinkingModels.length).toBeGreaterThan(0);
     });
@@ -177,7 +208,7 @@ describe("Model Provider Specific Tests", () => {
   describe("DeepSeek Models", () => {
     it("includes V3 series models", () => {
       const v3Models = DEEPSEEK_MODELS.filter(
-        (m) => m.id.includes("v3") || m.id.includes("deepseek-chat-v3"),
+        (m) => m.id.includes("v3") || m.id.includes("deepseek-chat-v3")
       );
 
       expect(v3Models.length).toBeGreaterThan(0);
@@ -190,7 +221,9 @@ describe("Model Provider Specific Tests", () => {
     });
 
     it("includes reasoning variants", () => {
-      const reasoningModels = DEEPSEEK_MODELS.filter((m) => m.id.includes(":reasoning"));
+      const reasoningModels = DEEPSEEK_MODELS.filter((m) =>
+        m.id.includes(":reasoning")
+      );
 
       expect(reasoningModels.length).toBeGreaterThan(0);
     });
@@ -206,12 +239,22 @@ describe("Model Provider Specific Tests", () => {
 
   describe("Latest model reasoning constraints", () => {
     const getEffortOptions = (
-      models: Array<{ id: string; features: Array<{ id: string; effortOptions?: string[] }> }>,
-      id: string,
-    ) => models.find((m) => m.id === id)?.features.find((f) => f.id === "reasoning")?.effortOptions;
+      models: Array<{
+        id: string;
+        features: Array<{ id: string; effortOptions?: string[] }>;
+      }>,
+      id: string
+    ) =>
+      models
+        .find((m) => m.id === id)
+        ?.features.find((f) => f.id === "reasoning")?.effortOptions;
 
     it("keeps reasoning always on where the provider rejects disabling it", () => {
-      for (const id of ["claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"]) {
+      for (const id of [
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+      ]) {
         expect(getEffortOptions(ANTHROPIC_MODELS, id)).not.toContain("none");
       }
       for (const id of ["gpt-6.1-sol", "gpt-6-astra"]) {
@@ -223,21 +266,27 @@ describe("Model Provider Specific Tests", () => {
     });
 
     it("allows turning reasoning off for Claude Haiku 5.5 and GPT-6 Luna", () => {
-      expect(getEffortOptions(ANTHROPIC_MODELS, "claude-haiku-5-5")).toContain("none");
+      expect(getEffortOptions(ANTHROPIC_MODELS, "claude-haiku-5-5")).toContain(
+        "none"
+      );
       expect(getEffortOptions(OPENAI_MODELS, "gpt-6-luna")).toContain("none");
     });
   });
 
   describe("Mistral Models", () => {
     it("pins the legacy Large 3 entry to its snapshot instead of the moving alias", () => {
-      const large3 = MISTRAL_MODELS.find((m) => m.id === "mistral-large-latest");
+      const large3 = MISTRAL_MODELS.find(
+        (m) => m.id === "mistral-large-latest"
+      );
       expect(large3?.api_sdk).toMatchObject({ modelId: "mistral-large-2512" });
     });
   });
 
   describe("Moonshot Models", () => {
     it("configures Kimi K3 for multimodal agentic workflows", () => {
-      const kimiK3 = MOONSHOT_MODELS.find((model) => model.id === "moonshotai/kimi-k3");
+      const kimiK3 = MOONSHOT_MODELS.find(
+        (model) => model.id === "moonshotai/kimi-k3"
+      );
 
       expect(kimiK3).toMatchObject({
         provider: "openrouter",
@@ -254,7 +303,7 @@ describe("Model Provider Specific Tests", () => {
             enabled: true,
             effortOptions: ["xhigh", "high", "low"],
           }),
-        ]),
+        ])
       );
     });
   });
@@ -268,20 +317,27 @@ describe("Model Provider Specific Tests", () => {
     it("configures GLM 5.3 models with mandatory max-capable reasoning", () => {
       for (const id of ["z-ai/glm-5.3", "z-ai/glm-5.3-flash"]) {
         const reasoning = ZAI_MODELS.find((m) => m.id === id)?.features.find(
-          (f) => f.id === "reasoning",
+          (f) => f.id === "reasoning"
         );
-        expect(reasoning).toMatchObject({ enabled: true, effortOptions: ["xhigh", "high", "low"] });
+        expect(reasoning).toMatchObject({
+          enabled: true,
+          effortOptions: ["xhigh", "high", "low"],
+        });
       }
     });
   });
 
   describe("MiniMax Models", () => {
     it("includes MiniMax M3", () => {
-      expect(MINIMAX_MODELS.some((m) => m.id === "minimax/minimax-m3")).toBe(true);
+      expect(MINIMAX_MODELS.some((m) => m.id === "minimax/minimax-m3")).toBe(
+        true
+      );
     });
 
     it("marks all MiniMax models as legacy except M3", () => {
-      const nonLegacyIds = new Set(MINIMAX_MODELS.filter((m) => !m.legacy).map((m) => m.id));
+      const nonLegacyIds = new Set(
+        MINIMAX_MODELS.filter((m) => !m.legacy).map((m) => m.id)
+      );
       expect(nonLegacyIds).toEqual(new Set(["minimax/minimax-m3"]));
     });
   });
@@ -302,13 +358,18 @@ describe("Legacy Model Curation", () => {
         "gpt-image-2.5-sunburst",
         "gpt-oss-120b",
         "gpt-oss-20b",
-      ].sort(),
+      ].sort()
     );
   });
 
   it("keeps only the curated Anthropic set as non-legacy", () => {
     expect(getNonLegacyModelIds(ANTHROPIC_MODELS)).toEqual(
-      ["claude-fable-5-1", "claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5"].sort(),
+      [
+        "claude-fable-5-1",
+        "claude-haiku-5-5",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+      ].sort()
     );
   });
 
@@ -321,7 +382,7 @@ describe("Legacy Model Curation", () => {
         "gemini-3.8-flash",
         "nano-banana-2.1",
         "nano-banana-pro",
-      ].sort(),
+      ].sort()
     );
   });
 
@@ -332,46 +393,54 @@ describe("Legacy Model Curation", () => {
         "meta/muse-spark-1.3",
         "meta-llama/llama-4-maverick",
         "meta-llama/llama-4-scout",
-      ].sort(),
+      ].sort()
     );
   });
 
   it("keeps Mistral Large 4, Medium, and Small active", () => {
     expect(getNonLegacyModelIds(MISTRAL_MODELS)).toEqual(
-      ["mistral-large-4", "mistral-medium-latest", "mistral-small-latest"].sort(),
+      [
+        "mistral-large-4",
+        "mistral-medium-latest",
+        "mistral-small-latest",
+      ].sort()
     );
   });
 
   it("keeps only the curated DeepSeek set as non-legacy", () => {
     expect(getNonLegacyModelIds(DEEPSEEK_MODELS)).toEqual(
-      ["deepseek/deepseek-v4.1-flash", "deepseek/deepseek-v4-pro"].sort(),
+      ["deepseek/deepseek-v4.1-flash", "deepseek/deepseek-v4-pro"].sort()
     );
   });
 
   it("keeps only the curated xAI set as non-legacy", () => {
-    expect(getNonLegacyModelIds(XAI_MODELS)).toEqual(["x-ai/grok-4.20", "xai/grok-4.7"].sort());
+    expect(getNonLegacyModelIds(XAI_MODELS)).toEqual(
+      ["x-ai/grok-4.20", "xai/grok-4.7"].sort()
+    );
   });
 
   it("keeps only the curated Qwen set as non-legacy", () => {
     expect(getNonLegacyModelIds(QWEN_MODELS)).toEqual(
-      ["qwen/qwen3.7-plus", "qwen/qwen3.8-flash", "qwen/qwen3.8-max"].sort(),
+      ["qwen/qwen3.7-plus", "qwen/qwen3.8-flash", "qwen/qwen3.8-max"].sort()
     );
   });
 
   it("keeps only the curated Moonshot set as non-legacy", () => {
     expect(getNonLegacyModelIds(MOONSHOT_MODELS)).toEqual(
-      ["moonshotai/kimi-k2.7-code", "moonshotai/kimi-k3"].sort(),
+      ["moonshotai/kimi-k2.7-code", "moonshotai/kimi-k3"].sort()
     );
   });
 
   it("keeps only the curated Z.AI set as non-legacy", () => {
     expect(getNonLegacyModelIds(ZAI_MODELS)).toEqual(
-      ["z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5v-turbo"].sort(),
+      ["z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5v-turbo"].sort()
     );
   });
 
   it("keeps only MiniMax M3 as non-legacy", () => {
-    expect(getNonLegacyModelIds(MINIMAX_MODELS)).toEqual(["minimax/minimax-m3"]);
+    expect(getNonLegacyModelIds(MINIMAX_MODELS)).toEqual([
+      "minimax/minimax-m3",
+    ]);
   });
 
   it("keeps Flux 3 and Flux 2 as non-legacy", () => {
@@ -379,9 +448,12 @@ describe("Legacy Model Curation", () => {
   });
 
   it("keeps OpenRouter Free active and Aurora retired", () => {
-    expect(getNonLegacyModelIds(OPENROUTER_MODELS)).toEqual(["openrouter/free"]);
-    expect(OPENROUTER_MODELS.find((model) => model.id === "openrouter/aurora-alpha")?.retired).toBe(
-      true,
-    );
+    expect(getNonLegacyModelIds(OPENROUTER_MODELS)).toEqual([
+      "openrouter/free",
+    ]);
+    expect(
+      OPENROUTER_MODELS.find((model) => model.id === "openrouter/aurora-alpha")
+        ?.retired
+    ).toBe(true);
   });
 });

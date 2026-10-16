@@ -156,7 +156,9 @@ describe("composio-utils", () => {
     it("throws error for unknown connector type", async () => {
       const { getAuthConfigId } = await import("../composio-utils");
 
-      expect(() => getAuthConfigId("unknown" as never)).toThrow("Unknown connector type: unknown");
+      expect(() => getAuthConfigId("unknown" as never)).toThrow(
+        "Unknown connector type: unknown"
+      );
     });
   });
 });

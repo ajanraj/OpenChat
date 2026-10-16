@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { calculateConnectorStatus, SUPPORTED_CONNECTORS } from '../connector-utils';
-import type { Connector } from '../connector-utils';
+
+import {
+  calculateConnectorStatus,
+  SUPPORTED_CONNECTORS,
+} from "../connector-utils";
+import type { Connector } from "../connector-utils";
 
 describe("SUPPORTED_CONNECTORS", () => {
   it("is defined and is an array", () => {
@@ -35,7 +39,9 @@ describe("calculateConnectorStatus", () => {
   });
 
   it("correctly identifies disabled connectors", () => {
-    const connectors: Connector[] = [{ type: "gmail", isConnected: true, enabled: false }];
+    const connectors: Connector[] = [
+      { type: "gmail", isConnected: true, enabled: false },
+    ];
 
     const result = calculateConnectorStatus(connectors);
 
