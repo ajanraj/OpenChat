@@ -128,6 +128,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Tracks whether a theme edit is pending flush (survives debounce-effect cleanup)
   const pendingThemeSaveRef = useRef(false);
 
+  // Saves a theme edit still waiting on its debounce to the profile it was made for, right away.
+  // Best-effort: a session that has already ended can't save it.
+  const flushPendingThemeSave = useCallback((profileId: Id<"profiles"> | undefined) => {
+    if (!pendingThemeSaveRef.current) {
+      return;
+    }
+    clearTimeout(themeSaveTimerRef.current);
+    themeSaveTimerRef.current = undefined;
+    pendingThemeSaveRef.current = false;
+    const serialized = JSON.stringify(themeStateRef.current);
+    if (profileId && serialized !== lastSavedThemeRef.current) {
+      void updateProfileMutRef
+        .current({ profileId, updates: { themeConfig: serialized } })
+        .catch(() => undefined);
+    }
+  }, []);
+
   useEffect(() => {
     if (!activeProfile || activeProfile._id === prevProfileIdRef.current) {
       return;
@@ -136,21 +153,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     prevProfileIdRef.current = activeProfile._id;
 
     // Flush any pending theme save for the previous profile before switching
-    if (pendingThemeSaveRef.current) {
-      clearTimeout(themeSaveTimerRef.current);
-      themeSaveTimerRef.current = undefined;
-      pendingThemeSaveRef.current = false;
-
-      if (previousProfileId) {
-        const serialized = JSON.stringify(themeStateRef.current);
-        if (serialized !== lastSavedThemeRef.current) {
-          void updateProfileMut({
-            profileId: previousProfileId,
-            updates: { themeConfig: serialized },
-          });
-        }
-      }
-    }
+    flushPendingThemeSave(previousProfileId);
 
     if (activeProfile.themeConfig) {
       try {
@@ -167,7 +170,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // so the debounce doesn't save the previous profile's theme here
       lastSavedThemeRef.current = JSON.stringify(useEditorStore.getState().themeState);
     }
-  }, [activeProfile, setThemeState, updateProfileMut]);
+  }, [activeProfile, setThemeState, flushPendingThemeSave]);
 
   // Debounced theme config save to Convex
   useEffect(() => {
@@ -216,32 +219,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }, THEME_SAVE_DEBOUNCE_MS);
 
     return () => {
-      // Only cancel the timer; leave pendingThemeSaveRef.current intact so the
-      // profile-switch effect can detect and flush the unsaved edit.
+      // Only cancel the timer; leave pendingThemeSaveRef.current intact so a profile
+      // switch, or the account's session ending, can detect and flush the unsaved edit.
       clearTimeout(themeSaveTimerRef.current);
       themeSaveTimerRef.current = undefined;
     };
   }, [themeState, activeProfile, updateProfileMut]);
 
-  // Best-effort flush as the account's session ends and on true unmount. On sign-out (here or in
-  // another tab) this cleanup runs before Convex drops the session's auth (its own cleanup comes
-  // later in the tree), so the save still goes out as that account; a session whose token was
-  // already rejected can't save. Nothing stays pending for the next account. Uses refs so it always
-  // sees the latest values.
+  // Flush as the account's session ends and on true unmount. On sign-out (here or in another tab)
+  // this cleanup runs before Convex drops the session's auth (its own cleanup comes later in the
+  // tree), so the save still goes out as that account; a session whose token was already rejected
+  // can't save. Nothing stays pending, or scheduled, for the next account.
   const userId = user?._id;
   useEffect(() => {
-    return () => {
-      const isPending = pendingThemeSaveRef.current;
-      pendingThemeSaveRef.current = false;
-      if (!isPending || !prevProfileIdRef.current) return;
-      const serialized = JSON.stringify(themeStateRef.current);
-      if (serialized === lastSavedThemeRef.current) return;
-      void updateProfileMutRef.current({
-        profileId: prevProfileIdRef.current,
-        updates: { themeConfig: serialized },
-      });
-    };
-  }, [userId]);
+    return () => flushPendingThemeSave(prevProfileIdRef.current);
+  }, [userId, flushPendingThemeSave]);
 
   const [slideDirection, setSlideDirection] = useState(0);
   const chatByProfileRef = useRef<Map<string, string>>(new Map());

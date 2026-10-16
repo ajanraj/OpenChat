@@ -296,8 +296,10 @@ describe("ProfileProvider theme saves", () => {
     useEditorStore.setState({ themeState: initialThemeState });
   });
 
-  it("saves a theme edit still pending as its account signs out, and only to that account", () => {
-    const updateProfile = vi.fn<MutationMock>(async () => null);
+  const edited = { ...initialThemeState, preset: "edited-before-sign-out" };
+
+  /** Renders u1's profile p1 with a theme edit still inside its save's debounce. */
+  function renderWithPendingEdit(updateProfile: MutationMock) {
     useMutationMock.mockImplementation((mutationRef: FunctionReference) =>
       getFunctionName(mutationRef) === "profiles:updateProfile"
         ? updateProfile
@@ -311,15 +313,24 @@ describe("ProfileProvider theme saves", () => {
       isLoading: false,
     });
     const { rerender } = renderWithProvider(null);
-
-    const edited = { ...initialThemeState, preset: "edited-before-sign-out" };
     act(() => {
       useEditorStore.getState().setThemeState(edited);
     });
-    // Signed out within the save's debounce
+    return () => rerender(<ProfileProvider>{null}</ProfileProvider>);
+  }
+
+  function signOut() {
     useUserMock.mockReturnValue({ user: null });
     useTanStackQueryMock.mockReturnValue({ data: [], isLoading: false });
-    rerender(<ProfileProvider>{null}</ProfileProvider>);
+  }
+
+  it("saves a theme edit still pending as its account signs out, and only to that account", () => {
+    const updateProfile = vi.fn<MutationMock>(async () => null);
+    const rerender = renderWithPendingEdit(updateProfile);
+
+    // Signed out within the save's debounce
+    signOut();
+    rerender();
 
     expect(updateProfile).toHaveBeenCalledExactlyOnceWith({
       profileId: "profiles:p1",
@@ -334,11 +345,46 @@ describe("ProfileProvider theme saves", () => {
       data: [profile("profiles:p2", "users:u2")],
       isLoading: false,
     });
-    rerender(<ProfileProvider>{null}</ProfileProvider>);
+    rerender();
     act(() => {
       vi.advanceTimersByTime(2000);
     });
 
     expect(updateProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves it once when the account changes while the same profile is still shown", () => {
+    const updateProfile = vi.fn<MutationMock>(async () => null);
+    const rerender = renderWithPendingEdit(updateProfile);
+
+    // The next account's user arrives before its own profiles replace the previous ones
+    useUserMock.mockReturnValue({ user: { _id: "users:u2", isAnonymous: false } });
+    rerender();
+    // The save's debounce would have fired by now
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(updateProfile).toHaveBeenCalledExactlyOnceWith({
+      profileId: "profiles:p1",
+      updates: { themeConfig: JSON.stringify(edited) },
+    });
+  });
+
+  it("keeps the save best-effort when the ended session can't make it", async () => {
+    // Not a vi.fn, which handles the promises it returns: a rejection left unhandled fails the run
+    let saves = 0;
+    const rerender = renderWithPendingEdit(() => {
+      saves += 1;
+      return Promise.reject(new Error("NOT_AUTHENTICATED"));
+    });
+
+    signOut();
+    rerender();
+    await act(async () => {
+      await flushMicrotasks();
+    });
+
+    expect(saves).toBe(1);
   });
 });
