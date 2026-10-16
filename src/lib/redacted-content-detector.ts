@@ -18,18 +18,21 @@ export interface RedactedContentDetails {
   description: string;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 /**
  * Detects redacted content in a message's parts array
  *
- * @param parts Array of message parts to check
+ * @param parts Array of message parts to check (anything else counts as no parts)
  * @returns Object with details about redacted content
  */
-export function detectRedactedInParts(
-  parts: any[]
+export const detectRedactedInParts = (
+  parts: unknown
 ): Pick<
   RedactedContentDetails,
   "redactedFiles" | "redactedTools" | "redactedParts"
-> {
+> => {
   let redactedFiles = 0;
   let redactedTools = 0;
   let redactedParts = 0;
@@ -38,8 +41,9 @@ export function detectRedactedInParts(
     return { redactedFiles: 0, redactedTools: 0, redactedParts: 0 };
   }
 
-  for (const part of parts) {
-    if (!part || typeof part !== "object") {
+  const partList: unknown[] = parts;
+  for (const part of partList) {
+    if (!isRecord(part)) {
       continue;
     }
 
@@ -71,15 +75,17 @@ export function detectRedactedInParts(
   }
 
   return { redactedFiles, redactedTools, redactedParts };
-}
+};
 
 /**
  * Detects redacted content in an array of messages
  *
- * @param messages Array of messages to check for redacted content
+ * @param messages Array of messages to check for redacted content (anything else has none)
  * @returns Comprehensive details about redacted content found
  */
-export function detectRedactedContent(messages: any[]): RedactedContentDetails {
+export const detectRedactedContent = (
+  messages: unknown
+): RedactedContentDetails => {
   let totalRedactedFiles = 0;
   let totalRedactedTools = 0;
   let totalRedactedParts = 0;
@@ -95,8 +101,9 @@ export function detectRedactedContent(messages: any[]): RedactedContentDetails {
   }
 
   // Check each message for redacted content
-  for (const message of messages) {
-    if (!message || typeof message !== "object") {
+  const messageList: unknown[] = messages;
+  for (const message of messageList) {
+    if (!isRecord(message)) {
       continue;
     }
 
@@ -148,7 +155,7 @@ export function detectRedactedContent(messages: any[]): RedactedContentDetails {
     redactedParts: totalRedactedParts,
     description,
   };
-}
+};
 
 /**
  * Quick check to determine if forking should be disabled
@@ -156,6 +163,5 @@ export function detectRedactedContent(messages: any[]): RedactedContentDetails {
  * @param messages Array of messages to check
  * @returns True if forking should be disabled due to redacted content
  */
-export function shouldDisableFork(messages: any[]): boolean {
-  return detectRedactedContent(messages).hasRedactedContent;
-}
+export const shouldDisableFork = (messages: unknown): boolean =>
+  detectRedactedContent(messages).hasRedactedContent;

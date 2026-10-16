@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { MODEL_DEFAULT, MODELS } from "@/lib/config";
+import { MODEL_DEFAULT } from "@/lib/config/constants";
+import { MODELS } from "@/lib/config/models";
 
 import {
   createModelValidator,
@@ -17,23 +18,33 @@ import {
   supportsReasoningEffort,
 } from "../model-utils";
 
+type Model = (typeof MODELS)[number];
+
+/** Finds a configured model matching `predicate`, failing the test when there is none. */
+const findModel = (predicate: (model: Model) => boolean): Model => {
+  const model = MODELS.find(predicate);
+  if (model === undefined) {
+    throw new Error("Expected MODELS to include a matching model");
+  }
+  return model;
+};
+
 describe("model-utils", () => {
-  describe("supportsReasoningEffort", () => {
+  describe(supportsReasoningEffort, () => {
     it("returns false for non-existent model", () => {
-      expect(supportsReasoningEffort("non-existent-model")).toBe(false);
+      expect(supportsReasoningEffort("non-existent-model")).toBeFalsy();
     });
 
     it("returns false for models without features", () => {
       // Find a model without reasoning feature
-      const modelWithoutReasoning = MODELS.find(
+      const modelWithoutReasoning = findModel(
         (m) => !m.features?.some((f) => f.id === "reasoning")
       );
-      expect(modelWithoutReasoning).toBeDefined();
-      expect(supportsReasoningEffort(modelWithoutReasoning!.id)).toBe(false);
+      expect(supportsReasoningEffort(modelWithoutReasoning.id)).toBeFalsy();
     });
 
     it("returns true for models with reasoning effort options", () => {
-      const modelWithReasoning = MODELS.find((m) =>
+      const modelWithReasoning = findModel((m) =>
         m.features?.some(
           (f) =>
             f.id === "reasoning" &&
@@ -41,35 +52,32 @@ describe("model-utils", () => {
             (f.effortOptions?.length ?? 0) > 0
         )
       );
-      expect(modelWithReasoning).toBeDefined();
-      expect(supportsReasoningEffort(modelWithReasoning!.id)).toBe(true);
+      expect(supportsReasoningEffort(modelWithReasoning.id)).toBeTruthy();
     });
 
     it("returns false for fixed reasoning models", () => {
-      const modelWithBasicReasoning = MODELS.find((m) =>
+      const modelWithBasicReasoning = findModel((m) =>
         m.features?.some(
           (f) =>
             f.id === "reasoning" && f.enabled && f.effortOptions === undefined
         )
       );
-      expect(modelWithBasicReasoning).toBeDefined();
-      expect(supportsReasoningEffort(modelWithBasicReasoning!.id)).toBe(false);
+      expect(supportsReasoningEffort(modelWithBasicReasoning.id)).toBeFalsy();
     });
 
     it("returns configured options and defaults", () => {
-      const optionalModel = MODELS.find((model) =>
-        model.features.some((feature) =>
-          feature.effortOptions?.includes("none")
+      const optionalModel = findModel((model) =>
+        model.features.some(
+          (feature) => feature.effortOptions?.includes("none") === true
         )
       );
-      expect(optionalModel).toBeDefined();
-      expect(getReasoningEffortOptions(optionalModel!.id)).toContain("none");
-      expect(getDefaultReasoningEffort(optionalModel!.id)).toBe("none");
-      expect(resolveReasoningEffort(optionalModel!.id, "high")).toEqual({
+      expect(getReasoningEffortOptions(optionalModel.id)).toContain("none");
+      expect(getDefaultReasoningEffort(optionalModel.id)).toBe("none");
+      expect(resolveReasoningEffort(optionalModel.id, "high")).toStrictEqual({
         success: true,
         effort: "high",
       });
-      expect(resolveReasoningEffort(optionalModel!.id)).toEqual({
+      expect(resolveReasoningEffort(optionalModel.id)).toStrictEqual({
         success: true,
         effort: "none",
       });
@@ -86,7 +94,7 @@ describe("model-utils", () => {
       if (!toggleModel) {
         throw new Error("Expected a model with toggle reasoning");
       }
-      expect(resolveReasoningEffort(toggleModel.id, "medium")).toEqual({
+      expect(resolveReasoningEffort(toggleModel.id, "medium")).toStrictEqual({
         success: false,
       });
     });
@@ -110,19 +118,21 @@ describe("model-utils", () => {
     });
 
     it("matches provider-specific reasoning capabilities", () => {
-      expect(getReasoningEffortOptions("xai/grok-4.5")).toEqual([
+      expect(getReasoningEffortOptions("xai/grok-4.5")).toStrictEqual([
         "low",
         "medium",
         "high",
       ]);
-      expect(getReasoningEffortOptions("moonshotai/kimi-k3")).toEqual([
+      expect(getReasoningEffortOptions("moonshotai/kimi-k3")).toStrictEqual([
         "xhigh",
         "high",
         "low",
       ]);
       expect(getDefaultReasoningEffort("moonshotai/kimi-k3")).toBe("xhigh");
-      expect(getReasoningEffortOptions("mistral-medium-latest")).toEqual([]);
-      expect(getReasoningEffortOptions("z-ai/glm-5.2")).toEqual([
+      expect(getReasoningEffortOptions("mistral-medium-latest")).toStrictEqual(
+        []
+      );
+      expect(getReasoningEffortOptions("z-ai/glm-5.2")).toStrictEqual([
         "none",
         "high",
       ]);
@@ -141,25 +151,27 @@ describe("model-utils", () => {
         )?.features.find((feature) => feature.id === "reasoning");
         expect(reasoningFeature).toMatchObject({ enabled: true });
         expect(reasoningFeature).not.toHaveProperty("effortOptions");
-        expect(supportsReasoningEffort(modelId)).toBe(false);
+        expect(supportsReasoningEffort(modelId)).toBeFalsy();
       }
     });
 
     it("rejects unsupported provider-specific efforts", () => {
-      expect(resolveReasoningEffort("xai/grok-4.5", "none")).toEqual({
+      expect(resolveReasoningEffort("xai/grok-4.5", "none")).toStrictEqual({
         success: false,
       });
-      expect(resolveReasoningEffort("z-ai/glm-5.2", "low")).toEqual({
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "low")).toStrictEqual({
         success: false,
       });
-      expect(resolveReasoningEffort("z-ai/glm-5.2", "medium")).toEqual({
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "medium")).toStrictEqual({
         success: false,
       });
-      expect(resolveReasoningEffort("z-ai/glm-5.2", "high")).toEqual({
+      expect(resolveReasoningEffort("z-ai/glm-5.2", "high")).toStrictEqual({
         success: true,
         effort: "high",
       });
-      expect(resolveReasoningEffort("mistral-medium-latest", "high")).toEqual({
+      expect(
+        resolveReasoningEffort("mistral-medium-latest", "high")
+      ).toStrictEqual({
         success: false,
       });
 
@@ -170,10 +182,10 @@ describe("model-utils", () => {
         "minimax/minimax-m2",
         "qwen/qwen3-235b-a22b-thinking-2507",
       ]) {
-        expect(resolveReasoningEffort(modelId, "none")).toEqual({
+        expect(resolveReasoningEffort(modelId, "none")).toStrictEqual({
           success: false,
         });
-        expect(resolveReasoningEffort(modelId)).toEqual({
+        expect(resolveReasoningEffort(modelId)).toStrictEqual({
           success: true,
           effort: undefined,
         });
@@ -192,22 +204,24 @@ describe("model-utils", () => {
 
       expect(
         getOpenRouterReasoningOptions(openRouterReasoningModel.id, "none")
-      ).toEqual({
+      ).toStrictEqual({
         reasoning: { enabled: false, effort: "none" },
       });
       expect(
         getOpenRouterReasoningOptions(openRouterReasoningModel.id, "high")
-      ).toEqual({
+      ).toStrictEqual({
         reasoning: { enabled: true, effort: "high" },
       });
-      expect(getOpenRouterReasoningOptions(MODEL_DEFAULT, "high")).toEqual({});
+      expect(
+        getOpenRouterReasoningOptions(MODEL_DEFAULT, "high")
+      ).toStrictEqual({});
     });
   });
 
-  describe("createModelValidator", () => {
+  describe(createModelValidator, () => {
     it("returns a function", () => {
       const validator = createModelValidator();
-      expect(typeof validator).toBe("function");
+      expect(validator).toBeTypeOf("function");
     });
 
     it("returns preferred model when it exists", () => {
@@ -231,9 +245,8 @@ describe("model-utils", () => {
 
     it("returns default model for retired models", () => {
       const validator = createModelValidator();
-      const retiredModel = MODELS.find((model) => model.retired);
-      expect(retiredModel).toBeDefined();
-      expect(validator(retiredModel!.id)).toBe(MODEL_DEFAULT);
+      const retiredModel = findModel((model) => model.retired === true);
+      expect(validator(retiredModel.id)).toBe(MODEL_DEFAULT);
     });
 
     it("returns preferred model when not in disabled list", () => {
@@ -244,13 +257,13 @@ describe("model-utils", () => {
     });
   });
 
-  describe("getModelById", () => {
+  describe(getModelById, () => {
     it("returns undefined for non-existent model", () => {
       expect(getModelById("non-existent-model")).toBeUndefined();
     });
 
     it("returns model for existing id", () => {
-      const model = MODELS[0];
+      const [model] = MODELS;
       expect(model).toBeDefined();
       const result = getModelById(model.id);
       expect(result).toBeDefined();
@@ -258,7 +271,7 @@ describe("model-utils", () => {
     });
 
     it("returns model with all expected properties", () => {
-      const model = MODELS[0];
+      const [model] = MODELS;
       expect(model).toBeDefined();
       const result = getModelById(model.id);
       expect(result?.id).toBeDefined();
@@ -267,70 +280,61 @@ describe("model-utils", () => {
     });
   });
 
-  describe("isModelPremium", () => {
+  describe(isModelPremium, () => {
     it("returns false for non-existent model", () => {
-      expect(isModelPremium("non-existent-model")).toBe(false);
+      expect(isModelPremium("non-existent-model")).toBeFalsy();
     });
 
     it("returns true for premium models", () => {
-      const premiumModel = MODELS.find((m) => m.premium === true);
-      expect(premiumModel).toBeDefined();
-      expect(isModelPremium(premiumModel!.id)).toBe(true);
+      const premiumModel = findModel((m) => m.premium);
+      expect(isModelPremium(premiumModel.id)).toBeTruthy();
     });
 
     it("returns false for non-premium models", () => {
-      const nonPremiumModel = MODELS.find((m) => !m.premium);
-      expect(nonPremiumModel).toBeDefined();
-      expect(isModelPremium(nonPremiumModel!.id)).toBe(false);
+      const nonPremiumModel = findModel((m) => !m.premium);
+      expect(isModelPremium(nonPremiumModel.id)).toBeFalsy();
     });
   });
 
-  describe("requiresUserApiKey", () => {
+  describe(requiresUserApiKey, () => {
     it("returns false for non-existent model", () => {
-      expect(requiresUserApiKey("non-existent-model")).toBe(false);
+      expect(requiresUserApiKey("non-existent-model")).toBeFalsy();
     });
 
     it("returns true for models requiring user API key", () => {
-      const userKeyModel = MODELS.find(
-        (m) => m.apiKeyUsage?.userKeyOnly === true
-      );
-      expect(userKeyModel).toBeDefined();
-      expect(requiresUserApiKey(userKeyModel!.id)).toBe(true);
+      const userKeyModel = findModel((m) => m.apiKeyUsage.userKeyOnly);
+      expect(requiresUserApiKey(userKeyModel.id)).toBeTruthy();
     });
 
     it("returns false for models not requiring user API key", () => {
-      const noUserKeyModel = MODELS.find((m) => !m.apiKeyUsage?.userKeyOnly);
-      expect(noUserKeyModel).toBeDefined();
-      expect(requiresUserApiKey(noUserKeyModel!.id)).toBe(false);
+      const noUserKeyModel = findModel((m) => !m.apiKeyUsage?.userKeyOnly);
+      expect(requiresUserApiKey(noUserKeyModel.id)).toBeFalsy();
     });
   });
 
-  describe("getModelProvider", () => {
+  describe(getModelProvider, () => {
     it("returns undefined for non-existent model", () => {
       expect(getModelProvider("non-existent-model")).toBeUndefined();
     });
 
     it("returns provider for existing model", () => {
-      const model = MODELS[0];
+      const [model] = MODELS;
       expect(model).toBeDefined();
       const provider = getModelProvider(model.id);
       expect(provider).toBeDefined();
-      expect(typeof provider).toBe("string");
+      expect(provider).toBeTypeOf("string");
     });
 
     it("returns correct provider for different models", () => {
       // Test a few known providers
-      const openaiModel = MODELS.find((m) => m.provider === "openai");
-      expect(openaiModel).toBeDefined();
-      expect(getModelProvider(openaiModel!.id)).toBe("openai");
+      const openaiModel = findModel((m) => m.provider === "openai");
+      expect(getModelProvider(openaiModel.id)).toBe("openai");
 
-      const anthropicModel = MODELS.find((m) => m.provider === "anthropic");
-      expect(anthropicModel).toBeDefined();
-      expect(getModelProvider(anthropicModel!.id)).toBe("anthropic");
+      const anthropicModel = findModel((m) => m.provider === "anthropic");
+      expect(getModelProvider(anthropicModel.id)).toBe("anthropic");
 
-      const googleModel = MODELS.find((m) => m.provider === "gemini");
-      expect(googleModel).toBeDefined();
-      expect(getModelProvider(googleModel!.id)).toBe("gemini");
+      const googleModel = findModel((m) => m.provider === "gemini");
+      expect(getModelProvider(googleModel.id)).toBe("gemini");
     });
   });
 });

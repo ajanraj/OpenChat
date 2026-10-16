@@ -8,7 +8,7 @@ import {
 } from "../avatar-utils";
 
 describe("avatar-utils", () => {
-  describe("getUserAvatarSeed", () => {
+  describe(getUserAvatarSeed, () => {
     it("uses preferred name first", () => {
       expect(
         getUserAvatarSeed({
@@ -53,9 +53,9 @@ describe("avatar-utils", () => {
     });
   });
 
-  describe("getHighResolutionAvatarUrl", () => {
+  describe(getHighResolutionAvatarUrl, () => {
     it("returns undefined for empty input", () => {
-      expect(getHighResolutionAvatarUrl(undefined)).toBeUndefined();
+      expect(getHighResolutionAvatarUrl()).toBeUndefined();
       expect(getHighResolutionAvatarUrl(null)).toBeUndefined();
     });
 
@@ -92,10 +92,10 @@ describe("avatar-utils", () => {
     });
   });
 
-  describe("isLikelyDefaultGoogleAvatarUrl", () => {
+  describe(isLikelyDefaultGoogleAvatarUrl, () => {
     it("returns false for empty input", () => {
-      expect(isLikelyDefaultGoogleAvatarUrl(undefined)).toBe(false);
-      expect(isLikelyDefaultGoogleAvatarUrl(null)).toBe(false);
+      expect(isLikelyDefaultGoogleAvatarUrl()).toBeFalsy();
+      expect(isLikelyDefaultGoogleAvatarUrl(null)).toBeFalsy();
     });
 
     it("detects modern default user pattern", () => {
@@ -103,7 +103,7 @@ describe("avatar-utils", () => {
         isLikelyDefaultGoogleAvatarUrl(
           "https://lh3.googleusercontent.com/a/default-user=s96-c"
         )
-      ).toBe(true);
+      ).toBeTruthy();
     });
 
     it("detects legacy default user pattern", () => {
@@ -111,7 +111,7 @@ describe("avatar-utils", () => {
         isLikelyDefaultGoogleAvatarUrl(
           "https://lh3.googleusercontent.com/-XdUIqdMkCWA/AAAAAAAAAAI/AAAAAAAAAAA/photo.jpg"
         )
-      ).toBe(true);
+      ).toBeTruthy();
     });
 
     it("returns false for non-default google avatar", () => {
@@ -119,17 +119,17 @@ describe("avatar-utils", () => {
         isLikelyDefaultGoogleAvatarUrl(
           "https://lh3.googleusercontent.com/a/ACg8ocJ19jYKQxuq2CkaNytv5V4ODt8hA8k8j66IY6D2dg=s96-c"
         )
-      ).toBe(false);
+      ).toBeFalsy();
     });
 
     it("returns false for non-google avatar", () => {
       expect(
         isLikelyDefaultGoogleAvatarUrl("https://example.com/avatar.png")
-      ).toBe(false);
+      ).toBeFalsy();
     });
   });
 
-  describe("getRenderableAvatarImageSrc", () => {
+  describe(getRenderableAvatarImageSrc, () => {
     it("returns undefined for default google avatar URLs", () => {
       expect(
         getRenderableAvatarImageSrc(

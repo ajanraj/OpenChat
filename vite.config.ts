@@ -45,7 +45,7 @@ const config = defineConfig({
         navigateFallback: null,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/iu,
             handler: "CacheFirst",
             options: {
               cacheName: "google-fonts-stylesheets",
@@ -56,7 +56,7 @@ const config = defineConfig({
             },
           },
           {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/iu,
             handler: "CacheFirst",
             options: {
               cacheName: "google-fonts-webfonts",
@@ -74,9 +74,9 @@ const config = defineConfig({
   ssr: {
     noExternal: [
       "streamdown",
-      /@streamdown\/.*/,
-      /@phosphor-icons\/.*/,
-      /@ridemountainpig\/.*/,
+      /@streamdown\/.*/u,
+      /@phosphor-icons\/.*/u,
+      /@ridemountainpig\/.*/u,
     ],
   },
   // Pre-bundle icon packages for faster dev server startup

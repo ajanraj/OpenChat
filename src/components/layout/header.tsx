@@ -17,7 +17,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { GITHUB_REPO_URL } from "@/lib/config";
+import { GITHUB_REPO_URL } from "@/lib/config/constants";
 import { useUser } from "@/providers/user-provider";
 
 export const Header = memo(function HeaderComponent() {

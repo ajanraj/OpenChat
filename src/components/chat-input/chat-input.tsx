@@ -9,7 +9,7 @@ import {
 } from "@/components/prompt-kit/prompt-input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import type { ReasoningEffort } from "@/lib/config";
+import type { ReasoningEffort } from "@/lib/config/schemas";
 import {
 	getAllowedLabel,
 	PASTE_ALLOWED_MIME,

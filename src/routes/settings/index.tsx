@@ -1,10 +1,10 @@
 import {
-  Check,
-  CircleNotch,
-  Headset,
-  Rocket,
-  Sparkle,
-  Trash,
+  CheckIcon,
+  CircleNotchIcon,
+  HeadsetIcon,
+  RocketIcon,
+  SparkleIcon,
+  TrashIcon,
 } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation } from "convex/react";
@@ -24,11 +24,45 @@ import { toast } from "@/components/ui/toast";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/providers/user-provider";
 
-export const Route = createFileRoute("/settings/")({
-  component: AccountSettingsPage,
-});
+/** Manages an active plan, or starts the upgrade once the plan is known. */
+const SubscriptionButton = ({
+  hasPremium,
+  isLoading,
+  onManage,
+  onUpgrade,
+}: {
+  hasPremium: boolean;
+  isLoading: boolean;
+  onManage: () => void;
+  onUpgrade: () => void;
+}) => {
+  if (hasPremium) {
+    return (
+      <Button
+        className="w-full cursor-pointer md:w-auto"
+        onClick={onManage}
+        variant="outline"
+      >
+        Manage Subscription
+      </Button>
+    );
+  }
+  if (isLoading) {
+    return (
+      <Button className="w-full md:w-auto" disabled variant="secondary">
+        Loading...
+      </Button>
+    );
+  }
+  return (
+    <Button className="w-full cursor-pointer md:w-auto" onClick={onUpgrade}>
+      <SparkleIcon className="mr-2 size-4" weight="fill" />
+      Upgrade Now
+    </Button>
+  );
+};
 
-export function AccountSettingsPage() {
+export const AccountSettingsPage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
   const deleteAccount = useMutation(api.users.deleteAccount);
@@ -40,7 +74,7 @@ export function AccountSettingsPage() {
   const handleUpgrade = useCallback(async () => {
     const checkoutUrl = await createCheckout({})
       .then(({ url }) => url)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error("Failed to start upgrade process:", error);
         toast({
           title: "Unable to start upgrade process",
@@ -50,7 +84,7 @@ export function AccountSettingsPage() {
         });
         return null;
       });
-    if (!checkoutUrl) {
+    if (checkoutUrl === null || checkoutUrl === "") {
       return;
     }
 
@@ -60,7 +94,7 @@ export function AccountSettingsPage() {
   const handleManageSubscription = useCallback(async () => {
     const customerPortalUrl = await createPortalSession({})
       .then(({ url }) => url)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error("Failed to access customer portal:", error);
         toast({
           title: "Unable to access customer portal",
@@ -70,7 +104,7 @@ export function AccountSettingsPage() {
         });
         return null;
       });
-    if (!customerPortalUrl) {
+    if (customerPortalUrl === null || customerPortalUrl === "") {
       return;
     }
 
@@ -102,23 +136,17 @@ export function AccountSettingsPage() {
       });
   }, [deleteAccount, signOut, router]);
 
-  const subscriptionButton = hasPremium ? (
-    <Button
-      className="w-full cursor-pointer md:w-auto"
-      onClick={handleManageSubscription}
-      variant="outline"
-    >
-      Manage Subscription
-    </Button>
-  ) : isLoading ? (
-    <Button className="w-full md:w-auto" disabled variant="secondary">
-      Loading...
-    </Button>
-  ) : (
-    <Button className="w-full cursor-pointer md:w-auto" onClick={handleUpgrade}>
-      <Sparkle className="mr-2 size-4" weight="fill" />
-      Upgrade Now
-    </Button>
+  const subscriptionButton = (
+    <SubscriptionButton
+      hasPremium={hasPremium}
+      isLoading={isLoading}
+      onManage={() => {
+        void handleManageSubscription();
+      }}
+      onUpgrade={() => {
+        void handleUpgrade();
+      }}
+    />
   );
 
   const features = [
@@ -132,7 +160,7 @@ export function AccountSettingsPage() {
     <div className="w-full space-y-10">
       {/* Premium Plan */}
       <section className="space-y-6">
-        {Boolean(hasPremium) && (
+        {hasPremium && (
           <>
             <div className="flex items-baseline justify-between">
               <h1 className="text-2xl font-semibold tracking-tight">
@@ -148,7 +176,7 @@ export function AccountSettingsPage() {
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Rocket className="size-5 text-primary" />
+                  <RocketIcon className="size-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">All Models</p>
@@ -159,7 +187,7 @@ export function AccountSettingsPage() {
               </div>
               <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Sparkle className="size-5 text-primary" />
+                  <SparkleIcon className="size-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">1600 Credits</p>
@@ -170,7 +198,7 @@ export function AccountSettingsPage() {
               </div>
               <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Headset className="size-5 text-primary" />
+                  <HeadsetIcon className="size-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">Priority Support</p>
@@ -205,7 +233,7 @@ export function AccountSettingsPage() {
                         key={feature}
                       >
                         <div className="flex size-5 items-center justify-center rounded-full bg-primary/20">
-                          <Check
+                          <CheckIcon
                             className="size-3 text-primary"
                             weight="bold"
                           />
@@ -271,12 +299,12 @@ export function AccountSettingsPage() {
           >
             {isDeleting ? (
               <>
-                <CircleNotch className="mr-2 size-4 animate-spin" />
+                <CircleNotchIcon className="mr-2 size-4 animate-spin" />
                 Deleting...
               </>
             ) : (
               <>
-                <Trash className="mr-2 size-4" />
+                <TrashIcon className="mr-2 size-4" />
                 Delete
               </>
             )}
@@ -308,7 +336,12 @@ export function AccountSettingsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteAccount} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteAccount();
+              }}
+              variant="destructive"
+            >
               Delete Account
             </Button>
           </DialogFooter>
@@ -316,4 +349,8 @@ export function AccountSettingsPage() {
       </Dialog>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/")({
+  component: AccountSettingsPage,
+});

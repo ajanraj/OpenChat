@@ -4,11 +4,7 @@ import { useEffect } from "react";
 import { ScheduledTasksPage } from "@/components/scheduled-tasks/scheduled-tasks-page";
 import { useUser } from "@/providers/user-provider";
 
-export const Route = createFileRoute("/tasks")({
-  component: TasksPage,
-});
-
-function TasksPage() {
+const TasksPage = () => {
   const { user, isLoading } = useUser();
   const router = useRouter();
 
@@ -18,14 +14,18 @@ function TasksPage() {
       return;
     }
 
-    if (!user || user.isAnonymous) {
+    if (!user || user.isAnonymous === true) {
       void router.navigate({ to: "/auth" });
     }
   }, [user, isLoading, router]);
 
-  if (!user || user?.isAnonymous) {
+  if (!user || user.isAnonymous === true) {
     return null;
   }
 
   return <ScheduledTasksPage />;
-}
+};
+
+export const Route = createFileRoute("/tasks")({
+  component: TasksPage,
+});

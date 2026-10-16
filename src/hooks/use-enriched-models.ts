@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
-import { MODELS_OPTIONS, PROVIDERS_OPTIONS } from "@/lib/config";
+import { MODELS_OPTIONS } from "@/lib/config/models";
+import { PROVIDERS_OPTIONS } from "@/lib/config/providers";
 import { useUser } from "@/providers/user-provider";
 
 import { useModelPreferences } from "./use-model-preferences";
@@ -18,18 +19,18 @@ export interface EnrichedModel {
     allowUserKey: boolean;
     userKeyOnly: boolean;
   };
-  features: Array<{
+  features: {
     id: string;
     enabled: boolean;
     label?: string;
-  }>;
+  }[];
   // Enriched properties
   providerInfo: (typeof PROVIDERS_OPTIONS)[0] | undefined;
   available: boolean;
   featuresMap: Record<string, boolean>;
 }
 
-export function useEnrichedModels() {
+export const useEnrichedModels = () => {
   const { hasPremium, apiKeys } = useUser();
   const { favoriteModelsSet } = useModelPreferences();
 
@@ -50,23 +51,20 @@ export function useEnrichedModels() {
         const canUseAsPremium = !requiresPremium || hasPremium || userHasKey;
         const available = canUseWithKey && canUseAsPremium;
         // Pre-compute features map for O(1) feature lookups
-        const featuresMap = model.features.reduce<Record<string, boolean>>(
-          (acc, feature) => {
-            acc[feature.id] = feature.enabled;
-            return acc;
-          },
-          {}
+        const featuresMap: Record<string, boolean> = Object.fromEntries(
+          model.features.map((feature) => [feature.id, feature.enabled])
         );
 
         // Find provider info once - use displayProvider for UI, fallback to provider
         const modelWithDisplayProvider = model as typeof model & {
           displayProvider?: string;
         };
-        const providerInfo = PROVIDERS_OPTIONS.find(
-          (p) =>
-            p.id ===
-            (modelWithDisplayProvider.displayProvider || model.provider)
-        );
+        const { displayProvider } = modelWithDisplayProvider;
+        const providerId =
+          displayProvider !== undefined && displayProvider !== ""
+            ? displayProvider
+            : model.provider;
+        const providerInfo = PROVIDERS_OPTIONS.find((p) => p.id === providerId);
 
         return {
           ...model,
@@ -111,8 +109,8 @@ export function useEnrichedModels() {
 
     return {
       all: enrichedModels,
-      favorites: favorites.sort(sortByAvailability),
-      others: others.sort(sortByAvailability),
+      favorites: favorites.toSorted(sortByAvailability),
+      others: others.toSorted(sortByAvailability),
       available,
       unavailable,
     };
@@ -145,4 +143,4 @@ export function useEnrichedModels() {
     featureMap,
     apiKeysMap,
   };
-}
+};

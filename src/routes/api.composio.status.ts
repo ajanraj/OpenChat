@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/composio/status")({
           if (!user) {
             return notFound("User not found");
           }
-          if (user.isAnonymous) {
+          if (user.isAnonymous === true) {
             return json(
               { error: "Sign in with Google to use connectors" },
               { status: 403 }
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/composio/status")({
           const { searchParams } = new URL(request.url);
           const connectionRequestId = searchParams.get("connectionRequestId");
 
-          if (!connectionRequestId) {
+          if (connectionRequestId === null || connectionRequestId === "") {
             return badRequest("Connection Request ID is required");
           }
 
@@ -39,7 +39,8 @@ export const Route = createFileRoute("/api/composio/status")({
           const result = await waitForConnection(
             user._id,
             connectionRequestId,
-            60 // 60 seconds timeout
+            // 60 seconds timeout
+            60
           );
           if (!result) {
             return notFound("Connection request not found");

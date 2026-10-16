@@ -26,13 +26,29 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ATTACHMENT_DELETE_BATCH_SIZE, formatBytes } from "@/lib/config/upload";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/settings/attachments")({
-  component: AttachmentsSettingsPage,
-});
-
 const ATTACHMENTS_PAGE_SIZE = 50;
 
-export function AttachmentsSettingsPage() {
+/**
+ * Deletes attachments one bounded batch at a time, starting at `start`. Batches run
+ * sequentially and stop at the first failure, which rejects.
+ */
+const deleteInBatches = async (
+  deleteBatch: (args: {
+    attachmentIds: Id<"chat_attachments">[];
+  }) => Promise<unknown>,
+  ids: Id<"chat_attachments">[],
+  start = 0
+): Promise<void> => {
+  if (start >= ids.length) {
+    return;
+  }
+  await deleteBatch({
+    attachmentIds: ids.slice(start, start + ATTACHMENT_DELETE_BATCH_SIZE),
+  });
+  await deleteInBatches(deleteBatch, ids, start + ATTACHMENT_DELETE_BATCH_SIZE);
+};
+
+export const AttachmentsSettingsPage = () => {
   // Newest first; the header counts and totals cover loaded pages only ("50+ files")
   const { results, status, loadMore } = usePaginatedQuery(
     api.files.getAttachmentsForUser,
@@ -82,25 +98,15 @@ export function AttachmentsSettingsPage() {
   };
 
   const confirmDeleteSelected = async () => {
-    const ids = [...selectedIds];
     try {
       // The mutation accepts a bounded batch; large selections span several calls
-      for (
-        let start = 0;
-        start < ids.length;
-        start += ATTACHMENT_DELETE_BATCH_SIZE
-      ) {
-        await deleteAttachments({
-          attachmentIds: ids.slice(start, start + ATTACHMENT_DELETE_BATCH_SIZE),
-        });
-      }
+      await deleteInBatches(deleteAttachments, [...selectedIds]);
       toast({ title: "Selected attachments deleted", status: "success" });
       setSelectedIds(new Set());
     } catch {
       toast({ title: "Failed to delete some attachments", status: "error" });
-    } finally {
-      setShowDeleteSelectedDialog(false);
     }
+    setShowDeleteSelectedDialog(false);
   };
 
   const handleDelete = (attachmentId: Id<"chat_attachments">) => {
@@ -189,7 +195,10 @@ export function AttachmentsSettingsPage() {
                   toggleSelect(att._id);
                 }}
               />
-              {(att.fileType?.startsWith("image/") ?? false) && att.url ? (
+              {(att.fileType?.startsWith("image/") ?? false) &&
+              att.url !== undefined &&
+              att.url !== null &&
+              att.url !== "" ? (
                 <div className="size-10 shrink-0 overflow-hidden rounded-lg border">
                   <img
                     alt={att.fileName ?? "attachment"}
@@ -278,7 +287,7 @@ export function AttachmentsSettingsPage() {
         </div>
         <p className="leading-relaxed text-muted-foreground">
           Manage your uploaded files and attachments. Deleting files here will
-          remove them from the relevant chats but won't delete those chats.
+          remove them from the relevant chats but won&apos;t delete those chats.
         </p>
       </header>
 
@@ -310,7 +319,7 @@ export function AttachmentsSettingsPage() {
               Select All
             </span>
           </Label>
-          {Boolean(selectedIds.size > 0) && (
+          {selectedIds.size > 0 && (
             <Button
               onClick={clearSelection}
               size="sm"
@@ -321,7 +330,7 @@ export function AttachmentsSettingsPage() {
             </Button>
           )}
         </div>
-        {Boolean(selectedIds.size > 0) && (
+        {selectedIds.size > 0 && (
           <Button
             className="flex items-center gap-2"
             onClick={deleteSelected}
@@ -361,7 +370,12 @@ export function AttachmentsSettingsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteSelected} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteSelected();
+              }}
+              variant="destructive"
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -391,7 +405,12 @@ export function AttachmentsSettingsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteSingle} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteSingle();
+              }}
+              variant="destructive"
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -399,4 +418,8 @@ export function AttachmentsSettingsPage() {
       </Dialog>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/attachments")({
+  component: AttachmentsSettingsPage,
+});

@@ -61,13 +61,13 @@ export const listUserConnectors = query({
  * Resolve the caller for connector mutations. Anonymous (guest) users cannot link
  * external accounts, so they are rejected here as well as in the UI.
  */
-async function ensureConnectorUser(ctx: MutationCtx): Promise<Id<"users">> {
+const ensureConnectorUser = async (ctx: MutationCtx): Promise<Id<"users">> => {
   const user = await getCurrentUserOrThrow(ctx);
-  if (user.isAnonymous) {
+  if (user.isAnonymous === true) {
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
   }
   return user._id;
-}
+};
 
 /**
  * Save a new connection for the authenticated user.

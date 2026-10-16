@@ -104,13 +104,17 @@ export const CONNECTOR_CONFIGS: Record<ConnectorType, ConnectorConfig> = {
   },
 };
 
-export const SUPPORTED_CONNECTORS: ConnectorType[] = Object.keys(
-  CONNECTOR_CONFIGS
-) as ConnectorType[];
+/** Narrows an untrusted string (URL param, tool slug) to a configured connector type. */
+export const isConnectorType = (value: string): value is ConnectorType =>
+  Object.hasOwn(CONNECTOR_CONFIGS, value);
+
+export const SUPPORTED_CONNECTORS: ConnectorType[] =
+  Object.keys(CONNECTOR_CONFIGS).filter(isConnectorType);
 
 export const getConnectorConfig = (type: ConnectorType): ConnectorConfig => {
-  const config = CONNECTOR_CONFIGS[type];
-  if (!config) {
+  // Callers may pass unchecked runtime values, so the lookup can miss
+  const config: ConnectorConfig | undefined = CONNECTOR_CONFIGS[type];
+  if (config === undefined) {
     throw new Error(`Unknown connector type: ${type}`);
   }
   return config;
@@ -119,60 +123,29 @@ export const getConnectorConfig = (type: ConnectorType): ConnectorConfig => {
 // Connector tool detection configuration
 export { SUPPORTED_CONNECTORS as CONNECTOR_TOOL_NAMES };
 
-/**
- * Dynamically generate connector patterns from CONNECTOR_CONFIGS
- * This ensures consistency and reduces duplication
- */
-const getConnectorPatterns = (): Record<ConnectorType, string[]> => {
-  const patterns: Record<ConnectorType, string[]> = {} as Record<
-    ConnectorType,
-    string[]
-  >;
-
-  for (const [type, _config] of Object.entries(CONNECTOR_CONFIGS) as [
-    ConnectorType,
-    ConnectorConfig,
-  ][]) {
-    const typePatterns: string[] = [type];
-
-    // Add specific patterns based on the connector type
-    switch (type) {
-      case "googlecalendar": {
-        typePatterns.push("calendar");
-        break;
-      }
-      case "googledrive": {
-        typePatterns.push("drive");
-        break;
-      }
-      case "googledocs": {
-        typePatterns.push("docs");
-        break;
-      }
-      case "googlesheets": {
-        typePatterns.push("sheets");
-        break;
-      }
-      case "twitter": {
-        typePatterns.push("x.com");
-        break;
-      }
-      default: {
-        // For most connectors, the type name is sufficient
-        break;
-      }
-    }
-
-    patterns[type] = typePatterns;
-  }
-
-  return patterns;
+/** Tool-name patterns that identify a connector besides its type name */
+const EXTRA_CONNECTOR_PATTERNS: Record<ConnectorType, string[]> = {
+  gmail: [],
+  googlecalendar: ["calendar"],
+  notion: [],
+  googledrive: ["drive"],
+  googledocs: ["docs"],
+  googlesheets: ["sheets"],
+  slack: [],
+  linear: [],
+  github: [],
+  twitter: ["x.com"],
 };
 
 /**
- * Cached connector patterns to avoid recomputation
+ * Patterns per connector, generated once from CONNECTOR_CONFIGS (in its order) so detection
+ * stays consistent with the configured connectors
  */
-const CONNECTOR_PATTERNS = getConnectorPatterns();
+const CONNECTOR_PATTERNS: { type: ConnectorType; patterns: string[] }[] =
+  SUPPORTED_CONNECTORS.map((type) => ({
+    type,
+    patterns: [type, ...EXTRA_CONNECTOR_PATTERNS[type]],
+  }));
 
 /**
  * Check if a tool name corresponds to a connector tool
@@ -191,7 +164,7 @@ export const isConnectorTool = (toolName: string): boolean => {
   }
 
   // Check against additional patterns for each connector
-  return Object.values(CONNECTOR_PATTERNS).some((patterns) =>
+  return CONNECTOR_PATTERNS.some(({ patterns }) =>
     patterns.some((pattern) => lowerToolName.includes(pattern))
   );
 };
@@ -214,9 +187,9 @@ export const getConnectorTypeFromToolName = (
   }
 
   // Then check against additional patterns for each connector
-  for (const [connectorType, patterns] of Object.entries(CONNECTOR_PATTERNS)) {
+  for (const { type, patterns } of CONNECTOR_PATTERNS) {
     if (patterns.some((pattern) => lowerToolName.includes(pattern))) {
-      return connectorType as ConnectorType;
+      return type;
     }
   }
 

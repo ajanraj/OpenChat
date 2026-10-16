@@ -1,6 +1,9 @@
+import { setTimeout as sleep } from "node:timers/promises";
+
 import { describe, expect, it, vi } from "vitest";
 
 import type { toast } from "@/components/ui/toast";
+import { MESSAGE_MAX_LENGTH } from "@/lib/config/constants";
 
 import type { convertConvexToAISDK } from "../ai-sdk-utils";
 import {
@@ -10,29 +13,26 @@ import {
 } from "../message-utils";
 
 // Mock dependencies
-vi.mock("@/components/ui/toast", () => ({
+vi.mock(import("@/components/ui/toast"), () => ({
   toast: vi.fn<typeof toast>(),
 }));
 
-vi.mock("@/lib/ai-sdk-utils", () => ({
-  convertConvexToAISDK: vi.fn<typeof convertConvexToAISDK>((msg) => ({
-    id: msg._id,
-    role: msg.role,
-    parts: msg.parts || [],
-  })),
+// mapMessage isn't tested here; the mock keeps the AI SDK conversion module out
+vi.mock(import("@/lib/ai-sdk-utils"), () => ({
+  convertConvexToAISDK: vi.fn<typeof convertConvexToAISDK>(),
 }));
 
-vi.mock("@/lib/config", () => ({
-  MESSAGE_MAX_LENGTH: 100,
-}));
+// Reads the timestamp an ID embeds after `prefix`
+const timestampOf = (id: string, prefix: string): number =>
+  Number(id.slice(prefix.length).split("-", 1)[0]);
 
 describe("message-utils", () => {
-  describe("createTempMessageId", () => {
+  describe(createTempMessageId, () => {
     it("returns a string starting with temp-", () => {
       const id = createTempMessageId();
 
-      expect(typeof id).toBe("string");
-      expect(id.startsWith("temp-")).toBe(true);
+      expect(id).toBeTypeOf("string");
+      expect(id.startsWith("temp-")).toBeTruthy();
     });
 
     it("includes a timestamp", () => {
@@ -40,7 +40,7 @@ describe("message-utils", () => {
       const id = createTempMessageId();
       const after = Date.now();
 
-      const timestamp = Number.parseInt(id.replace("temp-", ""), 10);
+      const timestamp = timestampOf(id, "temp-");
 
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
@@ -49,7 +49,7 @@ describe("message-utils", () => {
     it("generates unique ids on subsequent calls", async () => {
       const ids = new Set<string>();
       const promises = Array.from({ length: 10 }, async (_, i) => {
-        await new Promise((resolve) => setTimeout(resolve, i));
+        await sleep(i);
         return createTempMessageId();
       });
       const results = await Promise.all(promises);
@@ -62,16 +62,16 @@ describe("message-utils", () => {
 
     it("has correct format", () => {
       const id = createTempMessageId();
-      expect(id.startsWith("temp-")).toBe(true);
+      expect(id.startsWith("temp-")).toBeTruthy();
     });
   });
 
-  describe("createPlaceholderId", () => {
+  describe(createPlaceholderId, () => {
     it("returns a string starting with placeholder-", () => {
       const id = createPlaceholderId();
 
-      expect(typeof id).toBe("string");
-      expect(id.startsWith("placeholder-")).toBe(true);
+      expect(id).toBeTypeOf("string");
+      expect(id.startsWith("placeholder-")).toBeTruthy();
     });
 
     it("includes a timestamp", () => {
@@ -79,14 +79,14 @@ describe("message-utils", () => {
       const id = createPlaceholderId();
       const after = Date.now();
 
-      const timestamp = Number.parseInt(id.replace("placeholder-", ""), 10);
+      const timestamp = timestampOf(id, "placeholder-");
 
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
     });
   });
 
-  describe("validateQueryParam", () => {
+  describe(validateQueryParam, () => {
     it("returns trimmed query for valid input", () => {
       const result = validateQueryParam("  valid query  ");
 
@@ -106,14 +106,14 @@ describe("message-utils", () => {
     });
 
     it("returns null for query exceeding max length", () => {
-      const longQuery = "a".repeat(101); // Exceeds mocked MESSAGE_MAX_LENGTH of 100
+      const longQuery = "a".repeat(MESSAGE_MAX_LENGTH + 1);
       const result = validateQueryParam(longQuery);
 
       expect(result).toBeNull();
     });
 
     it("returns query at exactly max length", () => {
-      const maxLengthQuery = "a".repeat(100);
+      const maxLengthQuery = "a".repeat(MESSAGE_MAX_LENGTH);
       const result = validateQueryParam(maxLengthQuery);
 
       expect(result).toBe(maxLengthQuery);

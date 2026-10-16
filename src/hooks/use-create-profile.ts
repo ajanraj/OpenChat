@@ -12,7 +12,7 @@ interface CreateProfileData {
   copyFromProfileId?: Id<"profiles">;
 }
 
-export function useCreateProfile(onSuccess?: (id: Id<"profiles">) => void) {
+export const useCreateProfile = (onSuccess?: (id: Id<"profiles">) => void) => {
   const createProfile = useMutation(api.profiles.createProfile);
 
   return useCallback(
@@ -33,4 +33,4 @@ export function useCreateProfile(onSuccess?: (id: Id<"profiles">) => void) {
     },
     [createProfile, onSuccess]
   );
-}
+};

@@ -2,7 +2,7 @@ import { m } from "motion/react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { TRANSITION_SUGGESTIONS } from "@/lib/motion";
-import { PERSONAS } from "@/lib/prompt_config";
+import { PERSONAS } from "@/lib/prompt-config";
 import { cn } from "@/lib/utils";
 
 type ButtonPersonaProps = {

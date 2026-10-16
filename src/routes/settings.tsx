@@ -6,11 +6,7 @@ import { SettingsNav } from "@/components/layout/settings/settings-nav";
 import { SettingsSidebar } from "@/components/layout/settings/settings-sidebar";
 import { useUser } from "@/providers/user-provider";
 
-export const Route = createFileRoute("/settings")({
-  component: SettingsLayout,
-});
-
-function SettingsLayout() {
+const SettingsLayout = () => {
   const { user, isLoading } = useUser();
   const router = useRouter();
 
@@ -27,13 +23,12 @@ function SettingsLayout() {
     }
 
     // Redirect anonymous users to login page to upgrade their account
-    if (user?.isAnonymous) {
+    if (user.isAnonymous === true) {
       void router.navigate({ to: "/auth" });
-      return;
     }
   }, [user, isLoading, router]);
 
-  if (!user || user?.isAnonymous) {
+  if (!user || user.isAnonymous === true) {
     return null;
   }
 
@@ -54,4 +49,8 @@ function SettingsLayout() {
       </main>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings")({
+  component: SettingsLayout,
+});

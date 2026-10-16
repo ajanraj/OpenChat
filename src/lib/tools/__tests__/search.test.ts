@@ -9,7 +9,7 @@ import {
 import { searchWithFallback } from "../search-provider-factory";
 import { SEARCH_CONFIG } from "../types";
 
-vi.mock("../search-provider-factory", () => ({
+vi.mock(import("../search-provider-factory"), () => ({
   searchWithFallback: vi.fn<typeof searchWithFallback>(),
 }));
 
@@ -18,7 +18,7 @@ describe("search utilities", () => {
     vi.clearAllMocks();
   });
 
-  describe("truncateContent", () => {
+  describe(truncateContent, () => {
     it("returns content unchanged if shorter than max length", () => {
       const content = "Short content";
       const result = truncateContent(content);
@@ -38,7 +38,7 @@ describe("search utilities", () => {
       const result = truncateContent(content);
 
       expect(result).toHaveLength(SEARCH_CONFIG.maxTextCharacters);
-      expect(result.endsWith("...")).toBe(true);
+      expect(result.endsWith("...")).toBeTruthy();
     });
 
     it("uses custom max length when provided", () => {
@@ -62,7 +62,7 @@ describe("search utilities", () => {
     });
   });
 
-  describe("formatMarkdown", () => {
+  describe(formatMarkdown, () => {
     it("formats basic result with title and description", () => {
       const result = {
         url: "https://example.com",
@@ -128,11 +128,11 @@ describe("search utilities", () => {
     });
   });
 
-  describe("processResults", () => {
+  describe(processResults, () => {
     it("returns empty array for empty input", () => {
       const result = processResults([]);
 
-      expect(result).toEqual([]);
+      expect(result).toStrictEqual([]);
     });
 
     it("truncates content in results", () => {
@@ -151,7 +151,7 @@ describe("search utilities", () => {
       expect(processed[0].content?.length).toBe(
         SEARCH_CONFIG.maxTextCharacters
       );
-      expect(processed[0].content?.endsWith("...")).toBe(true);
+      expect(processed[0].content?.endsWith("...")).toBeTruthy();
     });
 
     it("preserves undefined content", () => {
@@ -237,17 +237,15 @@ describe("search utilities", () => {
   });
 });
 
-describe("createSearchTool", () => {
+const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
+  typeof value === "object" && value !== null && Symbol.asyncIterator in value;
+
+describe(createSearchTool, () => {
   const executionOptions = {
     toolCallId: "tool-call-1",
     messages: [],
     context: {},
   };
-
-  const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
-    typeof value === "object" &&
-    value !== null &&
-    Symbol.asyncIterator in value;
 
   it("calls onSearchSuccess once for successful searches", async () => {
     const mockedSearchWithFallback = vi.mocked(searchWithFallback);
@@ -262,10 +260,6 @@ describe("createSearchTool", () => {
     const onSearchSuccess = vi.fn<() => Promise<void>>();
     const tool = createSearchTool({ onSearchSuccess });
 
-    if (!tool.execute) {
-      throw new Error("Search tool execute handler is not defined");
-    }
-
     const result = await tool.execute(
       {
         query: "test query",
@@ -279,7 +273,7 @@ describe("createSearchTool", () => {
       throw new Error("Search tool returned async iterable unexpectedly");
     }
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBeTruthy();
     expect(onSearchSuccess).toHaveBeenCalledOnce();
   });
 
@@ -290,10 +284,6 @@ describe("createSearchTool", () => {
     const onSearchSuccess = vi.fn<() => Promise<void>>();
     const tool = createSearchTool({ onSearchSuccess });
 
-    if (!tool.execute) {
-      throw new Error("Search tool execute handler is not defined");
-    }
-
     const result = await tool.execute(
       {
         query: "test query",
@@ -307,7 +297,7 @@ describe("createSearchTool", () => {
       throw new Error("Search tool returned async iterable unexpectedly");
     }
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
     expect(onSearchSuccess).not.toHaveBeenCalled();
   });
 
@@ -326,10 +316,6 @@ describe("createSearchTool", () => {
       .mockRejectedValueOnce(new Error("billing failed"));
     const tool = createSearchTool({ onSearchSuccess });
 
-    if (!tool.execute) {
-      throw new Error("Search tool execute handler is not defined");
-    }
-
     const result = await tool.execute(
       {
         query: "test query",
@@ -343,7 +329,7 @@ describe("createSearchTool", () => {
       throw new Error("Search tool returned async iterable unexpectedly");
     }
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
     expect(onSearchSuccess).toHaveBeenCalledOnce();
   });
 
@@ -351,10 +337,6 @@ describe("createSearchTool", () => {
     const mockedSearchWithFallback = vi.mocked(searchWithFallback);
     mockedSearchWithFallback.mockResolvedValueOnce([]);
     const tool = createSearchTool();
-
-    if (!tool.execute) {
-      throw new Error("Search tool execute handler is not defined");
-    }
 
     const { signal } = new AbortController();
     await tool.execute(

@@ -1,5 +1,7 @@
+import type { useAuthActions } from "@convex-dev/auth/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
-import { getFunctionName } from "convex/server";
+import type { useMutation } from "convex/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,80 +9,74 @@ import type { RateLimitState } from "@/lib/rate-limit-status";
 
 import { UserProvider, useUser } from "../user-provider";
 
-type FunctionReference = Parameters<typeof getFunctionName>[0];
 interface MockUser {
   _id: string;
   isAnonymous: boolean;
 }
 type CachedAnswer =
+  | MockUser
+  | null
   | RateLimitState
   | boolean
   | { _id: string; provider: string }[];
 
 const mocks = vi.hoisted(() => ({
   auth: { current: { isLoading: false, isAuthenticated: false } },
-  // getCurrentUser's cached answer; isLoading stays false once it has answered once
-  user: { current: null as MockUser | null },
   // The account the session's Convex Auth token was issued to
   tokenUserId: { current: null as string | null },
-  // Other answers cached per query name; "skip" args are a key of their own, with none cached
-  cached: { current: new Map<string, CachedAnswer>() },
-  signOut: vi.fn<() => Promise<void>>(async () => undefined),
+  signOut: vi.fn<() => Promise<void>>().mockResolvedValue(),
+  ensureSession: vi.fn<() => Promise<void>>().mockResolvedValue(),
 }));
 
-vi.mock("convex/react", () => ({
-  useConvexAuth: () => mocks.auth.current,
-  useMutation: () => async () => null,
+vi.mock(import("convex/react"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  useConvexAuth: () => ({ ...mocks.auth.current, isRefreshing: false }),
+  // Mutations are never called in these tests
+  useMutation: vi.fn<typeof useMutation>(),
 }));
-vi.mock("@convex-dev/auth/react", () => ({
+vi.mock(import("@convex-dev/auth/react"), async (importOriginal) => ({
+  ...(await importOriginal()),
   useAuthActions: () => ({
-    signIn: async () => undefined,
+    signIn: vi.fn<ReturnType<typeof useAuthActions>["signIn"]>(),
     signOut: mocks.signOut,
   }),
   useAuthToken: () =>
-    mocks.tokenUserId.current &&
-    `header.${btoa(JSON.stringify({ sub: `${mocks.tokenUserId.current}|sessions:1` }))}.signature`,
+    mocks.tokenUserId.current === null
+      ? null
+      : `header.${btoa(JSON.stringify({ sub: `${mocks.tokenUserId.current}|sessions:1` }))}.signature`,
 }));
-vi.mock("@/hooks/use-ensure-session", () => ({
-  useEnsureSession: () => async () => undefined,
-}));
-vi.mock("@convex-dev/react-query", () => ({
-  convexQuery: (query: FunctionReference, args: object | "skip") => ({
-    queryKey: [getFunctionName(query), args],
-  }),
-}));
-vi.mock("@tanstack/react-query", () => ({
-  // Like TanStack, a disabled query still returns what its key has cached
-  useQuery: ({
-    queryKey,
-  }: {
-    queryKey: [string, object | "skip" | undefined];
-  }) =>
-    queryKey[0] === "users:getCurrentUser"
-      ? { data: mocks.user.current, isLoading: false }
-      : {
-          data:
-            queryKey[1] === "skip"
-              ? undefined
-              : mocks.cached.current.get(queryKey[0]),
-          isLoading: false,
-        },
+vi.mock(import("@/hooks/use-ensure-session"), () => ({
+  useEnsureSession: () => mocks.ensureSession,
 }));
 
-function renderUser() {
-  const wrapper = ({ children }: { children: ReactNode }) => (
+// A real query cache. Nothing fetches: tests seed each query's answer with `answer`, and like
+// TanStack, a disabled query still returns what its key has cached ("skip" args are a key of
+// their own, with nothing cached)
+let queryClient = new QueryClient();
+
+/** Caches `data` as the answer to the Convex query `name` called with `{}`. */
+const answer = (name: string, data: CachedAnswer) => {
+  queryClient.setQueryData(["convexQuery", name, {}], data);
+};
+
+const Wrapper = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
     <UserProvider>{children}</UserProvider>
-  );
-  return renderHook(() => useUser(), { wrapper });
-}
+  </QueryClientProvider>
+);
+
+const renderUser = () => renderHook(() => useUser(), { wrapper: Wrapper });
 
 describe("UserProvider loading", () => {
   beforeEach(() => {
     mocks.auth.current = { isLoading: false, isAuthenticated: false };
-    mocks.user.current = null;
     mocks.tokenUserId.current = null;
-    mocks.cached.current = new Map();
     mocks.signOut.mockClear();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    // getCurrentUser has answered: no user
+    answer("users:getCurrentUser", null);
   });
 
   afterEach(() => {
@@ -140,11 +136,11 @@ describe("UserProvider loading", () => {
     ({ isAuthenticated, token, cached, user, isLoading }) => {
       mocks.auth.current = { isLoading: false, isAuthenticated };
       mocks.tokenUserId.current = token;
-      mocks.user.current = cached;
+      answer("users:getCurrentUser", cached);
 
       const { result } = renderUser();
 
-      expect(result.current.user).toEqual(user);
+      expect(result.current.user).toStrictEqual(user);
       expect(result.current.isLoading).toBe(isLoading);
     }
   );
@@ -154,20 +150,26 @@ describe("UserProvider loading", () => {
     // e.g. a reconnect confirmed the session and the connection dropped before the user's answer
     mocks.auth.current = { isLoading: false, isAuthenticated: true };
     mocks.tokenUserId.current = "users:1";
-    const { result, rerender } = renderUser();
+    const { result } = renderUser();
 
     act(() => {
       vi.advanceTimersByTime(60 * 60 * 1000);
     });
     // Signing out a guest would lose the account
     expect(mocks.signOut).not.toHaveBeenCalled();
-    expect(result.current.isLoading).toBe(true);
+    expect(result.current.isLoading).toBeTruthy();
 
-    mocks.user.current = { _id: "users:1", isAnonymous: true };
-    rerender();
+    act(() => {
+      answer("users:getCurrentUser", { _id: "users:1", isAnonymous: true });
+      // TanStack notifies observers on a timer
+      vi.advanceTimersByTime(0);
+    });
 
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.user).toEqual({ _id: "users:1", isAnonymous: true });
+    expect(result.current.isLoading).toBeFalsy();
+    expect(result.current.user).toStrictEqual({
+      _id: "users:1",
+      isAnonymous: true,
+    });
   });
 
   it("drops an account's rate limit, plan and keys the moment its session ends", () => {
@@ -184,18 +186,26 @@ describe("UserProvider loading", () => {
       },
       premium: null,
     };
-    mocks.cached.current = new Map<string, CachedAnswer>([
-      ["users:getRateLimitStatus", exhausted],
-      ["users:userHasPremium", true],
-      ["api_keys:getApiKeys", [{ _id: "user_api_keys:1", provider: "openai" }]],
+    answer("users:getRateLimitStatus", exhausted);
+    answer("users:userHasPremium", true);
+    answer("api_keys:getApiKeys", [
+      { _id: "user_api_keys:1", provider: "openai" },
     ]);
     mocks.auth.current = { isLoading: false, isAuthenticated: true };
     mocks.tokenUserId.current = "users:1";
-    mocks.user.current = { _id: "users:1", isAnonymous: false };
+    answer("users:getCurrentUser", { _id: "users:1", isAnonymous: false });
     const { result, rerender } = renderUser();
-    expect(result.current.rateLimitStatus?.effectiveRemaining).toBe(0);
-    expect(result.current.hasPremium).toBe(true);
-    expect(result.current.hasOpenAI).toBe(true);
+    /** The account data the session ending must drop. */
+    const accountData = () => ({
+      remaining: result.current.rateLimitStatus?.effectiveRemaining,
+      hasPremium: result.current.hasPremium,
+      hasOpenAI: result.current.hasOpenAI,
+    });
+    expect(accountData()).toStrictEqual({
+      remaining: 0,
+      hasPremium: true,
+      hasOpenAI: true,
+    });
 
     // Still cached, but not the signed-out visitor's: the exhausted limit would send them to
     // sign-in instead of starting a guest
@@ -204,8 +214,11 @@ describe("UserProvider loading", () => {
     rerender();
 
     expect(result.current.rateLimitStatus).toBeUndefined();
-    expect(result.current.hasPremium).toBe(false);
-    expect(result.current.hasOpenAI).toBe(false);
+    expect(accountData()).toStrictEqual({
+      remaining: undefined,
+      hasPremium: false,
+      hasOpenAI: false,
+    });
   });
 
   it("reloads instead of waiting when another tab's sign-in swaps the token's account", () => {

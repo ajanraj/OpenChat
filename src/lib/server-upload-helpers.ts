@@ -14,7 +14,7 @@ import { uploadToR2 } from "./r2-upload";
  * Uploads a blob for the user and attaches it to their chat:
  * generateUploadUrl -> PUT to R2 -> saveGeneratedImage / saveFileAttachment.
  */
-export async function uploadBlobToR2(
+export const uploadBlobToR2 = async (
   blob: Blob,
   options: {
     chatId: Id<"chats">;
@@ -28,20 +28,23 @@ export async function uploadBlobToR2(
   key: string;
   url?: string;
   fileName: string;
-}> {
+}> => {
   const auth = { token: options.token };
-  const key = await uploadToR2(blob, (args) =>
-    fetchMutation(
-      api.files.generateUploadUrl,
-      { ...args, serverSecret: options.serverSecret },
-      auth
-    )
+  const key = await uploadToR2(
+    blob,
+    async (args) =>
+      await fetchMutation(
+        api.files.generateUploadUrl,
+        { ...args, serverSecret: options.serverSecret },
+        auth
+      )
   );
 
   // Syncs R2 metadata, re-validates the stored object, and attaches it to the chat
-  const saveAction = options.isGenerated
-    ? api.files.saveGeneratedImage
-    : api.files.saveFileAttachment;
+  const saveAction =
+    options.isGenerated === true
+      ? api.files.saveGeneratedImage
+      : api.files.saveFileAttachment;
 
   const savedAttachment = await fetchAction(
     saveAction,
@@ -58,4 +61,4 @@ export async function uploadBlobToR2(
     url: savedAttachment.url,
     fileName: savedAttachment.fileName,
   };
-}
+};

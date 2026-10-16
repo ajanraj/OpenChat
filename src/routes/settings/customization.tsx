@@ -6,11 +6,7 @@ import { VisualOptionsSection } from "@/components/settings/visual-options-secti
 import { useProfile } from "@/providers/profile-provider";
 import { useUser } from "@/providers/user-provider";
 
-export const Route = createFileRoute("/settings/customization")({
-  component: CustomizationSettingsPage,
-});
-
-export function CustomizationSettingsPage() {
+export const CustomizationSettingsPage = () => {
   const { profiles, activeProfile, setActiveProfile } = useProfile();
   const { user } = useUser();
 
@@ -27,4 +23,8 @@ export function CustomizationSettingsPage() {
       <VisualOptionsSection />
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/customization")({
+  component: CustomizationSettingsPage,
+});

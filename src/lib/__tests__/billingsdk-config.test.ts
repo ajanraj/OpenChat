@@ -7,7 +7,7 @@ describe("billingsdk-config", () => {
   describe("plans array", () => {
     it("is defined and non-empty", () => {
       expect(plans).toBeDefined();
-      expect(Array.isArray(plans)).toBe(true);
+      expect(Array.isArray(plans)).toBeTruthy();
       expect(plans.length).toBeGreaterThan(0);
     });
 
@@ -29,28 +29,23 @@ describe("billingsdk-config", () => {
     it("premium plan is highlighted", () => {
       const premiumPlan = plans.find((p) => p.id === "premium");
 
-      expect(premiumPlan?.highlight).toBe(true);
+      expect(premiumPlan?.highlight).toBeTruthy();
     });
 
-    it("each plan has required properties", () => {
+    it("each plan has its text properties", () => {
       for (const plan of plans) {
-        expect(plan.id).toBeDefined();
-        expect(typeof plan.id).toBe("string");
+        expect(plan.id).toBeTypeOf("string");
+        expect(plan.title).toBeTypeOf("string");
+        expect(plan.description).toBeTypeOf("string");
+        expect(plan.buttonText).toBeTypeOf("string");
+      }
+    });
 
-        expect(plan.title).toBeDefined();
-        expect(typeof plan.title).toBe("string");
-
-        expect(plan.description).toBeDefined();
-        expect(typeof plan.description).toBe("string");
-
+    it("each plan has prices and features", () => {
+      for (const plan of plans) {
         expect(plan.monthlyPrice).toBeDefined();
         expect(plan.yearlyPrice).toBeDefined();
-
-        expect(plan.buttonText).toBeDefined();
-        expect(typeof plan.buttonText).toBe("string");
-
-        expect(plan.features).toBeDefined();
-        expect(Array.isArray(plan.features)).toBe(true);
+        expect(Array.isArray(plan.features)).toBeTruthy();
         expect(plan.features.length).toBeGreaterThan(0);
       }
     });
@@ -58,11 +53,8 @@ describe("billingsdk-config", () => {
     it("each feature has required properties", () => {
       for (const plan of plans) {
         for (const feature of plan.features) {
-          expect(feature.name).toBeDefined();
-          expect(typeof feature.name).toBe("string");
-
-          expect(feature.icon).toBeDefined();
-          expect(typeof feature.icon).toBe("string");
+          expect(feature.name).toBeTypeOf("string");
+          expect(feature.icon).toBeTypeOf("string");
         }
       }
     });
@@ -106,7 +98,7 @@ describe("billingsdk-config", () => {
         currency: "€",
       };
 
-      expect(testPlan.highlight).toBe(true);
+      expect(testPlan.highlight).toBeTruthy();
       expect(testPlan.badge).toBe("New");
       expect(testPlan.type).toBe("monthly");
       expect(testPlan.currency).toBe("€");

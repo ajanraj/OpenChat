@@ -17,10 +17,10 @@ export const CHAT_LIST_PAGE_SIZE = 50;
  * chats past that query's cap stay in the paged list. With a term, both lists hold the server's
  * title-search matches.
  */
-export function useChatList(
+export const useChatList = (
   searchTerm: string,
   profileId: Id<"profiles"> | null | undefined
-) {
+) => {
   const term = searchTerm.trim();
   const { results, status, loadMore } = usePaginatedQuery(
     api.chats.listChatsForUser,
@@ -41,7 +41,7 @@ export function useChatList(
     // Keep the last results on screen while the next keystroke's search loads, unless they are
     // another profile's (the profile just switched)
     placeholderData: (previous) =>
-      previous?.every((chat) => chat.profileId === profileId)
+      previous?.every((chat) => chat.profileId === profileId) === true
         ? previous
         : undefined,
   });
@@ -50,8 +50,8 @@ export function useChatList(
     if (term) {
       const found = matches ?? [];
       return {
-        pinnedChats: found.filter((chat) => chat.isPinned),
-        otherChats: found.filter((chat) => !chat.isPinned),
+        pinnedChats: found.filter((chat) => chat.isPinned === true),
+        otherChats: found.filter((chat) => chat.isPinned !== true),
       };
     }
     // Drop the chats the pinned list shows; until it loads, drop every pinned chat so none
@@ -60,7 +60,7 @@ export function useChatList(
     return {
       pinnedChats: pinned ?? [],
       otherChats: results.filter((chat) =>
-        pinnedIds ? !pinnedIds.has(chat._id) : !chat.isPinned
+        pinnedIds ? !pinnedIds.has(chat._id) : chat.isPinned !== true
       ),
     };
   }, [term, matches, pinned, results]);
@@ -80,7 +80,20 @@ export function useChatList(
     canLoadMore: !term && status === "CanLoadMore",
     loadMore: loadNextPage,
   };
-}
+};
+
+/** Calls `loadMore` whenever `node` becomes visible; returns the cleanup that stops observing. */
+const observeSentinel = (node: HTMLElement, loadMore: () => void) => {
+  const observer = new IntersectionObserver(([entry]) => {
+    if (entry?.isIntersecting) {
+      loadMore();
+    }
+  });
+  observer.observe(node);
+  return () => {
+    observer.disconnect();
+  };
+};
 
 /**
  * Callback ref for a sentinel element at the end of a scrolling list. Whenever another page can
@@ -88,22 +101,11 @@ export function useChatList(
  * turns true again, so short pages (e.g. of chats the pinned list already shows) keep loading
  * until the view fills.
  */
-export function useLoadMoreRef(canLoadMore: boolean, loadMore: () => void) {
-  return useCallback(
-    (node: HTMLElement | null) => {
-      if (!(node && canLoadMore)) {
-        return;
-      }
-      const observer = new IntersectionObserver(([entry]) => {
-        if (entry?.isIntersecting) {
-          loadMore();
-        }
-      });
-      observer.observe(node);
-      return () => {
-        observer.disconnect();
-      };
-    },
+export const useLoadMoreRef = (canLoadMore: boolean, loadMore: () => void) =>
+  useCallback(
+    (node: HTMLElement | null) =>
+      node !== null && canLoadMore
+        ? observeSentinel(node, loadMore)
+        : undefined,
     [canLoadMore, loadMore]
   );
-}

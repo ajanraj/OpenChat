@@ -18,11 +18,11 @@ describe("File Upload Model Allowlist", () => {
     const missingInConvex = modelsWithFileUpload.filter(
       (modelId) => !allowed.has(modelId)
     );
-    expect(missingInConvex).toEqual([]);
+    expect(missingInConvex).toStrictEqual([]);
   });
 
   it("returns false for unknown models", () => {
-    expect(supportsFileUploadModel("non-existent-model")).toBe(false);
+    expect(supportsFileUploadModel("non-existent-model")).toBeFalsy();
   });
 
   it("includes the new GPT-5.4 mini and nano allowlist entries", () => {
@@ -31,6 +31,6 @@ describe("File Upload Model Allowlist", () => {
   });
 
   it("allows Kimi K3 file uploads", () => {
-    expect(supportsFileUploadModel("moonshotai/kimi-k3")).toBe(true);
+    expect(supportsFileUploadModel("moonshotai/kimi-k3")).toBeTruthy();
   });
 });

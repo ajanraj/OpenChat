@@ -18,7 +18,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MODELS_OPTIONS } from "@/lib/config";
+import { MODELS_OPTIONS } from "@/lib/config/models";
 import { CONNECTOR_CONFIGS, SUPPORTED_CONNECTORS } from "@/lib/config/tools";
 import { classifyError } from "@/lib/error-utils";
 import type { ConnectorType } from "@/lib/types";

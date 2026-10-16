@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultThemeState } from "../../config/theme";
+import type { ThemeStyles } from "../../types/theme";
 import { getPresetThemeStyles } from "../theme-preset-helper";
 import { defaultPresets } from "../theme-presets";
 
-describe("getPresetThemeStyles", () => {
+describe(getPresetThemeStyles, () => {
   describe("with valid preset name", () => {
     it("returns styles for oschat preset", () => {
       const styles = getPresetThemeStyles("oschat");
@@ -51,18 +52,18 @@ describe("getPresetThemeStyles", () => {
 
   describe("with invalid preset name", () => {
     it("returns default styles for undefined preset", () => {
-      const styles = getPresetThemeStyles(undefined);
-      expect(styles).toEqual(defaultThemeState.styles);
+      const styles = getPresetThemeStyles();
+      expect(styles).toStrictEqual(defaultThemeState.styles);
     });
 
     it("returns default styles for non-existent preset", () => {
       const styles = getPresetThemeStyles("non-existent-preset");
-      expect(styles).toEqual(defaultThemeState.styles);
+      expect(styles).toStrictEqual(defaultThemeState.styles);
     });
 
     it("returns default styles for empty string", () => {
       const styles = getPresetThemeStyles("");
-      expect(styles).toEqual(defaultThemeState.styles);
+      expect(styles).toStrictEqual(defaultThemeState.styles);
     });
   });
 
@@ -70,13 +71,18 @@ describe("getPresetThemeStyles", () => {
     it("returned styles have complete light mode", () => {
       const styles = getPresetThemeStyles("oschat");
 
-      expect(styles.light.background).toBeDefined();
-      expect(styles.light.foreground).toBeDefined();
-      expect(styles.light.primary).toBeDefined();
-      expect(styles.light["primary-foreground"]).toBeDefined();
-      expect(styles.light.secondary).toBeDefined();
-      expect(styles.light["font-sans"]).toBeDefined();
-      expect(styles.light["font-mono"]).toBeDefined();
+      const keys: (keyof ThemeStyles["light"])[] = [
+        "background",
+        "foreground",
+        "primary",
+        "primary-foreground",
+        "secondary",
+        "font-sans",
+        "font-mono",
+      ];
+      for (const key of keys) {
+        expect(styles.light[key]).toBeDefined();
+      }
     });
 
     it("returned styles have complete dark mode", () => {

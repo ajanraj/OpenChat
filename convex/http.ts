@@ -19,14 +19,14 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) {
+    if (webhookSecret === undefined || webhookSecret === "") {
       console.error(
         "STRIPE_WEBHOOK_SECRET is not set; Stripe webhook can't be verified"
       );
       return new Response("Webhook secret not configured", { status: 500 });
     }
     const signature = request.headers.get("stripe-signature");
-    if (!signature) {
+    if (signature === null || signature === "") {
       return new Response("Missing Stripe signature", { status: 400 });
     }
 

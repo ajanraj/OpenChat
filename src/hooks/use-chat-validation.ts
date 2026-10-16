@@ -6,7 +6,8 @@
 import { useCallback } from "react";
 
 import { toast } from "@/components/ui/toast";
-import { MODELS_MAP, REMAINING_QUERY_ALERT_THRESHOLD } from "@/lib/config";
+import { REMAINING_QUERY_ALERT_THRESHOLD } from "@/lib/config/constants";
+import { MODELS_MAP } from "@/lib/config/models";
 import { validateQueryParam } from "@/lib/message-utils";
 import {
   getModelProvider,
@@ -17,7 +18,7 @@ import { useUser } from "@/providers/user-provider";
 
 import type { Doc } from "../../convex/_generated/dataModel";
 
-export function useChatValidation() {
+export const useChatValidation = () => {
   const { rateLimitStatus } = useUser();
 
   const checkRateLimits = useCallback(
@@ -64,14 +65,17 @@ export function useChatValidation() {
       hasApiKey: Map<string, boolean>,
       disabledModels?: string[]
     ) => {
-      const model = MODELS_MAP[modelId];
+      const model: (typeof MODELS_MAP)[string] | undefined =
+        MODELS_MAP[modelId];
 
-      if (!model) {
+      if (model === undefined) {
         toast({ title: "Model not found", status: "error" });
         return false;
       }
 
-      if ((disabledModels ?? user?.disabledModels)?.includes(modelId)) {
+      if (
+        (disabledModels ?? user?.disabledModels)?.includes(modelId) === true
+      ) {
         toast({
           title: "This model is disabled in your settings",
           status: "error",
@@ -89,7 +93,11 @@ export function useChatValidation() {
 
       if (requiresUserApiKey(modelId)) {
         const provider = getModelProvider(modelId);
-        if (provider && !hasApiKey.get(provider)) {
+        if (
+          provider !== undefined &&
+          provider !== "" &&
+          hasApiKey.get(provider) !== true
+        ) {
           toast({
             title: `This model requires an API key for ${provider}`,
             status: "error",
@@ -113,4 +121,4 @@ export function useChatValidation() {
     validateModelAccess,
     validateSearchQuery,
   };
-}
+};

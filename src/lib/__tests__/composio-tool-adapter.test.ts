@@ -44,104 +44,94 @@ const createMockComposioTool = (
   ...overrides,
 });
 
+// A valid mock tool without `key`, for the guards' negative cases
+const mockToolWithout = (key: keyof ComposioToolMock) =>
+  Object.fromEntries(
+    Object.entries(createMockComposioTool()).filter(([name]) => name !== key)
+  );
+
 describe("composio-tool-adapter", () => {
-  describe("isComposioTool", () => {
+  describe(isComposioTool, () => {
     it("returns true for valid Composio tool", () => {
       const tool = createMockComposioTool();
 
-      expect(isComposioTool(tool)).toBe(true);
+      expect(isComposioTool(tool)).toBeTruthy();
     });
 
-    it("returns false for null", () => {
-      expect(isComposioTool(null)).toBe(false);
-    });
-
-    it("returns false for undefined", () => {
-      expect(isComposioTool(undefined)).toBe(false);
+    it.each([null, undefined])("returns false for %s", (value) => {
+      expect(isComposioTool(value)).toBeFalsy();
     });
 
     it("returns false for non-object", () => {
-      expect(isComposioTool("string")).toBe(false);
-      expect(isComposioTool(123)).toBe(false);
-      expect(isComposioTool(true)).toBe(false);
+      expect(isComposioTool("string")).toBeFalsy();
+      expect(isComposioTool(123)).toBeFalsy();
+      expect(isComposioTool(true)).toBeFalsy();
     });
 
     it("returns false when missing description", () => {
-      const tool = createMockComposioTool();
-      delete (tool as unknown as Record<string, unknown>).description;
+      const tool = mockToolWithout("description");
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
 
     it("returns false when description is not string", () => {
-      const tool = createMockComposioTool({
-        description: 123 as unknown as string,
-      });
+      const tool = { ...createMockComposioTool(), description: 123 };
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
 
     it("returns false when missing parameters", () => {
-      const tool = createMockComposioTool();
-      delete (tool as unknown as Record<string, unknown>).parameters;
+      const tool = mockToolWithout("parameters");
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
 
     it("returns false when parameters is null", () => {
-      const tool = createMockComposioTool({
-        parameters: null as unknown as ComposioToolMock["parameters"],
-      });
+      const tool = { ...createMockComposioTool(), parameters: null };
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
 
     it("returns false when missing jsonSchema in parameters", () => {
-      const tool = createMockComposioTool({
-        parameters: {} as unknown as ComposioToolMock["parameters"],
-      });
+      const tool = { ...createMockComposioTool(), parameters: {} };
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
 
     it("returns false when jsonSchema is not object", () => {
-      const tool = createMockComposioTool({
-        parameters: {
-          jsonSchema: "not-object" as unknown as JSONSchema7,
-        },
-      });
+      const tool = {
+        ...createMockComposioTool(),
+        parameters: { jsonSchema: "not-object" },
+      };
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
 
     it("returns false when missing execute", () => {
-      const tool = createMockComposioTool();
-      delete (tool as unknown as Record<string, unknown>).execute;
+      const tool = mockToolWithout("execute");
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
 
     it("returns false when execute is not a function", () => {
-      const tool = createMockComposioTool({
-        execute: "not-function" as unknown as ComposioToolMock["execute"],
-      });
+      const tool = { ...createMockComposioTool(), execute: "not-function" };
 
-      expect(isComposioTool(tool)).toBe(false);
+      expect(isComposioTool(tool)).toBeFalsy();
     });
   });
 
-  describe("validateComposioTools", () => {
+  describe(validateComposioTools, () => {
     it("returns true when all tools are valid Composio tools", () => {
       const tools = {
         tool1: createMockComposioTool(),
         tool2: createMockComposioTool({ description: "Another tool" }),
       };
 
-      expect(validateComposioTools(tools)).toBe(true);
+      expect(validateComposioTools(tools)).toBeTruthy();
     });
 
     it("returns true for empty object", () => {
-      expect(validateComposioTools({})).toBe(true);
+      expect(validateComposioTools({})).toBeTruthy();
     });
 
     it("returns false when any tool is invalid", () => {
@@ -150,11 +140,11 @@ describe("composio-tool-adapter", () => {
         invalidTool: { description: "Missing other properties" },
       };
 
-      expect(validateComposioTools(tools)).toBe(false);
+      expect(validateComposioTools(tools)).toBeFalsy();
     });
   });
 
-  describe("convertComposioTool", () => {
+  describe(convertComposioTool, () => {
     it("converts tool with correct description", () => {
       const composioTool = createMockComposioTool({
         description: "My custom tool",
@@ -187,9 +177,12 @@ describe("composio-tool-adapter", () => {
 
       // Execute is defined for converted tools
       expect(converted.execute).toBeDefined();
-      const result = await converted.execute?.({ name: "test" }, {} as never);
+      const result: unknown = await converted.execute?.(
+        { name: "test" },
+        { toolCallId: "call_1", messages: [], context: undefined }
+      );
       expect(mockExecute).toHaveBeenCalledWith({ name: "test" });
-      expect(result).toEqual({
+      expect(result).toStrictEqual({
         data: { test: "value" },
         error: null,
         successful: true,
@@ -259,7 +252,7 @@ describe("composio-tool-adapter", () => {
     });
   });
 
-  describe("convertComposioTools", () => {
+  describe(convertComposioTools, () => {
     it("converts multiple tools", () => {
       const composioTools = {
         tool1: createMockComposioTool({ description: "Tool 1" }),
@@ -278,7 +271,7 @@ describe("composio-tool-adapter", () => {
     it("returns empty object for empty input", () => {
       const converted = convertComposioTools({});
 
-      expect(converted).toEqual({});
+      expect(converted).toStrictEqual({});
     });
 
     it("preserves tool names", () => {
@@ -296,11 +289,13 @@ describe("composio-tool-adapter", () => {
     it("skips tools that fail to convert", () => {
       const composioTools = {
         validTool: createMockComposioTool(),
-        // This will cause an error during conversion due to undefined jsonSchema
+        // Reading this tool's schema throws, so its conversion fails
         invalidTool: {
           description: "Invalid",
           parameters: {
-            jsonSchema: undefined as unknown as JSONSchema7,
+            get jsonSchema(): JSONSchema7 {
+              throw new Error("Unreadable schema");
+            },
           },
           execute: vi.fn<ComposioToolMock["execute"]>(),
         },

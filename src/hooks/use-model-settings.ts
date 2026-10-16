@@ -1,7 +1,7 @@
 import { useMutation } from "convex/react";
 import { useMemo } from "react";
 
-import { MODEL_DEFAULT } from "@/lib/config";
+import { MODEL_DEFAULT } from "@/lib/config/constants";
 import { useProfile } from "@/providers/profile-provider";
 import type { Profile } from "@/providers/profile-provider";
 import { useUser } from "@/providers/user-provider";
@@ -12,7 +12,7 @@ import { api } from "../../convex/_generated/api";
  * Hook specifically for the settings page to manage model enable/disable state.
  * Reads/writes profile-scoped disabledModels, falls back to user doc.
  */
-export function useModelSettings() {
+export const useModelSettings = () => {
   const { user } = useUser();
   const { activeProfile } = useProfile();
 
@@ -51,7 +51,7 @@ export function useModelSettings() {
           newFavorites = currentFavorites.filter((id) => id !== modelId);
 
           if (newFavorites.length === 0 && currentFavorites.length > 0) {
-            const firstFavorite = currentFavorites[0];
+            const [firstFavorite] = currentFavorites;
             newFavorites = [firstFavorite];
             newDisabled = newDisabled.filter((id) => id !== firstFavorite);
           }
@@ -99,7 +99,7 @@ export function useModelSettings() {
           newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
 
           if (newFavorites.length === 0 && currentFavorites.length > 0) {
-            const firstFavorite = currentFavorites[0];
+            const [firstFavorite] = currentFavorites;
             newFavorites = [firstFavorite];
             newDisabled = newDisabled.filter((id) => id !== firstFavorite);
           }
@@ -115,7 +115,7 @@ export function useModelSettings() {
   });
 
   const disabledModelsSet = useMemo(
-    () => new Set(activeProfile?.disabledModels ?? user?.disabledModels ?? []),
+    () => new Set(activeProfile?.disabledModels ?? user?.disabledModels),
     [activeProfile?.disabledModels, user?.disabledModels]
   );
 
@@ -124,17 +124,20 @@ export function useModelSettings() {
   return {
     disabledModelsSet,
     isModelEnabled,
-    setModelEnabled: (args: { modelId: string; enabled: boolean }) => {
+    setModelEnabled: async (args: { modelId: string; enabled: boolean }) => {
       if (!activeProfile?._id) {
-        return Promise.reject(new Error("Profile not loaded"));
+        throw new Error("Profile not loaded");
       }
-      return setModelEnabled({ profileId: activeProfile._id, ...args });
+      return await setModelEnabled({ profileId: activeProfile._id, ...args });
     },
-    bulkSetModelsDisabled: (args: { modelIds: string[] }) => {
+    bulkSetModelsDisabled: async (args: { modelIds: string[] }) => {
       if (!activeProfile?._id) {
-        return Promise.reject(new Error("Profile not loaded"));
+        throw new Error("Profile not loaded");
       }
-      return bulkSetModelsDisabled({ profileId: activeProfile._id, ...args });
+      return await bulkSetModelsDisabled({
+        profileId: activeProfile._id,
+        ...args,
+      });
     },
   };
-}
+};

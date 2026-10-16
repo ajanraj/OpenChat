@@ -1,7 +1,7 @@
 // Search provider interfaces and types
 export interface SearchAdapter {
   readonly name: string;
-  search(query: string, options?: SearchOptions): Promise<SearchResult[]>;
+  search: (query: string, options?: SearchOptions) => Promise<SearchResult[]>;
 }
 
 export interface SearchResult {
@@ -38,7 +38,13 @@ export interface SearchOptions {
   signal?: AbortSignal;
 }
 
-export type SearchProvider = "exa" | "tavily" | "brave";
+export const SEARCH_PROVIDERS = ["exa", "tavily", "brave"] as const;
+export type SearchProvider = (typeof SEARCH_PROVIDERS)[number];
+
+const toSearchProvider = (
+  value: string | undefined
+): SearchProvider | undefined =>
+  SEARCH_PROVIDERS.find((provider) => provider === value);
 
 // Provider-specific limits from documentation
 export const PROVIDER_LIMITS = {
@@ -49,7 +55,8 @@ export const PROVIDER_LIMITS = {
 
 // Search configuration
 export const SEARCH_CONFIG = {
-  defaultProvider: process.env.DEFAULT_SEARCH_PROVIDER as SearchProvider,
+  // Unset or unknown values leave no default, so callers must name a provider
+  defaultProvider: toSearchProvider(process.env.DEFAULT_SEARCH_PROVIDER),
   maxResults: 3,
   scrapeContent: true,
   maxTextCharacters: 1000,

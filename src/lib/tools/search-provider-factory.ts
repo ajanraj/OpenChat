@@ -14,8 +14,30 @@ import type {
 // Cache for provider instances
 const instances = new Map<SearchProvider, SearchAdapter>();
 
-export function getProvider(provider?: SearchProvider): SearchAdapter {
-  const selectedProvider = provider || SEARCH_CONFIG.defaultProvider;
+const hasApiKeyForProvider = (provider: SearchProvider): boolean => {
+  switch (provider) {
+    case "brave": {
+      return Boolean(process.env.BRAVE_API_KEY);
+    }
+    case "tavily": {
+      return Boolean(process.env.TAVILY_API_KEY);
+    }
+    case "exa": {
+      return Boolean(process.env.EXA_API_KEY);
+    }
+    default: {
+      return false;
+    }
+  }
+};
+
+export const getProvider = (provider?: SearchProvider): SearchAdapter => {
+  const selectedProvider = provider ?? SEARCH_CONFIG.defaultProvider;
+  if (selectedProvider === undefined) {
+    throw new Error(
+      "No search provider given and DEFAULT_SEARCH_PROVIDER is unset or invalid (expected exa, tavily or brave)"
+    );
+  }
 
   // Check if we already have an instance
   const existingInstance = instances.get(selectedProvider);
@@ -29,7 +51,7 @@ export function getProvider(provider?: SearchProvider): SearchAdapter {
   switch (selectedProvider) {
     case "brave": {
       const braveKey = process.env.BRAVE_API_KEY;
-      if (!braveKey) {
+      if (braveKey === undefined || braveKey === "") {
         throw new Error("BRAVE_API_KEY environment variable is not set");
       }
       instance = new BraveSearchProvider(braveKey);
@@ -38,7 +60,7 @@ export function getProvider(provider?: SearchProvider): SearchAdapter {
 
     case "tavily": {
       const tavilyKey = process.env.TAVILY_API_KEY;
-      if (!tavilyKey) {
+      if (tavilyKey === undefined || tavilyKey === "") {
         throw new Error("TAVILY_API_KEY environment variable is not set");
       }
       instance = new TavilySearchProvider(tavilyKey);
@@ -47,7 +69,7 @@ export function getProvider(provider?: SearchProvider): SearchAdapter {
 
     case "exa": {
       const exaKey = process.env.EXA_API_KEY;
-      if (!exaKey) {
+      if (exaKey === undefined || exaKey === "") {
         throw new Error("EXA_API_KEY environment variable is not set");
       }
       instance = new ExaSearchProvider(exaKey);
@@ -63,25 +85,25 @@ export function getProvider(provider?: SearchProvider): SearchAdapter {
   // Cache the instance
   instances.set(selectedProvider, instance);
   return instance;
-}
+};
 
-export async function searchWithFallback(
+export const searchWithFallback = async (
   query: string,
   options?: SearchOptions,
   providers?: SearchProvider[]
-): Promise<SearchResult[]> {
+): Promise<SearchResult[]> => {
   // If no providers specified, create a smart fallback order starting with default
   const providersToTry =
-    providers ||
+    providers ??
     (() => {
-      const defaultProvider = SEARCH_CONFIG.defaultProvider;
+      const { defaultProvider } = SEARCH_CONFIG;
       const allProviders: SearchProvider[] = ["brave", "tavily", "exa"];
 
       // Start with default provider, then add others
-      return [
-        defaultProvider,
-        ...allProviders.filter((p) => p !== defaultProvider),
-      ];
+      const others = allProviders.filter((p) => p !== defaultProvider);
+      return defaultProvider === undefined
+        ? others
+        : [defaultProvider, ...others];
     })();
 
   // Try each provider sequentially until one succeeds
@@ -107,11 +129,12 @@ export async function searchWithFallback(
       // If this is the last provider or the search was aborted, throw the error
       if (
         providerIndex === providersToTry.length - 1 ||
-        options?.signal?.aborted
+        options?.signal?.aborted === true
       ) {
         const classified = classifyError(error);
         throw new Error(
-          `All search providers failed. Last error: ${classified.userFriendlyMessage}`
+          `All search providers failed. Last error: ${classified.userFriendlyMessage}`,
+          { cause: error }
         );
       }
       // Otherwise, try the next provider
@@ -120,21 +143,4 @@ export async function searchWithFallback(
   };
 
   return await tryProvider(0);
-}
-
-function hasApiKeyForProvider(provider: SearchProvider): boolean {
-  switch (provider) {
-    case "brave": {
-      return Boolean(process.env.BRAVE_API_KEY);
-    }
-    case "tavily": {
-      return Boolean(process.env.TAVILY_API_KEY);
-    }
-    case "exa": {
-      return Boolean(process.env.EXA_API_KEY);
-    }
-    default: {
-      return false;
-    }
-  }
-}
+};

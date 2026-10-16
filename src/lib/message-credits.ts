@@ -23,10 +23,10 @@ export type MessageCreditTracker = ReturnType<
  * itself fails. User aborts and failed saves keep the charge, otherwise deleting a chat
  * mid-stream would make replies free.
  */
-export function createMessageCreditTracker(
+export const createMessageCreditTracker = (
   client: CreditClient,
   signal: AbortSignal
-) {
+) => {
   // The outstanding charge: its receipt and the secret to refund it with
   let charged: { receipt: CreditReceipt; serverSecret: string } | null = null;
 
@@ -55,14 +55,14 @@ export function createMessageCreditTracker(
       }
     },
   };
-}
+};
 
 /**
  * Whether a finished /api/chat stream should refund its credit: when no attempt streamed at all,
  * or when the provider failed before any assistant output (text, reasoning, tool calls) reached
  * the client. Output delivered before a later step failed keeps the charge.
  */
-export function shouldRefundGeneration({
+export const shouldRefundGeneration = ({
   hasResult,
   generationFailed,
   parts,
@@ -70,7 +70,7 @@ export function shouldRefundGeneration({
   hasResult: boolean;
   generationFailed: boolean;
   parts: UIMessage["parts"];
-}): boolean {
+}): boolean => {
   if (!hasResult) {
     return true;
   }
@@ -80,4 +80,4 @@ export function shouldRefundGeneration({
       : part.type !== "step-start"
   );
   return generationFailed && !producedOutput;
-}
+};

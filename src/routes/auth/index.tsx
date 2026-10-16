@@ -5,33 +5,29 @@ import { useState } from "react";
 import { HeaderGoBack } from "@/components/header-go-back";
 import { Button } from "@/components/ui/button";
 import { TextHoverEffect } from "@/components/ui/text-hover-effect";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME } from "@/lib/config/constants";
 
-export const Route = createFileRoute("/auth/")({
-  component: LoginPage,
-});
-
-function LoginPage() {
+const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { signIn } = useAuthActions();
 
-  async function handleSignInWithGoogle() {
+  const handleSignInWithGoogle = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
       await signIn("google");
-    } catch (error: unknown) {
+    } catch (signInError: unknown) {
       setIsLoading(false);
-      if (error instanceof Error) {
-        setError(error.message);
+      if (signInError instanceof Error) {
+        setError(signInError.message);
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
     }
-  }
+  };
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -50,7 +46,7 @@ function LoginPage() {
               Sign in below to increase your message limits.
             </p>
           </div>
-          {error ? (
+          {error !== null && error !== "" ? (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
@@ -60,7 +56,10 @@ function LoginPage() {
               <Button
                 className="h-14 w-full text-lg"
                 disabled={isLoading}
-                onClick={handleSignInWithGoogle}
+                onClick={() => {
+                  // Never rejects: failures are shown via `error`
+                  void handleSignInWithGoogle();
+                }}
                 size="lg"
                 variant="secondary"
               >
@@ -108,4 +107,8 @@ function LoginPage() {
       </div>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/auth/")({
+  component: LoginPage,
+});

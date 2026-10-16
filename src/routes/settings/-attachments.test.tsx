@@ -6,32 +6,43 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type {
+  ReactMutation,
+  useMutation,
+  usePaginatedQuery,
+} from "convex/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { toast } from "@/components/ui/toast";
+import type { api } from "@/convex/_generated/api";
 
 import { AttachmentsSettingsPage } from "./attachments";
 
-type Status = "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted";
+type DeleteAttachments = ReactMutation<typeof api.files.deleteAttachments>;
 
 const mocks = vi.hoisted(() => ({
-  usePaginatedQuery:
-    vi.fn<() => { results: object[]; status: Status; loadMore: unknown }>(),
+  usePaginatedQuery: vi.fn<typeof usePaginatedQuery>(),
+  useMutation: vi.fn<typeof useMutation>(),
   loadMore: vi.fn<(numItems: number) => void>(),
-  deleteAttachments: vi.fn<
-    (args: { attachmentIds: string[] }) => Promise<null>
-  >(async () => null),
+  deleteAttachments: vi.fn<DeleteAttachments>().mockResolvedValue(null),
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: () => () => ({}),
-}));
-vi.mock("convex/react", () => ({
+vi.mock(import("convex/react"), () => ({
   usePaginatedQuery: mocks.usePaginatedQuery,
-  useMutation: () => mocks.deleteAttachments,
+  useMutation: mocks.useMutation,
 }));
-vi.mock("@/components/ui/toast", () => ({ toast: vi.fn<() => void>() }));
+vi.mock(import("@/components/ui/toast"), () => ({
+  toast: vi.fn<typeof toast>(),
+}));
 
-function attachments(count: number) {
-  return Array.from({ length: count }, (_, i) => ({
+// The mutation the page gets from useMutation; it never applies optimistic updates
+const deleteMutation: DeleteAttachments = Object.assign(
+  mocks.deleteAttachments,
+  { withOptimisticUpdate: () => deleteMutation }
+);
+
+const attachments = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
     _id: `chat_attachments:${i}`,
     _creationTime: i,
     key: `key-${i}`,
@@ -39,22 +50,23 @@ function attachments(count: number) {
     fileType: "application/pdf",
     fileSize: 1024,
   }));
-}
 
-function renderWith(count: number, status: Status) {
+const renderWith = (count: number, status: "CanLoadMore" | "Exhausted") => {
   mocks.usePaginatedQuery.mockReturnValue({
     results: attachments(count),
     status,
+    isLoading: false,
     loadMore: mocks.loadMore,
   });
+  mocks.useMutation.mockReturnValue(deleteMutation);
   render(<AttachmentsSettingsPage />);
-}
+};
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+describe(AttachmentsSettingsPage, () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-describe("AttachmentsSettingsPage", () => {
   it("labels loaded totals with a plus while more pages exist and loads the next page", () => {
     renderWith(2, "CanLoadMore");
 
@@ -87,6 +99,6 @@ describe("AttachmentsSettingsPage", () => {
       mocks.deleteAttachments.mock.calls.map(
         ([args]) => args.attachmentIds.length
       )
-    ).toEqual([100, 50]);
+    ).toStrictEqual([100, 50]);
   });
 });

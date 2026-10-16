@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Doc, Id, TableNames } from "../../../convex/_generated/dataModel";
 import {
   getOrderedGroupKeys,
   getRelativeTimeDescription,
@@ -8,7 +9,30 @@ import {
   hasChatsInGroup,
 } from "../chat-utils/time-grouping";
 
-describe("getTimeGroup", () => {
+// Test ids only need to be distinct, non-empty strings
+const isTestId = <Table extends TableNames>(id: string): id is Id<Table> =>
+  id !== "";
+const testId = <Table extends TableNames>(id: string): Id<Table> => {
+  if (!isTestId<Table>(id)) {
+    throw new TypeError("Test ids must be non-empty");
+  }
+  return id;
+};
+
+const chat = (
+  id: string,
+  times: Pick<Doc<"chats">, "_creationTime" | "createdAt" | "updatedAt">
+): Doc<"chats"> => ({
+  _id: testId<"chats">(id),
+  userId: testId<"users">("user"),
+  ...times,
+});
+
+// Calls groupChatsByTime with input its type rules out, as an untyped caller could
+const groupUntyped = (input: unknown): unknown =>
+  Reflect.apply(groupChatsByTime, undefined, [input]);
+
+describe(getTimeGroup, () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -67,7 +91,7 @@ describe("getTimeGroup", () => {
   });
 });
 
-describe("groupChatsByTime", () => {
+describe(groupChatsByTime, () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -77,8 +101,8 @@ describe("groupChatsByTime", () => {
   });
 
   it("returns empty groups for non-array input", () => {
-    const result = groupChatsByTime(null as unknown as never[]);
-    expect(result).toEqual({
+    const result = groupUntyped(null);
+    expect(result).toStrictEqual({
       Today: [],
       Yesterday: [],
       "Last 7 Days": [],
@@ -92,27 +116,22 @@ describe("groupChatsByTime", () => {
     vi.setSystemTime(now);
 
     const chats = [
-      {
-        _id: "1" as never,
+      chat("1", {
         _creationTime: new Date("2024-12-25T10:00:00").getTime(),
-      },
-      {
-        _id: "2" as never,
+      }),
+      chat("2", {
         _creationTime: new Date("2024-12-24T10:00:00").getTime(),
-      },
-      {
-        _id: "3" as never,
+      }),
+      chat("3", {
         _creationTime: new Date("2024-12-20T10:00:00").getTime(),
-      },
-      {
-        _id: "4" as never,
+      }),
+      chat("4", {
         _creationTime: new Date("2024-12-10T10:00:00").getTime(),
-      },
-      {
-        _id: "5" as never,
+      }),
+      chat("5", {
         _creationTime: new Date("2024-10-25T10:00:00").getTime(),
-      },
-    ] as never[];
+      }),
+    ];
 
     const result = groupChatsByTime(chats);
 
@@ -128,19 +147,16 @@ describe("groupChatsByTime", () => {
     vi.setSystemTime(now);
 
     const chats = [
-      {
-        _id: "1" as never,
+      chat("1", {
         _creationTime: new Date("2024-12-25T08:00:00").getTime(),
-      },
-      {
-        _id: "2" as never,
+      }),
+      chat("2", {
         _creationTime: new Date("2024-12-25T10:00:00").getTime(),
-      },
-      {
-        _id: "3" as never,
+      }),
+      chat("3", {
         _creationTime: new Date("2024-12-25T09:00:00").getTime(),
-      },
-    ] as never[];
+      }),
+    ];
 
     const result = groupChatsByTime(chats);
 
@@ -154,30 +170,30 @@ describe("groupChatsByTime", () => {
     vi.setSystemTime(now);
 
     const chats = [
-      {
-        _id: "1" as never,
-        _creationTime: new Date("2024-10-25T10:00:00").getTime(), // Older
-        createdAt: new Date("2024-12-10T10:00:00").getTime(), // Last 30 Days
-        updatedAt: new Date("2024-12-25T10:00:00").getTime(), // Today
-      },
-    ] as never[];
+      chat("1", {
+        // Older
+        _creationTime: new Date("2024-10-25T10:00:00").getTime(),
+        // Last 30 Days
+        createdAt: new Date("2024-12-10T10:00:00").getTime(),
+        // Today
+        updatedAt: new Date("2024-12-25T10:00:00").getTime(),
+      }),
+    ];
 
     const result = groupChatsByTime(chats);
     expect(result.Today).toHaveLength(1);
   });
 
   it("skips invalid chat objects", () => {
-    const chats = [null, undefined, "string", 123] as never[];
-    const result = groupChatsByTime(chats);
-    expect(result.Today).toHaveLength(0);
-    expect(result.Older).toHaveLength(0);
+    const result = groupUntyped([null, undefined, "string", 123]);
+    expect(result).toMatchObject({ Today: [], Older: [] });
   });
 });
 
-describe("getOrderedGroupKeys", () => {
+describe(getOrderedGroupKeys, () => {
   it("returns groups in correct order", () => {
     const keys = getOrderedGroupKeys();
-    expect(keys).toEqual([
+    expect(keys).toStrictEqual([
       "Today",
       "Yesterday",
       "Last 7 Days",
@@ -187,16 +203,16 @@ describe("getOrderedGroupKeys", () => {
   });
 });
 
-describe("hasChatsInGroup", () => {
+describe(hasChatsInGroup, () => {
   it("returns true when group has chats", () => {
     const groups = {
-      Today: [{ _id: "1" }] as never[],
+      Today: [chat("1", { _creationTime: 1 })],
       Yesterday: [],
       "Last 7 Days": [],
       "Last 30 Days": [],
       Older: [],
     };
-    expect(hasChatsInGroup(groups, "Today")).toBe(true);
+    expect(hasChatsInGroup(groups, "Today")).toBeTruthy();
   });
 
   it("returns false when group is empty", () => {
@@ -207,11 +223,11 @@ describe("hasChatsInGroup", () => {
       "Last 30 Days": [],
       Older: [],
     };
-    expect(hasChatsInGroup(groups, "Today")).toBe(false);
+    expect(hasChatsInGroup(groups, "Today")).toBeFalsy();
   });
 });
 
-describe("getRelativeTimeDescription", () => {
+describe(getRelativeTimeDescription, () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });

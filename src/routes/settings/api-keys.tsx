@@ -1,4 +1,10 @@
-import { Check, Key, Spinner, Trash, Warning } from "@phosphor-icons/react";
+import {
+  CheckIcon,
+  KeyIcon,
+  SpinnerIcon,
+  TrashIcon,
+  WarningIcon,
+} from "@phosphor-icons/react";
 import {
   AnthropicDark,
   AnthropicLight,
@@ -30,42 +36,44 @@ import type { ApiKeyProvider as Provider } from "@/lib/config/api-keys";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/providers/user-provider";
 
-export const Route = createFileRoute("/settings/api-keys")({
-  component: ApiKeysSettingsPage,
-});
-
 const PROVIDERS = getApiKeyProviders();
 
-const PROVIDER_ICONS: Record<
-  string,
-  {
-    icon: React.ComponentType<{ className?: string }>;
-    iconLight?: React.ComponentType<{ className?: string }>;
-  }
+const PROVIDER_ICONS: Partial<
+  Record<
+    string,
+    {
+      icon: React.ComponentType<{ className?: string }>;
+      iconLight?: React.ComponentType<{ className?: string }>;
+    }
+  >
 > = {
   anthropic: { icon: AnthropicDark, iconLight: AnthropicLight },
   openai: { icon: OpenAIDark, iconLight: OpenAILight },
   gemini: { icon: Gemini },
 };
 
-function ProviderIcon({
+/** True for a non-empty string. */
+const isNonEmpty = (value: string | undefined): value is string =>
+  value !== undefined && value !== "";
+
+const ProviderIcon = ({
   providerId,
   className,
 }: {
   providerId: string;
   className?: string;
-}) {
+}) => {
   const { theme } = useTheme();
   const icons = PROVIDER_ICONS[providerId];
   if (!icons) {
-    return <Key className={className} weight="duotone" />;
+    return <KeyIcon className={className} weight="duotone" />;
   }
   const Icon =
     theme === "light" && icons.iconLight ? icons.iconLight : icons.icon;
   return <Icon className={className} />;
-}
+};
 
-function ApiKeyInputForm({
+const ApiKeyInputForm = ({
   placeholder,
   docs,
   title,
@@ -83,7 +91,7 @@ function ApiKeyInputForm({
   onSave: () => void;
   onInputChange: (value: string) => void;
   value: string;
-}) {
+}) => {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter" && !isValidating) {
@@ -101,7 +109,7 @@ function ApiKeyInputForm({
           <Input
             className={cn(
               "h-9 bg-background font-mono text-sm",
-              validationError &&
+              isNonEmpty(validationError) &&
                 "border-destructive focus-visible:ring-destructive/20"
             )}
             onChange={(e) => {
@@ -113,9 +121,9 @@ function ApiKeyInputForm({
             value={value}
           />
         </div>
-        {validationError ? (
+        {isNonEmpty(validationError) ? (
           <p className="flex items-center gap-1.5 text-xs text-destructive">
-            <Warning className="size-3.5 shrink-0" weight="fill" />
+            <WarningIcon className="size-3.5 shrink-0" weight="fill" />
             {validationError}
           </p>
         ) : null}
@@ -140,7 +148,7 @@ function ApiKeyInputForm({
         >
           {isValidating ? (
             <>
-              <Spinner className="size-3.5 animate-spin" />
+              <SpinnerIcon className="size-3.5 animate-spin" />
               Saving
             </>
           ) : (
@@ -150,9 +158,9 @@ function ApiKeyInputForm({
       </div>
     </div>
   );
-}
+};
 
-function ProviderCard({
+const ProviderCard = ({
   providerConfig,
   savedApiKeys,
   validationErrors,
@@ -164,7 +172,7 @@ function ProviderCard({
   inputValue,
 }: {
   providerConfig: (typeof PROVIDERS)[0];
-  savedApiKeys: Array<{ provider: string; mode?: string }>;
+  savedApiKeys: { provider: string; mode?: string }[];
   validationErrors: Record<string, string>;
   isValidating: Record<string, boolean>;
   onSave: (provider: Provider) => void;
@@ -172,7 +180,7 @@ function ProviderCard({
   onDelete: (provider: Provider) => void;
   onToggle: (provider: Provider, checked: boolean) => void;
   inputValue: string;
-}) {
+}) => {
   const hasKey = savedApiKeys.some((k) => k.provider === providerConfig.id);
   const isPriority =
     savedApiKeys.find((k) => k.provider === providerConfig.id)?.mode ===
@@ -234,7 +242,7 @@ function ProviderCard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex size-5 items-center justify-center rounded-full bg-emerald-500/10">
-                <Check
+                <CheckIcon
                   className="size-3 text-emerald-600 dark:text-emerald-400"
                   weight="bold"
                 />
@@ -267,7 +275,7 @@ function ProviderCard({
                 size="icon"
                 variant="ghost"
               >
-                <Trash className="size-4" />
+                <TrashIcon className="size-4" />
               </Button>
             </div>
           </div>
@@ -290,9 +298,9 @@ function ProviderCard({
       </div>
     </div>
   );
-}
+};
 
-export function ApiKeysSettingsPage() {
+export const ApiKeysSettingsPage = () => {
   const { apiKeys } = useUser();
   const saveApiKey = useMutation(api.api_keys.saveApiKey);
   const deleteApiKey = useMutation(api.api_keys.deleteApiKey);
@@ -367,6 +375,9 @@ export function ApiKeysSettingsPage() {
             providerToDelete: null,
           };
         }
+        default: {
+          return s;
+        }
       }
     },
     {
@@ -407,7 +418,9 @@ export function ApiKeysSettingsPage() {
         dispatch({
           type: "SET_VALIDATION_ERROR",
           provider,
-          error: validation.error || "Invalid API key",
+          error: isNonEmpty(validation.error)
+            ? validation.error
+            : "Invalid API key",
         });
         return;
       }
@@ -556,8 +569,12 @@ export function ApiKeysSettingsPage() {
             key={providerConfig.id}
             onDelete={handleDelete}
             onInputChange={handleInputChange}
-            onSave={handleSave}
-            onToggle={handleToggle}
+            onSave={(provider) => {
+              void handleSave(provider);
+            }}
+            onToggle={(provider, checked) => {
+              void handleToggle(provider, checked);
+            }}
             providerConfig={providerConfig}
             savedApiKeys={apiKeys}
             validationErrors={validationErrors}
@@ -584,7 +601,9 @@ export function ApiKeysSettingsPage() {
             </Button>
             <Button
               disabled={isDeleting}
-              onClick={confirmDelete}
+              onClick={() => {
+                void confirmDelete();
+              }}
               variant="destructive"
             >
               {isDeleting ? "Deleting…" : "Delete"}
@@ -594,4 +613,8 @@ export function ApiKeysSettingsPage() {
       </Dialog>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/api-keys")({
+  component: ApiKeysSettingsPage,
+});

@@ -9,7 +9,8 @@ import type { ThemeEditorState } from "../types/theme";
 import { isDeepEqual } from "../utils";
 
 const MAX_HISTORY_COUNT = 30;
-const HISTORY_OVERRIDE_THRESHOLD_MS = 500; // 0.5 seconds
+// 0.5 seconds
+const HISTORY_OVERRIDE_THRESHOLD_MS = 500;
 
 interface ThemeHistoryEntry {
   state: ThemeEditorState;
@@ -38,7 +39,8 @@ interface EditorStore {
 // Helper function to safely detect system preference on client-side only
 const getSystemPreference = (): "light" | "dark" => {
   if (typeof window === "undefined") {
-    return "light"; // Safe server-side default
+    // Safe server-side default
+    return "light";
   }
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
@@ -95,7 +97,8 @@ export const useEditorStore = create<EditorStore>()(
         }
 
         if (currentHistory.length > MAX_HISTORY_COUNT) {
-          currentHistory.shift(); // Remove the oldest entry
+          // Remove the oldest entry
+          currentHistory.shift();
         }
 
         set({
@@ -128,7 +131,8 @@ export const useEditorStore = create<EditorStore>()(
 
         set({
           themeState: newThemeState,
-          themeCheckpoint: newThemeState, // Applying a preset also updates the checkpoint
+          // Applying a preset also updates the checkpoint
+          themeCheckpoint: newThemeState,
           history: updatedHistory,
           future: [],
         });
@@ -217,7 +221,7 @@ export const useEditorStore = create<EditorStore>()(
         return !isDeepEqual(get().themeState, checkpoint);
       },
       hasUnsavedChanges: () => {
-        const themeState = get().themeState;
+        const { themeState } = get();
         const presetThemeStyles = getPresetThemeStyles(
           themeState.preset ?? "oschat"
         );
@@ -251,13 +255,13 @@ export const useEditorStore = create<EditorStore>()(
         });
       },
       undo: () => {
-        const history = get().history;
+        const { history } = get();
         if (history.length === 0) {
           return;
         }
 
         const currentThemeState = get().themeState;
-        const future = get().future;
+        const { future } = get();
 
         const lastHistoryEntry = history.at(-1);
         if (!lastHistoryEntry) {
@@ -283,13 +287,13 @@ export const useEditorStore = create<EditorStore>()(
         });
       },
       redo: () => {
-        const future = get().future;
+        const { future } = get();
         if (future.length === 0) {
           return;
         }
-        const history = get().history;
+        const { history } = get();
 
-        const firstFutureEntry = future[0];
+        const [firstFutureEntry] = future;
         const newFuture = future.slice(1);
 
         const currentThemeState = get().themeState;
@@ -323,7 +327,7 @@ export const useEditorStore = create<EditorStore>()(
         if (state && typeof window !== "undefined") {
           // If no theme state exists in storage (first visit), detect system preference
           const hasStoredTheme = localStorage.getItem("editor-storage");
-          if (!hasStoredTheme) {
+          if (hasStoredTheme === null || hasStoredTheme === "") {
             const systemPreference = getSystemPreference();
             state.themeState = {
               ...state.themeState,

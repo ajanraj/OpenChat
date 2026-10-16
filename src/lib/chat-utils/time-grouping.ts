@@ -19,7 +19,7 @@ let cachedDateBoundaries: {
 } | null = null;
 let lastCalculatedDay: number | null = null;
 
-function getDateBoundaries() {
+const getDateBoundaries = () => {
   const now = new Date();
   const currentDay = now.getDate();
 
@@ -40,12 +40,12 @@ function getDateBoundaries() {
   cachedDateBoundaries = boundaries;
   lastCalculatedDay = currentDay;
   return boundaries;
-}
+};
 
 /**
  * Get the time group for a given timestamp (optimized with cached date boundaries)
  */
-export function getTimeGroup(timestamp: number): TimeGroup {
+export const getTimeGroup = (timestamp: number): TimeGroup => {
   // Handle invalid timestamps
   if (!timestamp || timestamp <= 0 || !Number.isFinite(timestamp)) {
     return "Older";
@@ -88,12 +88,18 @@ export function getTimeGroup(timestamp: number): TimeGroup {
     return "Last 30 Days";
   }
   return "Older";
-}
+};
+
+/** A chat's sort time: the first non-zero of updatedAt, createdAt, _creationTime, else 0. */
+const getChatTimestamp = (chat: Doc<"chats">): number =>
+  [chat.updatedAt, chat.createdAt, chat._creationTime].find(
+    (time) => time !== undefined && time !== 0 && !Number.isNaN(time)
+  ) ?? 0;
 
 /**
  * Group chats by time periods and sort within each group
  */
-export function groupChatsByTime(chats: Doc<"chats">[]): GroupedChats {
+export const groupChatsByTime = (chats: Doc<"chats">[]): GroupedChats => {
   // Handle invalid input
   if (!Array.isArray(chats)) {
     return {
@@ -116,49 +122,45 @@ export function groupChatsByTime(chats: Doc<"chats">[]): GroupedChats {
   // Group chats by time period
   for (const chat of chats) {
     // Skip invalid chat objects
-    if (!chat || typeof chat !== "object") {
+    if (chat === null || typeof chat !== "object") {
       continue;
     }
 
-    const timestamp =
-      chat.updatedAt || chat.createdAt || chat._creationTime || 0;
-    const group = getTimeGroup(timestamp);
+    const group = getTimeGroup(getChatTimestamp(chat));
     groups[group].push(chat);
   }
 
   // Sort chats within each group by timestamp (descending - newest first)
   for (const groupKey of Object.keys(groups)) {
-    groups[groupKey].sort((a, b) => {
-      const aTime = a.updatedAt || a.createdAt || a._creationTime || 0;
-      const bTime = b.updatedAt || b.createdAt || b._creationTime || 0;
-      return bTime - aTime;
-    });
+    groups[groupKey].sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
   }
 
   return groups;
-}
+};
 
 /**
  * Get ordered group keys (for consistent rendering order)
  */
-export function getOrderedGroupKeys(): TimeGroup[] {
-  return ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "Older"];
-}
+export const getOrderedGroupKeys = (): TimeGroup[] => [
+  "Today",
+  "Yesterday",
+  "Last 7 Days",
+  "Last 30 Days",
+  "Older",
+];
 
 /**
  * Check if a group has any chats
  */
-export function hasChatsInGroup(
+export const hasChatsInGroup = (
   groups: GroupedChats,
   groupKey: TimeGroup
-): boolean {
-  return groups[groupKey] && groups[groupKey].length > 0;
-}
+): boolean => groups[groupKey] !== undefined && groups[groupKey].length > 0;
 
 /**
  * Get a human-readable relative time description for a timestamp
  */
-export function getRelativeTimeDescription(timestamp: number): string {
+export const getRelativeTimeDescription = (timestamp: number): string => {
   // Handle invalid timestamps
   if (!timestamp || timestamp <= 0 || !Number.isFinite(timestamp)) {
     return "Unknown";
@@ -203,4 +205,4 @@ export function getRelativeTimeDescription(timestamp: number): string {
   } catch {
     return "Unknown date";
   }
-}
+};

@@ -1,7 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
-import { getDocumentSize, v } from "convex/values";
+import { ConvexError, getDocumentSize, v } from "convex/values";
 
+import { ERROR_CODES } from "../src/lib/error-codes";
 import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
@@ -15,12 +16,13 @@ import {
 import { sanitizeMessageParts } from "./lib/sanitization_helper";
 
 // Keep reusable regex at top-level per lint rule
-const TRAILING_SLASH_RE = /\/$/;
+const TRAILING_SLASH_RE = /\/$/u;
 
-// New: Get messages for public shared chat with optional redaction
+// Messages of a public shared chat, with optional attachment redaction. `chatId` is the raw
+// share-URL param, so a malformed id is treated like a missing or private chat.
 export const getPublicChatMessages = query({
   args: {
-    chatId: v.id("chats"),
+    chatId: v.string(),
   },
   returns: v.array(
     v.object({
@@ -45,7 +47,11 @@ export const getPublicChatMessages = query({
       }),
     })
   ),
-  handler: async (ctx, { chatId }) => {
+  handler: async (ctx, args) => {
+    const chatId = ctx.db.normalizeId("chats", args.chatId);
+    if (chatId === null) {
+      return [];
+    }
     const chat = await ctx.db.get("chats", chatId);
     if (!(chat && (chat.public ?? false))) {
       return [];
@@ -73,56 +79,57 @@ export const getPublicChatMessages = query({
   },
 });
 
-/**
- * Helper function to clean up attachments for messages
- */
-async function cleanupMessageAttachments(
-  ctx: MutationCtx,
-  messagesToDelete: Doc<"messages">[],
-  userId: Id<"users">
-) {
-  const attachmentCleanupPromises: Promise<void>[] = [];
-
-  for (const msgToDelete of messagesToDelete) {
-    if (msgToDelete.parts) {
-      for (const part of msgToDelete.parts) {
-        if (
-          part &&
-          part.type === "file" &&
-          typeof part.url === "string" &&
-          part.url
-        ) {
-          attachmentCleanupPromises.push(
-            cleanupSingleAttachment(ctx, msgToDelete.chatId, part.url, userId)
-          );
-        }
-      }
-    }
-  }
-
-  await Promise.allSettled(attachmentCleanupPromises);
+interface FilePart {
+  type: "file";
+  url: string;
 }
+
+const isFilePart = (part: unknown): part is FilePart =>
+  typeof part === "object" &&
+  part !== null &&
+  "type" in part &&
+  part.type === "file" &&
+  "url" in part &&
+  typeof part.url === "string";
+
+/** The file parts in a message's stored `parts` (an untyped array, or undefined). */
+const filePartsOf = (parts: unknown): FilePart[] => {
+  const list: unknown[] = Array.isArray(parts) ? parts : [];
+  return list.filter(isFilePart);
+};
+
+/** Canonical (query-free) URLs of the uploaded files in `parts`, skipping local blob: URLs. */
+const uploadedFileUrlsOf = (parts: unknown): string[] =>
+  filePartsOf(parts)
+    .filter((part) => !part.url.startsWith("blob:"))
+    .map((part) => part.url.split("?")[0]);
 
 /**
  * Helper function to clean up a single attachment
  */
-async function cleanupSingleAttachment(
+const cleanupSingleAttachment = async (
   ctx: MutationCtx,
   chatId: Id<"chats">,
   fileUrl: string,
   userId: Id<"users">
-) {
+) => {
   const r2 = new R2(components.r2);
   try {
     // Derive R2 object key from the URL and use by_key index
     const configuredBase = process.env.R2_PUBLIC_URL_BASE;
-    const base = configuredBase
-      ? configuredBase.replace(TRAILING_SLASH_RE, "")
-      : undefined;
-    const canonicalUrl = fileUrl.split("?")[0];
+    const base =
+      configuredBase !== undefined && configuredBase !== ""
+        ? configuredBase.replace(TRAILING_SLASH_RE, "")
+        : undefined;
+    const [canonicalUrl] = fileUrl.split("?");
 
-    if (!(base && canonicalUrl.startsWith(`${base}/`))) {
-      return; // URL doesn't match configured base; nothing to clean up
+    if (
+      base === undefined ||
+      base === "" ||
+      !canonicalUrl.startsWith(`${base}/`)
+    ) {
+      // URL doesn't match configured base; nothing to clean up
+      return;
     }
 
     const key = canonicalUrl.slice(base.length + 1);
@@ -142,20 +149,41 @@ async function cleanupSingleAttachment(
   } catch (error) {
     console.error("Failed to clean up attachment:", error);
   }
-}
+};
+
+/**
+ * Helper function to clean up attachments for messages
+ */
+const cleanupMessageAttachments = async (
+  ctx: MutationCtx,
+  messagesToDelete: Doc<"messages">[],
+  userId: Id<"users">
+) => {
+  const attachments = messagesToDelete.flatMap((msgToDelete) =>
+    filePartsOf(msgToDelete.parts)
+      .filter((part) => part.url !== "")
+      .map((part) => ({ chatId: msgToDelete.chatId, url: part.url }))
+  );
+
+  await Promise.allSettled(
+    attachments.map(async ({ chatId, url }) => {
+      await cleanupSingleAttachment(ctx, chatId, url, userId);
+    })
+  );
+};
 
 /**
  * Shared helper function to insert a message to chat
  * Used by both public mutations (with auth) and internal mutations (without auth)
  */
-async function insertMessageToChat(
+const insertMessageToChat = async (
   ctx: MutationCtx,
   args: {
     chatId: Id<"chats">;
     role: "user" | "assistant" | "system";
     content: string;
     parentMessageId?: Id<"messages">;
-    parts?: any;
+    parts?: unknown;
     metadata?: {
       modelId?: string;
       modelName?: string;
@@ -170,7 +198,7 @@ async function insertMessageToChat(
     };
   },
   userId: Id<"users">
-): Promise<{ messageId: Id<"messages"> }> {
+): Promise<{ messageId: Id<"messages"> }> => {
   const messageId = await ctx.db.insert("messages", {
     chatId: args.chatId,
     userId,
@@ -178,13 +206,13 @@ async function insertMessageToChat(
     content: args.content,
     parentMessageId: args.parentMessageId,
     parts: args.parts,
-    metadata: args.metadata || {},
+    metadata: args.metadata ?? {},
     createdAt: Date.now(),
   });
 
   await ctx.db.patch("chats", args.chatId, { updatedAt: Date.now() });
   return { messageId };
-}
+};
 
 export const sendUserMessageToChat = mutation({
   args: {
@@ -196,7 +224,8 @@ export const sendUserMessageToChat = mutation({
     ),
     content: v.string(),
     parentMessageId: v.optional(v.id("messages")),
-    parts: v.optional(v.any()), // Allow any type for parts
+    // Allow any type for parts
+    parts: v.optional(v.any()),
     metadata: v.optional(
       v.object({
         modelId: v.optional(v.string()),
@@ -329,13 +358,20 @@ export const getMessageDetails = query({
   },
 });
 
+// `messageId` may be a client-side id that was never persisted; a malformed id throws (the
+// client restores its messages) rather than reporting a successful no-op.
 export const deleteMessageAndDescendants = mutation({
   args: {
-    messageId: v.id("messages"),
+    messageId: v.string(),
     deleteOnlyDescendants: v.optional(v.boolean()),
   },
   returns: v.object({ chatDeleted: v.boolean() }),
-  handler: async (ctx, { messageId, deleteOnlyDescendants = false }) => {
+  handler: async (ctx, args) => {
+    const messageId = ctx.db.normalizeId("messages", args.messageId);
+    if (messageId === null) {
+      throw new ConvexError(ERROR_CODES.MESSAGE_NOT_FOUND);
+    }
+    const { deleteOnlyDescendants = false } = args;
     // Try to get message access
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -370,8 +406,11 @@ export const deleteMessageAndDescendants = mutation({
     await cleanupMessageAttachments(ctx, messagesToDelete, userId);
 
     // Delete messages in batch
-    const deletePromises = ids.map((id) => ctx.db.delete("messages", id));
-    await Promise.all(deletePromises);
+    await Promise.all(
+      ids.map(async (id) => {
+        await ctx.db.delete("messages", id);
+      })
+    );
 
     // Update chat timestamp
     await ctx.db.patch("chats", chat._id, { updatedAt: Date.now() });
@@ -404,31 +443,8 @@ export const patchMessageContent = mutation({
     // If parts were provided, compute removed file URLs and clean up attachments
     if (newParts !== undefined) {
       // Collect previous and next file URLs (ignore blob:)
-      const prevUrls: string[] = [];
-      const nextUrls: string[] = [];
-
-      for (const part of (message.parts as any[]) ?? []) {
-        const type = (part as { type?: string }).type;
-        const url = (part as { url?: string }).url;
-        if (
-          type === "file" &&
-          typeof url === "string" &&
-          !url.startsWith("blob:")
-        ) {
-          prevUrls.push(url.split("?")[0]);
-        }
-      }
-      for (const part of (newParts as any[]) ?? []) {
-        const type = (part as { type?: string }).type;
-        const url = (part as { url?: string }).url;
-        if (
-          type === "file" &&
-          typeof url === "string" &&
-          !url.startsWith("blob:")
-        ) {
-          nextUrls.push(url.split("?")[0]);
-        }
-      }
+      const prevUrls = uploadedFileUrlsOf(message.parts);
+      const nextUrls = uploadedFileUrlsOf(newParts);
 
       // Compute removed URLs
       const nextSet = new Set(nextUrls);
@@ -437,17 +453,18 @@ export const patchMessageContent = mutation({
       if (removed.length > 0) {
         // Best-effort cleanup; continue even if some deletions fail
         await Promise.allSettled(
-          removed.map((url) =>
-            cleanupSingleAttachment(ctx, chat._id, url, userId)
-          )
+          removed.map(async (url) => {
+            await cleanupSingleAttachment(ctx, chat._id, url, userId);
+          })
         );
       }
     }
 
     // Patch existing message with new content/parts
     const patch: Partial<Doc<"messages">> = { content: newContent };
-    if (newParts !== undefined) {
-      patch.parts = newParts;
+    const parts: unknown = newParts;
+    if (parts !== undefined) {
+      patch.parts = parts;
     }
     await ctx.db.patch("messages", messageId, patch);
     // Update chat timestamp

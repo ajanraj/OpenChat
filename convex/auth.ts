@@ -1,8 +1,9 @@
 import Google from "@auth/core/providers/google";
+import type { GoogleProfile } from "@auth/core/providers/google";
 import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
 import { convexAuth } from "@convex-dev/auth/server";
 
-import { MODEL_DEFAULT, RECOMMENDED_MODELS } from "../src/lib/config";
+import { MODEL_DEFAULT, RECOMMENDED_MODELS } from "../src/lib/config/constants";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { rateLimiter } from "./rateLimiter";
@@ -26,36 +27,27 @@ const initializeRateLimits = async (
   isAnonymous: boolean
 ): Promise<void> => {
   try {
-    const rateLimitPromises: Promise<unknown>[] = [];
-
     // Daily limits based on user type
     const dailyLimitName = isAnonymous
       ? "anonymousDaily"
       : "authenticatedDaily";
-    rateLimitPromises.push(
+
+    await Promise.all([
       rateLimiter.limit(ctx, dailyLimitName, {
         key: userId,
         count: 0,
-      })
-    );
-
-    // Monthly limits for all users
-    rateLimitPromises.push(
+      }),
+      // Monthly limits for all users
       rateLimiter.limit(ctx, "standardMonthly", {
         key: userId,
         count: 0,
-      })
-    );
-
-    // Initialize premium credits counter for all users (will only be used by premium users)
-    rateLimitPromises.push(
+      }),
+      // Initialize premium credits counter for all users (will only be used by premium users)
       rateLimiter.limit(ctx, "premiumMonthly", {
         key: userId,
         count: 0,
-      })
-    );
-
-    await Promise.all(rateLimitPromises);
+      }),
+    ]);
   } catch (error) {
     console.error("Failed to initialize rate limits:", error);
   }
@@ -81,8 +73,9 @@ const selectPrimaryGooglePhoto = (payload: unknown): unknown => {
   if (!Array.isArray(photos) || photos.length === 0) {
     return undefined;
   }
-  const primaryPhoto = photos.find((photo) => isPrimaryGooglePhoto(photo));
-  return primaryPhoto ?? photos[0];
+  const photoList: unknown[] = photos;
+  const primaryPhoto = photoList.find((photo) => isPrimaryGooglePhoto(photo));
+  return primaryPhoto ?? photoList[0];
 };
 
 const getGooglePhotoDefaultFlag = (photo: unknown): boolean | undefined => {
@@ -109,9 +102,10 @@ const fetchGooglePrimaryPhoto = async (
       return {};
     }
 
-    const payload = await response.json();
+    const payload: unknown = await response.json();
     const primaryPhoto = selectPrimaryGooglePhoto(payload);
-    if (!primaryPhoto) {
+    // Non-object photos carry no fields, so they read the same as no photo
+    if (typeof primaryPhoto !== "object" || primaryPhoto === null) {
       return {};
     }
 
@@ -153,10 +147,10 @@ const getOAuthProfileUpdates = (
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Google({
-      async profile(profile, tokens) {
-        let image = profile.picture;
+      async profile(profile: GoogleProfile, tokens) {
+        let image: string | undefined = profile.picture;
         const accessToken = readString(tokens.access_token);
-        if (accessToken) {
+        if (accessToken !== undefined && accessToken !== "") {
           const googlePhoto = await fetchGooglePrimaryPhoto(accessToken);
           if (googlePhoto.url !== undefined) {
             image = googlePhoto.url;
@@ -204,7 +198,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       };
 
       const userFields =
-        type === "oauth" && profile
+        type === "oauth"
           ? {
               ...baseFields,
               ...getOAuthProfileUpdates(profile),

@@ -6,7 +6,7 @@ import {
   shouldTriggerFallback,
 } from "../provider-error-detector";
 
-describe("detectProviderErrorInText", () => {
+describe(detectProviderErrorInText, () => {
   describe("OpenAI errors", () => {
     it("detects quota exceeded errors", () => {
       const result = detectProviderErrorInText(
@@ -16,7 +16,7 @@ describe("detectProviderErrorInText", () => {
       expect(result).not.toBeNull();
       expect(result?.type).toBe("QUOTA_EXCEEDED");
       expect(result?.provider).toBe("openai");
-      expect(result?.isQuotaExceeded).toBe(true);
+      expect(result).toHaveProperty("isQuotaExceeded", true);
     });
 
     it("detects rate limit errors", () => {
@@ -26,7 +26,7 @@ describe("detectProviderErrorInText", () => {
       );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("RATE_LIMIT");
-      expect(result?.isRateLimit).toBe(true);
+      expect(result).toHaveProperty("isRateLimit", true);
     });
 
     it("detects authentication errors", () => {
@@ -36,7 +36,7 @@ describe("detectProviderErrorInText", () => {
       );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("AUTH_ERROR");
-      expect(result?.isAuthError).toBe(true);
+      expect(result).toHaveProperty("isAuthError", true);
     });
   });
 
@@ -49,7 +49,7 @@ describe("detectProviderErrorInText", () => {
       expect(result).not.toBeNull();
       expect(result?.type).toBe("INSUFFICIENT_BALANCE");
       expect(result?.provider).toBe("anthropic");
-      expect(result?.isInsufficientBalance).toBe(true);
+      expect(result).toHaveProperty("isInsufficientBalance", true);
     });
 
     it("detects rate limit errors", () => {
@@ -166,7 +166,7 @@ describe("detectProviderErrorInText", () => {
   });
 });
 
-describe("detectProviderErrorFromObject", () => {
+describe(detectProviderErrorFromObject, () => {
   it("extracts error from string", () => {
     const result = detectProviderErrorFromObject(
       "Rate limit exceeded",
@@ -195,13 +195,17 @@ describe("detectProviderErrorFromObject", () => {
   });
 
   it("returns null for null provider", () => {
-    expect(
-      detectProviderErrorFromObject("Some error", null as unknown as string)
-    ).toBeNull();
+    // Called untyped, like JavaScript callers that pass a null provider
+    const result: unknown = Reflect.apply(
+      detectProviderErrorFromObject,
+      undefined,
+      ["Some error", null]
+    );
+    expect(result).toBeNull();
   });
 });
 
-describe("shouldTriggerFallback", () => {
+describe(shouldTriggerFallback, () => {
   it("returns true for auth errors", () => {
     const error = {
       type: "AUTH_ERROR",
@@ -210,7 +214,7 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Invalid API key",
       isAuthError: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(true);
+    expect(shouldTriggerFallback(error)).toBeTruthy();
   });
 
   it("returns true for insufficient balance", () => {
@@ -221,7 +225,7 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Balance too low",
       isInsufficientBalance: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(true);
+    expect(shouldTriggerFallback(error)).toBeTruthy();
   });
 
   it("returns true for quota exceeded", () => {
@@ -232,7 +236,7 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Quota exceeded",
       isQuotaExceeded: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(true);
+    expect(shouldTriggerFallback(error)).toBeTruthy();
   });
 
   it("returns false for rate limit errors", () => {
@@ -243,6 +247,6 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Rate limit",
       isRateLimit: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(false);
+    expect(shouldTriggerFallback(error)).toBeFalsy();
   });
 });

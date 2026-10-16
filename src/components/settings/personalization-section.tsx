@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME } from "@/lib/config/constants";
 import type { Profile } from "@/providers/profile-provider";
 import { useProfile } from "@/providers/profile-provider";
 import { TraitsEditor } from "./traits-editor";

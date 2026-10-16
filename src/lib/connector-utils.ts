@@ -20,9 +20,9 @@ export interface Connector {
  * Calculate connector status lists from user's connector data
  * This is the authoritative server-side logic for determining tool availability
  */
-export function calculateConnectorStatus(
+export const calculateConnectorStatus = (
   connectors: Connector[]
-): ConnectorStatusLists {
+): ConnectorStatusLists => {
   const enabledSlugs = connectors
     .filter((connector) => connector.isConnected && connector.enabled !== false)
     .map((connector) => connector.type.toUpperCase());
@@ -45,4 +45,4 @@ export function calculateConnectorStatus(
     disabled: disabledSlugs,
     notConnected: notConnectedSlugs,
   };
-}
+};

@@ -5,6 +5,7 @@
  * two dots so Convex doesn't deploy it and Vitest doesn't run it as a test file.)
  */
 import { vi } from "vitest";
+import { z } from "zod";
 
 import type { TableNames } from "../_generated/dataModel";
 import schema from "../schema";
@@ -37,7 +38,7 @@ const LIMITS = {
 };
 
 // Convex orders values by type (undefined < null < number < boolean < string), then by value
-function typeRank(value: unknown): number {
+const typeRank = (value: unknown): number => {
   if (value === undefined) {
     return 0;
   }
@@ -51,9 +52,9 @@ function typeRank(value: unknown): number {
     return 3;
   }
   return 4;
-}
+};
 
-function compareValues(a: unknown, b: unknown): number {
+const compareValues = (a: unknown, b: unknown): number => {
   const rankDiff = typeRank(a) - typeRank(b);
   if (rankDiff !== 0) {
     return rankDiff;
@@ -62,48 +63,70 @@ function compareValues(a: unknown, b: unknown): number {
     return a - b;
   }
   const [sa, sb] = [String(a), String(b)];
-  return sa < sb ? -1 : sa > sb ? 1 : 0;
-}
-
-function matchesBound(row: Row, { field, op, value }: Bound): boolean {
-  const cmp = compareValues(row[field], value);
-  return op === "eq"
-    ? cmp === 0
-    : op === "gt"
-      ? cmp > 0
-      : op === "gte"
-        ? cmp >= 0
-        : op === "lt"
-          ? cmp < 0
-          : cmp <= 0;
-}
-
-interface ExportedTable {
-  tableName: string;
-  indexes: Array<{ indexDescriptor: string; fields: string[] }>;
-  searchIndexes: Array<{
-    indexDescriptor: string;
-    searchField: string;
-    filterFields: string[];
-  }>;
-}
-// The schema's deploy-time JSON, which lists every table's indexes and search indexes
-const exportedTables = (
-  JSON.parse((schema as unknown as { export(): string }).export()) as {
-    tables: ExportedTable[];
+  if (sa < sb) {
+    return -1;
   }
+  return sa > sb ? 1 : 0;
+};
+
+// Whether a comparison result satisfies each bound operator
+const BOUND_CHECKS: Record<Bound["op"], (cmp: number) => boolean> = {
+  eq: (cmp) => cmp === 0,
+  gt: (cmp) => cmp > 0,
+  gte: (cmp) => cmp >= 0,
+  lt: (cmp) => cmp < 0,
+  lte: (cmp) => cmp <= 0,
+};
+
+const matchesBound = (row: Row, { field, op, value }: Bound): boolean =>
+  BOUND_CHECKS[op](compareValues(row[field], value));
+
+// The parts of the schema's deploy-time JSON the fake reads
+const exportedSchema = z.object({
+  tables: z.array(
+    z.object({
+      tableName: z.string(),
+      indexes: z.array(
+        z.object({ indexDescriptor: z.string(), fields: z.array(z.string()) })
+      ),
+      searchIndexes: z.array(
+        z.object({
+          indexDescriptor: z.string(),
+          searchField: z.string(),
+          filterFields: z.array(z.string()),
+        })
+      ),
+    })
+  ),
+});
+type ExportedTable = z.infer<typeof exportedSchema>["tables"][number];
+
+// SchemaDefinition.export() is internal to Convex, so it isn't in the public type
+const hasExport = (value: object): value is { export: () => string } =>
+  "export" in value && typeof value.export === "function";
+
+const exportSchemaJson = (): string => {
+  if (!hasExport(schema)) {
+    throw new Error("The Convex schema no longer has export()");
+  }
+  return schema.export();
+};
+
+// The schema's deploy-time JSON, which lists every table's indexes and search indexes
+const exportedTables = exportedSchema.parse(
+  JSON.parse(exportSchemaJson())
 ).tables;
 
-function tableDefinition(table: TableNames): ExportedTable {
+const tableDefinition = (table: TableNames): ExportedTable => {
   const found = exportedTables.find((t) => t.tableName === table);
   if (!found) {
     throw new Error(`Table ${table} is not defined in the schema`);
   }
   return found;
-}
+};
 
 // Like Convex, every index ends with _creationTime
-function indexFields(table: TableNames, index: string): string[] {
+const indexFields = (table: TableNames, index: string): string[] => {
   if (index === "by_creation_time") {
     return ["_creationTime"];
   }
@@ -114,17 +137,19 @@ function indexFields(table: TableNames, index: string): string[] {
     throw new Error(`Index ${table}.${index} is not defined in the schema`);
   }
   return [...found.fields, "_creationTime"];
-}
+};
 
-function tokens(text: unknown): string[] {
-  return typeof text === "string"
-    ? text.toLowerCase().split(/\W+/).filter(Boolean)
+const tokens = (text: unknown): string[] =>
+  typeof text === "string"
+    ? text.toLowerCase().split(/\W+/u).filter(Boolean)
     : [];
-}
 
-export type FakeDb = ReturnType<typeof createFakeDb>;
+const metric = (used: number, limit: number) => ({
+  used,
+  remaining: limit - used,
+});
 
-export function createFakeDb() {
+export const createFakeDb = () => {
   const rows = new Map<string, { table: TableNames; doc: Row }>();
   const stats = { reads: 0, writes: 0, queries: 0, bytesRead: 0 };
   // Ids of documents handed to the code under test, in order
@@ -154,28 +179,37 @@ export function createFakeDb() {
     return found;
   };
 
+  // Mirrors the real db's async API; `await Promise.resolve(...)` keeps each method asynchronous
   class FakeQuery {
+    private readonly table: TableNames;
     private readonly bounds: Bound[] = [];
     private fields: string[] = ["_creationTime"];
     private descending = false;
     private searchField: string | null = null;
     private searchTerms: string[] = [];
 
-    constructor(private readonly table: TableNames) {}
+    constructor(table: TableNames) {
+      this.table = table;
+    }
 
     withIndex(index: string, build?: (q: RangeBuilder) => unknown) {
       this.fields = indexFields(this.table, index);
-      const builder = {} as RangeBuilder;
-      for (const op of ["eq", "gt", "gte", "lt", "lte"] as const) {
-        builder[op] = (field, value) => {
-          this.bounds.push({ field, op, value });
-          return builder;
-        };
-      }
+      const builder: RangeBuilder = {
+        eq: (field, value) =>
+          this.addBound(builder, { field, op: "eq", value }),
+        gt: (field, value) =>
+          this.addBound(builder, { field, op: "gt", value }),
+        gte: (field, value) =>
+          this.addBound(builder, { field, op: "gte", value }),
+        lt: (field, value) =>
+          this.addBound(builder, { field, op: "lt", value }),
+        lte: (field, value) =>
+          this.addBound(builder, { field, op: "lte", value }),
+      };
       build?.(builder);
       // Like Convex: equalities on a prefix of the index fields, then ranges on the next field
       const eqCount = this.bounds.filter((b) => b.op === "eq").length;
-      this.bounds.forEach((bound, i) => {
+      for (const [i, bound] of this.bounds.entries()) {
         const expected =
           bound.op === "eq" ? this.fields[i] : this.fields[eqCount];
         if (bound.field !== expected) {
@@ -183,7 +217,7 @@ export function createFakeDb() {
             `${this.table}.${index}: "${bound.field}" is out of index order`
           );
         }
-      });
+      }
       return this;
     }
 
@@ -228,8 +262,13 @@ export function createFakeDb() {
 
     filter(): never {
       throw new Error(
-        "The fake db doesn't support filter(); query through an index instead"
+        `The fake db doesn't support filter() (on ${this.table}); query through an index instead`
       );
+    }
+
+    private addBound(builder: RangeBuilder, bound: Bound): RangeBuilder {
+      this.bounds.push(bound);
+      return builder;
     }
 
     private matching(): Row[] {
@@ -240,7 +279,7 @@ export function createFakeDb() {
             this.bounds.every((b) => matchesBound(doc, b))
         )
         .map(({ doc }) => doc);
-      if (this.searchField) {
+      if (this.searchField !== null) {
         const field = this.searchField;
         const terms = this.searchTerms;
         const last = terms.at(-1);
@@ -264,20 +303,20 @@ export function createFakeDb() {
         }
         return 0;
       });
-      return this.descending ? found.reverse() : found;
+      return this.descending ? found.toReversed() : found;
     }
 
     async collect() {
-      return this.matching().map(read);
+      return await Promise.resolve(this.matching().map(read));
     }
 
     async take(n: number) {
-      return this.matching().slice(0, n).map(read);
+      return await Promise.resolve(this.matching().slice(0, n).map(read));
     }
 
     async first() {
-      const [doc] = this.matching();
-      return doc ? read(doc) : null;
+      const doc = this.matching().at(0);
+      return await Promise.resolve(doc === undefined ? null : read(doc));
     }
 
     async unique() {
@@ -285,7 +324,8 @@ export function createFakeDb() {
       if (found.length > 1) {
         throw new Error(`unique() matched ${found.length} documents`);
       }
-      return found[0] ? read(found[0]) : null;
+      const doc = found.at(0);
+      return await Promise.resolve(doc === undefined ? null : read(doc));
     }
 
     async paginate({
@@ -296,13 +336,13 @@ export function createFakeDb() {
       cursor: string | null;
     }) {
       const all = this.matching();
-      const start = cursor ? Number(cursor) : 0;
+      const start = cursor === null || cursor === "" ? 0 : Number(cursor);
       const page = all.slice(start, start + numItems).map(read);
-      return {
+      return await Promise.resolve({
         page,
         isDone: start + numItems >= all.length,
         continueCursor: String(start + page.length),
-      };
+      });
     }
 
     async *[Symbol.asyncIterator]() {
@@ -336,7 +376,11 @@ export function createFakeDb() {
     // form; a table name that doesn't match the document fails like a wrong-table Id would.
     async get(tableOrId: string, maybeId?: string) {
       const found = findRow(tableOrId, maybeId);
-      return found ? read(found.doc) : null;
+      return await Promise.resolve(found ? read(found.doc) : null);
+    },
+    /** Like the real db: checks only the id's format and table (`<table>:<n>`), not existence. */
+    normalizeId(table: TableNames, id: string): string | null {
+      return id.startsWith(`${table}:`) ? id : null;
     },
     query(table: TableNames) {
       stats.queries += 1;
@@ -344,7 +388,7 @@ export function createFakeDb() {
     },
     async insert(table: TableNames, doc: Record<string, unknown>) {
       stats.writes += 1;
-      return this.seed(table, doc);
+      return await Promise.resolve(this.seed(table, doc));
     },
     async patch(
       tableOrId: string,
@@ -365,11 +409,12 @@ export function createFakeDb() {
       stats.writes += 1;
       for (const [key, value] of Object.entries(fields)) {
         if (value === undefined) {
-          delete found.doc[key];
+          Reflect.deleteProperty(found.doc, key);
         } else {
           found.doc[key] = value;
         }
       }
+      await Promise.resolve();
     },
     async delete(tableOrId: string, maybeId?: string) {
       const id = maybeId ?? tableOrId;
@@ -377,57 +422,59 @@ export function createFakeDb() {
         throw new Error(`delete of missing document ${id}`);
       }
       stats.writes += 1;
+      await Promise.resolve();
     },
   };
-}
+};
+
+export type FakeDb = ReturnType<typeof createFakeDb>;
 
 /**
  * A mutation-like ctx over `db`. Transaction metrics count only the work done through this ctx,
  * so create a new one per simulated transaction.
  */
-export function createFakeCtx(db: FakeDb) {
+export const createFakeCtx = (db: FakeDb) => {
   const start = { ...db.stats };
-  const metric = (used: number, limit: number) => ({
-    used,
-    remaining: limit - used,
-  });
-  const runAfter = vi.fn<
-    (delayMs: number, fn: unknown, args: unknown) => Promise<string>
-  >(async () => "scheduled:1");
-  const runAt = vi.fn<
-    (timestamp: number, fn: unknown, args: unknown) => Promise<string>
-  >(async () => "scheduled:1");
+  const runAfter =
+    vi.fn<(delayMs: number, fn: unknown, args: unknown) => Promise<string>>();
+  runAfter.mockResolvedValue("scheduled:1");
+  const runAt =
+    vi.fn<(timestamp: number, fn: unknown, args: unknown) => Promise<string>>();
+  runAt.mockResolvedValue("scheduled:1");
+  const cancel = vi.fn<(id: string) => Promise<void>>();
+  cancel.mockResolvedValue();
   return {
     db,
     scheduler: {
       runAfter,
       runAt,
-      cancel: vi.fn<(id: string) => Promise<void>>(async () => undefined),
+      cancel,
     },
     meta: {
-      getTransactionMetrics: async () => ({
-        documentsWritten: metric(
-          db.stats.writes - start.writes,
-          LIMITS.documentsWritten
-        ),
-        documentsRead: metric(
-          db.stats.reads - start.reads,
-          LIMITS.documentsRead
-        ),
-        databaseQueries: metric(
-          db.stats.queries - start.queries,
-          LIMITS.databaseQueries
-        ),
-        functionsScheduled: metric(
-          runAfter.mock.calls.length + runAt.mock.calls.length,
-          LIMITS.functionsScheduled
-        ),
-        bytesRead: metric(db.stats.bytesRead - start.bytesRead, 16 * MiB),
-        bytesWritten: metric(0, 16 * MiB),
-        scheduledFunctionArgsBytes: metric(0, 16 * MiB),
-      }),
+      getTransactionMetrics: async () =>
+        await Promise.resolve({
+          documentsWritten: metric(
+            db.stats.writes - start.writes,
+            LIMITS.documentsWritten
+          ),
+          documentsRead: metric(
+            db.stats.reads - start.reads,
+            LIMITS.documentsRead
+          ),
+          databaseQueries: metric(
+            db.stats.queries - start.queries,
+            LIMITS.databaseQueries
+          ),
+          functionsScheduled: metric(
+            runAfter.mock.calls.length + runAt.mock.calls.length,
+            LIMITS.functionsScheduled
+          ),
+          bytesRead: metric(db.stats.bytesRead - start.bytesRead, 16 * MiB),
+          bytesWritten: metric(0, 16 * MiB),
+          scheduledFunctionArgsBytes: metric(0, 16 * MiB),
+        }),
     },
   };
-}
+};
 
 export type FakeCtx = ReturnType<typeof createFakeCtx>;

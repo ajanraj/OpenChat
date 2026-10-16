@@ -12,18 +12,19 @@ import {
   ScheduledAgentMemory,
   formatWorkingMemoryPrompt,
 } from "../src/lib/ai/scheduled-agent-memory";
-import { MODELS_MAP } from "../src/lib/config";
+import { MODELS_MAP } from "../src/lib/config/models";
 import { SCHEDULED_AGENT_MODEL_ID } from "../src/lib/config/models/minimax";
+import { languageModelOf } from "../src/lib/config/schemas";
 import type { ConnectorStatusLists } from "../src/lib/connector-utils";
 import { createAgentTool } from "../src/lib/create-agent-tool";
 import { limitDepth } from "../src/lib/depth-limiter";
 import { ERROR_CODES, getErrorMessage } from "../src/lib/error-codes";
-import type { ErrorCode } from "../src/lib/error-codes";
-import { buildSystemPrompt } from "../src/lib/prompt_config";
+import { buildSystemPrompt } from "../src/lib/prompt-config";
 import { createMeteredSearchTool } from "../src/lib/tools/search-credit-metering";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import type { CreditReceipt } from "./lib/credits";
 import schema from "./schema";
 
@@ -44,6 +45,145 @@ const PAUSING_LIMIT_ERRORS = new Set<string>([
 // actions. A run starting later ends at once, so no run is still working 18 minutes after its
 // claim, when scheduled_tasks:expireTaskExecution has yet to release the task.
 const GENERATION_DEADLINE_MS = 8 * 60 * 1000;
+
+// Connector types the scheduled agent can use (server-safe, without importing UI modules)
+const SUPPORTED_CONNECTOR_TYPES = [
+  "gmail",
+  "googlecalendar",
+  "googledrive",
+  "notion",
+  "googledocs",
+  "googlesheets",
+  "slack",
+  "linear",
+  "github",
+  "twitter",
+] as const;
+
+// Reads the Upstash credentials the agent memory needs, throwing when either is missing
+const getRedisCredentials = (): { url: string; token: string } => {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (url === undefined || url === "" || token === undefined || token === "") {
+    throw new Error(
+      "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars"
+    );
+  }
+  return { url, token };
+};
+
+type CreditCharge =
+  | { status: "charged"; receipt: CreditReceipt | null }
+  | { status: "paused"; errorMessage: string };
+
+// Enforces subscription access and charges the run's credit (receipt is null for models that skip
+// rate limiting). A usage limit returns "paused" instead of throwing; other errors are rethrown.
+const chargeRunCredit = async (
+  ctx: ActionCtx,
+  userId: Id<"users">,
+  model: {
+    premium: boolean;
+    usesPremiumCredits: boolean;
+    skipRateLimit?: boolean;
+  }
+): Promise<CreditCharge> => {
+  const creditArgs = {
+    userId,
+    requiresPremium: model.premium,
+    usesPremiumCredits: model.usesPremiumCredits,
+  };
+  try {
+    if (model.skipRateLimit === true) {
+      await ctx.runMutation(
+        internal.users.assertNotOverLimitInternal,
+        creditArgs
+      );
+      return { status: "charged", receipt: null };
+    }
+    const receipt = await ctx.runMutation(
+      internal.users.consumeMessageCreditInternal,
+      creditArgs
+    );
+    return { status: "charged", receipt };
+  } catch (error) {
+    if (
+      error instanceof ConvexError &&
+      typeof error.data === "string" &&
+      PAUSING_LIMIT_ERRORS.has(error.data)
+    ) {
+      return { status: "paused", errorMessage: getErrorMessage(error.data) };
+    }
+    throw error;
+  }
+};
+
+// Loads the user's connectors as Composio toolkit slugs plus status lists for the prompt.
+// Failures are logged and leave whatever was loaded so far (no tools when nothing loaded).
+const loadConnectorsContext = async (
+  ctx: ActionCtx,
+  userId: Id<"users">
+): Promise<{
+  toolkitSlugs: string[];
+  connectorsStatus: ConnectorStatusLists | undefined;
+}> => {
+  let toolkitSlugs: string[] = [];
+  try {
+    // Get user's connected connectors (Gmail, Google Calendar, Notion, etc.)
+    const connectedConnectors = await ctx.runQuery(
+      internal.connectors.getConnectedConnectors,
+      { userId }
+    );
+    // Also get all connectors (including disabled) for status reporting
+    const allUserConnectors = await ctx.runQuery(
+      internal.connectors.getAllUserConnectors,
+      { userId }
+    );
+
+    if (connectedConnectors.length > 0) {
+      // Convert connector types to Composio toolkit slugs
+      // e.g., 'gmail' -> 'GMAIL', 'googlecalendar' -> 'GOOGLECALENDAR'
+      toolkitSlugs = connectedConnectors
+        .filter((connector) => connector.enabled !== false)
+        .map((connector) => connector.type.toUpperCase());
+    }
+
+    // Compute connectors status lists for prompt clarity
+    const disabledSlugs = allUserConnectors
+      .filter((c) => c.isConnected && c.enabled === false)
+      .map((c) => c.type.toUpperCase());
+    const presentTypes = new Set<string>(
+      allUserConnectors.filter((c) => c.isConnected).map((c) => c.type)
+    );
+    const notConnectedSlugs = SUPPORTED_CONNECTOR_TYPES.filter(
+      (t) => !presentTypes.has(t)
+    ).map((t) => t.toUpperCase());
+
+    return {
+      toolkitSlugs,
+      connectorsStatus: {
+        enabled: toolkitSlugs,
+        disabled: disabledSlugs,
+        notConnected: notConnectedSlugs,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to load Composio tools:", error);
+    return { toolkitSlugs, connectorsStatus: undefined };
+  }
+};
+
+// Token counts for a run's metadata; the agent result does not expose reasoning or cached tokens
+const toRunUsage = (
+  usage:
+    | { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    | undefined
+) => ({
+  inputTokens: usage?.inputTokens ?? 0,
+  outputTokens: usage?.outputTokens ?? 0,
+  reasoningTokens: 0,
+  totalTokens: usage?.totalTokens ?? 0,
+  cachedInputTokens: 0,
+});
 
 // Performs one run of a scheduled task that is already claimed: scheduled right after the claim
 // by scheduled_tasks:startScheduledRun (timed runs) and triggerScheduledTask (manual runs), with
@@ -89,13 +229,7 @@ export const executeTask = internalAction({
 
     try {
       // Validate memory backend config before creating the chat
-      const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-      const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-      if (!redisUrl || !redisToken) {
-        throw new Error(
-          "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars"
-        );
-      }
+      const redisCredentials = getRedisCredentials();
 
       // Get user details
       const user: Doc<"users"> | null = await ctx.runQuery(
@@ -117,45 +251,22 @@ export const executeTask = internalAction({
       const profile =
         fetchedProfile?.userId === task.userId ? fetchedProfile : null;
 
-      const selectedModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
-      if (!selectedModel) {
+      if (!Object.hasOwn(MODELS_MAP, SCHEDULED_AGENT_MODEL_ID)) {
         throw new Error(
           `Scheduled agent model ${SCHEDULED_AGENT_MODEL_ID} is not configured`
         );
       }
+      const selectedModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
+      const languageModel = languageModelOf(selectedModel);
 
       // Enforce subscription access and charge the credit up front, before creating the chat,
       // so concurrent runs cannot overspend. A usage limit pauses the task instead of failing it.
-      const creditArgs = {
-        userId: task.userId,
-        requiresPremium: selectedModel.premium === true,
-        usesPremiumCredits: selectedModel.usesPremiumCredits === true,
-      };
-      try {
-        if (selectedModel.skipRateLimit) {
-          await ctx.runMutation(
-            internal.users.assertNotOverLimitInternal,
-            creditArgs
-          );
-        } else {
-          chargedCredit = await ctx.runMutation(
-            internal.users.consumeMessageCreditInternal,
-            creditArgs
-          );
-        }
-      } catch (error) {
-        if (
-          error instanceof ConvexError &&
-          typeof error.data === "string" &&
-          PAUSING_LIMIT_ERRORS.has(error.data)
-        ) {
-          await finish("paused", {
-            errorMessage: getErrorMessage(error.data as ErrorCode),
-          });
-          return null;
-        }
-        throw error;
+      const charge = await chargeRunCredit(ctx, task.userId, selectedModel);
+      if (charge.status === "paused") {
+        await finish("paused", { errorMessage: charge.errorMessage });
+        return null;
       }
+      chargedCredit = charge.receipt;
 
       // Create a new chat for each task execution, titled with the run time in the user's zone
       const executionDate = dayjs()
@@ -167,7 +278,7 @@ export const executeTask = internalAction({
         model: SCHEDULED_AGENT_MODEL_ID,
         profileId: profile?._id,
       });
-      chatId = chat.chatId;
+      ({ chatId } = chat);
 
       // Point the task at the latest chat
       await ctx.runMutation(internal.scheduled_tasks.updateTaskChatId, {
@@ -180,78 +291,23 @@ export const executeTask = internalAction({
       // 1. The enabledToolSlugs field is not yet implemented in the UI
       // 2. Connectors table tracks actual user connections to external services
       // 3. This ensures only connected services are available as tools
-      let toolkitSlugs: string[] = [];
-      let connectorsStatus: ConnectorStatusLists | undefined;
-      try {
-        // Get user's connected connectors (Gmail, Google Calendar, Notion, etc.)
-        const connectedConnectors = await ctx.runQuery(
-          internal.connectors.getConnectedConnectors,
-          {
-            userId: task.userId,
-          }
-        );
-        // Also get all connectors (including disabled) for status reporting
-        const allUserConnectors = await ctx.runQuery(
-          internal.connectors.getAllUserConnectors,
-          {
-            userId: task.userId,
-          }
-        );
-
-        // console.log('Connected connectors:', connectedConnectors);
-
-        if (connectedConnectors.length > 0) {
-          // Convert connector types to Composio toolkit slugs
-          // e.g., 'gmail' -> 'GMAIL', 'googlecalendar' -> 'GOOGLECALENDAR'
-          toolkitSlugs = connectedConnectors
-            .filter((connector) => connector.enabled !== false)
-            .map((connector) => connector.type.toUpperCase());
-          // console.log('Derived toolkit slugs:', toolkitSlugs);
-        }
-
-        // Compute connectors status lists for prompt clarity
-        const enabledSlugs = toolkitSlugs;
-        const disabledSlugs = allUserConnectors
-          .filter((c) => c.isConnected && c.enabled === false)
-          .map((c) => c.type.toUpperCase());
-        const presentTypes = new Set(
-          allUserConnectors.filter((c) => c.isConnected).map((c) => c.type)
-        );
-        // Supported types (server-safe, without importing UI modules)
-        const SUPPORTED_TYPES = [
-          "gmail",
-          "googlecalendar",
-          "googledrive",
-          "notion",
-          "googledocs",
-          "googlesheets",
-          "slack",
-          "linear",
-          "github",
-          "twitter",
-        ] as const;
-        const notConnectedSlugs = SUPPORTED_TYPES.filter(
-          (t) => !presentTypes.has(t)
-        ).map((t) => t.toUpperCase());
-
-        connectorsStatus = {
-          enabled: enabledSlugs,
-          disabled: disabledSlugs,
-          notConnected: notConnectedSlugs,
-        };
-      } catch (error) {
-        console.error("Failed to load Composio tools:", error);
-      }
+      const { toolkitSlugs, connectorsStatus } = await loadConnectorsContext(
+        ctx,
+        task.userId
+      );
 
       // Build system prompt
       const systemPrompt = buildSystemPrompt(
         user,
-        undefined, // No persona for scheduled tasks
+        // No persona for scheduled tasks
+        undefined,
         task.enableSearch,
         toolkitSlugs.length > 0,
         task.timezone,
-        task.emailNotifications, // Enable email mode when notifications are enabled
-        true, // Enable task mode for autonomous execution
+        // Enable email mode when notifications are enabled
+        task.emailNotifications,
+        // Enable task mode for autonomous execution
+        true,
         connectorsStatus,
         profile
       );
@@ -312,17 +368,14 @@ export const executeTask = internalAction({
         toolset.create_agent = createAgentTool({
           userId: task.userId,
           availableToolkits: toolkitSlugs,
-          model: selectedModel.api_sdk,
+          model: languageModel,
           connectorsStatus,
           writer: noopWriter,
         });
       }
 
       // Initialize memory
-      const redis = new Redis({
-        url: redisUrl,
-        token: redisToken,
-      });
+      const redis = new Redis(redisCredentials);
       const memory = new ScheduledAgentMemory(redis);
 
       // Load history + working memory
@@ -337,7 +390,7 @@ export const executeTask = internalAction({
 
       // Initialize Agent
       const agent = createScheduledAgent({
-        model: selectedModel.api_sdk,
+        model: languageModel,
         systemPrompt: enhancedPrompt,
         tools: toolset,
       });
@@ -358,15 +411,8 @@ export const executeTask = internalAction({
         console.error("Failed to save history to Redis:", error);
       }
 
-      // Agent result usage might be structured differently, mapping it:
-      // ai-sdk-tools agent result has `usage` property with inputTokens, outputTokens
-      const finalUsage = {
-        inputTokens: result.usage?.inputTokens || 0,
-        outputTokens: result.usage?.outputTokens || 0,
-        reasoningTokens: 0, // Agent might not expose this directly yet, defaulting to 0
-        totalTokens: result.usage?.totalTokens || 0,
-        cachedInputTokens: 0,
-      };
+      // The agent result's `usage` has inputTokens, outputTokens and totalTokens
+      const finalUsage = toRunUsage(result.usage);
 
       // Construct email content from the generated assistant text
       const emailTextContent = textContent;
@@ -392,7 +438,7 @@ export const executeTask = internalAction({
       const depthLimitedParts = limitDepth(assistantParts, 14);
 
       // Send email notification after message processing is complete
-      if (task.emailNotifications && emailTextContent) {
+      if (task.emailNotifications === true && emailTextContent !== "") {
         // Schedule email mutation to run immediately after this action completes
         await ctx.scheduler.runAfter(0, internal.email.sendTaskSummaryEmail, {
           userId: task.userId,

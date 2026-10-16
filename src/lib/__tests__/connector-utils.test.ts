@@ -6,10 +6,10 @@ import {
 } from "../connector-utils";
 import type { Connector } from "../connector-utils";
 
-describe("SUPPORTED_CONNECTORS", () => {
+describe("SUPPORTED_CONNECTORS list", () => {
   it("is defined and is an array", () => {
     expect(SUPPORTED_CONNECTORS).toBeDefined();
-    expect(Array.isArray(SUPPORTED_CONNECTORS)).toBe(true);
+    expect(Array.isArray(SUPPORTED_CONNECTORS)).toBeTruthy();
   });
 
   it("contains expected connector types", () => {
@@ -17,12 +17,12 @@ describe("SUPPORTED_CONNECTORS", () => {
   });
 });
 
-describe("calculateConnectorStatus", () => {
+describe(calculateConnectorStatus, () => {
   it("returns empty arrays when no connectors provided", () => {
     const result = calculateConnectorStatus([]);
 
-    expect(result.enabled).toEqual([]);
-    expect(result.disabled).toEqual([]);
+    expect(result.enabled).toStrictEqual([]);
+    expect(result.disabled).toStrictEqual([]);
     expect(result.notConnected).toHaveLength(SUPPORTED_CONNECTORS.length);
   });
 

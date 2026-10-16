@@ -5,16 +5,16 @@ export interface AvatarUserData {
   image?: string | null;
 }
 
-const SIZE_PARAM_REGEX = /sz=\d+/;
-const S96_PARAM_REGEX = /s96-c/;
-const GOOGLE_USER_CONTENT_HOST_REGEX = /(^|\.)googleusercontent\.com$/;
+const SIZE_PARAM_REGEX = /sz=\d+/u;
+const S96_PARAM_REGEX = /s96-c/u;
+const GOOGLE_USER_CONTENT_HOST_REGEX = /(?:^|\.)googleusercontent\.com$/u;
 const GOOGLE_DEFAULT_AVATAR_PATTERNS = [
   "/a/default-user",
   "/AAAAAAAAAAI/AAAAAAAAAAA/",
 ];
 
 const normalizeSeedValue = (value?: string | null): string | null => {
-  if (!value) {
+  if (value === undefined || value === null || value === "") {
     return null;
   }
 
@@ -26,17 +26,17 @@ export const getUserAvatarSeed = (
   user: AvatarUserData | null | undefined
 ): string => {
   const preferredName = normalizeSeedValue(user?.preferredName);
-  if (preferredName) {
+  if (preferredName !== null) {
     return preferredName;
   }
 
   const name = normalizeSeedValue(user?.name);
-  if (name) {
+  if (name !== null) {
     return name;
   }
 
   const email = normalizeSeedValue(user?.email);
-  if (email) {
+  if (email !== null) {
     return email;
   }
 
@@ -47,8 +47,8 @@ export const getHighResolutionAvatarUrl = (
   imageUrl?: string | null,
   size = 192
 ): string | undefined => {
-  if (!imageUrl) {
-    return;
+  if (imageUrl === undefined || imageUrl === null || imageUrl === "") {
+    return undefined;
   }
 
   if (imageUrl.includes("googleusercontent.com")) {
@@ -70,7 +70,7 @@ export const getHighResolutionAvatarUrl = (
 export const isLikelyDefaultGoogleAvatarUrl = (
   imageUrl?: string | null
 ): boolean => {
-  if (!imageUrl) {
+  if (imageUrl === undefined || imageUrl === null || imageUrl === "") {
     return false;
   }
 
@@ -97,7 +97,12 @@ export const isLikelyDefaultGoogleAvatarUrl = (
 export const getRenderableAvatarImageSrc = (
   imageUrl?: string | null
 ): string | undefined => {
-  if (!imageUrl || isLikelyDefaultGoogleAvatarUrl(imageUrl)) {
+  if (
+    imageUrl === undefined ||
+    imageUrl === null ||
+    imageUrl === "" ||
+    isLikelyDefaultGoogleAvatarUrl(imageUrl)
+  ) {
     return undefined;
   }
 

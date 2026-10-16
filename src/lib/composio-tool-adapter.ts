@@ -33,84 +33,109 @@ interface ComposioTool {
   execute: (params: Record<string, unknown>) => Promise<ToolExecuteResponse>;
 }
 
-/**
- * Clean JSON Schema to ensure compatibility with AI SDK v5
- * This fixes common issues with Composio's JSON Schema format
- */
-function cleanJsonSchema(schema: JSONSchema7): JSONSchema7 {
-  const cleaned = JSON.parse(JSON.stringify(schema));
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
-  // Recursively clean the schema
-  function cleanObject(obj: unknown): JSONSchema7 {
-    if (typeof obj !== "object" || obj === null) {
-      return obj as JSONSchema7;
-    }
+// Plain (non-array) objects; cleanSchemaValue turns every schema object into one
+const isSchemaObject = (value: unknown): value is JSONSchema7 =>
+  isRecord(value);
 
-    if (Array.isArray(obj)) {
-      return obj.map(cleanObject) as JSONSchema7;
-    }
+type CleanValue = (value: unknown) => unknown;
 
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(obj)) {
-      // Skip undefined values
-      if (value === undefined) {
-        continue;
-      }
-
-      // Handle arrays - ensure items property exists
-      if (key === "type" && value === "array") {
-        result[key] = value;
-        // Will be handled by the parent object
-      } else if (key === "items" && value && typeof value === "object") {
-        // Ensure items has a valid structure
-        const cleanedItems = cleanObject(value);
-        if (
-          typeof cleanedItems === "object" &&
-          cleanedItems !== null &&
-          !Array.isArray(cleanedItems) &&
-          !cleanedItems.type
-        ) {
-          // If items doesn't have a type, default to object
-          (cleanedItems as Record<string, unknown>).type = "object";
-          if (!(cleanedItems as Record<string, unknown>).properties) {
-            (cleanedItems as Record<string, unknown>).properties = {};
-          }
-        }
-        result[key] = cleanedItems;
-      } else if (key === "properties" && value && typeof value === "object") {
-        // Clean all properties recursively
-        const cleanedProps: Record<string, JSONSchema7> = {};
-        for (const [propKey, propValue] of Object.entries(value)) {
-          cleanedProps[propKey] = cleanObject(propValue);
-        }
-        result[key] = cleanedProps;
-      } else if (typeof value === "object") {
-        result[key] = cleanObject(value);
-      } else {
-        result[key] = value;
+// `items` without a type defaults to an object schema
+const cleanItems = (items: object, clean: CleanValue): unknown => {
+  const cleanedItems = clean(items);
+  if (isRecord(cleanedItems)) {
+    const hasType = Boolean(cleanedItems.type);
+    if (!hasType) {
+      cleanedItems.type = "object";
+      const hasProperties = Boolean(cleanedItems.properties);
+      if (!hasProperties) {
+        cleanedItems.properties = {};
       }
     }
+  }
+  return cleanedItems;
+};
 
-    // Special handling for array types without items
-    if (result.type === "array" && !result.items) {
-      // console.warn('Array type without items definition, adding default items');
-      result.items = { type: "object", properties: {} };
-    }
+// Cleans every property schema, keeping undefined ones
+const cleanProperties = (
+  properties: object,
+  clean: CleanValue
+): Record<string, unknown> => {
+  const cleanedProps: Record<string, unknown> = {};
+  for (const [propKey, propValue] of Object.entries(properties)) {
+    cleanedProps[propKey] = clean(propValue);
+  }
+  return cleanedProps;
+};
 
-    return result;
+// `clean` is cleanSchemaValue, passed in because the helpers recurse through it
+const cleanSchemaEntry = (
+  key: string,
+  value: unknown,
+  clean: CleanValue
+): unknown => {
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+  if (key === "items") {
+    return cleanItems(value, clean);
+  }
+  if (key === "properties") {
+    return cleanProperties(value, clean);
+  }
+  return clean(value);
+};
+
+// Recursively cleans a schema value: drops undefined fields and adds missing array `items`
+const cleanSchemaValue = (value: unknown): unknown => {
+  if (typeof value !== "object" || value === null) {
+    return value;
   }
 
-  return cleanObject(cleaned);
-}
+  if (Array.isArray(value)) {
+    return value.map(cleanSchemaValue);
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    // Skip undefined values
+    if (entry !== undefined) {
+      result[key] = cleanSchemaEntry(key, entry, cleanSchemaValue);
+    }
+  }
+
+  // Special handling for array types without items
+  const hasItems = Boolean(result.items);
+  if (result.type === "array" && !hasItems) {
+    result.items = { type: "object", properties: {} };
+  }
+
+  return result;
+};
+
+/**
+ * Clean JSON Schema to ensure compatibility with AI SDK v5
+ * This fixes common issues with Composio's JSON Schema format. Builds a new schema; the input
+ * is not mutated.
+ * @throws {TypeError} When the schema is not an object, so the tool is skipped
+ */
+const cleanJsonSchema = (schema: JSONSchema7): JSONSchema7 => {
+  const cleaned = cleanSchemaValue(schema);
+  if (!isSchemaObject(cleaned)) {
+    throw new TypeError("Composio tool JSON Schema must be an object");
+  }
+  return cleaned;
+};
 
 /**
  * Convert a single Composio tool to AI SDK v5 format
  */
-export function convertComposioTool(
+export const convertComposioTool = (
   _toolName: string,
   composioTool: ComposioTool
-): Tool {
+): Tool => {
   // Clean the JSON Schema to fix compatibility issues
   const cleanedSchema = cleanJsonSchema(composioTool.parameters.jsonSchema);
 
@@ -120,20 +145,20 @@ export function convertComposioTool(
   return {
     description: composioTool.description,
     inputSchema,
-    execute: async (input) => {
+    execute: async (input: Record<string, unknown>) => {
       // Convert the input to the format expected by Composio
       const result = await composioTool.execute(input);
       return result;
     },
   };
-}
+};
 
 /**
  * Convert all Composio tools to AI SDK v5 format
  */
-export function convertComposioTools(
+export const convertComposioTools = (
   composioTools: Record<string, ComposioTool>
-): Record<string, Tool> {
+): Record<string, Tool> => {
   const convertedTools: Record<string, Tool> = {};
 
   for (const [toolName, composioTool] of Object.entries(composioTools)) {
@@ -146,33 +171,29 @@ export function convertComposioTools(
   }
 
   return convertedTools;
-}
+};
 
 /**
  * Type guard to check if an value is a Composio tool
  */
-export function isComposioTool(obj: unknown): obj is ComposioTool {
-  return (
-    obj !== null &&
-    typeof obj === "object" &&
-    obj !== undefined &&
-    "description" in obj &&
-    typeof obj.description === "string" &&
-    "parameters" in obj &&
-    obj.parameters !== null &&
-    typeof obj.parameters === "object" &&
-    "jsonSchema" in obj.parameters &&
-    typeof obj.parameters.jsonSchema === "object" &&
-    "execute" in obj &&
-    typeof obj.execute === "function"
-  );
-}
+export const isComposioTool = (obj: unknown): obj is ComposioTool =>
+  obj !== null &&
+  typeof obj === "object" &&
+  obj !== undefined &&
+  "description" in obj &&
+  typeof obj.description === "string" &&
+  "parameters" in obj &&
+  obj.parameters !== null &&
+  typeof obj.parameters === "object" &&
+  "jsonSchema" in obj.parameters &&
+  typeof obj.parameters.jsonSchema === "object" &&
+  "execute" in obj &&
+  typeof obj.execute === "function";
 
 /**
  * Validate that all tools in an object are Composio tools
  */
-export function validateComposioTools(
+export const validateComposioTools = (
   tools: Record<string, unknown>
-): tools is Record<string, ComposioTool> {
-  return Object.values(tools).every(isComposioTool);
-}
+): tools is Record<string, ComposioTool> =>
+  Object.values(tools).every(isComposioTool);

@@ -6,10 +6,10 @@ import {
   TOOL_SPECIFIC_PROMPTS,
 } from "../prompt-tool-config";
 
-describe("TOOL_SPECIFIC_PROMPTS", () => {
+describe("TOOL_SPECIFIC_PROMPTS config", () => {
   it("is defined and has entries", () => {
     expect(TOOL_SPECIFIC_PROMPTS).toBeDefined();
-    expect(typeof TOOL_SPECIFIC_PROMPTS).toBe("object");
+    expect(TOOL_SPECIFIC_PROMPTS).toBeTypeOf("object");
   });
 
   it("has notion prompt configuration", () => {
@@ -47,18 +47,17 @@ describe("TOOL_SPECIFIC_PROMPTS", () => {
 
   it("each tool prompt has required properties", () => {
     for (const [_key, toolPrompt] of Object.entries(TOOL_SPECIFIC_PROMPTS)) {
-      expect(toolPrompt.content).toBeDefined();
-      expect(typeof toolPrompt.content).toBe("string");
+      // toBeTypeOf and Array.isArray also rule out undefined
+      expect(toolPrompt.content).toBeTypeOf("string");
       expect(toolPrompt.content.length).toBeGreaterThan(0);
 
-      expect(toolPrompt.connectors).toBeDefined();
-      expect(Array.isArray(toolPrompt.connectors)).toBe(true);
+      expect(Array.isArray(toolPrompt.connectors)).toBeTruthy();
       expect(toolPrompt.connectors.length).toBeGreaterThan(0);
     }
   });
 });
 
-describe("getToolSpecificPrompts", () => {
+describe(getToolSpecificPrompts, () => {
   it("returns empty string for empty toolkits array", () => {
     const result = getToolSpecificPrompts([]);
 
@@ -127,11 +126,11 @@ describe("getToolSpecificPrompts", () => {
   });
 });
 
-describe("getSupportedConnectorsWithPrompts", () => {
+describe(getSupportedConnectorsWithPrompts, () => {
   it("returns an array", () => {
     const result = getSupportedConnectorsWithPrompts();
 
-    expect(Array.isArray(result)).toBe(true);
+    expect(Array.isArray(result)).toBeTruthy();
   });
 
   it("includes all connectors from tool prompts", () => {

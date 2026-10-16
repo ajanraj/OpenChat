@@ -1,4 +1,5 @@
 import type {
+  LanguageModel,
   Tool,
   ToolSet,
   TypedToolResult,
@@ -60,7 +61,7 @@ type ProviderOptions = NonNullable<
 interface CreateAgentToolOptions {
   userId?: string;
   availableToolkits: string[];
-  model: string;
+  model: LanguageModel;
   systemPrompt?: string;
   maxSteps?: number;
   reasoning?: ReasoningEffort;
@@ -78,6 +79,17 @@ export interface SubAgentAnalysis {
   summary: string;
   errorMessage?: string;
 }
+
+// Parses the JSON analysis that execute() hands to toModelOutput
+const subAgentAnalysisSchema = z.object({
+  success: z.boolean(),
+  toolCallCount: z.number(),
+  toolNames: z.array(z.string()),
+  finishReason: z.string(),
+  issues: z.array(z.string()),
+  summary: z.string(),
+  errorMessage: z.string().optional(),
+}) satisfies z.ZodType<SubAgentAnalysis>;
 
 type SubAgentToolResult = TypedToolResult<ToolSet>;
 
@@ -97,7 +109,11 @@ const isSuccessfulConnectorResult = (result: SubAgentToolResult): boolean => {
 
 const getConnectorResultError = (result: SubAgentToolResult): string | null => {
   const parsed = connectorToolOutputSchema.safeParse(result.output);
-  return parsed.success && parsed.data.error ? parsed.data.error : null;
+  if (!parsed.success) {
+    return null;
+  }
+  const { error } = parsed.data;
+  return error !== undefined && error !== null && error !== "" ? error : null;
 };
 
 export const analyzeSubAgentExecution = ({
@@ -230,7 +246,7 @@ export const createAgentTool = ({
     inputSchema: createAgentInputSchema,
     toModelOutput: ({ output }) => {
       try {
-        const analysis: SubAgentAnalysis = JSON.parse(output);
+        const analysis = subAgentAnalysisSchema.parse(JSON.parse(output));
 
         if (!analysis.success) {
           const issueDetails = analysis.issues.join("; ");
@@ -270,7 +286,7 @@ export const createAgentTool = ({
         throw new Error("At least one connector toolkit must be specified.");
       }
 
-      if (!userId) {
+      if (userId === undefined || userId === "") {
         throw new Error("User session required to use connectors.");
       }
 
@@ -321,7 +337,7 @@ export const createAgentTool = ({
         const messages: UIMessage[] = [];
 
         // Add context message if provided
-        if (input.context) {
+        if (input.context !== undefined && input.context !== "") {
           messages.push({
             id: "create-agent-context",
             role: "user",
@@ -366,15 +382,15 @@ export const createAgentTool = ({
           },
           onEnd({ usage }) {
             agentTokenUsage = {
-              inputTokens: usage.inputTokens || 0,
-              outputTokens: usage.outputTokens || 0,
-              totalTokens: usage.totalTokens || 0,
+              inputTokens: usage.inputTokens ?? 0,
+              outputTokens: usage.outputTokens ?? 0,
+              totalTokens: usage.totalTokens ?? 0,
             };
           },
         });
 
         // Generate unique boundary ID for this agent execution
-        const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
         // Inject start boundary marker
         writer.write({
@@ -389,7 +405,8 @@ export const createAgentTool = ({
             toolkits: requestedToolkits,
             context: input.context,
           },
-          transient: false, // Keep in message history for boundary detection
+          // Keep in message history for boundary detection
+          transient: false,
         });
 
         // Let AI SDK handle all the streaming naturally
@@ -408,8 +425,8 @@ export const createAgentTool = ({
         ]);
 
         // Collect all tool calls from all steps (not just the last one)
-        const toolCalls = steps.flatMap((step) => step.toolCalls || []);
-        const toolResults = steps.flatMap((step) => step.toolResults || []);
+        const toolCalls = steps.flatMap((step) => step.toolCalls);
+        const toolResults = steps.flatMap((step) => step.toolResults);
 
         // Analyze what the sub-agent actually did
         const analysis = analyzeSubAgentExecution({
@@ -438,7 +455,8 @@ export const createAgentTool = ({
             },
             tokenUsage: agentTokenUsage,
           },
-          transient: false, // Keep in message history for boundary detection
+          // Keep in message history for boundary detection
+          transient: false,
         });
 
         // Return structured analysis as JSON for toModelOutput processing

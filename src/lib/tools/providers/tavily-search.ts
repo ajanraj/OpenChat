@@ -2,6 +2,77 @@ import { handleSearchError } from "../search-errors";
 import { PROVIDER_LIMITS, SEARCH_CONFIG } from "../types";
 import type { SearchAdapter, SearchOptions, SearchResult } from "../types";
 
+// Fields read from one entry of Tavily's `results` array
+interface TavilyResult {
+  url?: string;
+  title?: string;
+  content?: string;
+  raw_content?: string;
+}
+
+const getStringField = (value: object, key: string): string | undefined => {
+  const field: unknown = Reflect.get(value, key);
+  return typeof field === "string" ? field : undefined;
+};
+
+// Reads the result entries from a Tavily response body, ignoring anything malformed
+const parseTavilyResults = (data: unknown): TavilyResult[] => {
+  if (typeof data !== "object" || data === null || !("results" in data)) {
+    return [];
+  }
+  const { results } = data;
+  if (!Array.isArray(results)) {
+    return [];
+  }
+  return results.map((result: unknown): TavilyResult => {
+    if (typeof result !== "object" || result === null) {
+      return {};
+    }
+    return {
+      url: getStringField(result, "url"),
+      title: getStringField(result, "title"),
+      content: getStringField(result, "content"),
+      raw_content: getStringField(result, "raw_content"),
+    };
+  });
+};
+
+const formatMarkdown = (
+  item: TavilyResult,
+  includeContent: boolean
+): string => {
+  const title =
+    item.title !== undefined && item.title !== "" ? item.title : "Untitled";
+  const url = item.url !== undefined && item.url !== "" ? item.url : "#";
+  let markdown = `### [${title}](${url})\n${item.content ?? ""}`;
+
+  if (
+    includeContent &&
+    item.raw_content !== undefined &&
+    item.raw_content !== ""
+  ) {
+    const truncatedContent =
+      item.raw_content.length > SEARCH_CONFIG.maxTextCharacters
+        ? `${item.raw_content.slice(0, SEARCH_CONFIG.maxTextCharacters - 3)}...`
+        : item.raw_content;
+    markdown += `\n\n> ${truncatedContent}`;
+  }
+
+  return markdown;
+};
+
+const formatResults = (
+  results: TavilyResult[],
+  includeContent: boolean
+): SearchResult[] =>
+  results.map((item) => ({
+    url: item.url ?? "",
+    title: item.title ?? "",
+    description: item.content ?? "",
+    content: includeContent ? item.raw_content : undefined,
+    markdown: formatMarkdown(item, includeContent),
+  }));
+
 export class TavilySearchProvider implements SearchAdapter {
   readonly name = "tavily";
   readonly apiKey: string;
@@ -43,8 +114,12 @@ export class TavilySearchProvider implements SearchAdapter {
         api_key: this.apiKey,
         ...(includeDomains && { include_domains: includeDomains }),
         ...(excludeDomains && { exclude_domains: excludeDomains }),
-        ...(startPublishedDate && { start_published_date: startPublishedDate }),
-        ...(endPublishedDate && { end_published_date: endPublishedDate }),
+        ...(startPublishedDate !== undefined &&
+          startPublishedDate !== "" && {
+            start_published_date: startPublishedDate,
+          }),
+        ...(endPublishedDate !== undefined &&
+          endPublishedDate !== "" && { end_published_date: endPublishedDate }),
       };
 
       const response = await fetch(this.baseUrl, {
@@ -62,54 +137,11 @@ export class TavilySearchProvider implements SearchAdapter {
         );
       }
 
-      const data = await response.json();
+      const data: unknown = await response.json();
 
-      return this.formatResults(data.results || [], scrapeContent);
+      return formatResults(parseTavilyResults(data), scrapeContent);
     } catch (error) {
-      handleSearchError(error, "tavily");
+      return handleSearchError(error, "tavily");
     }
-  }
-
-  private formatResults(
-    results: unknown[],
-    includeContent: boolean
-  ): SearchResult[] {
-    return results.map((result: unknown) => {
-      const item = result as {
-        url?: string;
-        title?: string;
-        content?: string;
-        raw_content?: string;
-      };
-
-      return {
-        url: item.url || "",
-        title: item.title || "",
-        description: item.content || "",
-        content: includeContent ? item.raw_content : undefined,
-        markdown: this.formatMarkdown(item, includeContent),
-      };
-    });
-  }
-
-  private formatMarkdown(result: unknown, includeContent: boolean): string {
-    const item = result as {
-      url?: string;
-      title?: string;
-      content?: string;
-      raw_content?: string;
-    };
-
-    let markdown = `### [${item.title || "Untitled"}](${item.url || "#"})\n${item.content || ""}`;
-
-    if (includeContent && item.raw_content) {
-      const truncatedContent =
-        item.raw_content.length > SEARCH_CONFIG.maxTextCharacters
-          ? `${item.raw_content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3)}...`
-          : item.raw_content;
-      markdown += `\n\n> ${truncatedContent}`;
-    }
-
-    return markdown;
   }
 }

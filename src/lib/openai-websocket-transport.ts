@@ -29,7 +29,7 @@ const getStringProperty = (
     return undefined;
   }
 
-  const propertyValue = Reflect.get(value, propertyName);
+  const propertyValue: unknown = Reflect.get(value, propertyName);
   return typeof propertyValue === "string" ? propertyValue : undefined;
 };
 
@@ -50,7 +50,7 @@ export const getOpenAIStreamModel = (
   reasoningEnabled: boolean
 ): StreamModel | undefined => {
   const modelId = getStringProperty(selectedModel.api_sdk, "modelId");
-  if (!modelId) {
+  if (modelId === undefined || modelId === "") {
     return undefined;
   }
 

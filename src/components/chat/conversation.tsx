@@ -10,7 +10,8 @@ import {
 } from "@/components/prompt-kit/chat-container";
 import { ImageSkeleton } from "@/components/prompt-kit/image-skeleton";
 import { Loader } from "@/components/prompt-kit/loader";
-import { MODELS_MAP, type ReasoningEffort } from "@/lib/config";
+import { MODELS_MAP } from "@/lib/config/models";
+import { type ReasoningEffort } from "@/lib/config/schemas";
 import {
 	getMessageReasoningEffort,
 	supportsReasoningEffort,

@@ -3,42 +3,54 @@
 
 import type { ConnectorType } from "./types";
 
+// Returns the env value, or the fallback when it is unset or empty
+const envOr = (value: string | undefined, fallback: string): string =>
+  value === undefined || value === "" ? fallback : value;
+
 // Map connector types to auth config IDs using public environment variables
 export const getAuthConfigId = (connectorType: ConnectorType): string => {
   switch (connectorType) {
     case "gmail": {
-      return process.env.VITE_GMAIL_AUTH_CONFIG_ID || "gmail_oauth";
+      return envOr(process.env.VITE_GMAIL_AUTH_CONFIG_ID, "gmail_oauth");
     }
     case "googlecalendar": {
-      return process.env.VITE_CALENDAR_AUTH_CONFIG_ID || "googlecalendar_oauth";
+      return envOr(
+        process.env.VITE_CALENDAR_AUTH_CONFIG_ID,
+        "googlecalendar_oauth"
+      );
     }
     case "notion": {
-      return process.env.VITE_NOTION_AUTH_CONFIG_ID || "notion_oauth";
+      return envOr(process.env.VITE_NOTION_AUTH_CONFIG_ID, "notion_oauth");
     }
     case "googledrive": {
-      return (
-        process.env.VITE_GOOGLE_DRIVE_AUTH_CONFIG_ID || "googledrive_oauth"
+      return envOr(
+        process.env.VITE_GOOGLE_DRIVE_AUTH_CONFIG_ID,
+        "googledrive_oauth"
       );
     }
     case "googledocs": {
-      return process.env.VITE_GOOGLE_DOCS_AUTH_CONFIG_ID || "googledocs_oauth";
+      return envOr(
+        process.env.VITE_GOOGLE_DOCS_AUTH_CONFIG_ID,
+        "googledocs_oauth"
+      );
     }
     case "googlesheets": {
-      return (
-        process.env.VITE_GOOGLE_SHEETS_AUTH_CONFIG_ID || "googlesheets_oauth"
+      return envOr(
+        process.env.VITE_GOOGLE_SHEETS_AUTH_CONFIG_ID,
+        "googlesheets_oauth"
       );
     }
     case "slack": {
-      return process.env.VITE_SLACK_AUTH_CONFIG_ID || "slack_oauth";
+      return envOr(process.env.VITE_SLACK_AUTH_CONFIG_ID, "slack_oauth");
     }
     case "linear": {
-      return process.env.VITE_LINEAR_AUTH_CONFIG_ID || "linear_oauth";
+      return envOr(process.env.VITE_LINEAR_AUTH_CONFIG_ID, "linear_oauth");
     }
     case "github": {
-      return process.env.VITE_GITHUB_AUTH_CONFIG_ID || "github_oauth";
+      return envOr(process.env.VITE_GITHUB_AUTH_CONFIG_ID, "github_oauth");
     }
     case "twitter": {
-      return process.env.VITE_TWITTER_AUTH_CONFIG_ID || "twitter_oauth";
+      return envOr(process.env.VITE_TWITTER_AUTH_CONFIG_ID, "twitter_oauth");
     }
     default: {
       const exhaustiveCheck: never = connectorType;

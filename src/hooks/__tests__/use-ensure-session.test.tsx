@@ -12,7 +12,7 @@ const ADDRESS = "https://test.convex.cloud";
 const STORED_JWT_KEY = "__convexAuthJWT_httpstestconvexcloud";
 
 /** In-memory token storage for ConvexAuthProvider (the test setup stubs out localStorage). */
-function memoryStorage(initial: Record<string, string> = {}) {
+const memoryStorage = (initial: Record<string, string> = {}) => {
   const items = new Map(Object.entries(initial));
   return {
     getItem: (key: string) => items.get(key) ?? null,
@@ -23,20 +23,24 @@ function memoryStorage(initial: Record<string, string> = {}) {
       items.delete(key);
     },
   };
-}
+};
 
 /**
  * A real ConvexReactClient (it connects lazily, so no websocket opens) with its backend stubbed:
  * every token is accepted except `rejectedToken`, and Convex Auth's actions return a new guest.
  */
-function stubbedClient(rejectedToken?: string) {
+const stubbedClient = (rejectedToken?: string) => {
   const client = new ConvexReactClient(ADDRESS);
   const setAuth = vi
     .spyOn(client, "setAuth")
     .mockImplementation((fetchToken, onChange) => {
       void (async () => {
         const token = await fetchToken({ forceRefreshToken: false });
-        if (token && token !== rejectedToken) {
+        if (
+          typeof token === "string" &&
+          token !== "" &&
+          token !== rejectedToken
+        ) {
           onChange?.(true);
           return;
         }
@@ -45,7 +49,7 @@ function stubbedClient(rejectedToken?: string) {
         onChange?.(Boolean(refreshed) && refreshed !== rejectedToken);
       })();
     });
-  vi.spyOn(client, "clearAuth").mockImplementation(() => undefined);
+  vi.spyOn(client, "clearAuth").mockReturnValue();
   // auth:signIn reads the tokens; auth:signOut ignores its result
   const action = vi.spyOn(client, "action").mockResolvedValue({
     tokens: { token: "guest-jwt", refreshToken: "guest-refresh" },
@@ -54,12 +58,12 @@ function stubbedClient(rejectedToken?: string) {
     action.mock.calls.filter(([called]) => getFunctionName(called) === name)
       .length;
   return { client, setAuth, callsTo };
-}
+};
 
-function renderEnsureSession(
+const renderEnsureSession = (
   client: ConvexReactClient,
   storedTokens: Record<string, string> = {}
-) {
+) => {
   const storage = memoryStorage(storedTokens);
   const wrapper = ({ children }: { children: ReactNode }) => (
     <ConvexAuthProvider client={client} storage={storage}>
@@ -67,7 +71,17 @@ function renderEnsureSession(
     </ConvexAuthProvider>
   );
   return renderHook(() => useEnsureSession(), { wrapper }).result;
-}
+};
+
+/** Resolves to "authenticated", or to the message ensureSession rejected with. */
+const outcomeOf = async (ensureSession: () => Promise<void>) => {
+  try {
+    await ensureSession();
+    return "authenticated";
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+};
 
 describe("useEnsureSession with Convex Auth", () => {
   it("signs a signed-out visitor in as a guest and resolves once Convex accepts the token", async () => {
@@ -91,10 +105,7 @@ describe("useEnsureSession with Convex Auth", () => {
       expect(setAuth).toHaveBeenCalledOnce();
     });
 
-    const outcome = ensureSession.current().then(
-      () => "authenticated",
-      (error: Error) => error.message
-    );
+    const outcome = outcomeOf(ensureSession.current);
 
     // A token swapped in place never reaches Convex; signing out first makes it set auth again
     await vi.waitFor(() => {

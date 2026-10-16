@@ -10,7 +10,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MODELS_OPTIONS } from "@/lib/config";
+import { MODELS_OPTIONS } from "@/lib/config/models";
 import { useBreakpoint } from "../../hooks/use-breakpoint";
 import { PopoverContentAuth } from "./popover-content-auth";
 

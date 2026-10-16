@@ -27,15 +27,17 @@ interface ParsedSchedule {
 }
 
 // Hours may be unpadded to stay compatible with stored tasks (matches the client's TIME_24H_REGEX).
-const TIME_PATTERN = /^([01]?\d|2[0-3]):([0-5]\d)$/;
-const WEEKLY_PATTERN = /^([0-6]):([01]?\d|2[0-3]):([0-5]\d)$/;
-const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const TIME_PATTERN = /^(?<hour>[01]?\d|2[0-3]):(?<minute>[0-5]\d)$/u;
+const WEEKLY_PATTERN =
+  /^(?<weekday>[0-6]):(?<hour>[01]?\d|2[0-3]):(?<minute>[0-5]\d)$/u;
+const DATE_PATTERN = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/u;
 
-function invalidInput(): never {
+// Explicitly typed so TypeScript treats calls as never returning
+const invalidInput: () => never = () => {
   throw new ConvexError(ERROR_CODES.INVALID_INPUT);
-}
+};
 
-function isValidTimeZone(timeZone: string): boolean {
+const isValidTimeZone = (timeZone: string): boolean => {
   try {
     return Boolean(
       new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone
@@ -43,35 +45,37 @@ function isValidTimeZone(timeZone: string): boolean {
   } catch {
     return false;
   }
-}
+};
 
-function isCalendarDate(date: string): boolean {
-  const match = DATE_PATTERN.exec(date);
-  if (!match) {
+const isCalendarDate = (date: string): boolean => {
+  const groups = DATE_PATTERN.exec(date)?.groups;
+  if (groups === undefined) {
     return false;
   }
-  const [year, month, day] = match.slice(1).map(Number);
+  const [year, month, day] = [groups.year, groups.month, groups.day].map(
+    Number
+  );
   const parsed = new Date(Date.UTC(year, month - 1, day));
   return (
     parsed.getUTCFullYear() === year &&
     parsed.getUTCMonth() === month - 1 &&
     parsed.getUTCDate() === day
   );
-}
+};
 
-function parseSchedule(schedule: TaskSchedule): ParsedSchedule {
+const parseSchedule = (schedule: TaskSchedule): ParsedSchedule => {
   if (!isValidTimeZone(schedule.timezone)) {
     invalidInput();
   }
 
   const weekly = schedule.scheduleType === "weekly";
-  const match = (weekly ? WEEKLY_PATTERN : TIME_PATTERN).exec(
+  const groups = (weekly ? WEEKLY_PATTERN : TIME_PATTERN).exec(
     schedule.scheduledTime
-  );
-  if (!match) {
+  )?.groups;
+  if (groups === undefined) {
     invalidInput();
   }
-  const [hour, minute] = weekly ? match.slice(2) : match.slice(1);
+  const { hour, minute } = groups;
   const time = `${hour.padStart(2, "0")}:${minute}`;
 
   if (
@@ -83,11 +87,11 @@ function parseSchedule(schedule: TaskSchedule): ParsedSchedule {
     }
     return { time, date: schedule.scheduledDate };
   }
-  return { time, weekday: weekly ? Number(match[1]) : undefined };
-}
+  return { time, weekday: weekly ? Number(groups.weekday) : undefined };
+};
 
 /** Calendar date ("YYYY-MM-DD") of `timestamp` in `timeZone`, independent of the process zone. */
-function zonedDate(timestamp: number, timeZone: string): string {
+const zonedDate = (timestamp: number, timeZone: string): string => {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
@@ -97,20 +101,19 @@ function zonedDate(timestamp: number, timeZone: string): string {
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
-}
+};
 
 /** Pure calendar arithmetic on "YYYY-MM-DD" strings (no time zone involved). */
-function addDays(date: string, days: number): string {
-  return dayjs.utc(date).add(days, "day").format("YYYY-MM-DD");
-}
+const addDays = (date: string, days: number): string =>
+  dayjs.utc(date).add(days, "day").format("YYYY-MM-DD");
 
 /**
  * Validates a task schedule, throwing `ConvexError(INVALID_INPUT)` for a malformed
  * time, date, or time zone. Use when storing a schedule without computing a run time.
  */
-export function validateSchedule(schedule: TaskSchedule): void {
+export const validateSchedule = (schedule: TaskSchedule): void => {
   parseSchedule(schedule);
-}
+};
 
 /**
  * Returns the UTC timestamp of the task's next run, validating the schedule first.
@@ -124,10 +127,10 @@ export function validateSchedule(schedule: TaskSchedule): void {
  *
  * Used by create, update, resume, and every recurring reschedule.
  */
-export function calculateNextExecution(
+export const calculateNextExecution = (
   schedule: TaskSchedule,
   now = Date.now()
-): number {
+): number => {
   const { time, weekday, date } = parseSchedule(schedule);
   const at = (day: string) =>
     dayjs.tz(`${day}T${time}`, schedule.timezone).valueOf();
@@ -148,4 +151,4 @@ export function calculateNextExecution(
     next = at(day);
   }
   return next;
-}
+};

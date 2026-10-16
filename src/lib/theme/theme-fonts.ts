@@ -94,7 +94,9 @@ export const MONO_FONTS: readonly FontOption[] = [
 ] as const;
 
 // Get font options for a specific category
-export function getFontOptions(category: FontCategory): readonly FontOption[] {
+export const getFontOptions = (
+  category: FontCategory
+): readonly FontOption[] => {
   switch (category) {
     case "sans": {
       return SANS_FONTS;
@@ -107,13 +109,13 @@ export function getFontOptions(category: FontCategory): readonly FontOption[] {
       throw new Error(`Unknown font category: ${String(exhaustiveCheck)}`);
     }
   }
-}
+};
 
 // Get current font selection for a theme property
-export function getCurrentFontSelection(
+export const getCurrentFontSelection = (
   themeStyles: Partial<ThemeStyleProps>,
   category: FontCategory
-): FontOption {
+): FontOption => {
   const fontKey = category === "sans" ? "font-sans" : "font-mono";
   const currentValue = themeStyles[fontKey];
   const fontOptions = getFontOptions(category);
@@ -126,42 +128,44 @@ export function getCurrentFontSelection(
     return matchedFont;
   }
 
-  const systemFont = fontOptions[0];
-  if (!systemFont) {
+  const [systemFont] = fontOptions;
+  if (systemFont === undefined) {
     throw new Error(`No font options available for category: ${category}`);
   }
 
   return systemFont;
-}
+};
 
 // Check if current theme has custom fonts (non-system fonts)
-export function hasCustomFonts(themeStyles: Partial<ThemeStyleProps>): boolean {
+export const hasCustomFonts = (
+  themeStyles: Partial<ThemeStyleProps>
+): boolean => {
   const sansFontSelection = getCurrentFontSelection(themeStyles, "sans");
   const monoFontSelection = getCurrentFontSelection(themeStyles, "mono");
 
   return !(sansFontSelection.isSystem && monoFontSelection.isSystem);
-}
+};
 
 // Create new theme styles with updated font
-export function updateThemeFont(
+export const updateThemeFont = (
   currentStyles: Partial<ThemeStyleProps>,
   category: FontCategory,
   fontOption: FontOption
-): Partial<ThemeStyleProps> {
+): Partial<ThemeStyleProps> => {
   const fontKey = category === "sans" ? "font-sans" : "font-mono";
 
   return {
     ...currentStyles,
     [fontKey]: fontOption.value,
   };
-}
+};
 
 // Check if a theme is using default/system fonts
-export function isUsingSystemFonts(
+export const isUsingSystemFonts = (
   themeStyles: Partial<ThemeStyleProps>
-): boolean {
+): boolean => {
   const sansFont = themeStyles["font-sans"];
   const monoFont = themeStyles["font-mono"];
 
   return sansFont === SYSTEM_SANS_FONT && monoFont === SYSTEM_MONO_FONT;
-}
+};

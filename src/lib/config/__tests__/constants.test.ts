@@ -14,31 +14,31 @@ import {
   REMAINING_QUERY_ALERT_THRESHOLD,
 } from "../constants";
 
-const URL_PATTERN = /^https?:\/\//;
-const GITHUB_URL_PATTERN = /^https:\/\/github\.com\//;
+const URL_PATTERN = /^https?:\/\//u;
+const GITHUB_URL_PATTERN = /^https:\/\/github\.com\//u;
 
 describe("App Constants", () => {
   describe("Credits and Limits", () => {
     it("REMAINING_QUERY_ALERT_THRESHOLD is a positive number", () => {
       expect(REMAINING_QUERY_ALERT_THRESHOLD).toBeGreaterThan(0);
-      expect(Number.isInteger(REMAINING_QUERY_ALERT_THRESHOLD)).toBe(true);
+      expect(Number.isInteger(REMAINING_QUERY_ALERT_THRESHOLD)).toBeTruthy();
     });
 
     it("DAILY_FILE_UPLOAD_LIMIT is a positive number", () => {
       expect(DAILY_FILE_UPLOAD_LIMIT).toBeGreaterThan(0);
-      expect(Number.isInteger(DAILY_FILE_UPLOAD_LIMIT)).toBe(true);
+      expect(Number.isInteger(DAILY_FILE_UPLOAD_LIMIT)).toBeTruthy();
     });
 
     it("MESSAGE_MAX_LENGTH is a positive number", () => {
       expect(MESSAGE_MAX_LENGTH).toBeGreaterThan(0);
-      expect(Number.isInteger(MESSAGE_MAX_LENGTH)).toBe(true);
+      expect(Number.isInteger(MESSAGE_MAX_LENGTH)).toBeTruthy();
     });
   });
 
   describe("App Branding", () => {
     it("APP_NAME is defined", () => {
       expect(APP_NAME).toBeDefined();
-      expect(typeof APP_NAME).toBe("string");
+      expect(APP_NAME).toBeTypeOf("string");
       expect(APP_NAME.length).toBeGreaterThan(0);
     });
 
@@ -52,13 +52,13 @@ describe("App Constants", () => {
 
     it("APP_DESCRIPTION is defined and not empty", () => {
       expect(APP_DESCRIPTION).toBeDefined();
-      expect(typeof APP_DESCRIPTION).toBe("string");
+      expect(APP_DESCRIPTION).toBeTypeOf("string");
       expect(APP_DESCRIPTION.length).toBeGreaterThan(0);
     });
 
     it("APP_BASE_URL is defined", () => {
       expect(APP_BASE_URL).toBeDefined();
-      expect(typeof APP_BASE_URL).toBe("string");
+      expect(APP_BASE_URL).toBeTypeOf("string");
     });
 
     it("GITHUB_REPO_URL is a valid GitHub URL", () => {
@@ -69,19 +69,19 @@ describe("App Constants", () => {
   describe("Model Configuration", () => {
     it("MODEL_DEFAULT is a non-empty string", () => {
       expect(MODEL_DEFAULT).toBeDefined();
-      expect(typeof MODEL_DEFAULT).toBe("string");
+      expect(MODEL_DEFAULT).toBeTypeOf("string");
       expect(MODEL_DEFAULT.length).toBeGreaterThan(0);
       expect(MODEL_DEFAULT).toBe("gpt-5.4-nano");
     });
 
     it("RECOMMENDED_MODELS is a non-empty array", () => {
-      expect(Array.isArray(RECOMMENDED_MODELS)).toBe(true);
+      expect(Array.isArray(RECOMMENDED_MODELS)).toBeTruthy();
       expect(RECOMMENDED_MODELS.length).toBeGreaterThan(0);
     });
 
     it("RECOMMENDED_MODELS contains only strings", () => {
       for (const model of RECOMMENDED_MODELS) {
-        expect(typeof model).toBe("string");
+        expect(model).toBeTypeOf("string");
       }
     });
 
@@ -91,6 +91,9 @@ describe("App Constants", () => {
       expect(RECOMMENDED_MODELS).toContain("claude-sonnet-5-5");
       expect(RECOMMENDED_MODELS).toContain("gemini-3.8-flash");
       expect(RECOMMENDED_MODELS).toContain("gemini-3.1-pro-preview");
+    });
+
+    it("drops superseded model versions from the curated recommendations", () => {
       expect(RECOMMENDED_MODELS).not.toContain("gpt-5-mini");
       expect(RECOMMENDED_MODELS).not.toContain("gpt-5-nano");
       expect(RECOMMENDED_MODELS).not.toContain("claude-4-6-sonnet");

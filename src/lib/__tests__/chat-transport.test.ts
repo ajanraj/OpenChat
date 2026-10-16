@@ -6,10 +6,12 @@ const fetchMock = vi.fn<
   (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 >(
   async () =>
-    new Response("", { headers: { "Content-Type": "text/event-stream" } })
+    await Promise.resolve(
+      new Response("", { headers: { "Content-Type": "text/event-stream" } })
+    )
 );
 
-async function sendAndReadAuthorization() {
+const sendAndReadAuthorization = async () => {
   fetchMock.mockClear();
   await chatTransport.sendMessages({
     chatId: "chats:1",
@@ -21,9 +23,9 @@ async function sendAndReadAuthorization() {
   return new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get(
     "authorization"
   );
-}
+};
 
-describe("chatTransport", () => {
+describe("chatTransport (DefaultChatTransport)", () => {
   afterEach(() => {
     setChatAuthToken(null);
     vi.unstubAllGlobals();

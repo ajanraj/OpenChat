@@ -3,12 +3,13 @@ import { vi } from "vitest";
 // Mock window.matchMedia for tests that use theme detection
 Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: vi.fn<typeof window.matchMedia>().mockImplementation((query) => ({
+  // Without the deprecated addListener/removeListener, which the app doesn't use
+  value: vi.fn<
+    (query: string) => Omit<MediaQueryList, "addListener" | "removeListener">
+  >((query) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn<MediaQueryList["addListener"]>(),
-    removeListener: vi.fn<MediaQueryList["removeListener"]>(),
     addEventListener: vi.fn<MediaQueryList["addEventListener"]>(),
     removeEventListener: vi.fn<MediaQueryList["removeEventListener"]>(),
     dispatchEvent: vi.fn<MediaQueryList["dispatchEvent"]>(() => false),
@@ -28,31 +29,21 @@ Object.defineProperty(window, "localStorage", {
   value: localStorageMock,
 });
 
-// Mock ResizeObserver
-class ResizeObserverMock {
-  observe() {
-    // Mock implementation - no-op
-  }
-  unobserve() {
-    // Mock implementation - no-op
-  }
-  disconnect() {
-    // Mock implementation - no-op
-  }
-}
-window.ResizeObserver = ResizeObserverMock;
+const noop = () => {
+  // No-op
+};
+const noRecords = (): IntersectionObserverEntry[] => [];
 
-// Mock IntersectionObserver
-class IntersectionObserverMock {
-  observe() {
-    // Mock implementation - no-op
-  }
-  unobserve() {
-    // Mock implementation - no-op
-  }
-  disconnect() {
-    // Mock implementation - no-op
-  }
+/** No-op stand-in for the observers jsdom lacks: ResizeObserver and IntersectionObserver. */
+class ObserverMock implements IntersectionObserver, ResizeObserver {
+  readonly root = null;
+  readonly rootMargin = "0px";
+  readonly scrollMargin = "0px";
+  readonly thresholds: readonly number[] = [];
+  observe = noop;
+  unobserve = noop;
+  disconnect = noop;
+  takeRecords = noRecords;
 }
-window.IntersectionObserver =
-  IntersectionObserverMock as unknown as typeof IntersectionObserver;
+window.ResizeObserver = ObserverMock;
+window.IntersectionObserver = ObserverMock;

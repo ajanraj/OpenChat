@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ConnectorType } from "../types";
 
 describe("types", () => {
-  describe("ConnectorType", () => {
+  describe("ConnectorType values", () => {
     it("allows gmail as valid connector type", () => {
       const connector: ConnectorType = "gmail";
 

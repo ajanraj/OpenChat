@@ -24,11 +24,13 @@ export const revokeDeletedUserAccess = internalAction({
       cancelBillableSubscriptions(ctx, userId),
       // Imported lazily: the module throws at load without COMPOSIO_API_KEY, which must not
       // block the Stripe cancel
-      import("../src/lib/composio-server").then(({ revokeUserConnections }) =>
-        revokeUserConnections(userId)
+      import("../src/lib/composio-server").then(
+        async ({ revokeUserConnections }) => {
+          await revokeUserConnections(userId);
+        }
       ),
     ]);
-    const failures = results.flatMap((result) =>
+    const failures = results.flatMap((result): unknown[] =>
       result.status === "rejected" ? [result.reason] : []
     );
     if (failures.length === 0) {

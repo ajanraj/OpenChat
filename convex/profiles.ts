@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
-import { MODEL_DEFAULT } from "../src/lib/config";
+import { MODEL_DEFAULT } from "../src/lib/config/constants";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, mutation, query } from "./_generated/server";
@@ -11,25 +11,25 @@ import { Profile } from "./schema/profile";
 const MAX_PROFILES = 5;
 
 /** The profile if it exists and belongs to the user, else null. */
-async function getOwnedProfile(
+const getOwnedProfile = async (
   ctx: MutationCtx,
   userId: Id<"users">,
   profileId: Id<"profiles"> | undefined
-): Promise<Doc<"profiles"> | null> {
+): Promise<Doc<"profiles"> | null> => {
   const profile = profileId ? await ctx.db.get("profiles", profileId) : null;
   return profile?.userId === userId ? profile : null;
-}
+};
 
 /**
  * The user's default profile, created from their current settings if they have none (it then
  * becomes their active profile unless they have a valid one). Every chat belongs to a profile, so
  * chat writers use this for users whose default profile the client hasn't created yet.
  */
-export async function getOrCreateDefaultProfileId(
+export const getOrCreateDefaultProfileId = async (
   ctx: MutationCtx,
   user: Doc<"users">,
   themeConfig?: string
-): Promise<Id<"profiles">> {
+): Promise<Id<"profiles">> => {
   const existing = await ctx.db
     .query("profiles")
     .withIndex("by_user_and_default", (q) =>
@@ -59,17 +59,17 @@ export async function getOrCreateDefaultProfileId(
     await ctx.db.patch("users", user._id, { activeProfileId: profileId });
   }
   return profileId;
-}
+};
 
 /**
  * The profile a new chat belongs to: `requested` if the user owns it, else the user's active
  * profile if they own it, else their default profile (created if missing).
  */
-export async function resolveChatProfileId(
+export const resolveChatProfileId = async (
   ctx: MutationCtx,
   userId: Id<"users">,
-  requested: Id<"profiles"> | undefined
-): Promise<Id<"profiles">> {
+  requested?: Id<"profiles">
+): Promise<Id<"profiles">> => {
   const profile = await getOwnedProfile(ctx, userId, requested);
   if (profile) {
     return profile._id;
@@ -80,7 +80,7 @@ export async function resolveChatProfileId(
   }
   const active = await getOwnedProfile(ctx, userId, user.activeProfileId);
   return active?._id ?? (await getOrCreateDefaultProfileId(ctx, user));
-}
+};
 
 export const listProfiles = query({
   args: {},
@@ -100,7 +100,7 @@ export const listProfiles = query({
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    return profiles.sort((a, b) => a.order - b.order);
+    return profiles.toSorted((a, b) => a.order - b.order);
   },
 });
 
@@ -217,7 +217,7 @@ export const createProfile = mutation({
       }
     }
 
-    const maxOrder = existing.reduce((max, p) => Math.max(max, p.order), -1);
+    const maxOrder = Math.max(-1, ...existing.map((p) => p.order));
 
     const profileId = await ctx.db.insert("profiles", {
       userId,
@@ -255,13 +255,13 @@ export const updateProfile = mutation({
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
 
-    if (updates.name !== undefined) {
-      const trimmed = updates.name.trim();
-      if (!trimmed) {
-        throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
-      }
-      updates = { ...updates, name: trimmed };
+    const trimmedName = updates.name?.trim();
+    if (trimmedName === "") {
+      throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
     }
+    // Only set `name` when it was given: patching it to undefined would remove the field
+    const patch =
+      trimmedName === undefined ? updates : { ...updates, name: trimmedName };
 
     if (
       updates.favoriteModels !== undefined &&
@@ -275,7 +275,7 @@ export const updateProfile = mutation({
       throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
     }
 
-    await ctx.db.patch("profiles", profileId, updates);
+    await ctx.db.patch("profiles", profileId, patch);
     return null;
   },
 });
@@ -313,11 +313,11 @@ export const deleteProfile = mutation({
       )
       .collect();
 
-    for (const chat of orphanedChats) {
-      await ctx.db.patch("chats", chat._id, {
-        profileId: defaultProfileId,
-      });
-    }
+    await Promise.all(
+      orphanedChats.map(async (chat) => {
+        await ctx.db.patch("chats", chat._id, { profileId: defaultProfileId });
+      })
+    );
 
     // Reassign orphaned scheduled tasks to default profile
     const orphanedTasks = await ctx.db
@@ -327,11 +327,13 @@ export const deleteProfile = mutation({
       )
       .collect();
 
-    for (const task of orphanedTasks) {
-      await ctx.db.patch("scheduled_tasks", task._id, {
-        profileId: defaultProfileId,
-      });
-    }
+    await Promise.all(
+      orphanedTasks.map(async (task) => {
+        await ctx.db.patch("scheduled_tasks", task._id, {
+          profileId: defaultProfileId,
+        });
+      })
+    );
 
     // Delete the profile
     await ctx.db.delete("profiles", profileId);
@@ -404,7 +406,7 @@ export const setProfileModelEnabled = mutation({
       newFavorites = currentFavorites.filter((id) => id !== modelId);
 
       if (newFavorites.length === 0 && currentFavorites.length > 0) {
-        const firstFavorite = currentFavorites[0];
+        const [firstFavorite] = currentFavorites;
         newFavorites = [firstFavorite];
         newDisabled = newDisabled.filter((id) => id !== firstFavorite);
       }
@@ -450,7 +452,7 @@ export const bulkSetProfileModelsDisabled = mutation({
       newDisabled = [...new Set([...currentDisabled, ...modelsToDisable])];
 
       if (newFavorites.length === 0 && currentFavorites.length > 0) {
-        const firstFavorite = currentFavorites[0];
+        const [firstFavorite] = currentFavorites;
         newFavorites = [firstFavorite];
         newDisabled = newDisabled.filter((id) => id !== firstFavorite);
       }

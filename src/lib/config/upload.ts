@@ -4,7 +4,8 @@
 
 import { ERROR_CODES } from "../error-codes";
 
-export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024; // 10 MiB
+// 10 MiB
+export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 
 // Max attachment ids accepted by one files.deleteAttachments call; the client batches larger selections
 export const ATTACHMENT_DELETE_BATCH_SIZE = 100;
@@ -20,9 +21,8 @@ export const UPLOAD_ALLOWED_MIME = [
 
 export type UploadAllowedMime = (typeof UPLOAD_ALLOWED_MIME)[number];
 
-export function isAllowedUploadMime(type: string): type is UploadAllowedMime {
-  return (UPLOAD_ALLOWED_MIME as readonly string[]).includes(type);
-}
+export const isAllowedUploadMime = (type: string): type is UploadAllowedMime =>
+  (UPLOAD_ALLOWED_MIME as readonly string[]).includes(type);
 
 export type UploadPolicyError =
   | typeof ERROR_CODES.UNSUPPORTED_FILE_TYPE
@@ -34,11 +34,11 @@ export type UploadPolicyError =
  * Used for the client-declared values when issuing an upload URL and again for the real
  * R2 metadata before an upload is attached. Returns the ERROR_CODES value to reject with, or null.
  */
-export function getUploadPolicyError(file: {
+export const getUploadPolicyError = (file: {
   type: string | undefined;
   size: number | undefined;
-}): UploadPolicyError | null {
-  if (!(file.type && isAllowedUploadMime(file.type))) {
+}): UploadPolicyError | null => {
+  if (file.type === undefined || !isAllowedUploadMime(file.type)) {
     return ERROR_CODES.UNSUPPORTED_FILE_TYPE;
   }
   if (
@@ -52,7 +52,7 @@ export function getUploadPolicyError(file: {
     return ERROR_CODES.FILE_TOO_LARGE;
   }
   return null;
-}
+};
 
 // Accept string for <input type="file" accept="...">
 export const UPLOAD_ACCEPT: string = [...UPLOAD_ALLOWED_MIME].join(",");
@@ -72,17 +72,17 @@ const MIME_LABEL_MAP: Readonly<Record<string, string>> = {
   "application/pdf": "PDF",
 };
 
-export function getAllowedLabel(
+export const getAllowedLabel = (
   mimes: readonly string[] = UPLOAD_ALLOWED_MIME
-): string {
+): string => {
   const labels = [...new Set(mimes.map((t) => MIME_LABEL_MAP[t] ?? t))];
   if (labels.length <= 1) {
     return labels.join(", ");
   }
   return `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
-}
+};
 
-export function formatBytes(bytes: number): string {
+export const formatBytes = (bytes: number): string => {
   if (bytes === 0) {
     return "0 B";
   }
@@ -91,6 +91,6 @@ export function formatBytes(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   const value = (bytes / k ** i).toFixed(2);
   return `${value} ${sizes[i]}`;
-}
+};
 
 export const UPLOAD_MAX_LABEL = formatBytes(UPLOAD_MAX_BYTES);

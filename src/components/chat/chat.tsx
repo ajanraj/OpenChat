@@ -41,12 +41,9 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useFileHandling } from "@/hooks/use-file-handling";
 import { createChatErrorHandler } from "@/lib/chat-error-utils";
 import { chatTransport, setChatAuthToken } from "@/lib/chat-transport";
-import {
-	MODEL_DEFAULT,
-	MODELS_MAP,
-	ReasoningEffortSchema,
-	type ReasoningEffort,
-} from "@/lib/config";
+import { MODEL_DEFAULT } from "@/lib/config/constants";
+import { MODELS_MAP } from "@/lib/config/models";
+import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
 import {
 	createOptimisticAttachments,
 	revokeOptimisticAttachments,

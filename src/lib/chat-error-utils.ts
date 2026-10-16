@@ -18,15 +18,14 @@ import { classifyError, shouldShowAsToast } from "@/lib/error-utils";
 /**
  * Maps backend upload error codes to user-friendly messages
  */
-export function humaniseUploadError(err: unknown): string {
+export const humaniseUploadError = (err: unknown): string => {
   // files:generateUploadUrl throws the rate limiter's own error for the fileUpload bucket
   if (isRateLimitError(err)) {
     return "Upload limit reached. Please wait a few minutes before uploading more files.";
   }
+  // "" matches no error code, so non-coded errors take the default message.
   const code =
-    err instanceof ConvexError && typeof err.data === "string"
-      ? err.data
-      : null;
+    err instanceof ConvexError && typeof err.data === "string" ? err.data : "";
   switch (code) {
     case ERROR_CODES.UNSUPPORTED_MODEL: {
       return "File uploads are not supported for the selected model.";
@@ -44,12 +43,12 @@ export function humaniseUploadError(err: unknown): string {
       return "Error uploading file";
     }
   }
-}
+};
 
 /**
  * Processes branch operation errors and returns user-friendly messages
  */
-export function processBranchError(branchError: unknown): string {
+export const processBranchError = (branchError: unknown): string => {
   const errorMsg =
     branchError instanceof Error ? branchError.message : String(branchError);
   if (errorMsg.includes("Can only branch from assistant messages")) {
@@ -62,13 +61,13 @@ export function processBranchError(branchError: unknown): string {
     return "You don't have permission to branch this chat";
   }
   return "Failed to branch chat";
-}
+};
 
 /**
  * Standardized error handler for chat operations
  * Integrates with AI SDK error handling patterns
  */
-export function handleChatError(error: Error): void {
+export const handleChatError = (error: Error): void => {
   if (shouldShowAsToast(error)) {
     const classified = classifyError(error);
     toast({
@@ -76,13 +75,11 @@ export function handleChatError(error: Error): void {
       status: "error",
     });
   }
-}
+};
 
 /**
  * Creates an error callback for useChat hook
  */
-export function createChatErrorHandler() {
-  return (error: Error) => {
-    handleChatError(error);
-  };
-}
+export const createChatErrorHandler = () => (error: Error) => {
+  handleChatError(error);
+};

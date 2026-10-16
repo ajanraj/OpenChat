@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { PERIODS, RATE_LIMITS } from "../rateLimitConstants";
 
-describe("RATE_LIMITS", () => {
+describe("RATE_LIMITS constants", () => {
   it("has anonymous daily limit defined", () => {
     expect(RATE_LIMITS.ANONYMOUS_DAILY).toBe(5);
   });
@@ -30,7 +30,7 @@ describe("RATE_LIMITS", () => {
   });
 });
 
-describe("PERIODS", () => {
+describe("PERIODS constants", () => {
   it("has daily period defined", () => {
     expect(PERIODS.DAILY).toBeDefined();
     // 24 hours in milliseconds

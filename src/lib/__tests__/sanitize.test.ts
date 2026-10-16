@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { sanitizeUserInput } from "../sanitize";
 
-describe("sanitizeUserInput", () => {
+describe(sanitizeUserInput, () => {
   it("escapes ampersand", () => {
     expect(sanitizeUserInput("foo & bar")).toBe("foo &amp; bar");
   });
@@ -34,8 +34,8 @@ describe("sanitizeUserInput", () => {
   });
 
   it("handles null/undefined", () => {
-    expect(sanitizeUserInput(null as unknown as string)).toBe("");
-    expect(sanitizeUserInput(undefined as unknown as string)).toBe("");
+    expect(sanitizeUserInput(null)).toBe("");
+    expect(sanitizeUserInput()).toBe("");
   });
 
   it("preserves normal text", () => {

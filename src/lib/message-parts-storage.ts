@@ -2,6 +2,7 @@ import { convexToJson, getConvexSize } from "convex/values";
 import type { Value } from "convex/values";
 
 import { limitDepth } from "./depth-limiter";
+import type { DepthLimitedValue } from "./depth-limiter";
 
 /**
  * Convex rejects documents over 1 MiB. A message's parts plus its duplicated text
@@ -30,26 +31,56 @@ interface ToolPayload {
 }
 
 const TOOL_PAYLOAD_KEYS = ["input", "output"] as const;
-const TRAILING_HIGH_SURROGATE = /[\uD800-\uDBFF]$/;
+const TRAILING_HIGH_SURROGATE = /[\uD800-\uDBFF]$/u;
 
-function isToolPart(part: StoredPart): boolean {
+const isStoredPart = (part: unknown): part is StoredPart =>
+  typeof part === "object" && part !== null;
+
+const isToolPart = (part: StoredPart): boolean =>
+  typeof part.type === "string" &&
+  (part.type.startsWith("tool-") || part.type === "dynamic-tool");
+
+/** Whether `value` has the shape of a Convex value; convexToJson still checks field names. */
+const isConvexValueShape = (value: unknown): value is Value => {
+  if (
+    value === null ||
+    typeof value === "bigint" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "string" ||
+    value instanceof ArrayBuffer
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    const items: unknown[] = value;
+    return items.every((item) => isConvexValueShape(item));
+  }
   return (
-    typeof part.type === "string" &&
-    (part.type.startsWith("tool-") || part.type === "dynamic-tool")
+    typeof value === "object" &&
+    Object.values(value).every(
+      (field) => field === undefined || isConvexValueShape(field)
+    )
   );
-}
+};
 
 /** Convex size of a value, or null when Convex cannot store it (e.g. `$`-prefixed or non-ASCII keys). */
-function storableSize(value: unknown): number | null {
+const storableSize = (value: unknown): number | null => {
   try {
-    convexToJson(value as Value);
-    return getConvexSize(value as Value);
+    if (!isConvexValueShape(value)) {
+      return null;
+    }
+    convexToJson(value);
+    return getConvexSize(value);
   } catch {
     return null;
   }
-}
+};
 
-function toPreview(value: unknown, originalSize: number): CompactedToolPayload {
+const toPreview = (
+  value: unknown,
+  originalSize: number
+): CompactedToolPayload => {
   let json: string;
   try {
     json = JSON.stringify(value) ?? String(value);
@@ -62,7 +93,7 @@ function toPreview(value: unknown, originalSize: number): CompactedToolPayload {
     preview = preview.slice(0, -1);
   }
   return { truncated: true, originalSize, preview };
-}
+};
 
 /**
  * Prepares assistant message parts for saveAssistantMessage. Limits nesting depth, then
@@ -72,19 +103,20 @@ function toPreview(value: unknown, originalSize: number): CompactedToolPayload {
  * Messages within the budget are stored unchanged. Oversized text or reasoning is left
  * as is, so the save still fails loudly in that case.
  */
-export function compactMessagePartsForStorage<T extends object>(
-  parts: T[],
+export const compactMessagePartsForStorage = (
+  parts: readonly object[],
   content = ""
-): T[] {
-  // limitDepth returns fresh copies, so the parts below can be updated in place
-  const stored = limitDepth(parts, 14);
-  const storedParts = stored as StoredPart[];
+): DepthLimitedValue[] => {
+  // Same as limitDepth(parts, 14), whose items sit at depth 1. limitDepth returns fresh copies,
+  // so the parts below can be updated in place.
+  const stored = parts.map((part) => limitDepth(part, 14, 1));
 
   const payloads: ToolPayload[] = [];
-  for (const part of storedParts) {
-    if (!isToolPart(part)) {
+  for (const storedPart of stored) {
+    if (!(isStoredPart(storedPart) && isToolPart(storedPart))) {
       continue;
     }
+    const part: StoredPart = storedPart;
     for (const key of TOOL_PAYLOAD_KEYS) {
       const value = part[key];
       if (value === undefined) {
@@ -99,7 +131,7 @@ export function compactMessagePartsForStorage<T extends object>(
     }
   }
 
-  const partsSize = storableSize(storedParts);
+  const partsSize = storableSize(stored);
   if (partsSize === null) {
     return stored;
   }
@@ -116,4 +148,4 @@ export function compactMessagePartsForStorage<T extends object>(
   }
 
   return stored;
-}
+};

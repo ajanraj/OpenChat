@@ -39,67 +39,72 @@ describe("cn (className utility)", () => {
   });
 });
 
-describe("isDeepEqual", () => {
+// A missing value, passed explicitly to compare undefined with other values
+const MISSING: unknown = undefined;
+
+describe(isDeepEqual, () => {
   it("returns true for identical primitives", () => {
-    expect(isDeepEqual(1, 1)).toBe(true);
-    expect(isDeepEqual("foo", "foo")).toBe(true);
-    expect(isDeepEqual(true, true)).toBe(true);
-    expect(isDeepEqual(null, null)).toBe(true);
-    expect(isDeepEqual(undefined, undefined)).toBe(true);
+    expect(isDeepEqual(1, 1)).toBeTruthy();
+    expect(isDeepEqual("foo", "foo")).toBeTruthy();
+    expect(isDeepEqual(true, true)).toBeTruthy();
+    expect(isDeepEqual(null, null)).toBeTruthy();
+    expect(isDeepEqual(MISSING, MISSING)).toBeTruthy();
   });
 
   it("returns false for different primitives", () => {
-    expect(isDeepEqual(1, 2)).toBe(false);
-    expect(isDeepEqual("foo", "bar")).toBe(false);
-    expect(isDeepEqual(true, false)).toBe(false);
-    expect(isDeepEqual(null, undefined)).toBe(false);
+    expect(isDeepEqual(1, 2)).toBeFalsy();
+    expect(isDeepEqual("foo", "bar")).toBeFalsy();
+    expect(isDeepEqual(true, false)).toBeFalsy();
+    expect(isDeepEqual(null, MISSING)).toBeFalsy();
   });
 
   it("returns true for identical simple objects", () => {
-    expect(isDeepEqual({ a: 1 }, { a: 1 })).toBe(true);
-    expect(isDeepEqual({ a: 1, b: 2 }, { a: 1, b: 2 })).toBe(true);
+    expect(isDeepEqual({ a: 1 }, { a: 1 })).toBeTruthy();
+    expect(isDeepEqual({ a: 1, b: 2 }, { a: 1, b: 2 })).toBeTruthy();
   });
 
   it("returns false for different simple objects", () => {
-    expect(isDeepEqual({ a: 1 }, { a: 2 })).toBe(false);
-    expect(isDeepEqual({ a: 1 }, { b: 1 })).toBe(false);
-    expect(isDeepEqual({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+    expect(isDeepEqual({ a: 1 }, { a: 2 })).toBeFalsy();
+    expect(isDeepEqual({ a: 1 }, { b: 1 })).toBeFalsy();
+    expect(isDeepEqual({ a: 1 }, { a: 1, b: 2 })).toBeFalsy();
   });
 
   it("handles nested objects", () => {
-    expect(isDeepEqual({ a: { b: 1 } }, { a: { b: 1 } })).toBe(true);
-    expect(isDeepEqual({ a: { b: 1 } }, { a: { b: 2 } })).toBe(false);
-    expect(isDeepEqual({ a: { b: { c: 1 } } }, { a: { b: { c: 1 } } })).toBe(
-      true
-    );
+    expect(isDeepEqual({ a: { b: 1 } }, { a: { b: 1 } })).toBeTruthy();
+    expect(isDeepEqual({ a: { b: 1 } }, { a: { b: 2 } })).toBeFalsy();
+    expect(
+      isDeepEqual({ a: { b: { c: 1 } } }, { a: { b: { c: 1 } } })
+    ).toBeTruthy();
   });
 
   it("handles arrays", () => {
-    expect(isDeepEqual([1, 2, 3], [1, 2, 3])).toBe(true);
-    expect(isDeepEqual([1, 2, 3], [1, 2, 4])).toBe(false);
-    expect(isDeepEqual([1, 2], [1, 2, 3])).toBe(false);
+    expect(isDeepEqual([1, 2, 3], [1, 2, 3])).toBeTruthy();
+    expect(isDeepEqual([1, 2, 3], [1, 2, 4])).toBeFalsy();
+    expect(isDeepEqual([1, 2], [1, 2, 3])).toBeFalsy();
   });
 
   it("handles arrays with objects", () => {
-    expect(isDeepEqual([{ a: 1 }], [{ a: 1 }])).toBe(true);
-    expect(isDeepEqual([{ a: 1 }], [{ a: 2 }])).toBe(false);
+    expect(isDeepEqual([{ a: 1 }], [{ a: 1 }])).toBeTruthy();
+    expect(isDeepEqual([{ a: 1 }], [{ a: 2 }])).toBeFalsy();
   });
 
   it("handles null and undefined comparisons with objects", () => {
-    expect(isDeepEqual(null, {})).toBe(false);
-    expect(isDeepEqual({}, null)).toBe(false);
-    expect(isDeepEqual(undefined, {})).toBe(false);
+    expect(isDeepEqual(null, {})).toBeFalsy();
+    expect(isDeepEqual({}, null)).toBeFalsy();
+    expect(isDeepEqual(undefined, {})).toBeFalsy();
   });
 
   it("handles type differences", () => {
-    expect(isDeepEqual("1", 1)).toBe(false);
+    expect(isDeepEqual("1", 1)).toBeFalsy();
     // Note: isDeepEqual treats [] and {} as equal because both have zero keys
     // This is a known behavior of this simple implementation
-    expect(isDeepEqual([], {})).toBe(true);
+    expect(isDeepEqual([], {})).toBeTruthy();
   });
 
   it("distinguishes arrays with items from objects", () => {
-    expect(isDeepEqual([1], { 0: 1 })).toBe(true); // Both have key "0" with value 1
-    expect(isDeepEqual([1, 2], { a: 1 })).toBe(false); // Different keys
+    // Both have key "0" with value 1
+    expect(isDeepEqual([1], { 0: 1 })).toBeTruthy();
+    // Different keys
+    expect(isDeepEqual([1, 2], { a: 1 })).toBeFalsy();
   });
 });

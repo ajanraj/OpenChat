@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { PROVIDER_LIMITS, SEARCH_CONFIG } from "../types";
 
-describe("PROVIDER_LIMITS", () => {
+describe("PROVIDER_LIMITS constant", () => {
   it("is defined and has entries for all providers", () => {
     expect(PROVIDER_LIMITS).toBeDefined();
     expect(PROVIDER_LIMITS.exa).toBeDefined();
@@ -26,7 +26,7 @@ describe("PROVIDER_LIMITS", () => {
   });
 });
 
-describe("SEARCH_CONFIG", () => {
+describe("SEARCH_CONFIG constant", () => {
   it("is defined", () => {
     expect(SEARCH_CONFIG).toBeDefined();
   });
@@ -36,7 +36,7 @@ describe("SEARCH_CONFIG", () => {
   });
 
   it("has scrapeContent enabled by default", () => {
-    expect(SEARCH_CONFIG.scrapeContent).toBe(true);
+    expect(SEARCH_CONFIG.scrapeContent).toBeTruthy();
   });
 
   it("has maxTextCharacters defined", () => {

@@ -15,7 +15,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MODELS_OPTIONS } from "@/lib/config";
+import { MODELS_OPTIONS } from "@/lib/config/models";
 import { UPLOAD_ACCEPT } from "@/lib/config/upload";
 import { cn } from "@/lib/utils";
 import { PopoverContentAuth } from "./popover-content-auth";

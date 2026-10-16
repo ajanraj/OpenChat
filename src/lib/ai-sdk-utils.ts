@@ -11,17 +11,17 @@ import type {
 import type { Doc } from "../../convex/_generated/dataModel";
 
 // Type alias for message parts array
-type MessageParts = Array<
+type MessageParts = (
   | TextUIPart
   | ReasoningUIPart
   | ReasoningFileUIPart
   | ToolUIPart
   | SourceUrlUIPart
   | FileUIPart
->;
+)[];
 
 // Compile regex once at module level for performance
-const CONVEX_STORAGE_ID_REGEX = /^[a-z0-9]{32}$/;
+const CONVEX_STORAGE_ID_REGEX = /^[a-z0-9]{32}$/u;
 
 // AI SDK Attachment type
 export interface Attachment {
@@ -31,15 +31,47 @@ export interface Attachment {
   storageId?: string;
 }
 
+/** A tool invocation in the legacy (AI SDK v4) shape createPartsFromAIResponse accepts. */
+interface ToolInvocation {
+  toolCallId: string;
+  toolName: string;
+  args?: unknown;
+  result?: unknown;
+  state: "call" | "result" | "partial-call";
+}
+
+/** A tool part built from a ToolInvocation; it keeps the legacy `state` values. */
+export interface LegacyToolPart {
+  type: `tool-${string}`;
+  toolCallId: string;
+  state: ToolInvocation["state"];
+  input: unknown;
+  output: unknown;
+}
+
+/** True for a non-empty string. */
+const isNonEmpty = (value: string | undefined): value is string =>
+  value !== undefined && value !== "";
+
+/**
+ * Helper to detect if a string is a Convex storage ID
+ */
+export const isConvexStorageId = (value: string): boolean =>
+  // Convex storage IDs are typically 32-character hex strings
+  CONVEX_STORAGE_ID_REGEX.test(value) &&
+  !value.startsWith("http") &&
+  !value.startsWith("data:") &&
+  !value.startsWith("blob:");
+
 /**
  * Extract attachment objects from FileParts
  * Handles both storage IDs and generated URLs from queries
  */
-export function extractAttachmentsFromParts(
+export const extractAttachmentsFromParts = (
   parts?: MessageParts
-): Attachment[] | undefined {
+): Attachment[] | undefined => {
   if (!parts) {
-    return;
+    return undefined;
   }
 
   const attachments = parts
@@ -52,30 +84,32 @@ export function extractAttachmentsFromParts(
     }));
 
   return attachments.length > 0 ? attachments : undefined;
-}
+};
 
 /**
  * Convert uploaded file attachments to FileParts for storage
  */
-export function convertAttachmentsToFileParts(
+export const convertAttachmentsToFileParts = (
   attachments: Attachment[]
-): FileUIPart[] {
-  return attachments.map((att) => ({
+): FileUIPart[] =>
+  attachments.map((att) => ({
     type: "file" as const,
-    url: att.storageId || att.url, // Use storage ID if available, fallback to URL for backwards compatibility
-    mediaType: att.contentType || "application/octet-stream",
+    // Use storage ID if available, fallback to URL for backwards compatibility
+    url: isNonEmpty(att.storageId) ? att.storageId : att.url,
+    mediaType: isNonEmpty(att.contentType)
+      ? att.contentType
+      : "application/octet-stream",
     filename: att.name,
   }));
-}
 
 /**
  * Extract reasoning text from AI SDK response parts
  */
-export function extractReasoningFromResponse(
-  responseParts: MessageParts
-): string | undefined {
+export const extractReasoningFromResponse = (
+  responseParts?: MessageParts
+): string | undefined => {
   if (!responseParts) {
-    return;
+    return undefined;
   }
 
   const reasoningText = responseParts
@@ -83,17 +117,17 @@ export function extractReasoningFromResponse(
     .map((part) => part.text)
     .join("\n");
 
-  return reasoningText || undefined;
-}
+  return isNonEmpty(reasoningText) ? reasoningText : undefined;
+};
 
 /**
  * Extract reasoning text from parts array (for backward compatibility display)
  */
-export function extractReasoningFromParts(
+export const extractReasoningFromParts = (
   parts?: MessageParts
-): string | undefined {
+): string | undefined => {
   if (!parts) {
-    return;
+    return undefined;
   }
 
   const reasoningPart = parts.find(
@@ -101,25 +135,21 @@ export function extractReasoningFromParts(
   );
 
   return reasoningPart?.text;
-}
+};
 
 /**
  * Create parts from AI response content including tool invocations
  */
-export function createPartsFromAIResponse(
+export const createPartsFromAIResponse = (
   textContent: string,
   reasoningText?: string,
-  toolInvocations?: Array<{
-    toolCallId: string;
-    toolName: string;
-    args?: unknown;
-    result?: unknown;
-    state: "call" | "result" | "partial-call";
-  }>
-): MessageParts {
-  const parts: MessageParts = [{ type: "text", text: textContent }];
+  toolInvocations?: ToolInvocation[]
+): (MessageParts[number] | LegacyToolPart)[] => {
+  const parts: (MessageParts[number] | LegacyToolPart)[] = [
+    { type: "text", text: textContent },
+  ];
 
-  if (reasoningText) {
+  if (isNonEmpty(reasoningText)) {
     parts.push({
       type: "reasoning",
       text: reasoningText,
@@ -135,35 +165,29 @@ export function createPartsFromAIResponse(
         state: invocation.state,
         input: invocation.args,
         output: invocation.result,
-      } as unknown as ToolUIPart);
+      });
     }
   }
 
   return parts;
-}
+};
 
-/**
- * Helper to detect if a string is a Convex storage ID
- */
-export function isConvexStorageId(value: string): boolean {
-  // Convex storage IDs are typically 32-character hex strings
-  return (
-    CONVEX_STORAGE_ID_REGEX.test(value) &&
-    !value.startsWith("http") &&
-    !value.startsWith("data:") &&
-    !value.startsWith("blob:")
-  );
-}
+const isMessagePart = (part: unknown): boolean =>
+  typeof part === "object" &&
+  part !== null &&
+  "type" in part &&
+  typeof part.type === "string";
+
+/** True for an array of `{ type: string }` parts, the shape stored in `messages.parts`. */
+const isMessagePartList = (value: unknown): value is UIMessage["parts"] =>
+  Array.isArray(value) && value.every(isMessagePart);
 
 /**
  * Convert Convex message document to AI SDK UIMessage format
  */
-export function convertConvexToAISDK(msg: Doc<"messages">): UIMessage {
-  // console.log("Converting Convex message to AI SDK format:", msg);
-  return {
-    id: msg._id,
-    role: msg.role,
-    parts: msg.parts || [],
-    metadata: msg.metadata,
-  };
-}
+export const convertConvexToAISDK = (msg: Doc<"messages">): UIMessage => ({
+  id: msg._id,
+  role: msg.role,
+  parts: isMessagePartList(msg.parts) ? msg.parts : [],
+  metadata: msg.metadata,
+});

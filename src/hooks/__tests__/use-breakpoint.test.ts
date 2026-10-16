@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useBreakpoint } from "../use-breakpoint";
 
-type ChangeListener = (event: string, callback: () => void) => void;
+type ChangeListener = (event: string, listener: () => void) => void;
 
-describe("useBreakpoint", () => {
+describe(useBreakpoint, () => {
   let mediaQueryListeners: Map<string, (() => void)[]>;
 
   beforeEach(() => {
@@ -24,8 +24,8 @@ describe("useBreakpoint", () => {
           onchange: null,
           addListener: vi.fn<(callback: () => void) => void>(),
           removeListener: vi.fn<(callback: () => void) => void>(),
-          addEventListener: vi.fn<ChangeListener>((_event, callback) => {
-            listeners.push(callback);
+          addEventListener: vi.fn<ChangeListener>((_event, listener) => {
+            listeners.push(listener);
           }),
           removeEventListener: vi.fn<ChangeListener>(),
           dispatchEvent: vi.fn<(event: Event) => boolean>(),
@@ -43,7 +43,7 @@ describe("useBreakpoint", () => {
 
     const { result } = renderHook(() => useBreakpoint(768));
 
-    expect(result.current).toBe(false);
+    expect(result.current).toBeFalsy();
   });
 
   it("returns true when window width is less than breakpoint", () => {
@@ -55,7 +55,7 @@ describe("useBreakpoint", () => {
 
     const { result } = renderHook(() => useBreakpoint(768));
 
-    expect(result.current).toBe(true);
+    expect(result.current).toBeTruthy();
   });
 
   it("returns false when window width equals breakpoint", () => {
@@ -67,7 +67,7 @@ describe("useBreakpoint", () => {
 
     const { result } = renderHook(() => useBreakpoint(768));
 
-    expect(result.current).toBe(false);
+    expect(result.current).toBeFalsy();
   });
 
   it("updates when breakpoint prop changes", () => {
@@ -85,13 +85,13 @@ describe("useBreakpoint", () => {
     );
 
     // 600 > 500, so should be false
-    expect(result.current).toBe(false);
+    expect(result.current).toBeFalsy();
 
     // Change breakpoint to 700
     rerender({ breakpoint: 700 });
 
     // 600 < 700, so should be true
-    expect(result.current).toBe(true);
+    expect(result.current).toBeTruthy();
   });
 
   it("responds to window resize events", () => {
@@ -103,7 +103,7 @@ describe("useBreakpoint", () => {
 
     const { result } = renderHook(() => useBreakpoint(768));
 
-    expect(result.current).toBe(false);
+    expect(result.current).toBeFalsy();
 
     // Simulate resize
     act(() => {
@@ -122,7 +122,7 @@ describe("useBreakpoint", () => {
       }
     });
 
-    expect(result.current).toBe(true);
+    expect(result.current).toBeTruthy();
   });
 
   it("handles different breakpoint values", () => {
@@ -134,15 +134,15 @@ describe("useBreakpoint", () => {
 
     // Test with mobile breakpoint
     const { result: mobileResult } = renderHook(() => useBreakpoint(480));
-    expect(mobileResult.current).toBe(true);
+    expect(mobileResult.current).toBeTruthy();
 
     // Test with tablet breakpoint
     const { result: tabletResult } = renderHook(() => useBreakpoint(768));
-    expect(tabletResult.current).toBe(true);
+    expect(tabletResult.current).toBeTruthy();
 
     // Test with desktop breakpoint
     const { result: desktopResult } = renderHook(() => useBreakpoint(1024));
-    expect(desktopResult.current).toBe(true);
+    expect(desktopResult.current).toBeTruthy();
   });
 
   it("cleans up event listener on unmount", () => {

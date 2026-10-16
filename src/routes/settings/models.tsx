@@ -47,10 +47,10 @@ import { useModelSettings } from "@/hooks/use-model-settings";
 import {
   APP_BASE_URL,
   MODEL_DEFAULT,
-  MODELS_OPTIONS,
-  PROVIDERS_OPTIONS,
   RECOMMENDED_MODELS,
-} from "@/lib/config";
+} from "@/lib/config/constants";
+import { MODELS_OPTIONS } from "@/lib/config/models";
+import { PROVIDERS_OPTIONS } from "@/lib/config/providers";
 import { cn } from "@/lib/utils";
 
 const modelsSearchSchema = z.object({
@@ -58,17 +58,12 @@ const modelsSearchSchema = z.object({
   features: z.array(z.string()).optional(),
 });
 
-export const Route = createFileRoute("/settings/models")({
-  validateSearch: modelsSearchSchema,
-  component: ModelsSettingsPage,
-});
-
 interface FeatureInfo {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const FEATURE_INFO: Record<string, FeatureInfo> = {
+const FEATURE_INFO: Partial<Record<string, FeatureInfo>> = {
   "file-upload": {
     label: "Vision",
     icon: EyeIcon,
@@ -114,23 +109,24 @@ const getFeatureColorClasses = (featureId: string) => {
   }
 };
 
-export function ModelsSettingsPage() {
-  return useModelsSettingsPageView();
-}
+/** True for a non-empty string. */
+const isNonEmpty = (value: string | undefined): value is string =>
+  value !== undefined && value !== "";
 
-function useModelsSettingsPageView() {
+const getDisplayName = (modelName: string, subName?: string) =>
+  isNonEmpty(subName) ? `${modelName} (${subName})` : modelName;
+
+const useModelsSettingsPageView = () => {
   const { disabledModelsSet, setModelEnabled, bulkSetModelsDisabled } =
     useModelSettings();
   const { bulkSetFavoriteModels } = useModelPreferences();
   const navigate = useNavigate({ from: Route.fullPath });
   const { tier, features } = Route.useSearch();
 
-  const filters = useMemo(() => new Set(features ?? []), [features]);
+  const filters = useMemo(() => new Set(features), [features]);
   const freeOnly = tier === "free";
   const premiumOnly = tier === "premium";
 
-  const getDisplayName = (modelName: string, subName?: string) =>
-    subName ? `${modelName} (${subName})` : modelName;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -235,7 +231,8 @@ function useModelsSettingsPageView() {
     void navigate({
       search: {
         tier: freeOnly ? undefined : "free",
-        features: features?.length ? features : undefined,
+        features:
+          features !== undefined && features.length > 0 ? features : undefined,
       },
     });
   };
@@ -244,7 +241,8 @@ function useModelsSettingsPageView() {
     void navigate({
       search: {
         tier: premiumOnly ? undefined : "premium",
-        features: features?.length ? features : undefined,
+        features:
+          features !== undefined && features.length > 0 ? features : undefined,
       },
     });
   };
@@ -393,7 +391,9 @@ function useModelsSettingsPageView() {
         <div className="flex items-center gap-2">
           <Button
             className="hidden md:inline-flex"
-            onClick={handleRecommended}
+            onClick={() => {
+              void handleRecommended();
+            }}
             size="sm"
             variant="outline"
           >
@@ -415,7 +415,11 @@ function useModelsSettingsPageView() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleUnselectAll}>
+                <AlertDialogAction
+                  onClick={() => {
+                    void handleUnselectAll();
+                  }}
+                >
                   Unselect All
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -457,7 +461,9 @@ function useModelsSettingsPageView() {
           const provider = PROVIDERS_OPTIONS.find(
             (p) =>
               p.id ===
-              (modelWithDisplayProvider.displayProvider || model.provider)
+              (isNonEmpty(modelWithDisplayProvider.displayProvider)
+                ? modelWithDisplayProvider.displayProvider
+                : model.provider)
           );
           const isEnabled = isCurrentlyEnabled(model.id);
 
@@ -521,7 +527,9 @@ function useModelsSettingsPageView() {
                     </div>
                     <Switch
                       checked={isEnabled}
-                      onCheckedChange={() => handleToggle(model.id)}
+                      onCheckedChange={() => {
+                        void handleToggle(model.id);
+                      }}
                     />
                   </div>
 
@@ -581,7 +589,9 @@ function useModelsSettingsPageView() {
                     </div>
                     <button
                       className="hidden h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground sm:flex"
-                      onClick={() => handleCopy(model.id)}
+                      onClick={() => {
+                        void handleCopy(model.id);
+                      }}
                       type="button"
                     >
                       {copied === model.id ? (
@@ -605,4 +615,11 @@ function useModelsSettingsPageView() {
       </div>
     </div>
   );
-}
+};
+
+export const ModelsSettingsPage = () => useModelsSettingsPageView();
+
+export const Route = createFileRoute("/settings/models")({
+  validateSearch: modelsSearchSchema,
+  component: ModelsSettingsPage,
+});

@@ -5,9 +5,12 @@ import { z } from "zod";
 
 const HISTORY_PREFIX = "agent:history:";
 const MEMORY_PREFIX = "agent:memory:";
-const HISTORY_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
-const MEMORY_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
-const MAX_WORKING_MEMORY_SIZE = 4096; // ~4KB cap
+// 30 days
+const HISTORY_TTL_SECONDS = 30 * 24 * 60 * 60;
+// 30 days
+const MEMORY_TTL_SECONDS = 30 * 24 * 60 * 60;
+// ~4KB cap
+const MAX_WORKING_MEMORY_SIZE = 4096;
 
 const WORKING_MEMORY_TEMPLATE = `# Working Memory
 
@@ -27,7 +30,11 @@ interface HistoryEntry {
 }
 
 export class ScheduledAgentMemory {
-  constructor(private readonly redis: Redis) {}
+  private readonly redis: Redis;
+
+  constructor(redis: Redis) {
+    this.redis = redis;
+  }
 
   async loadHistory(taskId: string, limit: number): Promise<ModelMessage[]> {
     const raw = await this.redis.get<HistoryEntry[]>(
@@ -36,7 +43,8 @@ export class ScheduledAgentMemory {
     if (!raw || limit <= 0) {
       return [];
     }
-    const entries = raw.slice(-limit * 2); // limit is turns, each turn = 2 messages
+    // limit is turns, each turn = 2 messages
+    const entries = raw.slice(-limit * 2);
     return entries.map((e) => ({
       role: e.role,
       content: e.content,
@@ -54,12 +62,13 @@ export class ScheduledAgentMemory {
       { role: "user", content: userPrompt },
       { role: "assistant", content: assistantResponse }
     );
-    const trimmed = existing.slice(-40); // Keep last 40 entries (20 turns)
+    // Keep last 40 entries (20 turns)
+    const trimmed = existing.slice(-40);
     await this.redis.set(key, trimmed, { ex: HISTORY_TTL_SECONDS });
   }
 
   async loadWorkingMemory(userId: string): Promise<string | null> {
-    return this.redis.get<string>(`${MEMORY_PREFIX}${userId}`);
+    return await this.redis.get<string>(`${MEMORY_PREFIX}${userId}`);
   }
 
   async saveWorkingMemory(userId: string, content: string): Promise<void> {
@@ -88,9 +97,9 @@ export class ScheduledAgentMemory {
   }
 }
 
-export function formatWorkingMemoryPrompt(
+export const formatWorkingMemoryPrompt = (
   workingMemory: string | null
-): string {
+): string => {
   const memoryContent = workingMemory ?? WORKING_MEMORY_TEMPLATE;
 
   return `
@@ -112,4 +121,4 @@ ${memoryContent}
 ${WORKING_MEMORY_TEMPLATE}
 \`\`\`
 `.trim();
-}
+};

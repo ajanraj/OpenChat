@@ -7,7 +7,7 @@ import {
   ReasoningEffortSchema,
 } from "../schemas";
 
-describe("ModelFeatureSchema", () => {
+describe("ModelFeatureSchema parsing", () => {
   it("parses valid feature object", () => {
     const feature = {
       id: "reasoning",
@@ -17,7 +17,7 @@ describe("ModelFeatureSchema", () => {
     const result = ModelFeatureSchema.parse(feature);
 
     expect(result.id).toBe("reasoning");
-    expect(result.enabled).toBe(true);
+    expect(result.enabled).toBeTruthy();
   });
 
   it("accepts optional label", () => {
@@ -41,20 +41,20 @@ describe("ModelFeatureSchema", () => {
 
     const result = ModelFeatureSchema.parse(feature);
 
-    expect(result.effortOptions).toEqual(["none", "high"]);
-    expect(ReasoningEffortSchema.safeParse("xhigh").success).toBe(true);
-    expect(ReasoningEffortSchema.safeParse("minimal").success).toBe(false);
+    expect(result.effortOptions).toStrictEqual(["none", "high"]);
+    expect(ReasoningEffortSchema.safeParse("xhigh").success).toBeTruthy();
+    expect(ReasoningEffortSchema.safeParse("minimal").success).toBeFalsy();
   });
 
   it("rejects missing required fields", () => {
-    expect(() => ModelFeatureSchema.parse({ id: "test" })).toThrow(/invalid/i);
+    expect(() => ModelFeatureSchema.parse({ id: "test" })).toThrow(/invalid/iu);
     expect(() => ModelFeatureSchema.parse({ enabled: true })).toThrow(
-      /invalid/i
+      /invalid/iu
     );
   });
 });
 
-describe("ApiKeyUsageSchema", () => {
+describe("ApiKeyUsageSchema parsing", () => {
   it("parses valid api key usage object", () => {
     const usage = {
       allowUserKey: true,
@@ -63,21 +63,21 @@ describe("ApiKeyUsageSchema", () => {
 
     const result = ApiKeyUsageSchema.parse(usage);
 
-    expect(result.allowUserKey).toBe(true);
-    expect(result.userKeyOnly).toBe(false);
+    expect(result.allowUserKey).toBeTruthy();
+    expect(result.userKeyOnly).toBeFalsy();
   });
 
   it("rejects missing required fields", () => {
     expect(() => ApiKeyUsageSchema.parse({ allowUserKey: true })).toThrow(
-      /invalid/i
+      /invalid/iu
     );
     expect(() => ApiKeyUsageSchema.parse({ userKeyOnly: false })).toThrow(
-      /invalid/i
+      /invalid/iu
     );
   });
 });
 
-describe("ModelSchema", () => {
+describe("ModelSchema parsing", () => {
   it("parses minimal valid model", () => {
     const model = {
       id: "gpt-4",
@@ -90,12 +90,7 @@ describe("ModelSchema", () => {
 
     const result = ModelSchema.parse(model);
 
-    expect(result.id).toBe("gpt-4");
-    expect(result.name).toBe("GPT-4");
-    expect(result.provider).toBe("openai");
-    expect(result.premium).toBe(true);
-    expect(result.usesPremiumCredits).toBe(true);
-    expect(result.description).toBe("OpenAI's most capable model");
+    expect(result).toMatchObject(model);
   });
 
   it("provides default values for optional fields", () => {
@@ -110,8 +105,8 @@ describe("ModelSchema", () => {
 
     const result = ModelSchema.parse(model);
 
-    expect(result.features).toEqual([]);
-    expect(result.apiKeyUsage).toEqual({
+    expect(result.features).toStrictEqual([]);
+    expect(result.apiKeyUsage).toStrictEqual({
       allowUserKey: false,
       userKeyOnly: false,
     });
@@ -144,7 +139,7 @@ describe("ModelSchema", () => {
       description: "No longer callable",
     });
 
-    expect(result.retired).toBe(true);
+    expect(result).toMatchObject({ retired: true });
   });
 
   it("accepts optional displayProvider", () => {
@@ -176,7 +171,7 @@ describe("ModelSchema", () => {
 
     const result = ModelSchema.parse(model);
 
-    expect(result.legacy).toBe(true);
+    expect(result).toMatchObject({ legacy: true });
   });
 
   it("accepts optional skipRateLimit flag", () => {
@@ -192,7 +187,7 @@ describe("ModelSchema", () => {
 
     const result = ModelSchema.parse(model);
 
-    expect(result.skipRateLimit).toBe(true);
+    expect(result).toMatchObject({ skipRateLimit: true });
   });
 
   it("accepts features array", () => {
@@ -231,18 +226,18 @@ describe("ModelSchema", () => {
 
     const result = ModelSchema.parse(model);
 
-    expect(result.apiKeyUsage.allowUserKey).toBe(true);
-    expect(result.apiKeyUsage.userKeyOnly).toBe(true);
+    expect(result.apiKeyUsage.allowUserKey).toBeTruthy();
+    expect(result.apiKeyUsage.userKeyOnly).toBeTruthy();
   });
 
   it("rejects missing required fields", () => {
-    expect(() => ModelSchema.parse({ id: "test" })).toThrow(/invalid/i);
+    expect(() => ModelSchema.parse({ id: "test" })).toThrow(/invalid/iu);
     expect(() =>
       ModelSchema.parse({
         id: "test",
         name: "Test",
         provider: "openai",
       })
-    ).toThrow(/invalid/i);
+    ).toThrow(/invalid/iu);
   });
 });

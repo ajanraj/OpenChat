@@ -10,19 +10,17 @@ import { UserProvider } from "@/providers/user-provider";
  * real content. Signed-out visitors get `user: null`; their guest account is created on their
  * first message (see `ensureSession` in UserProvider).
  */
-export function AppProviders({ children }: { children: React.ReactNode }) {
-  return (
-    <ThemeProvider>
-      <UserProvider>
-        <ProfileProvider>
-          <CSPostHogProvider>
-            <ChatSessionProvider>
-              <Toaster position="top-center" />
-              {children}
-            </ChatSessionProvider>
-          </CSPostHogProvider>
-        </ProfileProvider>
-      </UserProvider>
-    </ThemeProvider>
-  );
-}
+export const AppProviders = ({ children }: { children: React.ReactNode }) => (
+  <ThemeProvider>
+    <UserProvider>
+      <ProfileProvider>
+        <CSPostHogProvider>
+          <ChatSessionProvider>
+            <Toaster position="top-center" />
+            {children}
+          </ChatSessionProvider>
+        </CSPostHogProvider>
+      </ProfileProvider>
+    </UserProvider>
+  </ThemeProvider>
+);

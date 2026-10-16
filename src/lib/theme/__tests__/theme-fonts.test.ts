@@ -10,22 +10,22 @@ import {
   updateThemeFont,
 } from "../theme-fonts";
 
-describe("SANS_FONTS", () => {
+describe("SANS_FONTS list", () => {
   it("is an array of font options", () => {
-    expect(Array.isArray(SANS_FONTS)).toBe(true);
+    expect(Array.isArray(SANS_FONTS)).toBeTruthy();
     expect(SANS_FONTS.length).toBeGreaterThan(0);
   });
 
   it("first option is system default", () => {
     expect(SANS_FONTS[0].label).toBe("System Default");
-    expect(SANS_FONTS[0].isSystem).toBe(true);
+    expect(SANS_FONTS[0].isSystem).toBeTruthy();
   });
 
   it("each font has required properties", () => {
     for (const font of SANS_FONTS) {
       expect(font.label).toBeDefined();
       expect(font.value).toBeDefined();
-      expect(typeof font.isSystem).toBe("boolean");
+      expect(font.isSystem).toBeTypeOf("boolean");
     }
   });
 
@@ -36,22 +36,22 @@ describe("SANS_FONTS", () => {
   });
 });
 
-describe("MONO_FONTS", () => {
+describe("MONO_FONTS list", () => {
   it("is an array of font options", () => {
-    expect(Array.isArray(MONO_FONTS)).toBe(true);
+    expect(Array.isArray(MONO_FONTS)).toBeTruthy();
     expect(MONO_FONTS.length).toBeGreaterThan(0);
   });
 
   it("first option is system mono", () => {
     expect(MONO_FONTS[0].label).toBe("System Mono");
-    expect(MONO_FONTS[0].isSystem).toBe(true);
+    expect(MONO_FONTS[0].isSystem).toBeTruthy();
   });
 
   it("each font has required properties", () => {
     for (const font of MONO_FONTS) {
       expect(font.label).toBeDefined();
       expect(font.value).toBeDefined();
-      expect(typeof font.isSystem).toBe("boolean");
+      expect(font.isSystem).toBeTypeOf("boolean");
     }
   });
 
@@ -62,7 +62,7 @@ describe("MONO_FONTS", () => {
   });
 });
 
-describe("getFontOptions", () => {
+describe(getFontOptions, () => {
   it("returns SANS_FONTS for sans category", () => {
     expect(getFontOptions("sans")).toBe(SANS_FONTS);
   });
@@ -72,17 +72,18 @@ describe("getFontOptions", () => {
   });
 
   it("throws for unknown category", () => {
-    expect(() => getFontOptions("serif" as "sans")).toThrow(
-      "Unknown font category"
-    );
+    // Called through Reflect.apply to pass a category the types rule out
+    expect(() => {
+      Reflect.apply(getFontOptions, undefined, ["serif"]);
+    }).toThrow("Unknown font category");
   });
 });
 
-describe("getCurrentFontSelection", () => {
+describe(getCurrentFontSelection, () => {
   it("returns system font when no font is set", () => {
     const result = getCurrentFontSelection({}, "sans");
 
-    expect(result.isSystem).toBe(true);
+    expect(result.isSystem).toBeTruthy();
     expect(result.label).toBe("System Default");
   });
 
@@ -94,7 +95,7 @@ describe("getCurrentFontSelection", () => {
     const result = getCurrentFontSelection(styles, "sans");
 
     expect(result.label).toBe("Geist");
-    expect(result.isSystem).toBe(false);
+    expect(result.isSystem).toBeFalsy();
   });
 
   it("returns system font for unknown font value", () => {
@@ -104,7 +105,7 @@ describe("getCurrentFontSelection", () => {
 
     const result = getCurrentFontSelection(styles, "sans");
 
-    expect(result.isSystem).toBe(true);
+    expect(result.isSystem).toBeTruthy();
   });
 
   it("works for mono fonts", () => {
@@ -118,11 +119,11 @@ describe("getCurrentFontSelection", () => {
   });
 });
 
-describe("hasCustomFonts", () => {
+describe(hasCustomFonts, () => {
   it("returns false when using all system fonts", () => {
     const styles = {};
 
-    expect(hasCustomFonts(styles)).toBe(false);
+    expect(hasCustomFonts(styles)).toBeFalsy();
   });
 
   it("returns true when using custom sans font", () => {
@@ -130,7 +131,7 @@ describe("hasCustomFonts", () => {
       "font-sans": "Geist, ui-sans-serif, system-ui, sans-serif",
     };
 
-    expect(hasCustomFonts(styles)).toBe(true);
+    expect(hasCustomFonts(styles)).toBeTruthy();
   });
 
   it("returns true when using custom mono font", () => {
@@ -138,14 +139,14 @@ describe("hasCustomFonts", () => {
       "font-mono": "'JetBrains Mono', ui-monospace, monospace",
     };
 
-    expect(hasCustomFonts(styles)).toBe(true);
+    expect(hasCustomFonts(styles)).toBeTruthy();
   });
 });
 
-describe("updateThemeFont", () => {
+describe(updateThemeFont, () => {
   it("updates sans font", () => {
     const original = { background: "white" };
-    const font = SANS_FONTS[1];
+    const [, font] = SANS_FONTS;
 
     const result = updateThemeFont(original, "sans", font);
 
@@ -155,7 +156,7 @@ describe("updateThemeFont", () => {
 
   it("updates mono font", () => {
     const original = { background: "white" };
-    const font = MONO_FONTS[1];
+    const [, font] = MONO_FONTS;
 
     const result = updateThemeFont(original, "mono", font);
 
@@ -168,7 +169,7 @@ describe("updateThemeFont", () => {
       foreground: "black",
       "font-sans": "old",
     };
-    const font = SANS_FONTS[1];
+    const [, font] = SANS_FONTS;
 
     const result = updateThemeFont(original, "sans", font);
 
@@ -178,14 +179,14 @@ describe("updateThemeFont", () => {
   });
 });
 
-describe("isUsingSystemFonts", () => {
+describe(isUsingSystemFonts, () => {
   it("returns true when using both system fonts", () => {
     const styles = {
       "font-sans": SANS_FONTS[0].value,
       "font-mono": MONO_FONTS[0].value,
     };
 
-    expect(isUsingSystemFonts(styles)).toBe(true);
+    expect(isUsingSystemFonts(styles)).toBeTruthy();
   });
 
   it("returns false when using custom sans font", () => {
@@ -194,7 +195,7 @@ describe("isUsingSystemFonts", () => {
       "font-mono": MONO_FONTS[0].value,
     };
 
-    expect(isUsingSystemFonts(styles)).toBe(false);
+    expect(isUsingSystemFonts(styles)).toBeFalsy();
   });
 
   it("returns false when using custom mono font", () => {
@@ -203,7 +204,7 @@ describe("isUsingSystemFonts", () => {
       "font-mono": "'JetBrains Mono', monospace",
     };
 
-    expect(isUsingSystemFonts(styles)).toBe(false);
+    expect(isUsingSystemFonts(styles)).toBeFalsy();
   });
 
   it("returns false when both fonts are custom", () => {
@@ -212,6 +213,6 @@ describe("isUsingSystemFonts", () => {
       "font-mono": "'JetBrains Mono', monospace",
     };
 
-    expect(isUsingSystemFonts(styles)).toBe(false);
+    expect(isUsingSystemFonts(styles)).toBeFalsy();
   });
 });

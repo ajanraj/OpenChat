@@ -47,9 +47,10 @@ describe("search-provider-factory", () => {
     it("throws for unknown provider", async () => {
       const module = await import("../search-provider-factory");
 
-      expect(() => module.getProvider("unknown" as never)).toThrow(
-        "Unknown search provider: unknown"
-      );
+      // An untyped caller can pass a provider outside SearchProvider
+      expect(() => {
+        Reflect.apply(module.getProvider, undefined, ["unknown"]);
+      }).toThrow("Unknown search provider: unknown");
     });
 
     it("creates brave provider when API key is set", async () => {
@@ -59,7 +60,7 @@ describe("search-provider-factory", () => {
       const provider = module.getProvider("brave");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.search).toBe("function");
+      expect(provider.search).toBeTypeOf("function");
     });
 
     it("creates tavily provider when API key is set", async () => {
@@ -69,7 +70,7 @@ describe("search-provider-factory", () => {
       const provider = module.getProvider("tavily");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.search).toBe("function");
+      expect(provider.search).toBeTypeOf("function");
     });
 
     it("creates exa provider when API key is set", async () => {
@@ -79,7 +80,7 @@ describe("search-provider-factory", () => {
       const provider = module.getProvider("exa");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.search).toBe("function");
+      expect(provider.search).toBeTypeOf("function");
     });
 
     it("returns cached instance on subsequent calls", async () => {
@@ -97,7 +98,7 @@ describe("search-provider-factory", () => {
     it("is exported as a function", async () => {
       const module = await import("../search-provider-factory");
 
-      expect(typeof module.searchWithFallback).toBe("function");
+      expect(module.searchWithFallback).toBeTypeOf("function");
     });
 
     it("rejects when no API keys are configured", async () => {
@@ -119,7 +120,9 @@ describe("search-provider-factory", () => {
       const controller = new AbortController();
       const fetchMock = vi.fn<typeof fetch>(async () => {
         controller.abort();
-        throw new DOMException("This operation was aborted", "AbortError");
+        return await Promise.reject(
+          new DOMException("This operation was aborted", "AbortError")
+        );
       });
       vi.stubGlobal("fetch", fetchMock);
       const module = await import("../search-provider-factory");

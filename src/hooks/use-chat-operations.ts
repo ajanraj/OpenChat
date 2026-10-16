@@ -13,7 +13,23 @@ import { processBranchError } from "@/lib/chat-error-utils";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 
-export function useChatOperations() {
+/**
+ * Sets `setPending` for as long as `run` takes. Lives outside the hook because React Compiler
+ * cannot lower try/finally.
+ */
+const whilePending = async <T>(
+  setPending: (pending: boolean) => void,
+  run: () => Promise<T>
+): Promise<T> => {
+  setPending(true);
+  try {
+    return await run();
+  } finally {
+    setPending(false);
+  }
+};
+
+export const useChatOperations = () => {
   const router = useRouter();
   const [isBranching, setIsBranching] = useState(false);
 
@@ -31,7 +47,7 @@ export function useChatOperations() {
     ) => {
       try {
         const result = await createChat({
-          title: title.substring(0, 50),
+          title: title.slice(0, 50),
           model,
           personaId,
           profileId,
@@ -51,13 +67,13 @@ export function useChatOperations() {
       model: string,
       _user: Doc<"users"> | null
     ) => {
-      if (!chatId) {
+      if (chatId === null || chatId === "") {
         // For new chats, this will be handled by temporary state
         return true;
       }
 
       try {
-        await updateChatModel({ chatId: chatId as Id<"chats">, model });
+        await updateChatModel({ chatId, model });
         return true;
       } catch {
         toast({ title: "Failed to update chat model", status: "error" });
@@ -81,30 +97,28 @@ export function useChatOperations() {
         return false;
       }
 
-      setIsBranching(true);
+      return await whilePending(setIsBranching, async () => {
+        try {
+          const result = await branchChat({
+            originalChatId: chatId,
+            branchFromMessageId: messageId,
+          });
 
-      try {
-        const result = await branchChat({
-          originalChatId: chatId as Id<"chats">,
-          branchFromMessageId: messageId as Id<"messages">,
-        });
-
-        void router.navigate({ to: `/c/${result.chatId}` });
-        toast({
-          title: "Chat branched successfully",
-          status: "success",
-        });
-        return true;
-      } catch (branchError: unknown) {
-        const errorMessage = processBranchError(branchError);
-        toast({
-          title: errorMessage,
-          status: "error",
-        });
-        return false;
-      } finally {
-        setIsBranching(false);
-      }
+          void router.navigate({ to: `/c/${result.chatId}` });
+          toast({
+            title: "Chat branched successfully",
+            status: "success",
+          });
+          return true;
+        } catch (branchError: unknown) {
+          const errorMessage = processBranchError(branchError);
+          toast({
+            title: errorMessage,
+            status: "error",
+          });
+          return false;
+        }
+      });
     },
     [branchChat, router, isBranching]
   );
@@ -112,10 +126,7 @@ export function useChatOperations() {
   const handleDeleteMessage = useCallback(
     async (messageId: string) => {
       try {
-        const result = await deleteMessage({
-          messageId: messageId as Id<"messages">,
-        });
-        return result;
+        return await deleteMessage({ messageId });
       } catch {
         toast({ title: "Failed to delete message", status: "error" });
         return null;
@@ -130,4 +141,4 @@ export function useChatOperations() {
     handleBranch,
     handleDeleteMessage,
   };
-}
+};

@@ -13,21 +13,21 @@ describe("openai websocket transport helpers", () => {
         provider: "openai",
         api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
       })
-    ).toBe(true);
+    ).toBeTruthy();
 
     expect(
       isOpenAITransportEligible({
         provider: "openai",
         api_sdk: { provider: "gateway", modelId: "openai/gpt-oss-20b" },
       })
-    ).toBe(false);
+    ).toBeFalsy();
 
     expect(
       isOpenAITransportEligible({
         provider: "anthropic",
         api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
       })
-    ).toBe(false);
+    ).toBeFalsy();
   });
 
   it("returns undefined when model id is missing", () => {
@@ -60,9 +60,7 @@ describe("openai websocket transport helpers", () => {
     wsFetch.close();
 
     expect(model).toBeDefined();
-    const hasDoStream = Boolean(
-      model && typeof model === "object" && "doStream" in model
-    );
-    expect(hasDoStream).toBe(true);
+    const hasDoStream = typeof model === "object" && "doStream" in model;
+    expect(hasDoStream).toBeTruthy();
   });
 });

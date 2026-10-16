@@ -15,28 +15,28 @@ import {
 } from "../features";
 
 describe("Feature Constants", () => {
-  describe("FILE_UPLOAD_FEATURE", () => {
+  describe("file upload feature", () => {
     it("has correct id", () => {
       expect(FILE_UPLOAD_FEATURE.id).toBe("file-upload");
     });
 
     it("is enabled by default", () => {
-      expect(FILE_UPLOAD_FEATURE.enabled).toBe(true);
+      expect(FILE_UPLOAD_FEATURE.enabled).toBeTruthy();
     });
 
     it("has a label", () => {
       expect(FILE_UPLOAD_FEATURE.label).toBeDefined();
-      expect(typeof FILE_UPLOAD_FEATURE.label).toBe("string");
+      expect(FILE_UPLOAD_FEATURE.label).toBeTypeOf("string");
     });
   });
 
-  describe("PDF_PROCESSING_FEATURE", () => {
+  describe("PDF processing feature", () => {
     it("has correct id", () => {
       expect(PDF_PROCESSING_FEATURE.id).toBe("pdf-processing");
     });
 
     it("is enabled by default", () => {
-      expect(PDF_PROCESSING_FEATURE.enabled).toBe(true);
+      expect(PDF_PROCESSING_FEATURE.enabled).toBeTruthy();
     });
 
     it("has a label", () => {
@@ -47,8 +47,8 @@ describe("Feature Constants", () => {
   describe("REASONING_FEATURE variants", () => {
     it("REASONING_FEATURE supports optional reasoning effort", () => {
       expect(REASONING_FEATURE.id).toBe("reasoning");
-      expect(REASONING_FEATURE.enabled).toBe(true);
-      expect(REASONING_FEATURE.effortOptions).toEqual([
+      expect(REASONING_FEATURE.enabled).toBeTruthy();
+      expect(REASONING_FEATURE.effortOptions).toStrictEqual([
         "none",
         "low",
         "medium",
@@ -57,17 +57,20 @@ describe("Feature Constants", () => {
     });
 
     it("defines always-on and toggle effort options", () => {
-      expect(REASONING_FEATURE_ALWAYS.effortOptions).toEqual([
+      expect(REASONING_FEATURE_ALWAYS.effortOptions).toStrictEqual([
         "low",
         "medium",
         "high",
       ]);
-      expect(REASONING_FEATURE_MAX.effortOptions).toEqual([
+      expect(REASONING_FEATURE_MAX.effortOptions).toStrictEqual([
         "xhigh",
         "high",
         "low",
       ]);
-      expect(REASONING_FEATURE_TOGGLE.effortOptions).toEqual(["none", "high"]);
+      expect(REASONING_FEATURE_TOGGLE.effortOptions).toStrictEqual([
+        "none",
+        "high",
+      ]);
     });
 
     it("keeps basic reasoning compatible with fixed reasoning", () => {
@@ -77,7 +80,7 @@ describe("Feature Constants", () => {
 
     it("REASONING_FEATURE_DISABLED has correct id and is disabled", () => {
       expect(REASONING_FEATURE_DISABLED.id).toBe("reasoning");
-      expect(REASONING_FEATURE_DISABLED.enabled).toBe(false);
+      expect(REASONING_FEATURE_DISABLED.enabled).toBeFalsy();
     });
 
     it("all reasoning features share same id", () => {
@@ -86,13 +89,13 @@ describe("Feature Constants", () => {
     });
   });
 
-  describe("IMAGE_GENERATION_FEATURE", () => {
+  describe("image generation feature", () => {
     it("has correct id", () => {
       expect(IMAGE_GENERATION_FEATURE.id).toBe("image-generation");
     });
 
     it("is enabled by default", () => {
-      expect(IMAGE_GENERATION_FEATURE.enabled).toBe(true);
+      expect(IMAGE_GENERATION_FEATURE.enabled).toBeTruthy();
     });
 
     it("has a label", () => {
@@ -100,13 +103,13 @@ describe("Feature Constants", () => {
     });
   });
 
-  describe("TOOL_CALLING_FEATURE", () => {
+  describe("tool calling feature", () => {
     it("has correct id", () => {
       expect(TOOL_CALLING_FEATURE.id).toBe("tool-calling");
     });
 
     it("is enabled by default", () => {
-      expect(TOOL_CALLING_FEATURE.enabled).toBe(true);
+      expect(TOOL_CALLING_FEATURE.enabled).toBeTruthy();
     });
 
     it("has a label mentioning tools", () => {

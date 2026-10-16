@@ -7,17 +7,9 @@ import { toast } from "sonner";
 import { ConnectorGrid } from "@/components/layout/settings/connectors/ConnectorGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
-import { getConnectorConfig, SUPPORTED_CONNECTORS } from "@/lib/config/tools";
+import { getConnectorConfig } from "@/lib/config/tools";
 import type { ConnectorType } from "@/lib/types";
 import { useUser } from "@/providers/user-provider";
-
-export const Route = createFileRoute("/settings/connectors")({
-  component: ConnectorsSettingsPage,
-});
-
-interface SimpleConnectionState {
-  status: "idle" | "connecting";
-}
 
 interface ConnectorCategory {
   name: string;
@@ -67,14 +59,16 @@ const isValidHttpsRedirectUrl = (url: string): boolean => {
 
 const getAuthHeaders = (authToken: string | null) => ({
   "Content-Type": "application/json",
-  ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  ...(authToken !== null && authToken !== ""
+    ? { Authorization: `Bearer ${authToken}` }
+    : {}),
 });
 
 const requestConnectorConnect = async (
   type: ConnectorType,
   authToken: string | null
 ): Promise<ConnectResult> => {
-  const displayName = getConnectorConfig(type).displayName;
+  const { displayName } = getConnectorConfig(type);
   const fallbackError = `Failed to connect to ${displayName}`;
 
   try {
@@ -110,7 +104,7 @@ const requestConnectorDisconnect = async (
   type: ConnectorType,
   authToken: string | null
 ): Promise<string | null> => {
-  const displayName = getConnectorConfig(type).displayName;
+  const { displayName } = getConnectorConfig(type);
   const fallbackError = `Failed to disconnect ${displayName}`;
 
   try {
@@ -155,7 +149,21 @@ const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   },
 ];
 
-export function ConnectorsSettingsPage() {
+// No connector is connecting until the user starts a connection
+const NOT_CONNECTING: Record<ConnectorType, boolean> = {
+  gmail: false,
+  googlecalendar: false,
+  notion: false,
+  googledrive: false,
+  googledocs: false,
+  googlesheets: false,
+  slack: false,
+  linear: false,
+  github: false,
+  twitter: false,
+};
+
+export const ConnectorsSettingsPage = () => {
   const authToken = useAuthToken();
   const { user, connectors, isConnectorsLoading } = useUser();
   const setConnectorEnabled = useMutation(
@@ -175,16 +183,8 @@ export function ConnectorsSettingsPage() {
       );
     }
   });
-  const [connectionStates, setConnectionStates] = useState<
-    Record<ConnectorType, SimpleConnectionState>
-  >(() => {
-    const initialStates: Record<ConnectorType, SimpleConnectionState> =
-      {} as Record<ConnectorType, SimpleConnectionState>;
-    for (const type of SUPPORTED_CONNECTORS) {
-      initialStates[type] = { status: "idle" };
-    }
-    return initialStates;
-  });
+  const [connectingStates, setConnectingStates] =
+    useState<Record<ConnectorType, boolean>>(NOT_CONNECTING);
 
   const handleConnect = useCallback(
     async (type: ConnectorType) => {
@@ -192,12 +192,9 @@ export function ConnectorsSettingsPage() {
         toast.error("Please log in to connect accounts");
         return;
       }
-      const displayName = getConnectorConfig(type).displayName;
+      const { displayName } = getConnectorConfig(type);
 
-      setConnectionStates((prev) => ({
-        ...prev,
-        [type]: { status: "connecting" },
-      }));
+      setConnectingStates((prev) => ({ ...prev, [type]: true }));
 
       const result = await requestConnectorConnect(type, authToken);
       if (!result.ok) {
@@ -206,10 +203,7 @@ export function ConnectorsSettingsPage() {
           result.errorMessage
         );
         toast.error(result.errorMessage);
-        setConnectionStates((prev) => ({
-          ...prev,
-          [type]: { status: "idle" },
-        }));
+        setConnectingStates((prev) => ({ ...prev, [type]: false }));
         return;
       }
 
@@ -228,10 +222,10 @@ export function ConnectorsSettingsPage() {
         toast.error("Please log in to disconnect accounts");
         return;
       }
-      const displayName = getConnectorConfig(type).displayName;
+      const { displayName } = getConnectorConfig(type);
 
       const errorMessage = await requestConnectorDisconnect(type, authToken);
-      if (errorMessage) {
+      if (errorMessage !== null && errorMessage !== "") {
         console.error(`Failed to disconnect ${displayName}:`, errorMessage);
         toast.error(errorMessage);
         return;
@@ -252,13 +246,6 @@ export function ConnectorsSettingsPage() {
     },
     [user, setConnectorEnabled]
   );
-
-  const connectingStates = Object.fromEntries(
-    Object.entries(connectionStates).map(([key, { status }]) => [
-      key,
-      status === "connecting",
-    ])
-  ) as Record<ConnectorType, boolean>;
 
   const connectedCount = connectors.filter((c) => c.isConnected).length;
   const enabledCount = connectors.filter(
@@ -331,7 +318,9 @@ export function ConnectorsSettingsPage() {
                 connectingStates={connectingStates}
                 connectors={connectors}
                 connectorTypes={category.types}
-                onConnectAction={handleConnect}
+                onConnectAction={(type) => {
+                  void handleConnect(type);
+                }}
                 onDisconnectAction={handleDisconnect}
                 onToggleEnabledAction={handleToggleEnabled}
               />
@@ -341,4 +330,8 @@ export function ConnectorsSettingsPage() {
       )}
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/connectors")({
+  component: ConnectorsSettingsPage,
+});

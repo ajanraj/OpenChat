@@ -1,17 +1,35 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
 
+// Portal elements whose clicks don't count as outside the edit component
+const PORTAL_SELECTOR = [
+  // Radix UI dropdown menu elements
+  '[data-slot*="dropdown-menu"]',
+  // Radix UI popover elements
+  '[data-slot*="popover"]',
+  // Generic Radix portal container
+  "[data-radix-portal]",
+  // ARIA menu/dialog/listbox roles
+  '[role="menu"]',
+  '[role="dialog"]',
+  '[role="listbox"]',
+  // Radix UI select elements
+  "[data-radix-select-viewport]",
+  // Tooltip elements (in case tooltips should not close edit)
+  '[role="tooltip"]',
+].join(", ");
+
 /**
  * Custom click-outside hook for edit components that ignores clicks on portal elements
  * like dropdown menus, popovers, and dialogs
  */
-export function useEditClickOutside<T extends HTMLElement>(
+export const useEditClickOutside = <T extends HTMLElement>(
   ref: RefObject<T | null>,
   handler: (event: MouseEvent | TouchEvent) => void
-): void {
+): void => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      const target = event.target;
+      const { target } = event;
 
       // Early return if target is not an Element (could be Text or Document node)
       if (!(target instanceof Element)) {
@@ -23,25 +41,8 @@ export function useEditClickOutside<T extends HTMLElement>(
         return;
       }
 
-      // Don't trigger if clicking on dropdown menus, popovers, or other portal elements
-      const isPortalClick =
-        // Radix UI dropdown menu elements
-        target.closest('[data-slot*="dropdown-menu"]') ||
-        // Radix UI popover elements
-        target.closest('[data-slot*="popover"]') ||
-        // Generic Radix portal container
-        target.closest("[data-radix-portal]") ||
-        // ARIA menu/dialog/listbox roles
-        target.closest('[role="menu"]') ||
-        target.closest('[role="dialog"]') ||
-        target.closest('[role="listbox"]') ||
-        // Radix UI select elements
-        target.closest("[data-radix-select-viewport]") ||
-        // Tooltip elements (in case tooltips should not close edit)
-        target.closest('[role="tooltip"]');
-
-      // Only trigger handler if NOT clicking on portal elements
-      if (!isPortalClick) {
+      // Only trigger handler if NOT clicking on dropdown menus, popovers, or other portal elements
+      if (target.closest(PORTAL_SELECTOR) === null) {
         handler(event);
       }
     };
@@ -58,4 +59,4 @@ export function useEditClickOutside<T extends HTMLElement>(
       document.removeEventListener("touchstart", handleClickOutside);
     };
   }, [ref, handler]);
-}
+};

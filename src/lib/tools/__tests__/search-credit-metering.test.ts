@@ -1,38 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { createSearchTool } from "../search";
 import {
   consumeOneStandardCreditForSearch,
   createMeteredSearchTool,
 } from "../search-credit-metering";
 import type { ConsumeStandardCredits } from "../search-credit-metering";
 
-interface SearchToolOptions {
-  onSearchSuccess?: () => Promise<void> | void;
-}
+const createSearchToolMock = vi.fn<typeof createSearchTool>();
 
-const createSearchToolMock = vi.fn<(options?: SearchToolOptions) => object>();
-
-vi.mock("../search", () => ({
-  createSearchTool: (options?: SearchToolOptions) =>
-    createSearchToolMock(options),
+vi.mock(import("../search"), () => ({
+  createSearchTool: (options) => createSearchToolMock(options),
 }));
 
 describe("search-credit-metering", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createSearchToolMock.mockReset();
-    createSearchToolMock.mockReturnValue({ name: "search-tool" });
   });
 
   it("charges exactly one standard credit per search success callback", async () => {
     const consumeStandardCredits = vi
       .fn<ConsumeStandardCredits>()
-      .mockResolvedValue(undefined);
+      .mockResolvedValue();
 
     await consumeOneStandardCreditForSearch(consumeStandardCredits);
 
-    expect(consumeStandardCredits).toHaveBeenCalledOnce();
-    expect(consumeStandardCredits).toHaveBeenCalledWith(1);
+    expect(consumeStandardCredits).toHaveBeenCalledExactlyOnceWith(1);
   });
 
   it("propagates errors when credit consumption fails", async () => {
@@ -60,7 +54,7 @@ describe("search-credit-metering", () => {
   it("wires search tool callback to consume one standard credit", async () => {
     const consumeStandardCredits = vi
       .fn<ConsumeStandardCredits>()
-      .mockResolvedValue(undefined);
+      .mockResolvedValue();
 
     createMeteredSearchTool({
       enableSearch: true,
@@ -81,8 +75,7 @@ describe("search-credit-metering", () => {
 
     await options.onSearchSuccess();
 
-    expect(consumeStandardCredits).toHaveBeenCalledOnce();
-    expect(consumeStandardCredits).toHaveBeenCalledWith(1);
+    expect(consumeStandardCredits).toHaveBeenCalledExactlyOnceWith(1);
   });
 
   it("propagates errors through onSearchSuccess callback", async () => {
@@ -110,7 +103,6 @@ describe("search-credit-metering", () => {
     await expect(options.onSearchSuccess()).rejects.toThrow(
       "billing unavailable"
     );
-    expect(consumeStandardCredits).toHaveBeenCalledOnce();
-    expect(consumeStandardCredits).toHaveBeenCalledWith(1);
+    expect(consumeStandardCredits).toHaveBeenCalledExactlyOnceWith(1);
   });
 });

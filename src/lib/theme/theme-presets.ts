@@ -379,8 +379,10 @@ export const defaultPresets: Record<string, ThemePreset> = {
         "secondary-foreground": "#c0c0c0",
         muted: "#454545",
         "muted-foreground": "#a0a0a0",
-        accent: "#737373" /* Neutral medium gray */,
-        "accent-foreground": "#f5f5f5" /* Light gray */,
+        // Neutral medium gray
+        accent: "#737373",
+        // Light gray
+        "accent-foreground": "#f5f5f5",
         destructive: "#d9afaf",
         "destructive-foreground": "#2b2b2b",
         border: "#4f4f4f",

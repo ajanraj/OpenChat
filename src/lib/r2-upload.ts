@@ -18,10 +18,10 @@ export type GenerateUploadUrl = (
  * pending row), then PUTs the blob to the presigned R2 URL. Returns the object key, which must be
  * finalized with files.saveFileAttachment or files.saveGeneratedImage within an hour.
  */
-export async function uploadToR2(
+export const uploadToR2 = async (
   blob: Blob,
   generateUploadUrl: GenerateUploadUrl
-): Promise<string> {
+): Promise<string> => {
   const { key, url } = await generateUploadUrl({
     contentType: blob.type,
     size: blob.size,
@@ -36,4 +36,4 @@ export async function uploadToR2(
     throw new Error(`R2 upload failed with status ${response.status}`);
   }
   return key;
-}
+};

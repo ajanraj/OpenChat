@@ -195,7 +195,7 @@ export const refundMessageCredit = mutation({
 export const getServerTime = mutation({
   args: {},
   returns: v.number(),
-  handler: async () => Date.now(),
+  handler: () => Date.now(),
 });
 
 /**
@@ -211,11 +211,11 @@ const rateLimitBucket = v.object({
   capacity: v.number(),
 });
 
-async function getRateLimitBucket(
+const getRateLimitBucket = async (
   ctx: QueryCtx,
   name: credits.CreditBucketName,
   userId: Id<"users">
-): Promise<Infer<typeof rateLimitBucket>> {
+): Promise<Infer<typeof rateLimitBucket>> => {
   const { value, ts, config } = await rateLimiter.getValue(ctx, name, {
     key: userId,
   });
@@ -226,7 +226,7 @@ async function getRateLimitBucket(
     period: config.period,
     capacity: config.capacity ?? config.rate,
   };
-}
+};
 
 // Raw credit buckets for the current user. Deliberately time-independent: remaining
 // credits and reset times depend on "now", so clients derive them (a query reading
@@ -249,9 +249,8 @@ export const getRateLimitStatus = query({
     }
 
     const isPremium = await hasActivePremium(ctx, user._id);
-    const dailyName = user.isAnonymous
-      ? "anonymousDaily"
-      : "authenticatedDaily";
+    const dailyName =
+      user.isAnonymous === true ? "anonymousDaily" : "authenticatedDaily";
     const [daily, monthly, premium] = await Promise.all([
       isPremium ? null : getRateLimitBucket(ctx, dailyName, user._id),
       getRateLimitBucket(ctx, "standardMonthly", user._id),
@@ -322,7 +321,7 @@ export const purgeDeletedUserData = internalMutation({
         userId,
         final,
       });
-    } else if (!final) {
+    } else if (final !== true) {
       await ctx.scheduler.runAfter(
         FINAL_PURGE_DELAY_MS,
         internal.users.purgeDeletedUserData,

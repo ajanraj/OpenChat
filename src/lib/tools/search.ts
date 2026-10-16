@@ -15,13 +15,13 @@ export const truncateContent = (
   if (content.length <= maxLength) {
     return content;
   }
-  return `${content.substring(0, maxLength - 3)}...`;
+  return `${content.slice(0, Math.max(0, maxLength - 3))}...`;
 };
 
 export const formatMarkdown = (result: SearchResult): string => {
   let markdown = `### [${result.title}](${result.url})\n${result.description}`;
 
-  if (result.content) {
+  if (result.content !== undefined && result.content !== "") {
     const truncatedContent = truncateContent(result.content);
     markdown += `\n\n> ${truncatedContent}`;
   }
@@ -32,8 +32,14 @@ export const formatMarkdown = (result: SearchResult): string => {
 export const processResults = (results: SearchResult[]): SearchResult[] =>
   results.map((result) => ({
     ...result,
-    content: result.content ? truncateContent(result.content) : undefined,
-    markdown: result.markdown || formatMarkdown(result),
+    content:
+      result.content !== undefined && result.content !== ""
+        ? truncateContent(result.content)
+        : undefined,
+    markdown:
+      result.markdown !== undefined && result.markdown !== ""
+        ? result.markdown
+        : formatMarkdown(result),
   }));
 
 interface SearchToolCallbacks {

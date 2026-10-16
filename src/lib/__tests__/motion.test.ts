@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { TRANSITION_LAYOUT, TRANSITION_SUGGESTIONS } from "../motion";
 
 describe("Motion Transitions", () => {
-  describe("TRANSITION_SUGGESTIONS", () => {
+  describe("TRANSITION_SUGGESTIONS constant", () => {
     it("has duration property", () => {
       expect(TRANSITION_SUGGESTIONS.duration).toBeDefined();
-      expect(typeof TRANSITION_SUGGESTIONS.duration).toBe("number");
+      expect(TRANSITION_SUGGESTIONS.duration).toBeTypeOf("number");
     });
 
     it("has ease property", () => {
@@ -18,10 +18,10 @@ describe("Motion Transitions", () => {
     });
   });
 
-  describe("TRANSITION_LAYOUT", () => {
+  describe("TRANSITION_LAYOUT constant", () => {
     it("has duration property", () => {
       expect(TRANSITION_LAYOUT.duration).toBeDefined();
-      expect(typeof TRANSITION_LAYOUT.duration).toBe("number");
+      expect(TRANSITION_LAYOUT.duration).toBeTypeOf("number");
     });
 
     it("has ease property", () => {

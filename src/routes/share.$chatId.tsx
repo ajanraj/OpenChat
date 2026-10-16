@@ -3,41 +3,16 @@ import { useQuery } from "convex/react";
 
 import { ShareView } from "@/components/share/share-view";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { APP_BASE_URL } from "@/lib/config";
+import { APP_BASE_URL } from "@/lib/config/constants";
 
-export const Route = createFileRoute("/share/$chatId")({
-  component: ShareChatPage,
-  head: ({ params }) => ({
-    meta: [
-      { title: "Chat - OpenChat" },
-      { name: "description", content: "A shared conversation" },
-      { property: "og:title", content: "Chat" },
-      { property: "og:description", content: "A shared conversation" },
-      { property: "og:type", content: "article" },
-      {
-        property: "og:url",
-        content: `${APP_BASE_URL}/share/${params.chatId}`,
-      },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Chat" },
-      { name: "twitter:description", content: "A shared conversation" },
-    ],
-  }),
-});
-
-function ShareChatPage() {
+const ShareChatPage = () => {
   const { chatId } = Route.useParams();
 
   // Fetch public chat data
-  const chat = useQuery(api.chats.getPublicChat, {
-    chatId: chatId as Id<"chats">,
-  });
+  const chat = useQuery(api.chats.getPublicChat, { chatId });
 
   // Fetch sanitized messages
-  const messages = useQuery(api.messages.getPublicChatMessages, {
-    chatId: chatId as Id<"chats">,
-  });
+  const messages = useQuery(api.messages.getPublicChatMessages, { chatId });
 
   // Loading state
   if (chat === undefined || messages === undefined) {
@@ -66,7 +41,7 @@ function ShareChatPage() {
 
   const createdAtMs = chat.createdAt ?? chat._creationTime;
   const createdAtDate = new Date(createdAtMs);
-  const createdAtDateTime = createdAtDate.toISOString().split("T")[0];
+  const [createdAtDateTime] = createdAtDate.toISOString().split("T");
   const createdAtLabel = createdAtDate.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -81,7 +56,7 @@ function ShareChatPage() {
         </time>
       </div>
       <h1 className="mb-4 text-center text-4xl font-medium tracking-tight md:text-5xl">
-        {chat.title || "Chat"}
+        {chat.title !== undefined && chat.title !== "" ? chat.title : "Chat"}
       </h1>
       <p className="mb-8 text-center text-lg text-muted-foreground">
         A conversation from oschat.ai
@@ -89,4 +64,24 @@ function ShareChatPage() {
       <ShareView messages={messages ?? []} sourceChatId={chatId} />
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/share/$chatId")({
+  component: ShareChatPage,
+  head: ({ params }) => ({
+    meta: [
+      { title: "Chat - OpenChat" },
+      { name: "description", content: "A shared conversation" },
+      { property: "og:title", content: "Chat" },
+      { property: "og:description", content: "A shared conversation" },
+      { property: "og:type", content: "article" },
+      {
+        property: "og:url",
+        content: `${APP_BASE_URL}/share/${params.chatId}`,
+      },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Chat" },
+      { name: "twitter:description", content: "A shared conversation" },
+    ],
+  }),
+});

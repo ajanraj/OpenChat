@@ -12,6 +12,9 @@ import {
 } from "@/lib/middleware/auth";
 import type { ConnectorType } from "@/lib/types";
 
+const isSupportedConnector = (value: unknown): value is ConnectorType =>
+  SUPPORTED_CONNECTORS.some((connector) => connector === value);
+
 export const Route = createFileRoute("/api/composio/disconnect")({
   server: {
     middleware: [authMiddleware],
@@ -23,22 +26,25 @@ export const Route = createFileRoute("/api/composio/disconnect")({
           if (!user) {
             return notFound("User not found");
           }
-          if (user.isAnonymous) {
+          if (user.isAnonymous === true) {
             return json(
               { error: "Sign in with Google to use connectors" },
               { status: 403 }
             );
           }
 
-          let connectorType: ConnectorType;
+          let body: unknown;
           try {
-            const body = await request.json();
-            connectorType = body.connectorType;
+            body = await request.json();
           } catch {
             return badRequest("Invalid JSON in request body");
           }
 
-          if (!SUPPORTED_CONNECTORS.includes(connectorType)) {
+          const connectorType =
+            typeof body === "object" && body !== null && "connectorType" in body
+              ? body.connectorType
+              : undefined;
+          if (!isSupportedConnector(connectorType)) {
             return badRequest("Invalid connector type");
           }
 

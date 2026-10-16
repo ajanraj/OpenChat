@@ -82,13 +82,17 @@ export const PERSONAS_MAP: Record<string, (typeof PERSONAS)[0]> =
   Object.fromEntries(PERSONAS.map((persona) => [persona.id, persona]));
 
 const ALL_INTEGRATIONS = Object.values(CONNECTOR_CONFIGS)
-  .sort((a: ConnectorConfig, b: ConnectorConfig) =>
+  .toSorted((a: ConnectorConfig, b: ConnectorConfig) =>
     a.displayName.localeCompare(b.displayName)
   )
   .map((c: ConnectorConfig) => `- ${c.displayName}: ${c.description}`)
   .join("\n");
 
 const generateAllPossibleIntegrations = (): string => ALL_INTEGRATIONS;
+
+/** Whether an optional setting holds text (the UI saves cleared inputs as ""). */
+const hasText = (value: string | undefined): value is string =>
+  value !== undefined && value !== "";
 
 const isConnectorType = (s: string): s is ConnectorType =>
   s in CONNECTOR_CONFIGS;
@@ -110,7 +114,7 @@ const formatDateInTimezone = (
 ): { date: string; time: string } => {
   const now = new Date();
   // console.log('Current date/time:', now);
-  if (timezone) {
+  if (hasText(timezone)) {
     try {
       // Format date as MM/DD/YYYY to match the original format
       const date = dayjs(now).tz(timezone).format("MM/DD/YYYY");
@@ -420,7 +424,11 @@ Structure your response like this:
 </email_formatting>
 `.trim();
 
-export type UserProfile = Doc<"users">;
+/** The user fields buildSystemPrompt reads (a users document satisfies this type). */
+export type UserProfile = Pick<
+  Doc<"users">,
+  "name" | "preferredName" | "occupation" | "traits" | "about"
+>;
 
 export interface ProfileData {
   preferredName?: string;
@@ -429,7 +437,31 @@ export interface ProfileData {
   about?: string;
 }
 
-export function buildSystemPrompt(
+/**
+ * "Label: value" lines for the details the user shared. Profile values override the user's,
+ * except empty ones: the UI saves cleared inputs as "" (not undefined), so those fall through
+ * to the user-level values.
+ */
+const userDetailLines = (
+  user: UserProfile,
+  profile?: ProfileData | null
+): string[] => {
+  const details: [label: string, value: string | undefined][] = [
+    ["Name", user.name],
+    [
+      "Preferred Name",
+      [profile?.preferredName, user.preferredName].find(hasText),
+    ],
+    ["Occupation", [profile?.occupation, user.occupation].find(hasText)],
+    ["Traits", [profile?.traits, user.traits].find(hasText)],
+    ["About", [profile?.about, user.about].find(hasText)],
+  ];
+  return details.flatMap(([label, value]) =>
+    hasText(value) ? [`${label}: ${value}`] : []
+  );
+};
+
+export const buildSystemPrompt = (
   user?: UserProfile | null,
   basePrompt?: string,
   enableSearch?: boolean,
@@ -439,68 +471,46 @@ export function buildSystemPrompt(
   taskMode?: boolean,
   connectorsStatus?: ConnectorStatusLists,
   profile?: ProfileData | null
-) {
+) => {
   // Choose the appropriate base prompt based on mode
   let prompt =
     basePrompt ??
-    (taskMode
+    (taskMode === true
       ? getTaskPromptDefault(timezone, connectorsStatus)
       : getSystemPromptDefault(timezone, connectorsStatus));
 
   prompt += `\n\n${FORMATTING_RULES}`;
 
   // Add search instructions if search is enabled
-  if (enableSearch) {
+  if (enableSearch === true) {
     prompt += `\n\n${SEARCH_PROMPT_INSTRUCTIONS}`;
   }
 
   // Add tool instructions if tools are enabled
-  if (enableTools) {
+  if (enableTools === true) {
     prompt += `\n\n${TOOL_PROMPT_INSTRUCTIONS}`;
   }
 
   // Add email formatting instructions if email mode is enabled
-  if (emailMode) {
+  if (emailMode === true) {
     prompt += `\n\n${EMAIL_PROMPT_INSTRUCTIONS}`;
   }
 
-  if (timezone) {
-    if (taskMode) {
-      prompt += `\nUser's timezone: ${timezone}. Adjust all times and scheduling accordingly.`;
-    } else {
-      prompt += `\nThe user's timezone is ${timezone}.`;
-    }
+  if (hasText(timezone)) {
+    prompt +=
+      taskMode === true
+        ? `\nUser's timezone: ${timezone}. Adjust all times and scheduling accordingly.`
+        : `\nThe user's timezone is ${timezone}.`;
   }
 
   if (!user) {
     return prompt;
   }
 
-  const details: string[] = [];
-  if (user.name) {
-    details.push(`Name: ${user.name}`);
-  }
-  // Use || (not ??): the UI saves cleared inputs as "" (not undefined),
-  // so empty strings must fall through to user-level values.
-  const preferredName = profile?.preferredName || user.preferredName;
-  const occupation = profile?.occupation || user.occupation;
-  const traits = profile?.traits || user.traits;
-  const about = profile?.about || user.about;
-  if (preferredName) {
-    details.push(`Preferred Name: ${preferredName}`);
-  }
-  if (occupation) {
-    details.push(`Occupation: ${occupation}`);
-  }
-  if (traits) {
-    details.push(`Traits: ${traits}`);
-  }
-  if (about) {
-    details.push(`About: ${about}`);
-  }
+  const details = userDetailLines(user, profile);
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(
         "\n"
       )}`
     : prompt;
-}
+};

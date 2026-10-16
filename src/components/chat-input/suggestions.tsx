@@ -1,7 +1,7 @@
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { PromptSuggestion } from "@/components/prompt-kit/prompt-suggestion";
-import { SUGGESTIONS as SUGGESTIONS_CONFIG } from "@/lib/config";
+import { SUGGESTIONS as SUGGESTIONS_CONFIG } from "@/lib/config/suggestions";
 import { TRANSITION_SUGGESTIONS } from "@/lib/motion";
 
 type SuggestionsProps = {

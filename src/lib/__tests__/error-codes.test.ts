@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ERROR_CODES, getErrorMessage } from "../error-codes";
 
-describe("ERROR_CODES", () => {
+describe("ERROR_CODES map", () => {
   it("includes all authentication error codes", () => {
     expect(ERROR_CODES.NOT_AUTHENTICATED).toBe("NOT_AUTHENTICATED");
     expect(ERROR_CODES.UNAUTHORIZED).toBe("UNAUTHORIZED");
@@ -14,6 +14,9 @@ describe("ERROR_CODES", () => {
     expect(ERROR_CODES.MISSING_REQUIRED_FIELD).toBe("MISSING_REQUIRED_FIELD");
     expect(ERROR_CODES.USER_NOT_FOUND).toBe("USER_NOT_FOUND");
     expect(ERROR_CODES.CHAT_NOT_FOUND).toBe("CHAT_NOT_FOUND");
+  });
+
+  it("includes all not-found validation error codes", () => {
     expect(ERROR_CODES.MESSAGE_NOT_FOUND).toBe("MESSAGE_NOT_FOUND");
     expect(ERROR_CODES.FILE_NOT_FOUND).toBe("FILE_NOT_FOUND");
   });
@@ -30,6 +33,9 @@ describe("ERROR_CODES", () => {
     );
     expect(ERROR_CODES.USER_KEY_REQUIRED).toBe("USER_KEY_REQUIRED");
     expect(ERROR_CODES.UNSUPPORTED_MODEL).toBe("UNSUPPORTED_MODEL");
+  });
+
+  it("includes all profile business error codes", () => {
     expect(ERROR_CODES.PROFILE_LIMIT_REACHED).toBe("PROFILE_LIMIT_REACHED");
     expect(ERROR_CODES.PROFILE_NOT_FOUND).toBe("PROFILE_NOT_FOUND");
     expect(ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE).toBe(
@@ -68,7 +74,7 @@ describe("ERROR_CODES", () => {
   });
 });
 
-describe("getErrorMessage", () => {
+describe(getErrorMessage, () => {
   it("returns correct message for auth errors", () => {
     expect(getErrorMessage(ERROR_CODES.NOT_AUTHENTICATED)).toBe(
       "Authentication required. Please sign in."
@@ -149,8 +155,11 @@ describe("getErrorMessage", () => {
   });
 
   it("returns default message for unknown error codes", () => {
-    const unknownCode = "UNKNOWN_ERROR" as never;
-    expect(getErrorMessage(unknownCode)).toBe(
+    expect(getErrorMessage("UNKNOWN_ERROR")).toBe(
+      "An unexpected error occurred. Please try again."
+    );
+    // Object prototype keys are not error codes
+    expect(getErrorMessage("toString")).toBe(
       "An unexpected error occurred. Please try again."
     );
   });

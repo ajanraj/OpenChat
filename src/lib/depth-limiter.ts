@@ -1,11 +1,32 @@
 /**
+ * What limitDepth returns: primitives and Dates as-is, "[Function]" for functions, and fresh copies
+ * of arrays and objects. An object or array nested at maxDepth becomes the record
+ * `{ _truncated: true, _type: "array" | "object", _depth }`.
+ */
+export type DepthLimitedValue =
+  | null
+  | undefined
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | Date
+  | DepthLimitedValue[]
+  | { [key: string]: DepthLimitedValue };
+
+/**
  * Limit the depth of nested objects/arrays to prevent exceeding database limits
  * @param obj - The object to limit depth on
  * @param maxDepth - Maximum allowed depth (default: 14, Convex limit is 16)
  * @param currentDepth - Current depth in recursion (internal use)
  * @returns A new object with depth limited
  */
-export function limitDepth<T>(obj: T, maxDepth = 14, currentDepth = 0): T {
+export const limitDepth = (
+  obj: unknown,
+  maxDepth = 14,
+  currentDepth = 0
+): DepthLimitedValue => {
   // Return primitives as-is
   if (
     obj === null ||
@@ -21,20 +42,22 @@ export function limitDepth<T>(obj: T, maxDepth = 14, currentDepth = 0): T {
 
   // Handle functions and other non-serializable types
   if (typeof obj === "function") {
-    return "[Function]" as T;
+    return "[Function]";
   }
 
   // If we've reached max depth, truncate
   if (currentDepth >= maxDepth) {
-    if (Array.isArray(obj)) {
-      return { _truncated: true, _type: "array", _depth: currentDepth } as T;
-    }
-    return { _truncated: true, _type: "object", _depth: currentDepth } as T;
+    return {
+      _truncated: true,
+      _type: Array.isArray(obj) ? "array" : "object",
+      _depth: currentDepth,
+    };
   }
 
   // Handle arrays
   if (Array.isArray(obj)) {
-    return obj.map((item) => limitDepth(item, maxDepth, currentDepth + 1)) as T;
+    const items: unknown[] = obj;
+    return items.map((item) => limitDepth(item, maxDepth, currentDepth + 1));
   }
 
   // Handle dates
@@ -43,14 +66,9 @@ export function limitDepth<T>(obj: T, maxDepth = 14, currentDepth = 0): T {
   }
 
   // Handle regular objects
-  if (typeof obj === "object") {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      result[key] = limitDepth(value, maxDepth, currentDepth + 1);
-    }
-    return result as T;
+  const result: Record<string, DepthLimitedValue> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    result[key] = limitDepth(value, maxDepth, currentDepth + 1);
   }
-
-  // Fallback for any other type
-  return obj;
-}
+  return result;
+};

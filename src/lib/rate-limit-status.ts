@@ -42,7 +42,7 @@ const UNUSED_BUCKET: BucketStatus = { limit: 0, count: 0, remaining: 0 };
  * Projects a stored fixed-window bucket to `now` with the rate limiter's own math, so
  * windows that ended since the last write count as refilled.
  */
-function resolveBucket(bucket: RateLimitBucket, now: number): BucketStatus {
+const resolveBucket = (bucket: RateLimitBucket, now: number): BucketStatus => {
   const { value, ts } = calculateRateLimit(
     { value: bucket.value, ts: bucket.ts },
     {
@@ -62,7 +62,7 @@ function resolveBucket(bucket: RateLimitBucket, now: number): BucketStatus {
     // ts 0 means the bucket was never used, so it has no window to reset yet
     reset: bucket.ts === 0 ? undefined : ts + bucket.period,
   };
-}
+};
 
 // Slowest users.getServerTime round trip trusted for a clock offset, which is off by up to
 // half the round trip
@@ -74,9 +74,9 @@ const MAX_CLOCK_ROUND_TRIP_MS = 5000;
  * Add it to Date.now() to project credit windows on server time. Throws when the round
  * trip was too slow to trust (e.g. it spanned a reconnect), so the caller can measure again.
  */
-export async function measureServerClockOffset(
+export const measureServerClockOffset = async (
   getServerTime: () => Promise<number>
-): Promise<number> {
+): Promise<number> => {
   const sentAt = Date.now();
   const serverTime = await getServerTime();
   const receivedAt = Date.now();
@@ -86,13 +86,13 @@ export async function measureServerClockOffset(
     );
   }
   return serverTime - (sentAt + receivedAt) / 2;
-}
+};
 
 /** Derives credit usage at `now` (epoch ms, server time) from the raw buckets. */
-export function resolveRateLimitStatus(
+export const resolveRateLimitStatus = (
   state: RateLimitState,
   now: number
-): RateLimitStatus {
+): RateLimitStatus => {
   const daily = state.daily ? resolveBucket(state.daily, now) : UNUSED_BUCKET;
   const monthly = resolveBucket(state.monthly, now);
   const premium = state.premium
@@ -117,16 +117,16 @@ export function resolveRateLimitStatus(
     monthlyReset: monthly.reset,
     premiumReset: premium.reset,
   };
-}
+};
 
 /** Earliest upcoming window reset, after which the status must be resolved again. */
-export function getNextRateLimitReset(
+export const getNextRateLimitReset = (
   status: RateLimitStatus
-): number | undefined {
+): number | undefined => {
   const resets = [
     status.dailyReset,
     status.monthlyReset,
     status.premiumReset,
   ].filter((reset): reset is number => reset !== undefined);
   return resets.length > 0 ? Math.min(...resets) : undefined;
-}
+};

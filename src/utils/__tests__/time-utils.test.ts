@@ -16,7 +16,7 @@ import {
   parseWeeklyTime,
 } from "../time-utils";
 
-describe("convertTo12Hour", () => {
+describe(convertTo12Hour, () => {
   it("converts 0 (midnight) to 12", () => {
     expect(convertTo12Hour(0)).toBe(12);
   });
@@ -38,7 +38,7 @@ describe("convertTo12Hour", () => {
   });
 });
 
-describe("convertTo24Hour", () => {
+describe(convertTo24Hour, () => {
   it("converts 12 AM to 0", () => {
     expect(convertTo24Hour(12, "AM")).toBe(0);
   });
@@ -60,24 +60,24 @@ describe("convertTo24Hour", () => {
   });
 });
 
-describe("formatTime12Hour", () => {
+describe(formatTime12Hour, () => {
   it("formats midnight correctly", () => {
     const result = formatTime12Hour("00:00");
-    expect(result).toEqual({ hour12: "12", minute: "00", ampm: "AM" });
+    expect(result).toStrictEqual({ hour12: "12", minute: "00", ampm: "AM" });
   });
 
   it("formats noon correctly", () => {
     const result = formatTime12Hour("12:00");
-    expect(result).toEqual({ hour12: "12", minute: "00", ampm: "PM" });
+    expect(result).toStrictEqual({ hour12: "12", minute: "00", ampm: "PM" });
   });
 
   it("formats AM times correctly", () => {
-    expect(formatTime12Hour("09:30")).toEqual({
+    expect(formatTime12Hour("09:30")).toStrictEqual({
       hour12: "9",
       minute: "30",
       ampm: "AM",
     });
-    expect(formatTime12Hour("01:15")).toEqual({
+    expect(formatTime12Hour("01:15")).toStrictEqual({
       hour12: "1",
       minute: "15",
       ampm: "AM",
@@ -85,12 +85,12 @@ describe("formatTime12Hour", () => {
   });
 
   it("formats PM times correctly", () => {
-    expect(formatTime12Hour("15:45")).toEqual({
+    expect(formatTime12Hour("15:45")).toStrictEqual({
       hour12: "3",
       minute: "45",
       ampm: "PM",
     });
-    expect(formatTime12Hour("23:59")).toEqual({
+    expect(formatTime12Hour("23:59")).toStrictEqual({
       hour12: "11",
       minute: "59",
       ampm: "PM",
@@ -107,11 +107,11 @@ describe("formatTime12Hour", () => {
 
   it("handles single digit hours", () => {
     const result = formatTime12Hour("9:30");
-    expect(result).toEqual({ hour12: "9", minute: "30", ampm: "AM" });
+    expect(result).toStrictEqual({ hour12: "9", minute: "30", ampm: "AM" });
   });
 });
 
-describe("formatNextRun", () => {
+describe(formatNextRun, () => {
   it("formats a date with medium date and short time style", () => {
     const date = new Date("2024-12-25T14:30:00Z");
     const result = formatNextRun(date, "UTC");
@@ -124,7 +124,7 @@ describe("formatNextRun", () => {
   });
 });
 
-describe("formatFrequency", () => {
+describe(formatFrequency, () => {
   it("formats daily frequency", () => {
     const result = formatFrequency("daily", "09:00");
     expect(result).toBe("Daily at 9:00 AM");
@@ -151,7 +151,7 @@ describe("formatFrequency", () => {
   });
 });
 
-describe("formatRelativeTime", () => {
+describe(formatRelativeTime, () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -210,7 +210,7 @@ describe("formatRelativeTime", () => {
   });
 });
 
-describe("isTimeInPast", () => {
+describe(isTimeInPast, () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -220,25 +220,25 @@ describe("isTimeInPast", () => {
   });
 
   it("returns false when no selectedDate is provided", () => {
-    expect(isTimeInPast("09:00")).toBe(false);
+    expect(isTimeInPast("09:00")).toBeFalsy();
   });
 
   it("returns true for a past time today", () => {
     const now = new Date("2024-12-25T15:00:00Z");
     vi.setSystemTime(now);
     const today = new Date("2024-12-25T00:00:00Z");
-    expect(isTimeInPast("09:00", today)).toBe(true);
+    expect(isTimeInPast("09:00", today)).toBeTruthy();
   });
 
   it("returns false for a future time today", () => {
     const now = new Date("2024-12-25T09:00:00Z");
     vi.setSystemTime(now);
     const today = new Date("2024-12-25T00:00:00Z");
-    expect(isTimeInPast("15:00", today)).toBe(false);
+    expect(isTimeInPast("15:00", today)).toBeFalsy();
   });
 });
 
-describe("getNextAvailableTime", () => {
+describe(getNextAvailableTime, () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -272,7 +272,7 @@ describe("getNextAvailableTime", () => {
   });
 });
 
-describe("getNextAvailableDate", () => {
+describe(getNextAvailableDate, () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -294,22 +294,23 @@ describe("getNextAvailableDate", () => {
   });
 });
 
-describe("parseWeeklyTime", () => {
+describe(parseWeeklyTime, () => {
   it("parses day:HH:MM format correctly", () => {
-    expect(parseWeeklyTime("1:09:30")).toEqual({ day: 1, time: "09:30" });
-    expect(parseWeeklyTime("0:12:00")).toEqual({ day: 0, time: "12:00" });
-    expect(parseWeeklyTime("6:23:59")).toEqual({ day: 6, time: "23:59" });
+    expect(parseWeeklyTime("1:09:30")).toStrictEqual({ day: 1, time: "09:30" });
+    expect(parseWeeklyTime("0:12:00")).toStrictEqual({ day: 0, time: "12:00" });
+    expect(parseWeeklyTime("6:23:59")).toStrictEqual({ day: 6, time: "23:59" });
   });
 
   it("handles HH:MM format with Monday default", () => {
-    expect(parseWeeklyTime("09:30")).toEqual({ day: 1, time: "09:30" });
-    expect(parseWeeklyTime("12:00")).toEqual({ day: 1, time: "12:00" });
+    expect(parseWeeklyTime("09:30")).toStrictEqual({ day: 1, time: "09:30" });
+    expect(parseWeeklyTime("12:00")).toStrictEqual({ day: 1, time: "12:00" });
   });
 
   it("throws error for non-string input", () => {
-    expect(() => parseWeeklyTime(123 as unknown as string)).toThrow(
-      "scheduledTime must be a string"
-    );
+    // Reflect.apply passes an argument the types rule out
+    expect(() => {
+      Reflect.apply(parseWeeklyTime, undefined, [123]);
+    }).toThrow("scheduledTime must be a string");
   });
 
   it("throws error for empty string", () => {
@@ -353,7 +354,7 @@ describe("parseWeeklyTime", () => {
   });
 });
 
-describe("formatWeeklyTime", () => {
+describe(formatWeeklyTime, () => {
   it("formats day and time correctly", () => {
     expect(formatWeeklyTime(1, "09:30")).toBe("1:09:30");
     expect(formatWeeklyTime(0, "12:00")).toBe("0:12:00");
@@ -361,9 +362,9 @@ describe("formatWeeklyTime", () => {
   });
 
   it("throws error for non-number day", () => {
-    expect(() => formatWeeklyTime("1" as unknown as number, "09:30")).toThrow(
-      "day must be a number"
-    );
+    expect(() => {
+      Reflect.apply(formatWeeklyTime, undefined, ["1", "09:30"]);
+    }).toThrow("day must be a number");
   });
 
   it("throws error for invalid day range", () => {
@@ -379,9 +380,9 @@ describe("formatWeeklyTime", () => {
   });
 
   it("throws error for non-string time", () => {
-    expect(() => formatWeeklyTime(1, 930 as unknown as string)).toThrow(
-      "time must be a string"
-    );
+    expect(() => {
+      Reflect.apply(formatWeeklyTime, undefined, [1, 930]);
+    }).toThrow("time must be a string");
   });
 
   it("throws error for empty time", () => {
@@ -399,15 +400,17 @@ describe("formatWeeklyTime", () => {
   });
 });
 
-describe("getDayName", () => {
+describe(getDayName, () => {
   it("returns correct day names", () => {
-    expect(getDayName(0)).toBe("Sunday");
-    expect(getDayName(1)).toBe("Monday");
-    expect(getDayName(2)).toBe("Tuesday");
-    expect(getDayName(3)).toBe("Wednesday");
-    expect(getDayName(4)).toBe("Thursday");
-    expect(getDayName(5)).toBe("Friday");
-    expect(getDayName(6)).toBe("Saturday");
+    expect([0, 1, 2, 3, 4, 5, 6].map((day) => getDayName(day))).toStrictEqual([
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ]);
   });
 
   it("returns Monday for out-of-range numbers", () => {
@@ -416,12 +419,12 @@ describe("getDayName", () => {
   });
 });
 
-describe("getDayOptions", () => {
+describe(getDayOptions, () => {
   it("returns all 7 days with correct values and labels", () => {
     const options = getDayOptions();
     expect(options).toHaveLength(7);
-    expect(options[0]).toEqual({ value: 0, label: "Sunday" });
-    expect(options[1]).toEqual({ value: 1, label: "Monday" });
-    expect(options[6]).toEqual({ value: 6, label: "Saturday" });
+    expect(options[0]).toStrictEqual({ value: 0, label: "Sunday" });
+    expect(options[1]).toStrictEqual({ value: 1, label: "Monday" });
+    expect(options[6]).toStrictEqual({ value: 6, label: "Saturday" });
   });
 });

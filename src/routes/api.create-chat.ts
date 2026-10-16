@@ -18,10 +18,22 @@ const createChatSchema = z.object({
   personaId: z.string().optional(),
   profileId: z
     .string()
-    .regex(/^\S+$/, "profileId must be a non-empty string without whitespace")
+    .refine(
+      (value): value is Id<"profiles"> => /^\S+$/u.test(value),
+      "profileId must be a non-empty string without whitespace"
+    )
     .optional(),
   timezone: z.string().optional(),
 });
+
+// Flushes queued PostHog events; failures are non-critical for user experience
+const shutdownPostHog = async (posthog: PostHog): Promise<void> => {
+  try {
+    await posthog.shutdown();
+  } catch {
+    // Ignore shutdown failures
+  }
+};
 
 export const Route = createFileRoute("/api/create-chat")({
   server: {
@@ -30,7 +42,7 @@ export const Route = createFileRoute("/api/create-chat")({
       POST: async ({ context, request }) => {
         try {
           // --- Validate request body ---
-          const body = await request.json();
+          const body: unknown = await request.json();
           const parseResult = createChatSchema.safeParse(body);
 
           if (!parseResult.success) {
@@ -56,13 +68,14 @@ export const Route = createFileRoute("/api/create-chat")({
             title,
             model,
             personaId,
-            profileId: profileId as Id<"profiles"> | undefined,
+            profileId,
           });
 
           // Only track if PostHog is configured
-          if (process.env.VITE_POSTHOG_KEY) {
+          const posthogKey = process.env.VITE_POSTHOG_KEY;
+          if (posthogKey !== undefined && posthogKey !== "") {
             try {
-              const posthog = new PostHog(process.env.VITE_POSTHOG_KEY);
+              const posthog = new PostHog(posthogKey);
               posthog.capture({
                 distinctId: user._id,
                 event: "chat_created",
@@ -70,9 +83,7 @@ export const Route = createFileRoute("/api/create-chat")({
                   model,
                 },
               });
-              posthog.shutdown().catch(() => {
-                // PostHog shutdown failures are non-critical for user experience
-              });
+              void shutdownPostHog(posthog);
             } catch {
               // Don't let tracking failures affect the API response
             }

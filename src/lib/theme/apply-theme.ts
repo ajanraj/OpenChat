@@ -7,7 +7,8 @@ import type {
 
 type Theme = "dark" | "light";
 
-const COMMON_NON_COLOR_KEYS = COMMON_STYLES;
+// Style keys shared by both modes; every other key is a mode-specific color
+const COMMON_NON_COLOR_KEYS: ReadonlySet<string> = new Set(COMMON_STYLES);
 
 // Map primary font family names to next/font CSS variable names
 const FONT_VAR_MAP: Readonly<Record<string, string>> = {
@@ -29,8 +30,8 @@ const FONT_VAR_MAP: Readonly<Record<string, string>> = {
 const normalizeFontKey = (value: string): string =>
   value
     .trim()
-    .replaceAll(/^['"]|['"]$/g, "")
-    .replaceAll(/\s+/g, " ")
+    .replaceAll(/^['"]|['"]$/gu, "")
+    .replaceAll(/\s+/gu, " ")
     .toLowerCase();
 
 // Build a normalized map to allow case/spacing-insensitive lookups
@@ -48,12 +49,12 @@ const DEFAULT_FALLBACKS: Readonly<Record<"sans" | "mono", string>> = {
 const extractPrimaryAndRest = (
   familyList: string | undefined
 ): { primary: string | null; rest: string } => {
-  if (!familyList) {
+  if (familyList === undefined || familyList === "") {
     return { primary: null, rest: "" };
   }
   const parts = familyList.split(",");
   const primaryRaw = parts[0]?.trim() ?? "";
-  const primary = primaryRaw.replaceAll(/^['"]|['"]$/g, "");
+  const primary = primaryRaw.replaceAll(/^['"]|['"]$/gu, "");
   const rest = parts.slice(1).join(",").trim();
   return { primary: primary || null, rest };
 };
@@ -63,7 +64,7 @@ const buildActiveFontValue = (
   category: "sans" | "mono"
 ): string | null => {
   const { primary, rest } = extractPrimaryAndRest(fullFamily);
-  if (!primary) {
+  if (primary === null) {
     return null;
   }
   const varName = NORMALIZED_FONT_VAR_MAP[normalizeFontKey(primary)];
@@ -95,12 +96,7 @@ const applyStyleToElement = (
 
 const applyCommonStyles = (root: HTMLElement, themeStyles: ThemeStyleProps) => {
   for (const [key, value] of Object.entries(themeStyles)) {
-    if (
-      COMMON_NON_COLOR_KEYS.includes(
-        key as (typeof COMMON_NON_COLOR_KEYS)[number]
-      ) &&
-      typeof value === "string"
-    ) {
+    if (COMMON_NON_COLOR_KEYS.has(key) && typeof value === "string") {
       // Avoid overriding Tailwind v4 font tokens; fonts are driven via --active-font-*
       if (key === "font-sans" || key === "font-mono") {
         continue;
@@ -116,12 +112,7 @@ const applyThemeColors = (
   mode: Theme
 ) => {
   for (const [key, value] of Object.entries(themeStyles[mode])) {
-    if (
-      typeof value === "string" &&
-      !COMMON_NON_COLOR_KEYS.includes(
-        key as (typeof COMMON_NON_COLOR_KEYS)[number]
-      )
-    ) {
+    if (typeof value === "string" && !COMMON_NON_COLOR_KEYS.has(key)) {
       applyStyleToElement(root, key, value);
     }
   }
@@ -130,11 +121,11 @@ const applyThemeColors = (
 // Exported function to apply theme styles to an element
 export const applyThemeToElement = (
   themeState: ThemeEditorState,
-  rootElement: HTMLElement
+  rootElement: HTMLElement | null
 ) => {
   const { currentMode: mode, styles: themeStyles } = themeState;
 
-  if (!rootElement) {
+  if (rootElement === null) {
     return;
   }
 

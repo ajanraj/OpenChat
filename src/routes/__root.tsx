@@ -22,7 +22,7 @@ import {
   APP_DESCRIPTION,
   APP_NAME,
   META_TITLE,
-} from "@/lib/config";
+} from "@/lib/config/constants";
 import { AppProviders } from "@/providers/app-providers";
 import { SidebarProvider } from "@/providers/sidebar-provider";
 
@@ -37,7 +37,12 @@ import "@fontsource/geist-sans/600.css";
 import "@fontsource/geist-sans/700.css";
 import "@fontsource/geist-mono/400.css";
 
-const appStorageVersion = import.meta.env.VITE_STORAGE_VERSION ?? "2026-01-03";
+/** A client env var as a string, or undefined when unset (import.meta.env is untyped here). */
+const readEnv = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
+
+const appStorageVersion =
+  readEnv(import.meta.env.VITE_STORAGE_VERSION) ?? "2026-01-03";
 const appStorageVersionKey = "oschat:storage:version";
 
 const themeInitScript = `
@@ -109,6 +114,69 @@ const themeInitScript = `
 interface MyRouterContext {
   queryClient: QueryClient;
 }
+
+const RootComponent = () => <Outlet />;
+
+const umamiScriptUrl = readEnv(import.meta.env.VITE_UMAMI_SCRIPT_URL);
+const umamiWebsiteId = readEnv(import.meta.env.VITE_UMAMI_WEBSITE_ID);
+
+const RootDocument = ({ children }: { children: React.ReactNode }) => {
+  const isDev = import.meta.env.DEV;
+
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Theme initialization script - prevents flash of wrong theme */}
+        <script>{themeInitScript}</script>
+        <HeadContent />
+        {/* Umami Analytics - only in production when configured */}
+        {!isDev &&
+          umamiScriptUrl !== undefined &&
+          umamiScriptUrl !== "" &&
+          umamiWebsiteId !== undefined &&
+          umamiWebsiteId !== "" && (
+            <script
+              data-website-id={umamiWebsiteId}
+              defer
+              src={umamiScriptUrl}
+            />
+          )}
+        <StructuredData type="homepage" />
+      </head>
+      <body className="font-sans antialiased">
+        <LazyMotion features={domMax}>
+          <ConvexProvider>
+            <TooltipProvider>
+              <AppProviders>
+                <SidebarProvider>
+                  <LayoutApp>{children}</LayoutApp>
+                </SidebarProvider>
+                {/* Vercel Analytics */}
+                <Analytics />
+                <SpeedInsights />
+              </AppProviders>
+            </TooltipProvider>
+            {isDev && (
+              <TanStackDevtools
+                config={{
+                  position: "bottom-right",
+                }}
+                plugins={[
+                  {
+                    name: "Tanstack Router",
+                    render: <TanStackRouterDevtoolsPanel />,
+                  },
+                  TanStackQueryDevtools,
+                ]}
+              />
+            )}
+          </ConvexProvider>
+        </LazyMotion>
+        <Scripts />
+      </body>
+    </html>
+  );
+};
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
@@ -207,63 +275,3 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   shellComponent: RootDocument,
   component: RootComponent,
 });
-
-function RootComponent() {
-  return <Outlet />;
-}
-
-function RootDocument({ children }: { children: React.ReactNode }) {
-  const isDev = import.meta.env.DEV;
-
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Theme initialization script - prevents flash of wrong theme */}
-        <script>{themeInitScript}</script>
-        <HeadContent />
-        {/* Umami Analytics - only in production when configured */}
-        {!isDev &&
-          import.meta.env.VITE_UMAMI_SCRIPT_URL &&
-          import.meta.env.VITE_UMAMI_WEBSITE_ID && (
-            <script
-              data-website-id={import.meta.env.VITE_UMAMI_WEBSITE_ID}
-              defer
-              src={import.meta.env.VITE_UMAMI_SCRIPT_URL}
-            />
-          )}
-        <StructuredData type="homepage" />
-      </head>
-      <body className="font-sans antialiased">
-        <LazyMotion features={domMax}>
-          <ConvexProvider>
-            <TooltipProvider>
-              <AppProviders>
-                <SidebarProvider>
-                  <LayoutApp>{children}</LayoutApp>
-                </SidebarProvider>
-                {/* Vercel Analytics */}
-                <Analytics />
-                <SpeedInsights />
-              </AppProviders>
-            </TooltipProvider>
-            {isDev === true && (
-              <TanStackDevtools
-                config={{
-                  position: "bottom-right",
-                }}
-                plugins={[
-                  {
-                    name: "Tanstack Router",
-                    render: <TanStackRouterDevtoolsPanel />,
-                  },
-                  TanStackQueryDevtools,
-                ]}
-              />
-            )}
-          </ConvexProvider>
-        </LazyMotion>
-        <Scripts />
-      </body>
-    </html>
-  );
-}

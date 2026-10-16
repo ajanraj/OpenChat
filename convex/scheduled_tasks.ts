@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 
-import { MODELS_MAP } from "../src/lib/config";
+import { MODELS_MAP } from "../src/lib/config/models";
 import { SCHEDULED_AGENT_MODEL_ID } from "../src/lib/config/models/minimax";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { internal } from "./_generated/api";
@@ -13,6 +13,7 @@ import {
   validateSchedule,
 } from "./lib/schedule_helper";
 import type { TaskSchedule } from "./lib/schedule_helper";
+import { forEachInOrder } from "./lib/sequence";
 import { ScheduledTask } from "./schema/scheduled_task";
 import { TaskHistory } from "./schema/task_history";
 import { hasActivePremium } from "./stripe";
@@ -44,14 +45,14 @@ const scheduledTaskDoc = v.object({
 
 type ScheduleType = Doc<"scheduled_tasks">["scheduleType"];
 
-async function assertScheduledAgentAccess(
+const assertScheduledAgentAccess = async (
   ctx: MutationCtx,
   userId: Id<"users">
-): Promise<void> {
-  const scheduledModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
-  if (!scheduledModel) {
+): Promise<void> => {
+  if (!(SCHEDULED_AGENT_MODEL_ID in MODELS_MAP)) {
     throw new ConvexError(ERROR_CODES.UNSUPPORTED_MODEL);
   }
+  const scheduledModel = MODELS_MAP[SCHEDULED_AGENT_MODEL_ID];
   if (!scheduledModel.premium) {
     return;
   }
@@ -59,46 +60,48 @@ async function assertScheduledAgentAccess(
   if (!(await hasActivePremium(ctx, userId))) {
     throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
   }
-}
+};
 
 /** Counts the user's tasks that hold a schedule ("active" or "running"), optionally excluding one. */
-async function getTaskCounts(
+const getTaskCounts = async (
   ctx: QueryCtx,
   userId: Id<"users">,
   excludeTaskId?: Id<"scheduled_tasks">
-): Promise<Record<keyof typeof TASK_LIMITS, number>> {
+): Promise<Record<keyof typeof TASK_LIMITS, number>> => {
   // Reading past the total limit is unnecessary: at that point every schedule type is blocked.
-  const withStatus = (status: "active" | "running") =>
-    ctx.db
+  const withStatus = async (status: "active" | "running") =>
+    await ctx.db
       .query("scheduled_tasks")
       .withIndex("by_user_and_status", (q) =>
         q.eq("userId", userId).eq("status", status)
       )
       .take(TASK_LIMITS.total + 1);
-  const tasks = (
-    await Promise.all([withStatus("active"), withStatus("running")])
-  )
-    .flat()
-    .filter((task) => task._id !== excludeTaskId);
+  const [activeTasks, runningTasks] = await Promise.all([
+    withStatus("active"),
+    withStatus("running"),
+  ]);
+  const tasks = [...activeTasks, ...runningTasks].filter(
+    (task) => task._id !== excludeTaskId
+  );
 
   return {
     daily: tasks.filter((t) => t.scheduleType === "daily").length,
     weekly: tasks.filter((t) => t.scheduleType === "weekly").length,
     total: tasks.length,
   };
-}
+};
 
 /**
  * Throws when one more active task of `scheduleType` would exceed TASK_LIMITS. Used on create,
  * on resume/reactivation, and when an active task changes its schedule type (pass that task as
  * `excludeTaskId` so it is not counted twice).
  */
-async function assertWithinTaskLimits(
+const assertWithinTaskLimits = async (
   ctx: MutationCtx,
   userId: Id<"users">,
   scheduleType: ScheduleType,
   excludeTaskId?: Id<"scheduled_tasks">
-): Promise<void> {
+): Promise<void> => {
   const counts = await getTaskCounts(ctx, userId, excludeTaskId);
   if (scheduleType === "daily" && counts.daily >= TASK_LIMITS.daily) {
     throw new ConvexError(
@@ -115,57 +118,68 @@ async function assertWithinTaskLimits(
       `Total task limit reached (max ${TASK_LIMITS.total})`
     );
   }
-}
+};
 
-async function assertOwnedProfile(
+const assertOwnedProfile = async (
   ctx: MutationCtx,
   userId: Id<"users">,
   profileId: Id<"profiles">
-): Promise<void> {
+): Promise<void> => {
   const profile = await ctx.db.get("profiles", profileId);
   if (!profile || profile.userId !== userId) {
     throw new ConvexError(ERROR_CODES.PROFILE_NOT_FOUND);
   }
-}
+};
 
-/** Returns the scheduled job while it is still waiting to run, otherwise null. */
-async function getPendingRun(
+/** Returns a task's scheduled job, or null when it has none or the stored id isn't a job id. */
+const getScheduledJob = async (
   ctx: MutationCtx,
   scheduledFunctionId: string | undefined
-) {
-  if (!scheduledFunctionId) {
+) => {
+  if (scheduledFunctionId === undefined || scheduledFunctionId === "") {
     return null;
   }
-  const job = await ctx.db.system.get(
+  const jobId = ctx.db.system.normalizeId(
     "_scheduled_functions",
-    scheduledFunctionId as Id<"_scheduled_functions">
+    scheduledFunctionId
   );
+  return jobId === null
+    ? null
+    : await ctx.db.system.get("_scheduled_functions", jobId);
+};
+
+/** Returns the scheduled job while it is still waiting to run, otherwise null. */
+const getPendingRun = async (
+  ctx: MutationCtx,
+  scheduledFunctionId: string | undefined
+) => {
+  const job = await getScheduledJob(ctx, scheduledFunctionId);
   return job?.state.kind === "pending" ? job : null;
-}
+};
 
 /**
  * Cancels a scheduled run only while it is pending: cancelling a finished job throws, and an
  * in-progress run must keep the work it schedules (e.g. its summary email).
  */
-async function cancelPendingRun(
+const cancelPendingRun = async (
   ctx: MutationCtx,
   scheduledFunctionId: string | undefined
-): Promise<void> {
+): Promise<void> => {
   const job = await getPendingRun(ctx, scheduledFunctionId);
   if (job) {
     await ctx.scheduler.cancel(job._id);
   }
-}
+};
 
 /** Schedules the task's next run and returns the scheduling fields to store on the task. */
-async function scheduleRun(
+const scheduleRun = async (
   ctx: MutationCtx,
   taskId: Id<"scheduled_tasks">,
   schedule: TaskSchedule,
   now?: number
 ): Promise<
   Pick<Doc<"scheduled_tasks">, "nextExecution" | "scheduledFunctionId">
-> {
+> => {
   const nextExecution = calculateNextExecution(schedule, now);
   const scheduledFunctionId = await ctx.scheduler.runAt(
     nextExecution,
@@ -173,14 +187,11 @@ async function scheduleRun(
     { taskId }
   );
   return { nextExecution, scheduledFunctionId };
-}
+};
 
 /** True while a claimed run is younger than STALE_RUN_MS. */
-function hasLiveRun(task: Doc<"scheduled_tasks">, now: number): boolean {
-  return (
-    task.status === "running" && (task.lastExecuted ?? 0) > now - STALE_RUN_MS
-  );
-}
+const hasLiveRun = (task: Doc<"scheduled_tasks">, now: number): boolean =>
+  task.status === "running" && (task.lastExecuted ?? 0) > now - STALE_RUN_MS;
 
 /**
  * Atomically starts a run of an "active" or "running" task and schedules
@@ -197,11 +208,11 @@ function hasLiveRun(task: Doc<"scheduled_tasks">, now: number): boolean {
  * - A successful claim sets status "running" and lastExecuted, inserts the "running" history
  *   row, and schedules expireTaskExecution in case the action dies without finishing.
  */
-async function claimRun(
+const claimRun = async (
   ctx: MutationCtx,
   task: Doc<"scheduled_tasks">,
   isManualTrigger: boolean
-): Promise<void> {
+): Promise<void> => {
   const now = Date.now();
   let booking = {};
 
@@ -221,7 +232,7 @@ async function claimRun(
   }
 
   const claim = { status: "running" as const, lastExecuted: now };
-  const executionId = `exec_${now}_${Math.random().toString(36).substring(2, 15)}`;
+  const executionId = `exec_${now}_${Math.random().toString(36).slice(2, 15)}`;
   await ctx.db.patch("scheduled_tasks", task._id, claim);
   await ctx.db.insert("task_history", {
     taskId: task._id,
@@ -243,7 +254,7 @@ async function claimRun(
     task: { ...task, ...booking, ...claim },
     executionId,
   });
-}
+};
 
 const RUN_OUTCOME_HISTORY_STATUS = {
   success: "success",
@@ -260,7 +271,7 @@ type RunOutcome = keyof typeof RUN_OUTCOME_HISTORY_STATUS;
  * (their next run was booked at claim time), and "paused" (usage limit) pauses the task.
  * No-op if the run was already resolved, so finish and expiry can race safely.
  */
-async function resolveRun(
+const resolveRun = async (
   ctx: MutationCtx,
   run: {
     taskId: Id<"scheduled_tasks">;
@@ -270,7 +281,7 @@ async function resolveRun(
     errorMessage?: string;
     metadata?: Doc<"task_history">["metadata"];
   }
-): Promise<void> {
+): Promise<void> => {
   const row = await ctx.db
     .query("task_history")
     .withIndex("by_execution_id", (q) => q.eq("executionId", run.executionId))
@@ -305,7 +316,37 @@ async function resolveRun(
   }
 
   await pruneExecutionHistory(ctx, run.taskId);
-}
+};
+
+/** The task's schedule with any schedule fields of an update applied over it. */
+const mergeSchedule = (
+  update: Partial<TaskSchedule>,
+  task: Doc<"scheduled_tasks">
+): TaskSchedule => ({
+  scheduleType: update.scheduleType ?? task.scheduleType,
+  scheduledTime: update.scheduledTime ?? task.scheduledTime,
+  scheduledDate: update.scheduledDate ?? task.scheduledDate,
+  timezone: update.timezone ?? task.timezone,
+});
+
+/**
+ * Checks an update that leaves `task` active: premium access when it (re)activates, and task
+ * limits when it (re)activates or changes its schedule type.
+ */
+const assertCanStayActive = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  task: Doc<"scheduled_tasks">,
+  scheduleType: ScheduleType
+): Promise<void> => {
+  const wasActive = task.status === "active";
+  if (!wasActive) {
+    await assertScheduledAgentAccess(ctx, userId);
+  }
+  if (!wasActive || scheduleType !== task.scheduleType) {
+    await assertWithinTaskLimits(ctx, userId, scheduleType, task._id);
+  }
+};
 
 // Create a new scheduled task
 export const createScheduledTask = mutation({
@@ -318,7 +359,8 @@ export const createScheduledTask = mutation({
       v.literal("weekly")
     ),
     scheduledTime: v.string(),
-    scheduledDate: v.optional(v.string()), // For onetime tasks, format: "YYYY-MM-DD"
+    // For onetime tasks, format: "YYYY-MM-DD"
+    scheduledDate: v.optional(v.string()),
     timezone: v.string(),
     enableSearch: v.optional(v.boolean()),
     enabledToolSlugs: v.optional(v.array(v.string())),
@@ -399,12 +441,7 @@ export const updateScheduledTask = mutation({
       throw new ConvexError(ERROR_CODES.UNSUPPORTED_OPERATION);
     }
 
-    const schedule: TaskSchedule = {
-      scheduleType: args.scheduleType ?? task.scheduleType,
-      scheduledTime: args.scheduledTime ?? task.scheduledTime,
-      scheduledDate: args.scheduledDate ?? task.scheduledDate,
-      timezone: args.timezone ?? task.timezone,
-    };
+    const schedule = mergeSchedule(args, task);
     const scheduleChanged =
       args.scheduleType !== undefined ||
       args.scheduledTime !== undefined ||
@@ -416,19 +453,8 @@ export const updateScheduledTask = mutation({
 
     const wasActive = task.status === "active";
     const willBeActive = (args.status ?? task.status) === "active";
-    if (willBeActive && !wasActive) {
-      await assertScheduledAgentAccess(ctx, userId);
-    }
-    if (
-      willBeActive &&
-      (!wasActive || schedule.scheduleType !== task.scheduleType)
-    ) {
-      await assertWithinTaskLimits(
-        ctx,
-        userId,
-        schedule.scheduleType,
-        task._id
-      );
+    if (willBeActive) {
+      await assertCanStayActive(ctx, userId, task, schedule.scheduleType);
     }
     if (args.profileId !== undefined) {
       await assertOwnedProfile(ctx, userId, args.profileId);
@@ -546,6 +572,68 @@ export const updateTaskChatId = internalMutation({
 // extension ("scheduled_ai.js:executeTask"), which is dropped before comparing.
 const LEGACY_RUN_FUNCTION = "scheduled_ai:executeTask";
 
+/** Migrates or pauses one task for migrateScheduledRuns (see there) and reports which it did. */
+const migrateTaskRun = async (
+  ctx: MutationCtx,
+  task: Doc<"scheduled_tasks">,
+  now: number,
+  pauseAll: boolean
+): Promise<"migrated" | "paused" | "unchanged"> => {
+  if (task.status === "paused" || task.status === "archived") {
+    return "unchanged";
+  }
+  const job = await getScheduledJob(ctx, task.scheduledFunctionId);
+  const liveRun = hasLiveRun(task, now);
+  const dead =
+    task.status === "running"
+      ? !liveRun
+      : job?.state.kind !== "pending" && job?.state.kind !== "inProgress";
+
+  if (pauseAll || dead) {
+    await cancelPendingRun(ctx, task.scheduledFunctionId);
+    const history = await ctx.db
+      .query("task_history")
+      .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
+      .collect();
+    // Only a live claim's row (its startTime is the claim time) can still be resolved, by
+    // finishTaskExecution or expireTaskExecution; a run the old code started never will be
+    const unresolvable = history.filter(
+      (row) =>
+        row.status === "running" &&
+        !(liveRun && row.startTime === task.lastExecuted)
+    );
+    await Promise.all(
+      unresolvable.map(async (row) => {
+        await ctx.db.patch("task_history", row._id, {
+          status: "timeout",
+          endTime: now,
+          errorMessage: "The run did not finish within the time limit.",
+        });
+      })
+    );
+    await ctx.db.patch("scheduled_tasks", task._id, {
+      status: "paused",
+      nextExecution: undefined,
+      scheduledFunctionId: undefined,
+    });
+    return "paused";
+  }
+  if (
+    job?.state.kind === "pending" &&
+    job.name.replace(".js:", ":") === LEGACY_RUN_FUNCTION
+  ) {
+    await ctx.scheduler.cancel(job._id);
+    const scheduledFunctionId = await ctx.scheduler.runAt(
+      job.scheduledTime,
+      internal.scheduled_tasks.startScheduledRun,
+      { taskId: task._id }
+    );
+    await ctx.db.patch("scheduled_tasks", task._id, { scheduledFunctionId });
+    return "migrated";
+  }
+  return "unchanged";
+};
+
 /**
  * One-off migration of timed runs from scheduled_ai:executeTask jobs to startScheduledRun jobs.
  * Pending old jobs can no longer run (executeTask now requires a claimed run), so run it right
@@ -580,66 +668,15 @@ export const migrateScheduledRuns = internalMutation({
       .query("scheduled_tasks")
       .paginate({ numItems: 100, cursor: args.cursor ?? null });
 
-    let migrated = 0;
-    let paused = 0;
-    for (const task of page.page) {
-      if (task.status === "paused" || task.status === "archived") {
-        continue;
-      }
-      const job = task.scheduledFunctionId
-        ? await ctx.db.system.get(
-            "_scheduled_functions",
-            task.scheduledFunctionId as Id<"_scheduled_functions">
-          )
-        : null;
-      const liveRun = hasLiveRun(task, now);
-      const dead =
-        task.status === "running"
-          ? !liveRun
-          : job?.state.kind !== "pending" && job?.state.kind !== "inProgress";
-
-      if (args.pauseAll || dead) {
-        await cancelPendingRun(ctx, task.scheduledFunctionId);
-        const history = await ctx.db
-          .query("task_history")
-          .withIndex("by_task_and_time", (q) => q.eq("taskId", task._id))
-          .collect();
-        for (const row of history) {
-          // Only a live claim's row (its startTime is the claim time) can still be resolved, by
-          // finishTaskExecution or expireTaskExecution; a run the old code started never will be
-          if (
-            row.status === "running" &&
-            !(liveRun && row.startTime === task.lastExecuted)
-          ) {
-            await ctx.db.patch("task_history", row._id, {
-              status: "timeout",
-              endTime: now,
-              errorMessage: "The run did not finish within the time limit.",
-            });
-          }
-        }
-        await ctx.db.patch("scheduled_tasks", task._id, {
-          status: "paused",
-          nextExecution: undefined,
-          scheduledFunctionId: undefined,
-        });
-        paused += 1;
-      } else if (
-        job?.state.kind === "pending" &&
-        job.name.replace(".js:", ":") === LEGACY_RUN_FUNCTION
-      ) {
-        await ctx.scheduler.cancel(job._id);
-        const scheduledFunctionId = await ctx.scheduler.runAt(
-          job.scheduledTime,
-          internal.scheduled_tasks.startScheduledRun,
-          { taskId: task._id }
-        );
-        await ctx.db.patch("scheduled_tasks", task._id, {
-          scheduledFunctionId,
-        });
-        migrated += 1;
-      }
-    }
+    // One task at a time: tasks sharing a scheduledFunctionId must not both cancel its job
+    const outcomes: Awaited<ReturnType<typeof migrateTaskRun>>[] = [];
+    await forEachInOrder(page.page, async (task) => {
+      outcomes.push(
+        await migrateTaskRun(ctx, task, now, args.pauseAll === true)
+      );
+    });
+    const migrated = outcomes.filter((o) => o === "migrated").length;
+    const paused = outcomes.filter((o) => o === "paused").length;
 
     if (!page.isDone) {
       await ctx.scheduler.runAfter(

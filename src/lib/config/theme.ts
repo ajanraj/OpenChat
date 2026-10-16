@@ -124,7 +124,8 @@ export const defaultThemeState: ThemeEditorState = {
     light: defaultLightThemeStyles,
     dark: defaultDarkThemeStyles,
   },
-  currentMode: "light", // Always default to light for SSR compatibility
+  // Always default to light for SSR compatibility
+  currentMode: "light",
   preset: "oschat",
   hslAdjustments: {
     hueShift: 0,

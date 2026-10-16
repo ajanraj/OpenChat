@@ -16,7 +16,7 @@ describe("profile-icons config", () => {
     for (const iconName of PROFILE_ICONS) {
       expect(ICON_MAP[iconName]).toBeDefined();
       const type = typeof ICON_MAP[iconName];
-      expect(type === "function" || type === "object").toBe(true);
+      expect(type === "function" || type === "object").toBeTruthy();
     }
   });
 
@@ -26,7 +26,7 @@ describe("profile-icons config", () => {
   });
 
   it("wraps around when index exceeds icon count", () => {
-    const length = PROFILE_ICONS.length;
+    const { length } = PROFILE_ICONS;
     expect(getDefaultIconForIndex(length)).toBe(PROFILE_ICONS[0]);
     expect(getDefaultIconForIndex(length + 3)).toBe(PROFILE_ICONS[3]);
   });

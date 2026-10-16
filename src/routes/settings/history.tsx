@@ -1,15 +1,15 @@
 import {
-  Copy,
-  DownloadSimple,
-  LinkSimple,
-  Trash,
-  UploadSimple,
-  XCircle,
+  CopyIcon,
+  DownloadSimpleIcon,
+  LinkSimpleIcon,
+  TrashIcon,
+  UploadSimpleIcon,
+  XCircleIcon,
 } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
 import { useCallback, useRef, useReducer } from "react";
-import superjson from "superjson";
+import { parse, stringify } from "superjson";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -33,12 +33,8 @@ import {
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { CHAT_LIST_PAGE_SIZE, useLoadMoreRef } from "@/hooks/use-chat-list";
-import { APP_BASE_URL, MESSAGE_MAX_LENGTH } from "@/lib/config";
+import { APP_BASE_URL, MESSAGE_MAX_LENGTH } from "@/lib/config/constants";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/settings/history")({
-  component: HistorySettingsPage,
-});
 
 // Schema to validate imported history files (supports both old and new formats)
 const ImportSchema = z
@@ -84,8 +80,13 @@ const ImportSchema = z
   })
   .strict();
 
-function formatDateLines(timestamp?: number | null) {
-  if (!timestamp) {
+const formatDateLines = (timestamp?: number | null) => {
+  if (
+    timestamp === undefined ||
+    timestamp === null ||
+    timestamp === 0 ||
+    Number.isNaN(timestamp)
+  ) {
     return { dateTime: "Unknown", ampm: "" };
   }
   const d = new Date(timestamp);
@@ -104,13 +105,27 @@ function formatDateLines(timestamp?: number | null) {
   });
   const [time, ampm] = timeStr.split(" ");
   return { dateTime: `${dateStr} ${time}`, ampm };
-}
+};
 
-export function HistorySettingsPage() {
-  return useHistorySettingsPageView();
-}
+// Copies a chat's public share link to the clipboard
+const copyShareLink = async (chatId: Id<"chats">) => {
+  await navigator.clipboard
+    .writeText(`${APP_BASE_URL}/share/${chatId}`)
+    .then(() => {
+      toast({
+        title: "Link copied",
+        status: "success",
+      });
+    })
+    .catch(() => {
+      toast({
+        title: "Failed to copy link",
+        status: "error",
+      });
+    });
+};
 
-function useHistorySettingsPageView() {
+const useHistorySettingsPageView = () => {
   // Every profile's chats, like "Delete All". Chats load a page at a time, so counts and
   // "Select All" cover the loaded chats
   const {
@@ -140,8 +155,8 @@ function useHistorySettingsPageView() {
 
   interface ImportDataItem {
     chat?: { title?: string; model?: string };
-    messages?: Array<{
-      role?: string;
+    messages?: {
+      role?: "user" | "assistant" | "system";
       content: string;
       parts?: unknown[];
       metadata?: unknown;
@@ -150,7 +165,7 @@ function useHistorySettingsPageView() {
       parentMessageId?: string;
       createdAt?: number;
       model?: string;
-    }>;
+    }[];
   }
 
   interface HistoryState {
@@ -238,6 +253,9 @@ function useHistorySettingsPageView() {
         case "REVOKE_DONE": {
           return { ...s, isRevoking: false, revokeChatId: null };
         }
+        default: {
+          return s;
+        }
       }
     },
     {
@@ -308,13 +326,13 @@ function useHistorySettingsPageView() {
     }
     toast({ title: "Preparing export...", status: "info" });
     const collectData = async () => {
-      const data: Array<{
+      const data: {
         chat: Pick<
           Doc<"chats">,
           "_id" | "title" | "model" | "createdAt" | "updatedAt" | "personaId"
         >;
         messages: Doc<"messages">[];
-      }> = [];
+      }[] = [];
 
       await Promise.all(
         [...selectedIds].map(async (id) => {
@@ -348,12 +366,9 @@ function useHistorySettingsPageView() {
       return;
     }
 
-    const blob = new Blob(
-      [superjson.stringify({ exportedAt: Date.now(), data })],
-      {
-        type: "application/json",
-      }
-    );
+    const blob = new Blob([stringify({ exportedAt: Date.now(), data })], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -367,17 +382,17 @@ function useHistorySettingsPageView() {
     fileInputRef.current?.click();
   };
 
-  const MAX_IMPORT_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
-  // removed chat count limit
+  // 2 MB
+  const MAX_IMPORT_SIZE_BYTES = 2 * 1024 * 1024;
 
-  async function processImportFile(file: File) {
+  const processImportFile = async (file: File) => {
     if (file.size > MAX_IMPORT_SIZE_BYTES) {
       toast({ title: "Import file too large (max 2 MB)", status: "error" });
       return;
     }
 
     const text = await file.text();
-    const data = superjson.parse(text);
+    const data = parse(text);
     const parsed = ImportSchema.safeParse(data);
     if (!parsed.success) {
       throw new Error("Invalid file format");
@@ -391,7 +406,7 @@ function useHistorySettingsPageView() {
     }
 
     dispatch({ type: "OPEN_IMPORT_DIALOG", data: dataArr, count: chatCount });
-  }
+  };
 
   const confirmImport = async () => {
     toast({
@@ -405,19 +420,21 @@ function useHistorySettingsPageView() {
         const messages = (item.messages ?? [])
           .filter(
             (msg) =>
-              msg &&
               typeof msg.content === "string" &&
               msg.content.length > 0 &&
               msg.content.length <= MESSAGE_MAX_LENGTH
           )
           .map((msg) => ({
-            role: (msg.role || "assistant") as "user" | "assistant" | "system",
+            role: msg.role ?? "assistant",
             content: msg.content,
             parts: msg.parts,
             metadata:
               msg.metadata ??
-              (msg.model ? { modelName: msg.model } : undefined),
-            originalId: msg._id || msg.id,
+              (msg.model !== undefined && msg.model !== ""
+                ? { modelName: msg.model }
+                : undefined),
+            originalId:
+              msg._id !== undefined && msg._id !== "" ? msg._id : msg.id,
             parentOriginalId: msg.parentMessageId,
             createdAt:
               typeof msg.createdAt === "number" ? msg.createdAt : undefined,
@@ -443,7 +460,7 @@ function useHistorySettingsPageView() {
       })
     )
       .then(() => true)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error("Failed to import chat history:", error);
         return false;
       })
@@ -495,6 +512,26 @@ function useHistorySettingsPageView() {
       .finally(() => {
         dispatch({ type: "CLOSE_DELETE_ALL" });
         dispatch({ type: "SET_DELETING_ALL", value: false });
+      });
+  };
+
+  const confirmRevoke = async () => {
+    if (!revokeChatId) {
+      return;
+    }
+    dispatch({ type: "SET_REVOKING", value: true });
+    await unpublishChat({ chatId: revokeChatId })
+      .then(() => {
+        toast({
+          title: "Conversation unshared",
+          status: "success",
+        });
+      })
+      .catch(() => {
+        toast({ title: "Failed to unshare", status: "error" });
+      })
+      .finally(() => {
+        dispatch({ type: "REVOKE_DONE" });
       });
   };
 
@@ -560,14 +597,16 @@ function useHistorySettingsPageView() {
               />
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="truncate text-sm font-medium">
-                  {chat.title || "Untitled Chat"}
+                  {chat.title !== undefined && chat.title !== ""
+                    ? chat.title
+                    : "Untitled Chat"}
                 </span>
                 {Boolean(chat.public) && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="shrink-0 rounded-full bg-blue-500/10 p-1">
-                          <LinkSimple className="size-3 text-blue-600 dark:text-blue-400" />
+                          <LinkSimpleIcon className="size-3 text-blue-600 dark:text-blue-400" />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>Shared publicly</TooltipContent>
@@ -584,27 +623,14 @@ function useHistorySettingsPageView() {
                           <Button
                             aria-label="Copy share link"
                             className="size-7"
-                            onClick={async () => {
-                              await navigator.clipboard
-                                .writeText(`${APP_BASE_URL}/share/${chat._id}`)
-                                .then(() => {
-                                  toast({
-                                    title: "Link copied",
-                                    status: "success",
-                                  });
-                                })
-                                .catch(() => {
-                                  toast({
-                                    title: "Failed to copy link",
-                                    status: "error",
-                                  });
-                                });
+                            onClick={() => {
+                              void copyShareLink(chat._id);
                             }}
                             size="icon"
                             type="button"
                             variant="ghost"
                           >
-                            <Copy className="size-3.5" />
+                            <CopyIcon className="size-3.5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Copy link</TooltipContent>
@@ -626,7 +652,7 @@ function useHistorySettingsPageView() {
                             type="button"
                             variant="ghost"
                           >
-                            <XCircle className="size-3.5" />
+                            <XCircleIcon className="size-3.5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Unshare</TooltipContent>
@@ -649,7 +675,7 @@ function useHistorySettingsPageView() {
 
   // Counts of loaded chats; "+" marks that more pages exist
   const totalChats = chats.length;
-  const sharedCount = chats.filter((c) => c.public).length;
+  const sharedCount = chats.filter((c) => c.public === true).length;
   const moreSuffix = hasMoreChats ? "+" : "";
   const chatsList = renderChatsList();
 
@@ -720,11 +746,13 @@ function useHistorySettingsPageView() {
               <Button
                 className="flex items-center gap-2"
                 disabled={selectedIds.size === 0}
-                onClick={handleExport}
+                onClick={() => {
+                  void handleExport();
+                }}
                 size="sm"
                 variant="secondary"
               >
-                <DownloadSimple className="size-4" />{" "}
+                <DownloadSimpleIcon className="size-4" />{" "}
                 <span className="hidden sm:inline">Export</span>
                 {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </Button>
@@ -735,7 +763,7 @@ function useHistorySettingsPageView() {
                 size="sm"
                 variant="destructive"
               >
-                <Trash className="size-4" />{" "}
+                <TrashIcon className="size-4" />{" "}
                 <span className="hidden sm:inline">Delete</span>
                 {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </Button>
@@ -745,14 +773,16 @@ function useHistorySettingsPageView() {
                 size="sm"
                 variant="secondary"
               >
-                <UploadSimple className="size-4" />{" "}
+                <UploadSimpleIcon className="size-4" />{" "}
                 <span className="hidden sm:inline">Import</span>
               </Button>
               <input
                 accept="application/json"
                 aria-label="Import chat history"
                 className="hidden"
-                onChange={handleImport}
+                onChange={(e) => {
+                  void handleImport(e);
+                }}
                 ref={fileInputRef}
                 type="file"
               />
@@ -784,7 +814,7 @@ function useHistorySettingsPageView() {
             size="sm"
             variant="destructive"
           >
-            <Trash className="mr-2 size-4" />
+            <TrashIcon className="mr-2 size-4" />
             Delete All
           </Button>
         </div>
@@ -822,7 +852,12 @@ function useHistorySettingsPageView() {
             >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteSelected} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteSelected();
+              }}
+              variant="destructive"
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -858,7 +893,12 @@ function useHistorySettingsPageView() {
             >
               Cancel
             </Button>
-            <Button onClick={confirmImport} variant="default">
+            <Button
+              onClick={() => {
+                void confirmImport();
+              }}
+              variant="default"
+            >
               Import
             </Button>
           </DialogFooter>
@@ -894,7 +934,9 @@ function useHistorySettingsPageView() {
             </Button>
             <Button
               disabled={isDeletingAll}
-              onClick={confirmDeleteAll}
+              onClick={() => {
+                void confirmDeleteAll();
+              }}
               variant="destructive"
             >
               {isDeletingAll ? "Deleting..." : "Delete All"}
@@ -931,24 +973,8 @@ function useHistorySettingsPageView() {
             </Button>
             <Button
               disabled={isRevoking}
-              onClick={async () => {
-                if (!revokeChatId) {
-                  return;
-                }
-                dispatch({ type: "SET_REVOKING", value: true });
-                await unpublishChat({ chatId: revokeChatId })
-                  .then(() => {
-                    toast({
-                      title: "Conversation unshared",
-                      status: "success",
-                    });
-                  })
-                  .catch(() => {
-                    toast({ title: "Failed to unshare", status: "error" });
-                  })
-                  .finally(() => {
-                    dispatch({ type: "REVOKE_DONE" });
-                  });
+              onClick={() => {
+                void confirmRevoke();
               }}
               variant="destructive"
             >
@@ -959,4 +985,10 @@ function useHistorySettingsPageView() {
       </Dialog>
     </div>
   );
-}
+};
+
+export const HistorySettingsPage = () => useHistorySettingsPageView();
+
+export const Route = createFileRoute("/settings/history")({
+  component: HistorySettingsPage,
+});

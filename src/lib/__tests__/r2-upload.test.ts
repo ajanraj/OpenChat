@@ -3,25 +3,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { uploadToR2 } from "../r2-upload";
 import type { GenerateUploadUrl } from "../r2-upload";
 
-const reserve = vi.fn<GenerateUploadUrl>(async () => ({
+const reserve = vi.fn<GenerateUploadUrl>().mockResolvedValue({
   key: "obj-key",
   url: "https://r2.example/obj-key?signed",
-}));
+});
 
-function mockFetch(status: number) {
+const mockFetch = (status: number) => {
   const fetchMock = vi.fn<typeof fetch>(
-    async () => new Response(null, { status })
+    async () => await Promise.resolve(new Response(null, { status }))
   );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
-}
+};
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-  reserve.mockClear();
-});
+describe(uploadToR2, () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    reserve.mockClear();
+  });
 
-describe("uploadToR2", () => {
   it("declares the blob's type and size, then PUTs it with the same content type", async () => {
     const fetchMock = mockFetch(200);
     const blob = new Blob(["hello"], { type: "image/png" });

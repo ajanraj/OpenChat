@@ -7,7 +7,7 @@ import { useUser } from "@/providers/user-provider";
 
 import { api } from "../../convex/_generated/api";
 
-export function useModelPreferences() {
+export const useModelPreferences = () => {
   const { user } = useUser();
   const { activeProfile } = useProfile();
 
@@ -104,7 +104,8 @@ export function useModelPreferences() {
         });
       } catch (error) {
         throw new Error(
-          `Failed to ${isFavorite ? "unpin" : "pin"} model: ${error instanceof Error ? error.message : "Unknown error"}`
+          `Failed to ${isFavorite ? "unpin" : "pin"} model: ${error instanceof Error ? error.message : "Unknown error"}`,
+          { cause: error }
         );
       }
     },
@@ -128,7 +129,8 @@ export function useModelPreferences() {
         });
       } catch (error) {
         throw new Error(
-          `Failed to set favorite models: ${error instanceof Error ? error.message : "Unknown error"}`
+          `Failed to set favorite models: ${error instanceof Error ? error.message : "Unknown error"}`,
+          { cause: error }
         );
       }
     },
@@ -141,4 +143,4 @@ export function useModelPreferences() {
     toggleFavoriteModel,
     bulkSetFavoriteModels,
   };
-}
+};

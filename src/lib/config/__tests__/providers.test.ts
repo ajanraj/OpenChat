@@ -28,18 +28,16 @@ const localProviderIcons = [
 describe("Providers Config", () => {
   describe("PROVIDERS array", () => {
     it("is a non-empty array", () => {
-      expect(Array.isArray(PROVIDERS)).toBe(true);
+      expect(Array.isArray(PROVIDERS)).toBeTruthy();
       expect(PROVIDERS.length).toBeGreaterThan(0);
     });
 
     it("each provider has required properties", () => {
       for (const provider of PROVIDERS) {
-        expect(provider.id).toBeDefined();
-        expect(typeof provider.id).toBe("string");
+        expect(provider.id).toBeTypeOf("string");
         expect(provider.id.length).toBeGreaterThan(0);
 
-        expect(provider.name).toBeDefined();
-        expect(typeof provider.name).toBe("string");
+        expect(provider.name).toBeTypeOf("string");
         expect(provider.name.length).toBeGreaterThan(0);
 
         expect(provider.icon).toBeDefined();
@@ -141,7 +139,7 @@ describe("Providers Config", () => {
     });
   });
 
-  describe("PROVIDERS_OPTIONS", () => {
+  describe("provider options", () => {
     it("is the same as PROVIDERS", () => {
       expect(PROVIDERS_OPTIONS).toBe(PROVIDERS);
     });

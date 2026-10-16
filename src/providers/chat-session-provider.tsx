@@ -24,13 +24,12 @@ const ChatSessionContext = createContext<ChatSessionContextType>({
 
 export const useChatSession = () => useContext(ChatSessionContext);
 
-export function ChatSessionProvider({
+export const ChatSessionProvider = ({
   children,
 }: {
   children: React.ReactNode;
-}) {
-  const location = useLocation();
-  const pathname = location.pathname;
+}) => {
+  const { pathname } = useLocation();
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
 
   const chatId = useMemo(() => {
@@ -74,4 +73,4 @@ export function ChatSessionProvider({
       {children}
     </ChatSessionContext.Provider>
   );
-}
+};

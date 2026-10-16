@@ -12,23 +12,23 @@ import {
 import { ModelSchema } from "../schemas";
 
 describe("Models Configuration", () => {
-  describe("MODELS_DATA", () => {
+  describe("model data", () => {
     it("is a non-empty array", () => {
-      expect(Array.isArray(MODELS_DATA)).toBe(true);
+      expect(Array.isArray(MODELS_DATA)).toBeTruthy();
       expect(MODELS_DATA.length).toBeGreaterThan(0);
     });
   });
 
-  describe("MODELS_RAW", () => {
+  describe("parsed model data", () => {
     it("is a non-empty array", () => {
-      expect(Array.isArray(MODELS_RAW)).toBe(true);
+      expect(Array.isArray(MODELS_RAW)).toBeTruthy();
       expect(MODELS_RAW.length).toBeGreaterThan(0);
     });
 
     it("validates all models through Zod schema", () => {
       const schema = z.array(ModelSchema);
       const result = schema.safeParse(MODELS_DATA);
-      expect(result.success).toBe(true);
+      expect(result.success).toBeTruthy();
     });
 
     it("rejects invalid model data", () => {
@@ -40,33 +40,30 @@ describe("Models Configuration", () => {
         description: "Test",
       };
       const result = ModelSchema.safeParse(invalidModel);
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
     });
 
     it("requires mandatory fields", () => {
       const missingFields = { id: "test" };
       const result = ModelSchema.safeParse(missingFields);
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
     });
   });
 
-  describe("MODELS", () => {
+  describe("model list", () => {
     it("is a non-empty array", () => {
-      expect(Array.isArray(MODELS)).toBe(true);
+      expect(Array.isArray(MODELS)).toBeTruthy();
       expect(MODELS.length).toBeGreaterThan(0);
     });
 
     it("each model has required properties", () => {
       for (const model of MODELS) {
-        expect(model.id).toBeDefined();
-        expect(typeof model.id).toBe("string");
+        expect(model.id).toBeTypeOf("string");
         expect(model.id.length).toBeGreaterThan(0);
 
-        expect(model.name).toBeDefined();
-        expect(typeof model.name).toBe("string");
+        expect(model.name).toBeTypeOf("string");
 
-        expect(model.provider).toBeDefined();
-        expect(typeof model.provider).toBe("string");
+        expect(model.provider).toBeTypeOf("string");
       }
     });
 
@@ -99,9 +96,9 @@ describe("Models Configuration", () => {
     });
   });
 
-  describe("MODELS_MAP", () => {
+  describe("model lookup map", () => {
     it("is an object", () => {
-      expect(typeof MODELS_MAP).toBe("object");
+      expect(MODELS_MAP).toBeTypeOf("object");
       expect(MODELS_MAP).not.toBeNull();
     });
 
@@ -113,7 +110,7 @@ describe("Models Configuration", () => {
     });
 
     it("provides O(1) lookup by id", () => {
-      const firstModel = MODELS[0];
+      const [firstModel] = MODELS;
       expect(firstModel).toBeDefined();
       const lookedUp = MODELS_MAP[firstModel.id];
       expect(lookedUp).toBeDefined();
@@ -125,11 +122,15 @@ describe("Models Configuration", () => {
     });
   });
 
-  describe("MODELS_OPTIONS", () => {
+  describe("selectable model options", () => {
     it("excludes retired models while preserving them for historical lookup", () => {
-      expect(MODELS_OPTIONS.every((model) => !model.retired)).toBe(true);
+      expect(
+        MODELS_OPTIONS.every((model) => model.retired !== true)
+      ).toBeTruthy();
 
-      for (const model of MODELS.filter((candidate) => candidate.retired)) {
+      for (const model of MODELS.filter(
+        (candidate) => candidate.retired === true
+      )) {
         expect(MODELS_OPTIONS).not.toContain(model);
         expect(MODELS_MAP[model.id]).toBe(model);
       }
@@ -138,9 +139,7 @@ describe("Models Configuration", () => {
 
   describe("Model features", () => {
     it("some models have features array", () => {
-      const modelsWithFeatures = MODELS.filter(
-        (m) => m.features && m.features.length > 0
-      );
+      const modelsWithFeatures = MODELS.filter((m) => m.features.length > 0);
       expect(modelsWithFeatures.length).toBeGreaterThan(0);
     });
 
@@ -168,7 +167,7 @@ describe("Models Configuration", () => {
 
   describe("Model premium status", () => {
     it("some models are premium", () => {
-      const premiumModels = MODELS.filter((m) => m.premium === true);
+      const premiumModels = MODELS.filter((m) => m.premium);
       expect(premiumModels.length).toBeGreaterThan(0);
     });
 
@@ -181,8 +180,8 @@ describe("Models Configuration", () => {
       expect(
         MODELS.filter((model) => !model.premium)
           .map((model) => model.id)
-          .sort()
-      ).toEqual(["gpt-5.4-nano", "openrouter/free"]);
+          .toSorted()
+      ).toStrictEqual(["gpt-5.4-nano", "openrouter/free"]);
     });
 
     it("gates every new paid chat model behind a subscription", () => {
@@ -220,7 +219,7 @@ describe("Models Configuration", () => {
       ];
 
       for (const modelId of newPaidChatModelIds) {
-        expect(MODELS_MAP[modelId]?.premium).toBe(true);
+        expect(MODELS_MAP[modelId]?.premium).toBeTruthy();
       }
     });
 
@@ -240,7 +239,7 @@ describe("Models Configuration", () => {
       const newChatModels = MODELS.filter(
         (model) =>
           model.premium &&
-          !model.legacy &&
+          model.legacy !== true &&
           model.id !== "gemini-3.1-pro-preview" &&
           !model.features.some(
             (feature) => feature.id === "image-generation" && feature.enabled
@@ -263,8 +262,8 @@ describe("Models Configuration", () => {
 
       expect(imageModels.length).toBeGreaterThan(0);
       for (const model of imageModels) {
-        expect(model.premium).toBe(true);
-        expect(model.usesPremiumCredits).toBe(true);
+        expect(model.premium).toBeTruthy();
+        expect(model.usesPremiumCredits).toBeTruthy();
       }
     });
 
@@ -282,13 +281,8 @@ describe("Models Configuration", () => {
       for (const modelId of RECOMMENDED_MODELS) {
         const model = MODELS_MAP[modelId];
         expect(model).toBeDefined();
-        if (!model) {
-          throw new Error(
-            `Recommended model ${modelId} is missing from the catalog`
-          );
-        }
-        expect(model.legacy).not.toBe(true);
-        expect(model.retired).not.toBe(true);
+        expect(model.legacy).not.toBeTruthy();
+        expect(model.retired).not.toBeTruthy();
       }
     });
 
@@ -307,7 +301,7 @@ describe("Models Configuration", () => {
       ];
 
       for (const modelId of retiredModelIds) {
-        expect(MODELS_MAP[modelId]?.retired).toBe(true);
+        expect(MODELS_MAP[modelId]?.retired).toBeTruthy();
       }
     });
   });

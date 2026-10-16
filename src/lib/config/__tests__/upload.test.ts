@@ -12,13 +12,13 @@ import {
 } from "../upload";
 
 describe("Upload Config Constants", () => {
-  describe("UPLOAD_MAX_BYTES", () => {
+  describe("UPLOAD_MAX_BYTES constant", () => {
     it("is 10 MiB", () => {
       expect(UPLOAD_MAX_BYTES).toBe(10 * 1024 * 1024);
     });
   });
 
-  describe("UPLOAD_ALLOWED_MIME", () => {
+  describe("UPLOAD_ALLOWED_MIME constant", () => {
     it("includes common image types", () => {
       expect(UPLOAD_ALLOWED_MIME).toContain("image/jpeg");
       expect(UPLOAD_ALLOWED_MIME).toContain("image/png");
@@ -31,19 +31,19 @@ describe("Upload Config Constants", () => {
     });
   });
 
-  describe("UPLOAD_ACCEPT", () => {
+  describe("UPLOAD_ACCEPT constant", () => {
     it("is a comma-separated string of MIME types", () => {
-      expect(typeof UPLOAD_ACCEPT).toBe("string");
+      expect(UPLOAD_ACCEPT).toBeTypeOf("string");
       expect(UPLOAD_ACCEPT).toContain(",");
       expect(UPLOAD_ACCEPT).toContain("image/jpeg");
       expect(UPLOAD_ACCEPT).toContain("application/pdf");
     });
   });
 
-  describe("PASTE_ALLOWED_MIME", () => {
+  describe("PASTE_ALLOWED_MIME constant", () => {
     it("only includes image types", () => {
       for (const mime of PASTE_ALLOWED_MIME) {
-        expect(mime.startsWith("image/")).toBe(true);
+        expect(mime.startsWith("image/")).toBeTruthy();
       }
     });
 
@@ -52,15 +52,15 @@ describe("Upload Config Constants", () => {
     });
   });
 
-  describe("UPLOAD_MAX_LABEL", () => {
+  describe("UPLOAD_MAX_LABEL constant", () => {
     it("is a formatted string", () => {
-      expect(typeof UPLOAD_MAX_LABEL).toBe("string");
+      expect(UPLOAD_MAX_LABEL).toBeTypeOf("string");
       expect(UPLOAD_MAX_LABEL).toContain("MB");
     });
   });
 });
 
-describe("formatBytes", () => {
+describe(formatBytes, () => {
   it("returns '0 B' for zero bytes", () => {
     expect(formatBytes(0)).toBe("0 B");
   });
@@ -92,7 +92,7 @@ describe("formatBytes", () => {
   });
 });
 
-describe("getAllowedLabel", () => {
+describe(getAllowedLabel, () => {
   it("returns empty string for empty array", () => {
     expect(getAllowedLabel([])).toBe("");
   });
@@ -127,7 +127,7 @@ describe("getAllowedLabel", () => {
   });
 });
 
-describe("getUploadPolicyError", () => {
+describe(getUploadPolicyError, () => {
   it("accepts allowed types up to the size cap", () => {
     expect(getUploadPolicyError({ type: "image/png", size: 0 })).toBeNull();
     expect(
