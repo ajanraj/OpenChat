@@ -47,11 +47,9 @@ function stubbedClient(rejectedToken?: string) {
     });
   vi.spyOn(client, "clearAuth").mockImplementation(() => undefined);
   // auth:signIn reads the tokens; auth:signOut ignores its result
-  const action = vi
-    .spyOn(client, "action")
-    .mockResolvedValue({
-      tokens: { token: "guest-jwt", refreshToken: "guest-refresh" },
-    });
+  const action = vi.spyOn(client, "action").mockResolvedValue({
+    tokens: { token: "guest-jwt", refreshToken: "guest-refresh" },
+  });
   const callsTo = (name: string) =>
     action.mock.calls.filter(([called]) => getFunctionName(called) === name)
       .length;
