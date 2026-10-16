@@ -221,6 +221,46 @@ describe("UserProvider loading", () => {
     });
   });
 
+  it("refills exhausted credits once the window resets, even when the timer wakes early", () => {
+    vi.useFakeTimers();
+    const day = 24 * 60 * 60 * 1000;
+    // Half a millisecond ahead: the first timer's delay (999.5 ms) is truncated and wakes early
+    queryClient.setQueryData(["serverClockOffset"], 0.5);
+    answer("users:getRateLimitStatus", {
+      isPremium: false,
+      daily: {
+        value: 0,
+        ts: Date.now() + 1000 - day,
+        rate: 5,
+        capacity: 5,
+        period: day,
+      },
+      monthly: {
+        value: 1400,
+        ts: Date.now(),
+        rate: 1500,
+        capacity: 1500,
+        period: 30 * day,
+      },
+      premium: null,
+    });
+    mocks.auth.current = { isLoading: false, isAuthenticated: true };
+    mocks.tokenUserId.current = "users:1";
+    answer("users:getCurrentUser", guest);
+    const { result } = renderUser();
+    expect(result.current.rateLimitStatus?.effectiveRemaining).toBe(0);
+
+    act(() => {
+      vi.advanceTimersByTime(999);
+    });
+    expect(result.current.rateLimitStatus?.effectiveRemaining).toBe(0);
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.rateLimitStatus?.effectiveRemaining).toBe(5);
+  });
+
   it("reloads instead of waiting when another tab's sign-in swaps the token's account", () => {
     const reload = vi.fn<() => void>();
     vi.stubGlobal("location", { reload });

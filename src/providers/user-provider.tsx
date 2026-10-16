@@ -188,18 +188,20 @@ export const UserProvider = ({
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    // setTimeout caps delays at MAX_TIMEOUT_MS, so a later reset waits in several hops
+    // Re-arms until the reset has passed: setTimeout caps delays at MAX_TIMEOUT_MS and can wake
+    // early (the offset has fractional ms), and a status resolved before the reset keeps the
+    // same nextRateLimitReset, so this effect wouldn't run again
     const arm = (resetAt: number) => {
       const remaining = resetAt - (Date.now() + serverClockOffset);
       timeout = setTimeout(
         () => {
-          if (remaining > MAX_TIMEOUT_MS) {
+          if (resetAt > Date.now() + serverClockOffset) {
             arm(resetAt);
           } else {
             setNow(Date.now());
           }
         },
-        Math.min(Math.max(remaining, 0), MAX_TIMEOUT_MS)
+        Math.min(Math.max(Math.ceil(remaining), 0), MAX_TIMEOUT_MS)
       );
     };
     if (nextRateLimitReset !== undefined) {
