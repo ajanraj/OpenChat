@@ -60,6 +60,8 @@ describe("ChatInput while a new chat starts", () => {
 		const { button, textarea, onSendAction } = renderInput({ isStartingChat: true });
 
 		expect(button.disabled).toBe(true);
+		// The spinner shows the guest session and chat are on their way
+		expect(button.getAttribute("aria-busy")).toBe("true");
 		fireEvent.click(button);
 
 		expect(onSendAction).not.toHaveBeenCalled();
@@ -73,6 +75,7 @@ describe("ChatInput while a new chat starts", () => {
 		});
 
 		expect(button.disabled).toBe(false);
+		expect(button.getAttribute("aria-busy")).toBe("false");
 		fireEvent.click(button);
 
 		expect(stop).toHaveBeenCalledTimes(1);

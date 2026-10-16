@@ -1,5 +1,5 @@
 import type { ChatStatus } from "ai";
-import { ArrowUp, Globe, Stop, X } from "@phosphor-icons/react";
+import { ArrowUp, Globe, SpinnerGapIcon, Stop, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	PromptInput,
@@ -79,6 +79,8 @@ export function ChatInput({
 }: ChatInputProps) {
 	const isRequestActive = status === "streaming" || status === "submitted";
 	const isBusy = isRequestActive || isStartingChat;
+	// Starting a guest session and a chat can take seconds before the request exists
+	const isStartPending = isStartingChat && !isRequestActive;
 	// A held send keeps the message in the input
 	const isSendHeld = isStartingChat || isSettingsLoading;
 
@@ -275,10 +277,14 @@ export function ChatInput({
 		return () => document.removeEventListener("keydown", handleGlobalKeyDown);
 	}, [isRequestActive]);
 
-	// Compute tooltip text without nested ternary expressions
+	// Compute tooltip text and icon without nested ternary expressions
 	let tooltipText = "Send";
+	let sendIcon = <ArrowUp className="size-4" />;
 	if (isRequestActive) {
 		tooltipText = "Stop";
+		sendIcon = <Stop className="size-4" />;
+	} else if (isStartPending) {
+		sendIcon = <SpinnerGapIcon className="size-4 animate-spin" />;
 	}
 
 	return (
@@ -349,6 +355,7 @@ export function ChatInput({
 						</div>
 						<PromptInputAction tooltip={tooltipText}>
 							<Button
+								aria-busy={isStartPending}
 								aria-label="Send message"
 								className="origin-right scale-90 transform rounded-full transition-all duration-300 ease-out sm:scale-100"
 								disabled={
@@ -359,11 +366,7 @@ export function ChatInput({
 								size="sm"
 								type="button"
 							>
-								{status === "streaming" || status === "submitted" ? (
-									<Stop className="size-4" />
-								) : (
-									<ArrowUp className="size-4" />
-								)}
+								{sendIcon}
 							</Button>
 						</PromptInputAction>
 					</PromptInputActions>
