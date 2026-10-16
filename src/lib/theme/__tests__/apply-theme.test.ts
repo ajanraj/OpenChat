@@ -54,7 +54,7 @@ describe("applyThemeToElement", () => {
     const themeState = createThemeState();
 
     // Should not throw
-    expect(() => applyThemeToElement(themeState, null as unknown as HTMLElement)).not.toThrow();
+    expect(() =>{  applyThemeToElement(themeState, null as unknown as HTMLElement); }).not.toThrow();
   });
 
   it("applies light mode class correctly", () => {

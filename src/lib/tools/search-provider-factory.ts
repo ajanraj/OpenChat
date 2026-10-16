@@ -2,16 +2,11 @@ import { classifyError } from "@/lib/error-utils";
 import { BraveSearchProvider } from "./providers/brave-search";
 import { ExaSearchProvider } from "./providers/exa-search";
 import { TavilySearchProvider } from "./providers/tavily-search";
-import {
-  SEARCH_CONFIG,
-  type SearchAdapter,
-  type SearchOptions,
-  type SearchProvider,
-  type SearchResult,
-} from "./types";
+import { SEARCH_CONFIG } from './types';
+import type { SearchAdapter, SearchOptions, SearchProvider, SearchResult } from './types';
 
 // Cache for provider instances
-const instances: Map<SearchProvider, SearchAdapter> = new Map();
+const instances = new Map<SearchProvider, SearchAdapter>();
 
 export function getProvider(provider?: SearchProvider): SearchAdapter {
   const selectedProvider = provider || SEARCH_CONFIG.defaultProvider;
@@ -115,13 +110,17 @@ export async function searchWithFallback(
 
 function hasApiKeyForProvider(provider: SearchProvider): boolean {
   switch (provider) {
-    case "brave":
+    case "brave": {
       return Boolean(process.env.BRAVE_API_KEY);
-    case "tavily":
+    }
+    case "tavily": {
       return Boolean(process.env.TAVILY_API_KEY);
-    case "exa":
+    }
+    case "exa": {
       return Boolean(process.env.EXA_API_KEY);
-    default:
+    }
+    default: {
       return false;
+    }
   }
 }

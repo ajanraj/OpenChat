@@ -86,7 +86,7 @@ describe("useEditorStore", () => {
       setThemeState(newState);
 
       const state = useEditorStore.getState();
-      expect(state.history.length).toBe(0);
+      expect(state.history).toHaveLength(0);
     });
   });
 

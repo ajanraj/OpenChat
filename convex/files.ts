@@ -1,23 +1,15 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { ConvexError, type Infer, v } from "convex/values";
+import { ConvexError, v } from 'convex/values';
+import type { Infer } from 'convex/values';
 import { ATTACHMENT_DELETE_BATCH_SIZE, getUploadPolicyError } from "../src/lib/config/upload";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { sanitizeAndValidateFileName } from "../src/lib/filename";
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import {
-  type ActionCtx,
-  action,
-  internalAction,
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-  mutation,
-  type QueryCtx,
-  query,
-} from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query } from './_generated/server';
+import type { ActionCtx, MutationCtx, QueryCtx } from './_generated/server';
 import { assertServerSecret } from "./lib/auth_helper";
 import { scheduleDeletedUploadCheck, uploadRecheckTime } from "./lib/cleanup_helper";
 import { supportsFileUploadModel } from "./lib/fileUploadModels";

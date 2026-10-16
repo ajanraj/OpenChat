@@ -75,8 +75,8 @@ export const Route = createFileRoute("/api/create-chat")({
           // The client now only needs the ID to redirect to the new chat page.
           // The chat data itself will be fetched on the client via a query.
           return json({ chatId });
-        } catch (err: unknown) {
-          return createErrorResponse(err);
+        } catch (error: unknown) {
+          return createErrorResponse(error);
         }
       },
     },

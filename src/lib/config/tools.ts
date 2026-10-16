@@ -129,24 +129,30 @@ const getConnectorPatterns = (): Record<ConnectorType, string[]> => {
 
     // Add specific patterns based on the connector type
     switch (type) {
-      case "googlecalendar":
+      case "googlecalendar": {
         typePatterns.push("calendar");
         break;
-      case "googledrive":
+      }
+      case "googledrive": {
         typePatterns.push("drive");
         break;
-      case "googledocs":
+      }
+      case "googledocs": {
         typePatterns.push("docs");
         break;
-      case "googlesheets":
+      }
+      case "googlesheets": {
         typePatterns.push("sheets");
         break;
-      case "twitter":
+      }
+      case "twitter": {
         typePatterns.push("x.com");
         break;
-      default:
+      }
+      default: {
         // For most connectors, the type name is sufficient
         break;
+      }
     }
 
     patterns[type] = typePatterns;

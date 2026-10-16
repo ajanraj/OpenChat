@@ -1,11 +1,13 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { ConvexError, v, type Infer } from "convex/values";
+import { ConvexError, v } from 'convex/values';
+import type { Infer } from 'convex/values';
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { detectRedactedContent } from "../src/lib/redacted-content-detector";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from './_generated/server';
+import type { MutationCtx } from './_generated/server';
 // Import helper functions
 import { ensureAuthenticated, ensureChatAccess, tryEnsureChatAccess } from "./lib/auth_helper";
 import { deleteChatCompletely, purgeChatsBatch } from "./lib/cleanup_helper";

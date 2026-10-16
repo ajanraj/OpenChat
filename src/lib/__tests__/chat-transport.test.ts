@@ -27,13 +27,13 @@ describe("chatTransport", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     // A signed-out visitor's first request would have no token...
-    expect(await sendAndReadAuthorization()).toBeNull();
+    await expect(sendAndReadAuthorization()).resolves.toBeNull();
 
     // ...and after their guest sign-in, or a token refresh, the same transport sends the new one
     setChatAuthToken("guest-token");
-    expect(await sendAndReadAuthorization()).toBe("Bearer guest-token");
+    await expect(sendAndReadAuthorization()).resolves.toBe("Bearer guest-token");
 
     setChatAuthToken("refreshed-token");
-    expect(await sendAndReadAuthorization()).toBe("Bearer refreshed-token");
+    await expect(sendAndReadAuthorization()).resolves.toBe("Bearer refreshed-token");
   });
 });

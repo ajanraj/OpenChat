@@ -24,11 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/convex/_generated/api";
-import {
-  getApiKeyProviders,
-  type ApiKeyProvider as Provider,
-  validateApiKey,
-} from "@/lib/config/api-keys";
+import { getApiKeyProviders, validateApiKey } from '@/lib/config/api-keys';
+import type { ApiKeyProvider as Provider } from '@/lib/config/api-keys';
 import { cn } from "@/lib/utils";
 import { useUser } from "@/providers/user-provider";
 
@@ -98,7 +95,7 @@ function ApiKeyInputForm({
               "h-9 bg-background font-mono text-sm",
               validationError && "border-destructive focus-visible:ring-destructive/20",
             )}
-            onChange={(e) => onInputChange(e.target.value)}
+            onChange={(e) =>{  onInputChange(e.target.value); }}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             type="password"
@@ -234,7 +231,7 @@ function ProviderCard({
                 <Switch
                   checked={isPriority}
                   id={`toggle-${providerConfig.id}`}
-                  onCheckedChange={(checked) => onToggle(providerConfig.id, checked)}
+                  onCheckedChange={(checked) =>{  onToggle(providerConfig.id, checked); }}
                 />
                 <label
                   className="cursor-pointer text-muted-foreground text-xs"
@@ -245,7 +242,7 @@ function ProviderCard({
               </div>
               <Button
                 className="size-7 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(providerConfig.id)}
+                onClick={() =>{  onDelete(providerConfig.id); }}
                 size="icon"
                 variant="ghost"
               >
@@ -257,8 +254,8 @@ function ProviderCard({
           <ApiKeyInputForm
             docs={providerConfig.docs}
             isValidating={isValidating[providerConfig.id]}
-            onInputChange={(value) => onInputChange(providerConfig.id, value)}
-            onSave={() => onSave(providerConfig.id)}
+            onInputChange={(value) =>{  onInputChange(providerConfig.id, value); }}
+            onSave={() =>{  onSave(providerConfig.id); }}
             placeholder={providerConfig.placeholder}
             title={providerConfig.title}
             validationError={validationErrors[providerConfig.id]}
@@ -297,25 +294,33 @@ export function ApiKeysSettingsPage() {
   const [apiKeysState, dispatch] = useReducer(
     (s: ApiKeysState, action: ApiKeysAction): ApiKeysState => {
       switch (action.type) {
-        case "SET_INPUT":
+        case "SET_INPUT": {
           return { ...s, inputValues: { ...s.inputValues, [action.provider]: action.value } };
-        case "SET_VALIDATION_ERROR":
+        }
+        case "SET_VALIDATION_ERROR": {
           return {
             ...s,
             validationErrors: { ...s.validationErrors, [action.provider]: action.error },
           };
-        case "SET_VALIDATING":
+        }
+        case "SET_VALIDATING": {
           return { ...s, isValidating: { ...s.isValidating, [action.provider]: action.value } };
-        case "CLEAR_INPUTS":
+        }
+        case "CLEAR_INPUTS": {
           return { ...s, inputValues: {} };
-        case "START_DELETE":
+        }
+        case "START_DELETE": {
           return { ...s, providerToDelete: action.provider, showDeleteDialog: true };
-        case "CANCEL_DELETE":
+        }
+        case "CANCEL_DELETE": {
           return { ...s, showDeleteDialog: false, providerToDelete: null };
-        case "SET_DELETING":
+        }
+        case "SET_DELETING": {
           return { ...s, isDeleting: action.value };
-        case "DELETE_DONE":
+        }
+        case "DELETE_DONE": {
           return { ...s, isDeleting: false, showDeleteDialog: false, providerToDelete: null };
+        }
       }
     },
     {

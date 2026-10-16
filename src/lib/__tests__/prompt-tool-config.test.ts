@@ -139,7 +139,7 @@ describe("getSupportedConnectorsWithPrompts", () => {
     const result = getSupportedConnectorsWithPrompts();
     const uniqueResult = new Set(result);
 
-    expect(result.length).toBe(uniqueResult.size);
+    expect(result).toHaveLength(uniqueResult.size);
   });
 
   it("returns non-empty array", () => {

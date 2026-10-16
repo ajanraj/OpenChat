@@ -2,9 +2,7 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 
 export type TimeGroup = "Today" | "Yesterday" | "Last 7 Days" | "Last 30 Days" | "Older";
 
-export interface GroupedChats {
-  [key: string]: Doc<"chats">[];
-}
+export type GroupedChats = Record<string, Doc<"chats">[]>;
 
 // Cache date boundaries to avoid recalculating on every call
 const DAY_MS = 24 * 60 * 60 * 1000;

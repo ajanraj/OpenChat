@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type CurrentPlan, type Plan, plans } from "../billingsdk-config";
+import { plans } from '../billingsdk-config';
+import type { CurrentPlan, Plan } from '../billingsdk-config';
 
 describe("billingsdk-config", () => {
   describe("plans array", () => {
@@ -86,7 +87,7 @@ describe("billingsdk-config", () => {
       };
 
       expect(testPlan.id).toBe("test");
-      expect(testPlan.features.length).toBe(1);
+      expect(testPlan.features).toHaveLength(1);
     });
 
     it("allows optional properties", () => {

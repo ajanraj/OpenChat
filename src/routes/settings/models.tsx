@@ -88,18 +88,24 @@ const FEATURE_INFO: Record<string, FeatureInfo> = {
 
 const getFeatureColorClasses = (featureId: string) => {
   switch (featureId) {
-    case "file-upload":
+    case "file-upload": {
       return "text-teal-600 dark:text-teal-400";
-    case "pdf-processing":
+    }
+    case "pdf-processing": {
       return "text-indigo-600 dark:text-indigo-400";
-    case "reasoning":
+    }
+    case "reasoning": {
       return "text-pink-600 dark:text-pink-400";
-    case "tool-calling":
+    }
+    case "tool-calling": {
       return "text-blue-600 dark:text-blue-400";
-    case "image-generation":
+    }
+    case "image-generation": {
       return "text-orange-600 dark:text-orange-400";
-    default:
+    }
+    default: {
       return "text-muted-foreground";
+    }
   }
 };
 
@@ -132,7 +138,7 @@ function useModelsSettingsPageView() {
         }
       }
     }
-    return Array.from(f);
+    return [...f];
   }, []);
 
   const isCurrentlyEnabled = (id: string) => !disabledModelsSet.has(id);
@@ -146,7 +152,7 @@ function useModelsSettingsPageView() {
         if (premiumOnly && !m.premium) {
           return false;
         }
-        return Array.from(filters).every((f) =>
+        return [...filters].every((f) =>
           m.features.some((feat) => feat.id === f && feat.enabled),
         );
       }),
@@ -202,8 +208,8 @@ function useModelsSettingsPageView() {
 
   const toggleFilter = (id: string) => {
     const newFeatures = filters.has(id)
-      ? Array.from(filters).filter((f) => f !== id)
-      : [...Array.from(filters), id];
+      ? [...filters].filter((f) => f !== id)
+      : [...filters, id];
     void navigate({
       search: { tier, features: newFeatures.length > 0 ? newFeatures : undefined },
     });
@@ -486,17 +492,17 @@ function useModelsSettingsPageView() {
                     <div className="space-y-1">
                       <p className="text-muted-foreground text-xs leading-relaxed">
                         {expanded[model.id]
-                          ? model.description.replace(/\n/g, " ")
+                          ? model.description.replaceAll('\n', " ")
                           : model.description.split("\n")[0]}
                       </p>
                       {model.description.split("\n").length > 1 ? (
                         <button
                           className="cursor-pointer text-muted-foreground text-xs hover:text-foreground"
-                          onClick={() =>
+                          onClick={() =>{ 
                             setExpanded((prev) => ({
                               ...prev,
                               [model.id]: !prev[model.id],
-                            }))
+                            })); }
                           }
                           type="button"
                         >

@@ -47,7 +47,7 @@ describe("PERSONAS", () => {
 describe("PERSONAS_MAP", () => {
   it("is an object with persona entries", () => {
     expect(typeof PERSONAS_MAP).toBe("object");
-    expect(Object.keys(PERSONAS_MAP).length).toBe(PERSONAS.length);
+    expect(Object.keys(PERSONAS_MAP)).toHaveLength(PERSONAS.length);
   });
 
   it("provides O(1) lookup by id", () => {

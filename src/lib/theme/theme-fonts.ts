@@ -96,10 +96,12 @@ export const MONO_FONTS: readonly FontOption[] = [
 // Get font options for a specific category
 export function getFontOptions(category: FontCategory): readonly FontOption[] {
   switch (category) {
-    case "sans":
+    case "sans": {
       return SANS_FONTS;
-    case "mono":
+    }
+    case "mono": {
       return MONO_FONTS;
+    }
     default: {
       const exhaustiveCheck: never = category;
       throw new Error(`Unknown font category: ${String(exhaustiveCheck)}`);

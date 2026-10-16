@@ -123,7 +123,7 @@ export function detectRedactedContent(messages: any[]): RedactedContentDetails {
     } else if (items.length === 2) {
       description = `Contains private ${items[0]} and ${items[1]}`;
     } else {
-      description = `Contains private ${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+      description = `Contains private ${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
     }
   }
 

@@ -231,14 +231,7 @@ export const createAgentTool = ({
     async execute(input, { abortSignal }) {
       const toolValues = Array.isArray(input.tool) ? input.tool : [input.tool];
 
-      const requestedToolkits = Array.from(
-        new Set(
-          toolValues
-            .map((rawValue) => rawValue.trim())
-            .filter((value) => value.length > 0)
-            .map((value) => value.toUpperCase()),
-        ),
-      );
+      const requestedToolkits = [...new Set(toolValues.map((rawValue) => rawValue.trim()).filter((value) => value.length > 0).map((value) => value.toUpperCase()))];
 
       if (requestedToolkits.length === 0) {
         throw new Error("At least one connector toolkit must be specified.");

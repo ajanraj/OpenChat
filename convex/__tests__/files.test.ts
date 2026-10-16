@@ -162,7 +162,7 @@ const pending = (key: string, extra: Partial<Row> = {}): Row => ({
 });
 
 async function expectConvexError(promise: Promise<unknown>, code: string) {
-  const error = await promise.catch((e: unknown) => e);
+  const error = await promise.catch((error: unknown) => error);
   expect(error).toBeInstanceOf(ConvexError);
   expect((error as ConvexError<string>).data).toBe(code);
 }
@@ -370,7 +370,7 @@ describe("deleteAttachments", () => {
       attachmentIds: ["chat_attachments:mine", "chat_attachments:theirs", "chat_attachments:gone"],
     });
 
-    expect(mocks.deleteObject).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteObject).toHaveBeenCalledOnce();
     expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "mine");
     expect(ctx.db.rows.has("chat_attachments:mine")).toBe(false);
     expect(ctx.db.rows.has("chat_attachments:theirs")).toBe(true);
@@ -419,7 +419,7 @@ describe("cleanupPendingUploads", () => {
 
     await run(cleanupPendingUploads)(ctx, {});
 
-    expect(mocks.deleteObject).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteObject).toHaveBeenCalledOnce();
     expect(mocks.deleteObject).toHaveBeenCalledWith(ctx, "expired");
     expect(ctx.db.rows.has("chat_attachments:fresh")).toBe(true);
     expect(ctx.db.rows.has("chat_attachments:attached")).toBe(true);

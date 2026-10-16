@@ -12,12 +12,8 @@ import {
   useState,
 } from "react";
 import { useEnsureSession } from "@/hooks/use-ensure-session";
-import {
-  getNextRateLimitReset,
-  measureServerClockOffset,
-  type RateLimitStatus,
-  resolveRateLimitStatus,
-} from "@/lib/rate-limit-status";
+import { getNextRateLimitReset, measureServerClockOffset, resolveRateLimitStatus } from '@/lib/rate-limit-status';
+import type { RateLimitStatus } from '@/lib/rate-limit-status';
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 
@@ -78,7 +74,7 @@ function getTokenUserId(token: string | null): string | null {
   }
   try {
     const claims: { sub?: unknown } = JSON.parse(
-      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+      atob(payload.replaceAll('-', "+").replaceAll('_', "/")),
     );
     return typeof claims.sub === "string" ? (claims.sub.split("|")[0] ?? null) : null;
   } catch {
@@ -164,8 +160,8 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       Math.max(nextRateLimitReset - (Date.now() + serverClockOffset), 0),
       MAX_TIMEOUT_MS,
     );
-    const timeout = setTimeout(() => setNow(Date.now()), delay);
-    return () => clearTimeout(timeout);
+    const timeout = setTimeout(() =>{  setNow(Date.now()); }, delay);
+    return () =>{  clearTimeout(timeout); };
   }, [nextRateLimitReset, now, serverClockOffset]);
 
   const { data: apiKeysQuery, isLoading: isApiKeysLoading } = useTanStackQuery({
@@ -241,7 +237,7 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       updateUser,
       // User capabilities and settings
       hasPremium: hasPremium ?? false,
-      rateLimitStatus: rateLimitStatus,
+      rateLimitStatus,
       // API Keys
       apiKeys,
       hasApiKey,

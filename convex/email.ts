@@ -34,32 +34,32 @@ function markdownToSafeHtml(markdown: string): string {
 
   // Basic sanitization for email safety
   // Remove any script tags and their content
-  html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  html = html.replaceAll(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
 
   // Remove any on* event attributes
-  html = html.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
-  html = html.replace(/\son\w+\s*=\s*[^\s>]*/gi, "");
+  html = html.replaceAll(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
+  html = html.replaceAll(/\son\w+\s*=\s*[^\s>]*/gi, "");
 
   // Remove javascript: protocol from links
-  html = html.replace(/href\s*=\s*["']?\s*javascript:[^"'>]*/gi, 'href="#"');
+  html = html.replaceAll(/href\s*=\s*["']?\s*javascript:[^"'>]*/gi, 'href="#"');
 
   // Remove data: URLs from images (except safe image formats)
-  html = html.replace(
+  html = html.replaceAll(
     /src\s*=\s*["']?\s*data:(?!image\/(png|jpg|jpeg|gif|webp|svg\+xml))[^"'>]*/gi,
     'src=""',
   );
 
   // Remove any style tags and their content (optional, but recommended for email)
-  html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+  html = html.replaceAll(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
 
   // Remove any meta tags
-  html = html.replace(/<meta\b[^>]*>/gi, "");
+  html = html.replaceAll(/<meta\b[^>]*>/gi, "");
 
   // Remove any iframe tags
-  html = html.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
+  html = html.replaceAll(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
 
   // Remove any object/embed tags
-  html = html.replace(
+  html = html.replaceAll(
     /<(object|embed)\b[^<]*(?:(?!<\/(object|embed)>)<[^<]*)*<\/(object|embed)>/gi,
     "",
   );
@@ -1270,12 +1270,12 @@ You can manage your notification preferences in your account settings.
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text: string): string {
-  const map: { [key: string]: string } = {
+  const map: Record<string, string> = {
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
     '"': "&quot;",
     "'": "&#039;",
   };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
+  return text.replaceAll(/[&<>"']/g, (m) => map[m]);
 }

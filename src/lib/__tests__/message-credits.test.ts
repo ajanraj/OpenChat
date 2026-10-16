@@ -1,5 +1,6 @@
 import type { ConvexHttpClient } from "convex/browser";
-import { getFunctionName, type FunctionReference } from "convex/server";
+import { getFunctionName } from 'convex/server';
+import type { FunctionReference } from 'convex/server';
 import { ConvexError } from "convex/values";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UIMessage } from "ai";

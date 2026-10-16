@@ -1,11 +1,6 @@
 import { handleSearchError } from "../search-errors";
-import {
-  PROVIDER_LIMITS,
-  SEARCH_CONFIG,
-  type SearchAdapter,
-  type SearchOptions,
-  type SearchResult,
-} from "../types";
+import { PROVIDER_LIMITS, SEARCH_CONFIG } from '../types';
+import type { SearchAdapter, SearchOptions, SearchResult } from '../types';
 
 export class BraveSearchProvider implements SearchAdapter {
   readonly name = "brave";

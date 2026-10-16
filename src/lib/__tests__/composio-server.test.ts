@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  ComposioConnectedAccountNotRevokableError,
-  ComposioConnectedAccountRevocationNotSupportedError,
-  type ToolRouterCreateSessionConfig,
-} from "@composio/core";
+import { ComposioConnectedAccountNotRevokableError, ComposioConnectedAccountRevocationNotSupportedError } from '@composio/core';
+import type { ToolRouterCreateSessionConfig } from '@composio/core';
 import {
   disconnectAccount,
   getComposioTools,
@@ -153,7 +150,7 @@ describe("composio-server", () => {
 
     const pending = getComposioTools("user-123", ["GMAIL"], controller.signal);
     // Let the session be created and tool loading start before aborting
-    await vi.waitFor(() => expect(mockSessionTools).toHaveBeenCalledOnce());
+    await vi.waitFor(() =>{  expect(mockSessionTools).toHaveBeenCalledOnce(); });
     controller.abort();
 
     await expect(pending).resolves.toBeNull();

@@ -21,7 +21,7 @@ describe("assertServerSecret", () => {
 
   it("accepts the configured secret", () => {
     vi.stubEnv("SERVER_ROUTE_SECRET", SECRET);
-    expect(() => assertServerSecret(SECRET)).not.toThrow();
+    expect(() =>{  assertServerSecret(SECRET); }).not.toThrow();
   });
 
   it.each([

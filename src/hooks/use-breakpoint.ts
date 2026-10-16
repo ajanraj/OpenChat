@@ -5,7 +5,7 @@ export function useBreakpoint(breakpoint: number) {
     (onChange: () => void) => {
       const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
       mql.addEventListener("change", onChange);
-      return () => mql.removeEventListener("change", onChange);
+      return () =>{  mql.removeEventListener("change", onChange); };
     },
     [breakpoint],
   );

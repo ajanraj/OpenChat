@@ -71,14 +71,14 @@ describe("useEnsureSession with Convex Auth", () => {
 
     expect(callsTo("auth:signIn")).toBe(1);
     expect(callsTo("auth:signOut")).toBe(0);
-    expect(setAuth).toHaveBeenCalledTimes(1);
+    expect(setAuth).toHaveBeenCalledOnce();
   });
 
   it("replaces a stored token the backend rejected, and Convex picks up the new one", async () => {
     const { client, setAuth, callsTo } = stubbedClient("stale-jwt");
     // A stored token with no refresh token: Convex Auth keeps it after the rejection
     const ensureSession = renderEnsureSession(client, { [STORED_JWT_KEY]: "stale-jwt" });
-    await vi.waitFor(() => expect(setAuth).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() =>{  expect(setAuth).toHaveBeenCalledOnce(); });
 
     const outcome = ensureSession.current().then(
       () => "authenticated",
@@ -86,8 +86,8 @@ describe("useEnsureSession with Convex Auth", () => {
     );
 
     // A token swapped in place never reaches Convex; signing out first makes it set auth again
-    await vi.waitFor(() => expect(setAuth).toHaveBeenCalledTimes(2));
-    expect(await outcome).toBe("authenticated");
+    await vi.waitFor(() =>{  expect(setAuth).toHaveBeenCalledTimes(2); });
+    await expect(outcome).resolves.toBe("authenticated");
     expect(callsTo("auth:signOut")).toBe(1);
     expect(callsTo("auth:signIn")).toBe(1);
   });

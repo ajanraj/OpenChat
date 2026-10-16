@@ -70,7 +70,7 @@ describe("deleteMessageAndDescendants", () => {
     db.seed("chat_attachments", { userId, chatId, key: "uploads/a.png" });
     const branch = db.seed("chats", { userId, title: "Branch", originalChatId: chatId });
 
-    expect(await asHandler(deleteMessageAndDescendants)(ctx, { messageId: first })).toEqual({
+    await expect(asHandler(deleteMessageAndDescendants)(ctx, { messageId: first })).resolves.toEqual({
       chatDeleted: true,
     });
 
@@ -132,7 +132,7 @@ describe("searchMessages", () => {
     db.seed("messages", { chatId: legacyChatId, userId, role: "user", content: "old Lisbon" });
     db.seed("messages", { chatId, userId, role: "user", content: "flights to Lisbon" });
 
-    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([
+    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([
       expect.objectContaining({ chatId, content: "flights to Lisbon", chatTitle: "Trip planning" }),
     ]);
   });
@@ -170,7 +170,7 @@ describe("searchMessages", () => {
     }
     const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
 
-    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([]);
+    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([]);
     expect(db.readIds).not.toContain(unread);
   });
 
@@ -193,7 +193,7 @@ describe("searchMessages", () => {
     }
     const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
 
-    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([]);
+    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([]);
     expect(db.readIds).not.toContain(unread);
   });
 
@@ -210,7 +210,7 @@ describe("searchMessages", () => {
     }
     const unread = db.seed("messages", { chatId, userId, role: "user", content: "Lisbon at work" });
 
-    expect(await asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).toEqual([]);
+    await expect(asHandler(searchMessages)(ctx, { query: "lisbon", profileId })).resolves.toEqual([]);
     expect(db.readIds).not.toContain(unread);
   });
 });

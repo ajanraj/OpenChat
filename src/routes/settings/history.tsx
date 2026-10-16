@@ -118,7 +118,7 @@ function useHistorySettingsPageView() {
   );
   const isChatsLoading = chatsStatus === "LoadingFirstPage";
   const hasMoreChats = chatsStatus === "CanLoadMore" || chatsStatus === "LoadingMore";
-  const loadMoreChats = useCallback(() => loadMore(CHAT_LIST_PAGE_SIZE), [loadMore]);
+  const loadMoreChats = useCallback(() =>{  loadMore(CHAT_LIST_PAGE_SIZE); }, [loadMore]);
   const loadMoreRef = useLoadMoreRef(chatsStatus === "CanLoadMore", loadMoreChats);
   const deleteChat = useMutation(api.chats.deleteChat);
   const deleteBulkChats = useMutation(api.chats.deleteBulkChats);
@@ -173,39 +173,51 @@ function useHistorySettingsPageView() {
       switch (action.type) {
         case "TOGGLE_SELECT": {
           const next = new Set(s.selectedIds);
-          if (next.has(action.id)) next.delete(action.id);
-          else next.add(action.id);
+          if (next.has(action.id)) {next.delete(action.id);}
+          else {next.add(action.id);}
           return { ...s, selectedIds: next };
         }
-        case "SELECT_ALL":
+        case "SELECT_ALL": {
           return { ...s, selectedIds: new Set(action.ids) };
-        case "CLEAR_SELECTION":
+        }
+        case "CLEAR_SELECTION": {
           return { ...s, selectedIds: new Set() };
-        case "OPEN_DELETE_SELECTED":
+        }
+        case "OPEN_DELETE_SELECTED": {
           return { ...s, showDeleteSelectedDialog: true };
-        case "CLOSE_DELETE_SELECTED":
+        }
+        case "CLOSE_DELETE_SELECTED": {
           return { ...s, showDeleteSelectedDialog: false };
-        case "OPEN_IMPORT_DIALOG":
+        }
+        case "OPEN_IMPORT_DIALOG": {
           return {
             ...s,
             showImportDialog: true,
             importData: action.data,
             importChatCount: action.count,
           };
-        case "CLOSE_IMPORT_DIALOG":
+        }
+        case "CLOSE_IMPORT_DIALOG": {
           return { ...s, showImportDialog: false, importData: [], importChatCount: 0 };
-        case "OPEN_DELETE_ALL":
+        }
+        case "OPEN_DELETE_ALL": {
           return { ...s, showDeleteAllDialog: true };
-        case "CLOSE_DELETE_ALL":
+        }
+        case "CLOSE_DELETE_ALL": {
           return { ...s, showDeleteAllDialog: false };
-        case "SET_DELETING_ALL":
+        }
+        case "SET_DELETING_ALL": {
           return { ...s, isDeletingAll: action.value };
-        case "SET_REVOKE_CHAT":
+        }
+        case "SET_REVOKE_CHAT": {
           return { ...s, revokeChatId: action.id };
-        case "SET_REVOKING":
+        }
+        case "SET_REVOKING": {
           return { ...s, isRevoking: action.value };
-        case "REVOKE_DONE":
+        }
+        case "REVOKE_DONE": {
           return { ...s, isRevoking: false, revokeChatId: null };
+        }
       }
     },
     {
@@ -235,19 +247,19 @@ function useHistorySettingsPageView() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isSelected = (id: Id<"chats">) => selectedIds.has(id);
-  const toggleSelect = (id: Id<"chats">) => dispatch({ type: "TOGGLE_SELECT", id });
+  const toggleSelect = (id: Id<"chats">) =>{  dispatch({ type: "TOGGLE_SELECT", id }); };
   const selectAll = () => {
     dispatch({ type: "SELECT_ALL", ids: chats.map((c) => c._id) });
   };
-  const clearSelection = () => dispatch({ type: "CLEAR_SELECTION" });
+  const clearSelection = () =>{  dispatch({ type: "CLEAR_SELECTION" }); };
 
   const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) {return;}
     dispatch({ type: "OPEN_DELETE_SELECTED" });
   };
 
   const confirmDeleteSelected = async () => {
-    const selectedChatIds = Array.from(selectedIds);
+    const selectedChatIds = [...selectedIds];
     const deletePromise =
       selectedChatIds.length === 1
         ? deleteChat({ chatId: selectedChatIds[0] })
@@ -279,7 +291,7 @@ function useHistorySettingsPageView() {
       }> = [];
 
       await Promise.all(
-        Array.from(selectedIds).map(async (id) => {
+        [...selectedIds].map(async (id) => {
           const chat = chats.find((c) => c._id === id);
           if (!chat) {
             return;
@@ -508,7 +520,7 @@ function useHistorySettingsPageView() {
               <Checkbox
                 checked={selected}
                 className="shrink-0"
-                onCheckedChange={() => toggleSelect(chat._id)}
+                onCheckedChange={() =>{  toggleSelect(chat._id); }}
               />
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="truncate font-medium text-sm">
@@ -568,7 +580,7 @@ function useHistorySettingsPageView() {
                           <Button
                             aria-label="Unshare conversation"
                             className="size-7"
-                            onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: chat._id })}
+                            onClick={() =>{  dispatch({ type: "SET_REVOKE_CHAT", id: chat._id }); }}
                             size="icon"
                             type="button"
                             variant="ghost"
@@ -710,7 +722,7 @@ function useHistorySettingsPageView() {
           </div>
           <Button
             disabled={isDeletingAll}
-            onClick={() => dispatch({ type: "OPEN_DELETE_ALL" })}
+            onClick={() =>{  dispatch({ type: "OPEN_DELETE_ALL" }); }}
             size="sm"
             variant="destructive"
           >
@@ -728,7 +740,7 @@ function useHistorySettingsPageView() {
       {/* Delete selected chats dialog */}
       <Dialog
         onOpenChange={(open) => {
-          if (!open) dispatch({ type: "CLOSE_DELETE_SELECTED" });
+          if (!open) {dispatch({ type: "CLOSE_DELETE_SELECTED" });}
         }}
         open={showDeleteSelectedDialog}
       >
@@ -742,7 +754,7 @@ function useHistorySettingsPageView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => dispatch({ type: "CLOSE_DELETE_SELECTED" })} variant="outline">
+            <Button onClick={() =>{  dispatch({ type: "CLOSE_DELETE_SELECTED" }); }} variant="outline">
               Cancel
             </Button>
             <Button onClick={confirmDeleteSelected} variant="destructive">
@@ -755,7 +767,7 @@ function useHistorySettingsPageView() {
       {/* Import chats dialog */}
       <Dialog
         onOpenChange={(open) => {
-          if (!open) dispatch({ type: "CLOSE_IMPORT_DIALOG" });
+          if (!open) {dispatch({ type: "CLOSE_IMPORT_DIALOG" });}
         }}
         open={showImportDialog}
       >
@@ -771,7 +783,7 @@ function useHistorySettingsPageView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => dispatch({ type: "CLOSE_IMPORT_DIALOG" })} variant="outline">
+            <Button onClick={() =>{  dispatch({ type: "CLOSE_IMPORT_DIALOG" }); }} variant="outline">
               Cancel
             </Button>
             <Button onClick={confirmImport} variant="default">
@@ -800,7 +812,7 @@ function useHistorySettingsPageView() {
           <DialogFooter>
             <Button
               disabled={isDeletingAll}
-              onClick={() => dispatch({ type: "CLOSE_DELETE_ALL" })}
+              onClick={() =>{  dispatch({ type: "CLOSE_DELETE_ALL" }); }}
               variant="outline"
             >
               Cancel
@@ -830,7 +842,7 @@ function useHistorySettingsPageView() {
           </DialogHeader>
           <DialogFooter>
             <Button
-              onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: null })}
+              onClick={() =>{  dispatch({ type: "SET_REVOKE_CHAT", id: null }); }}
               variant="outline"
             >
               Cancel
@@ -838,7 +850,7 @@ function useHistorySettingsPageView() {
             <Button
               disabled={isRevoking}
               onClick={async () => {
-                if (!revokeChatId) return;
+                if (!revokeChatId) {return;}
                 dispatch({ type: "SET_REVOKING", value: true });
                 await unpublishChat({ chatId: revokeChatId })
                   .then(() => {

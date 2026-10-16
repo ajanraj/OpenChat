@@ -76,7 +76,7 @@ export const useEditorStore = create<EditorStore>()(
         // If other things changed, or if it's an actual identical state set (though less likely here)
         // Proceed with history logic
         const lastHistoryEntry =
-          currentHistory.length > 0 ? currentHistory[currentHistory.length - 1] : null;
+          currentHistory.length > 0 ? currentHistory.at(-1) : null;
 
         if (
           !lastHistoryEntry ||
@@ -235,7 +235,7 @@ export const useEditorStore = create<EditorStore>()(
         const currentThemeState = get().themeState;
         const future = get().future;
 
-        const lastHistoryEntry = history[history.length - 1];
+        const lastHistoryEntry = history.at(-1);
         if (!lastHistoryEntry) {
           return;
         }

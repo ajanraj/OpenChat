@@ -1,15 +1,11 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { ConvexError, v, type Infer } from "convex/values";
+import { ConvexError, v } from 'convex/values';
+import type { Infer } from 'convex/values';
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-  type QueryCtx,
-} from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from './_generated/server';
+import type { QueryCtx } from './_generated/server';
 import { assertServerSecret, ensureAuthenticated, getCurrentUserOrNull } from "./lib/auth_helper";
 import { deleteAuthAccounts, purgeUserDataBatch } from "./lib/cleanup_helper";
 import * as credits from "./lib/credits";

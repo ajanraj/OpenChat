@@ -33,7 +33,7 @@ function arrayBufferToString(buffer: ArrayBuffer): string {
 
 // Convert ArrayBuffer to hex string
 function arrayBufferToHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
+  return [...new Uint8Array(buffer)]
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
@@ -42,7 +42,7 @@ function arrayBufferToHex(buffer: ArrayBuffer): string {
 function hexToArrayBuffer(hex: string): ArrayBuffer {
   // Input validation
   if (typeof hex !== "string") {
-    throw new Error("Input must be a string");
+    throw new TypeError("Input must be a string");
   }
 
   if (hex.length === 0) {
@@ -122,7 +122,7 @@ async function decrypt(payload: string, userId: string): Promise<string> {
 
   // Validate payload format before splitting
   if (typeof payload !== "string") {
-    throw new Error("Payload must be a string");
+    throw new TypeError("Payload must be a string");
   }
 
   if (payload.length === 0) {

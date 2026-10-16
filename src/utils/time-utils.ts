@@ -195,7 +195,7 @@ export const getNextAvailableDate = (): Date => {
 export const parseWeeklyTime = (scheduledTime: string): { day: number; time: string } => {
   // Validate input is a string
   if (typeof scheduledTime !== "string") {
-    throw new Error("scheduledTime must be a string");
+    throw new TypeError("scheduledTime must be a string");
   }
 
   const trimmedTime = scheduledTime.trim();
@@ -259,7 +259,7 @@ export const parseWeeklyTime = (scheduledTime: string): { day: number; time: str
 export const formatWeeklyTime = (day: number, time: string): string => {
   // Validate day parameter
   if (typeof day !== "number") {
-    throw new Error("day must be a number");
+    throw new TypeError("day must be a number");
   }
 
   if (Number.isNaN(day) || day < 0 || day > 6 || !Number.isInteger(day)) {
@@ -268,7 +268,7 @@ export const formatWeeklyTime = (day: number, time: string): string => {
 
   // Validate time parameter
   if (typeof time !== "string") {
-    throw new Error("time must be a string");
+    throw new TypeError("time must be a string");
   }
 
   const trimmedTime = time.trim();

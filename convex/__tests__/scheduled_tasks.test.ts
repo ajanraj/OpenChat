@@ -650,7 +650,7 @@ describe("migrateScheduledRuns", () => {
     await fake.ctx.db.insert("task_history", {
       taskId: oldRun,
       status: "running",
-      startTime: NOW - 5 * MINUTE - 2_000,
+      startTime: NOW - 5 * MINUTE - 2000,
     });
     const paused = await seedTask(fake, { status: "paused" });
     const archived = await seedTask(fake, { status: "archived" });

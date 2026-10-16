@@ -62,7 +62,7 @@ describe("createSessionGate", () => {
     // signIn has resolved, but the websocket is not authenticated yet
     gate.update(UNCONFIRMED);
     await flush();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
     expect(auth.signOut).not.toHaveBeenCalled();
     expect(done).not.toHaveBeenCalled();
 
@@ -83,7 +83,7 @@ describe("createSessionGate", () => {
     gate.update(SIGNED_IN);
     await Promise.all([first, second]);
 
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
   });
 
   it("rejects when sign-in does not start a session, and the next send signs in again", async () => {
@@ -112,7 +112,7 @@ describe("createSessionGate", () => {
     gate.update(SIGNED_IN);
     await retry;
 
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
   });
 
   it("uses a confirmation that lands just as the retry starts", async () => {
@@ -132,7 +132,7 @@ describe("createSessionGate", () => {
     await flush();
 
     expect(auth.signOut).not.toHaveBeenCalled();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
     await retry;
   });
 
@@ -151,11 +151,11 @@ describe("createSessionGate", () => {
     const second = gate.ensure(auth).catch((error: Error) => error);
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
     expect((await second)?.message).toMatch(/Timed out/);
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
 
     const third = gate.ensure(auth);
     await flush();
-    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signOut).toHaveBeenCalledOnce();
     gate.update(SIGNED_OUT);
     await flush();
     gate.update(SIGNED_IN);
@@ -192,13 +192,13 @@ describe("createSessionGate", () => {
     gate.update(UNCONFIRMED);
     void gate.ensure(auth).then(done);
     await flush();
-    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signOut).toHaveBeenCalledOnce();
     // Signing in now would swap tokens without Convex noticing
     expect(auth.signIn).not.toHaveBeenCalled();
 
     gate.update(SIGNED_OUT);
     await flush();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
 
     gate.update(SIGNED_IN);
     await flush();
@@ -227,11 +227,11 @@ describe("createSessionGate", () => {
     await flush();
     gate.update(SIGNED_OUT);
     await flush();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
 
     gate.update(SIGNED_IN);
     await retry;
-    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signOut).toHaveBeenCalledOnce();
   });
 
   it("signs in again once Convex Auth drops a token the backend rejected", async () => {
@@ -278,6 +278,6 @@ describe("createSessionGate", () => {
     gate.update(SIGNED_IN);
     await retry;
 
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
   });
 });

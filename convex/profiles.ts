@@ -3,7 +3,8 @@ import { ConvexError, v } from "convex/values";
 import { MODEL_DEFAULT } from "../src/lib/config";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalQuery, type MutationCtx, mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from './_generated/server';
+import type { MutationCtx } from './_generated/server';
 import { Profile } from "./schema/profile";
 
 const MAX_PROFILES = 5;
@@ -133,9 +134,9 @@ export const getProfileInternal = internalQuery({
       ...Profile.fields,
     }),
   ),
-  handler: async (ctx, { profileId }) => {
-    return await ctx.db.get("profiles", profileId);
-  },
+  handler: async (ctx, { profileId }) => 
+    await ctx.db.get("profiles", profileId)
+  ,
 });
 
 export const ensureDefaultProfile = mutation({
@@ -254,7 +255,7 @@ export const updateProfile = mutation({
 
     if (updates.name !== undefined) {
       const trimmed = updates.name.trim();
-      if (!trimmed) throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
+      if (!trimmed) {throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);}
       updates = { ...updates, name: trimmed };
     }
 

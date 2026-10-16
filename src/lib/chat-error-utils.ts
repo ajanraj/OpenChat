@@ -20,16 +20,21 @@ export function humaniseUploadError(err: unknown): string {
   }
   const code = err instanceof ConvexError && typeof err.data === "string" ? err.data : null;
   switch (code) {
-    case ERROR_CODES.UNSUPPORTED_MODEL:
+    case ERROR_CODES.UNSUPPORTED_MODEL: {
       return "File uploads are not supported for the selected model.";
-    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
+    }
+    case ERROR_CODES.UNSUPPORTED_FILE_TYPE: {
       return `File not supported. Allowed: ${getAllowedLabel(UPLOAD_ALLOWED_MIME)}`;
-    case ERROR_CODES.FILE_TOO_LARGE:
+    }
+    case ERROR_CODES.FILE_TOO_LARGE: {
       return `File too large. Max ${UPLOAD_MAX_LABEL} per file`;
-    case ERROR_CODES.NOT_AUTHENTICATED:
+    }
+    case ERROR_CODES.NOT_AUTHENTICATED: {
       return "Sign in with Google to upload files.";
-    default:
+    }
+    default: {
       return "Error uploading file";
+    }
   }
 }
 

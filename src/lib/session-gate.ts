@@ -28,8 +28,8 @@ const timeoutError = () => new Error("Timed out waiting for the session to start
 /** Settles like `promise`, or rejects once `deadline` (epoch ms) passes. */
 function beforeDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(timeoutError()), deadline - Date.now());
-    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+    const timer = setTimeout(() =>{  reject(timeoutError()); }, deadline - Date.now());
+    promise.then(resolve, reject).finally(() =>{  clearTimeout(timer); });
   });
 }
 

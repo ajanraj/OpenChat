@@ -261,7 +261,7 @@ export function AccountSettingsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => setShowDeleteAccountDialog(false)} variant="outline">
+            <Button onClick={() =>{  setShowDeleteAccountDialog(false); }} variant="outline">
               Cancel
             </Button>
             <Button onClick={confirmDeleteAccount} variant="destructive">

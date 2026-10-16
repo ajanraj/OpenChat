@@ -34,8 +34,8 @@ export function useEnrichedModels() {
   // Transform API keys array to Map for O(1) lookups
   const apiKeysMap = useMemo(() => new Map(apiKeys.map((key) => [key.provider, true])), [apiKeys]);
 
-  const enrichedModels = useMemo(() => {
-    return MODELS_OPTIONS.map((model): EnrichedModel => {
+  const enrichedModels = useMemo(() => 
+    MODELS_OPTIONS.map((model): EnrichedModel => {
       // Compute availability once
       const userHasKey = apiKeysMap.has(model.provider);
       const requiresKey = model.apiKeyUsage?.userKeyOnly ?? false;
@@ -44,12 +44,12 @@ export function useEnrichedModels() {
       const canUseAsPremium = !requiresPremium || hasPremium || userHasKey;
       const available = canUseWithKey && canUseAsPremium;
       // Pre-compute features map for O(1) feature lookups
-      const featuresMap = model.features.reduce(
+      const featuresMap = model.features.reduce< Record<string, boolean>>(
         (acc, feature) => {
           acc[feature.id] = feature.enabled;
           return acc;
         },
-        {} as Record<string, boolean>,
+        {},
       );
 
       // Find provider info once - use displayProvider for UI, fallback to provider
@@ -66,8 +66,8 @@ export function useEnrichedModels() {
         available,
         featuresMap,
       };
-    });
-  }, [apiKeysMap, hasPremium]);
+    })
+  , [apiKeysMap, hasPremium]);
 
   // Separate models by category for efficient filtering
   const categorizedModels = useMemo(() => {

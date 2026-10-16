@@ -66,7 +66,7 @@ describe("AttachmentsSettingsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete (150)" }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
 
-    await waitFor(() => expect(mocks.deleteAttachments).toHaveBeenCalledTimes(2));
+    await waitFor(() =>{  expect(mocks.deleteAttachments).toHaveBeenCalledTimes(2); });
     expect(mocks.deleteAttachments.mock.calls.map(([args]) => args.attachmentIds.length)).toEqual([
       100, 50,
     ]);

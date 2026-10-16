@@ -113,7 +113,7 @@ afterEach(() => {
 
 describe("consumeMessageCredit", () => {
   it("charges the daily and monthly buckets of a signed-in free user", async () => {
-    expect(await consumeMessageCredit(ctxFor({ isAnonymous: false }), USER_ID)).toEqual([
+    await expect(consumeMessageCredit(ctxFor({ isAnonymous: false }), USER_ID)).resolves.toEqual([
       { bucket: "authenticatedDaily", windowStart: WINDOW },
       { bucket: "standardMonthly", windowStart: WINDOW },
     ]);
@@ -123,7 +123,7 @@ describe("consumeMessageCredit", () => {
   });
 
   it("charges the anonymous daily bucket for guests", async () => {
-    expect(await consumeMessageCredit(ctxFor({ isAnonymous: true }), USER_ID)).toEqual([
+    await expect(consumeMessageCredit(ctxFor({ isAnonymous: true }), USER_ID)).resolves.toEqual([
       { bucket: "anonymousDaily", windowStart: WINDOW },
       { bucket: "standardMonthly", windowStart: WINDOW },
     ]);
@@ -134,7 +134,7 @@ describe("consumeMessageCredit", () => {
 
   it("charges only premium credits for premium users on premium-credit models", async () => {
     mocks.hasActivePremium.mockResolvedValue(true);
-    expect(await consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true })).toEqual([
+    await expect(consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true })).resolves.toEqual([
       { bucket: "premiumMonthly", windowStart: WINDOW },
     ]);
 
@@ -143,7 +143,7 @@ describe("consumeMessageCredit", () => {
 
   it("skips the daily bucket for premium users on standard models", async () => {
     mocks.hasActivePremium.mockResolvedValue(true);
-    expect(await consumeMessageCredit(ctxFor({}), USER_ID)).toEqual([
+    await expect(consumeMessageCredit(ctxFor({}), USER_ID)).resolves.toEqual([
       { bucket: "standardMonthly", windowStart: WINDOW },
     ]);
 
@@ -156,7 +156,7 @@ describe("consumeMessageCredit", () => {
   ])("throws without charging anything when %s is exhausted", async (bucket, code) => {
     buckets.set(bucket, { value: 0, ts: WINDOW });
 
-    expect(await errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID))).toBe(code);
+    await expect(errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID))).resolves.toBe(code);
     expect(mocks.limit).not.toHaveBeenCalled();
   });
 
@@ -164,20 +164,16 @@ describe("consumeMessageCredit", () => {
     mocks.hasActivePremium.mockResolvedValue(true);
     buckets.set("premiumMonthly", { value: 0, ts: WINDOW });
 
-    expect(
-      await errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true })),
-    ).toBe(ERROR_CODES.PREMIUM_LIMIT_REACHED);
+    await expect(errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID, { usesPremiumCredits: true }))).resolves.toBe(ERROR_CODES.PREMIUM_LIMIT_REACHED);
   });
 
   it("enforces subscription access when the model requires premium", async () => {
-    expect(
-      await errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID, { requiresPremium: true })),
-    ).toBe(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
+    await expect(errorCodeOf(consumeMessageCredit(ctxFor({}), USER_ID, { requiresPremium: true }))).resolves.toBe(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
     expect(mocks.limit).not.toHaveBeenCalled();
   });
 
   it("throws USER_NOT_FOUND for a missing user", async () => {
-    expect(await errorCodeOf(consumeMessageCredit(ctxFor(null), USER_ID))).toBe(
+    await expect(errorCodeOf(consumeMessageCredit(ctxFor(null), USER_ID))).resolves.toBe(
       ERROR_CODES.USER_NOT_FOUND,
     );
   });
@@ -189,7 +185,7 @@ describe("assertMessageCreditAvailable", () => {
     expect(mocks.limit).not.toHaveBeenCalled();
 
     buckets.set("authenticatedDaily", { value: 0, ts: WINDOW });
-    expect(await errorCodeOf(assertMessageCreditAvailable(ctxFor({}), USER_ID))).toBe(
+    await expect(errorCodeOf(assertMessageCreditAvailable(ctxFor({}), USER_ID))).resolves.toBe(
       ERROR_CODES.DAILY_LIMIT_REACHED,
     );
   });
@@ -225,7 +221,7 @@ describe("refundMessageCredit", () => {
     await refundMessageCredit(ctxFor(null), USER_ID, [entry, entry]);
 
     expect(valueOf("standardMonthly")).toBe(6);
-    expect(mocks.limit).toHaveBeenCalledTimes(1);
+    expect(mocks.limit).toHaveBeenCalledOnce();
     expect(mocks.hasActivePremium).not.toHaveBeenCalled();
   });
 
@@ -272,14 +268,12 @@ describe("users.refundMessageCredit", () => {
   ])("refuses %s before touching credits", async (_label, configured, provided) => {
     vi.stubEnv("SERVER_ROUTE_SECRET", configured);
 
-    expect(
-      await errorCodeOf(
+    await expect(errorCodeOf(
         refund(ctxFor({}), {
           serverSecret: provided,
           receipt: [{ bucket: "standardMonthly", windowStart: WINDOW }],
         }),
-      ),
-    ).toBe(ERROR_CODES.UNAUTHORIZED);
+      )).resolves.toBe(ERROR_CODES.UNAUTHORIZED);
     expect(mocks.limit).not.toHaveBeenCalled();
   });
 });

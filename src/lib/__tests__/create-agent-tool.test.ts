@@ -169,7 +169,7 @@ describe("create-agent-tool", () => {
       { tool: "GMAIL", task: "Send an email" },
       { toolCallId: "agent-call", messages: [], context: {}, abortSignal: controller.signal },
     );
-    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1));
+    await vi.waitFor(() =>{  expect(model.doStreamCalls).toHaveLength(1); });
     controller.abort(new Error("Run deadline reached"));
 
     await expect(execution).rejects.toThrow("Run deadline reached");
@@ -414,7 +414,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.summary.length).toBe(300);
+      expect(result.summary).toHaveLength(300);
     });
 
     it("handles length finish reason as success", () => {

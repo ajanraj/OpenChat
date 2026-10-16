@@ -72,6 +72,7 @@ describe("UserProvider loading", () => {
   });
 
   const guest = { _id: "users:1", isAnonymous: true };
+
   it.each([
     {
       state: "a signed-out visitor",
@@ -198,6 +199,6 @@ describe("UserProvider loading", () => {
     // Straight to another account: this tab's connection would stay on the previous one
     mocks.tokenUserId.current = "users:3";
     rerender();
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledOnce();
   });
 });

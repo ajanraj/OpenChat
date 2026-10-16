@@ -22,10 +22,10 @@ function LoginPage() {
       setError(null);
 
       await signIn("google");
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       setIsLoading(false);
-      if (err instanceof Error) {
-        setError(err.message);
+      if (error instanceof Error) {
+        setError(error.message);
       } else {
         setError("An unexpected error occurred. Please try again.");
       }

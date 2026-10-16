@@ -17,8 +17,8 @@ export const Route = createFileRoute("/api/rate-limits")({
           }
 
           return json(resolveRateLimitStatus(rateLimitState, Date.now()));
-        } catch (err: unknown) {
-          return createErrorResponse(err);
+        } catch (error: unknown) {
+          return createErrorResponse(error);
         }
       },
     },

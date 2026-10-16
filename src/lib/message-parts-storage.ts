@@ -1,4 +1,5 @@
-import { convexToJson, getConvexSize, type Value } from "convex/values";
+import { convexToJson, getConvexSize } from 'convex/values';
+import type { Value } from 'convex/values';
 import { limitDepth } from "./depth-limiter";
 
 /**

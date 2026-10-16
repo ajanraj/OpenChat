@@ -51,7 +51,7 @@ export function getUploadPolicyError(file: {
 }
 
 // Accept string for <input type="file" accept="...">
-export const UPLOAD_ACCEPT: string = Array.from(UPLOAD_ALLOWED_MIME).join(",");
+export const UPLOAD_ACCEPT: string = [...UPLOAD_ALLOWED_MIME].join(",");
 
 // Allowed image types for paste (clipboard typically provides images only)
 export const PASTE_ALLOWED_MIME: readonly UploadAllowedMime[] = UPLOAD_ALLOWED_MIME.filter((t) =>
@@ -70,11 +70,11 @@ const MIME_LABEL_MAP: Readonly<Record<string, string>> = {
 };
 
 export function getAllowedLabel(mimes: readonly string[] = UPLOAD_ALLOWED_MIME): string {
-  const labels = Array.from(new Set(mimes.map((t) => MIME_LABEL_MAP[t] ?? t)));
+  const labels = [...new Set(mimes.map((t) => MIME_LABEL_MAP[t] ?? t))];
   if (labels.length <= 1) {
     return labels.join(", ");
   }
-  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+  return `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
 }
 
 export function formatBytes(bytes: number): string {

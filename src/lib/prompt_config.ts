@@ -11,7 +11,8 @@ import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import { CONNECTOR_CONFIGS, type ConnectorConfig } from "@/lib/config/tools";
+import { CONNECTOR_CONFIGS } from '@/lib/config/tools';
+import type { ConnectorConfig } from '@/lib/config/tools';
 // Import the authoritative type from connector-utils
 import type { ConnectorStatusLists } from "@/lib/connector-utils";
 import type { ConnectorType } from "@/lib/types";
@@ -475,10 +476,10 @@ export function buildSystemPrompt(
   const occupation = profile?.occupation || user.occupation;
   const traits = profile?.traits || user.traits;
   const about = profile?.about || user.about;
-  if (preferredName) details.push(`Preferred Name: ${preferredName}`);
-  if (occupation) details.push(`Occupation: ${occupation}`);
-  if (traits) details.push(`Traits: ${traits}`);
-  if (about) details.push(`About: ${about}`);
+  if (preferredName) {details.push(`Preferred Name: ${preferredName}`);}
+  if (occupation) {details.push(`Occupation: ${occupation}`);}
+  if (traits) {details.push(`Traits: ${traits}`);}
+  if (about) {details.push(`About: ${about}`);}
   return details.length > 0
     ? `${prompt}\n\nThe following are details shared by the user about themselves:\n${details.join(
         "\n",

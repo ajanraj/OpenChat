@@ -85,22 +85,20 @@ describe("getDecryptedKey", () => {
     const ctx = fakeCtx();
     await save(ctx, { provider: "openai", key: "sk-user-key" });
 
-    expect(await decrypt(ctx, { provider: "openai", serverSecret: SERVER_SECRET })).toBe(
+    await expect(decrypt(ctx, { provider: "openai", serverSecret: SERVER_SECRET })).resolves.toBe(
       "sk-user-key",
     );
   });
 
   it("returns null when the caller has no key for the provider", async () => {
-    expect(await decrypt(fakeCtx(), { provider: "openai", serverSecret: SERVER_SECRET })).toBe(
-      null,
-    );
+    await expect(decrypt(fakeCtx(), { provider: "openai", serverSecret: SERVER_SECRET })).resolves.toBeNull();
   });
 
   it("refuses a browser session without the server secret", async () => {
     const ctx = fakeCtx();
     await save(ctx, { provider: "openai", key: "sk-user-key" });
 
-    expect(await errorCodeOf(decrypt(ctx, { provider: "openai", serverSecret: "guess" }))).toBe(
+    await expect(errorCodeOf(decrypt(ctx, { provider: "openai", serverSecret: "guess" }))).resolves.toBe(
       ERROR_CODES.UNAUTHORIZED,
     );
   });
@@ -108,7 +106,7 @@ describe("getDecryptedKey", () => {
   it("refuses everyone while the server secret is not configured", async () => {
     vi.stubEnv("SERVER_ROUTE_SECRET", "");
 
-    expect(await errorCodeOf(decrypt(fakeCtx(), { provider: "openai", serverSecret: "" }))).toBe(
+    await expect(errorCodeOf(decrypt(fakeCtx(), { provider: "openai", serverSecret: "" }))).resolves.toBe(
       ERROR_CODES.UNAUTHORIZED,
     );
   });

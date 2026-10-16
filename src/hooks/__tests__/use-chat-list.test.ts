@@ -215,7 +215,7 @@ describe("useLoadMoreRef", () => {
     observers[0].callback([{ isIntersecting: false }]);
     expect(loadMore).not.toHaveBeenCalled();
     observers[0].callback([{ isIntersecting: true }]);
-    expect(loadMore).toHaveBeenCalledTimes(1);
+    expect(loadMore).toHaveBeenCalledOnce();
 
     cleanup?.();
     expect(observers[0].disconnect).toHaveBeenCalled();

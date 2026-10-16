@@ -82,92 +82,129 @@ export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 export function getErrorMessage(code: ErrorCode): string {
   switch (code) {
     // Auth errors
-    case ERROR_CODES.NOT_AUTHENTICATED:
+    case ERROR_CODES.NOT_AUTHENTICATED: {
       return "Authentication required. Please sign in.";
-    case ERROR_CODES.UNAUTHORIZED:
+    }
+    case ERROR_CODES.UNAUTHORIZED: {
       return "You are not authorized to perform this action.";
-    case ERROR_CODES.TOKEN_EXPIRED:
+    }
+    case ERROR_CODES.TOKEN_EXPIRED: {
       return "Your session has expired. Please sign in again.";
+    }
 
     // Validation errors
-    case ERROR_CODES.INVALID_INPUT:
+    case ERROR_CODES.INVALID_INPUT: {
       return "Invalid input provided. Please check your data.";
-    case ERROR_CODES.MISSING_REQUIRED_FIELD:
+    }
+    case ERROR_CODES.MISSING_REQUIRED_FIELD: {
       return "Required field is missing.";
-    case ERROR_CODES.USER_NOT_FOUND:
+    }
+    case ERROR_CODES.USER_NOT_FOUND: {
       return "User not found.";
-    case ERROR_CODES.CHAT_NOT_FOUND:
+    }
+    case ERROR_CODES.CHAT_NOT_FOUND: {
       return "Chat not found or you do not have access to it.";
-    case ERROR_CODES.MESSAGE_NOT_FOUND:
+    }
+    case ERROR_CODES.MESSAGE_NOT_FOUND: {
       return "Message not found.";
-    case ERROR_CODES.FILE_NOT_FOUND:
+    }
+    case ERROR_CODES.FILE_NOT_FOUND: {
       return "File not found.";
-    case ERROR_CODES.CONNECTOR_NOT_FOUND:
+    }
+    case ERROR_CODES.CONNECTOR_NOT_FOUND: {
       return "Connector not found or not connected.";
+    }
 
     // Rate limit errors
-    case ERROR_CODES.DAILY_LIMIT_REACHED:
+    case ERROR_CODES.DAILY_LIMIT_REACHED: {
       return "You have reached your daily usage limit. Please try again tomorrow.";
-    case ERROR_CODES.MONTHLY_LIMIT_REACHED:
+    }
+    case ERROR_CODES.MONTHLY_LIMIT_REACHED: {
       return "You have reached your monthly usage limit. Please upgrade your plan.";
-    case ERROR_CODES.PREMIUM_LIMIT_REACHED:
+    }
+    case ERROR_CODES.PREMIUM_LIMIT_REACHED: {
       return "You have used all of your premium credits for this month. Your premium credits will reset with your subscription.";
+    }
 
     // Business errors
-    case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED:
+    case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED: {
       return "This model requires a premium subscription. Please upgrade to access premium models.";
-    case ERROR_CODES.USER_KEY_REQUIRED:
+    }
+    case ERROR_CODES.USER_KEY_REQUIRED: {
       return "This model requires your own API key. Please add your API key in settings.";
-    case ERROR_CODES.UNSUPPORTED_MODEL:
+    }
+    case ERROR_CODES.UNSUPPORTED_MODEL: {
       return "The selected model is not supported for this operation.";
-    case ERROR_CODES.UNSUPPORTED_OPERATION:
+    }
+    case ERROR_CODES.UNSUPPORTED_OPERATION: {
       return "This operation is not supported.";
-    case ERROR_CODES.REDACTED_CONTENT:
+    }
+    case ERROR_CODES.REDACTED_CONTENT: {
       return "Cannot fork chat with redacted content. Forking disabled to maintain conversation integrity.";
-    case ERROR_CODES.PROFILE_LIMIT_REACHED:
+    }
+    case ERROR_CODES.PROFILE_LIMIT_REACHED: {
       return "Maximum of 5 profiles allowed.";
-    case ERROR_CODES.PROFILE_NOT_FOUND:
+    }
+    case ERROR_CODES.PROFILE_NOT_FOUND: {
       return "Profile not found.";
-    case ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE:
+    }
+    case ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE: {
       return "The default profile cannot be deleted.";
+    }
 
     // File errors
-    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
+    case ERROR_CODES.UNSUPPORTED_FILE_TYPE: {
       return "Unsupported file type. Please upload a supported file format.";
-    case ERROR_CODES.FILE_TOO_LARGE:
+    }
+    case ERROR_CODES.FILE_TOO_LARGE: {
       return "File is too large. Please upload a smaller file.";
-    case ERROR_CODES.UPLOAD_FAILED:
+    }
+    case ERROR_CODES.UPLOAD_FAILED: {
       return "File upload failed. Please try again.";
+    }
 
     // Connector errors
-    case ERROR_CODES.CONNECTION_FAILED:
+    case ERROR_CODES.CONNECTION_FAILED: {
       return "Failed to establish connection. Please try again.";
-    case ERROR_CODES.CONNECTION_NOT_FOUND:
+    }
+    case ERROR_CODES.CONNECTION_NOT_FOUND: {
       return "Connection not found. Please reconnect the service.";
-    case ERROR_CODES.CONNECTION_TIMEOUT:
+    }
+    case ERROR_CODES.CONNECTION_TIMEOUT: {
       return "Connection timed out. Please try again.";
-    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED:
+    }
+    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED: {
       return "This connector is not supported.";
-    case ERROR_CODES.CONNECTOR_AUTH_FAILED:
+    }
+    case ERROR_CODES.CONNECTOR_AUTH_FAILED: {
       return "Authentication failed for this connector. Please reconnect.";
+    }
 
     // Streaming errors
-    case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT:
+    case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT: {
       return "API rate limit exceeded. Please wait a moment before trying again.";
-    case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED: {
       return "API quota exceeded. Please check your billing or add credits to your account.";
-    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE: {
       return "Insufficient API credits. Please add credits to your account.";
-    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR: {
       return "Invalid API key. Please check your API key in settings.";
-    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT: {
       return "API request timed out. Please try again.";
-    case ERROR_CODES.PROVIDER_STREAM_THROTTLED:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_THROTTLED: {
       return "API is experiencing high load. Please try again in a moment.";
-    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED: {
       return "API resources exhausted. Please wait before retrying.";
+    }
 
-    default:
+    default: {
       return "An unexpected error occurred. Please try again.";
+    }
   }
 }

@@ -4,7 +4,8 @@
 
 import { ConvexError } from "convex/values";
 import { z } from "zod";
-import { ERROR_CODES, type ErrorCode, getErrorMessage } from "./error-codes";
+import { ERROR_CODES, getErrorMessage } from './error-codes';
+import type { ErrorCode } from './error-codes';
 import type { DetectedError } from "./provider-error-detector";
 
 export type ErrorDisplayType = "conversation" | "toast" | "both";
@@ -57,66 +58,82 @@ function getHttpStatusForErrorCode(code: string): number {
   switch (code) {
     // Auth errors
     case ERROR_CODES.NOT_AUTHENTICATED:
-    case ERROR_CODES.TOKEN_EXPIRED:
+    case ERROR_CODES.TOKEN_EXPIRED: {
       return 401;
-    case ERROR_CODES.UNAUTHORIZED:
+    }
+    case ERROR_CODES.UNAUTHORIZED: {
       return 403;
+    }
 
     // Business errors
     case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED:
     case ERROR_CODES.PREMIUM_LIMIT_REACHED:
     case ERROR_CODES.DAILY_LIMIT_REACHED:
-    case ERROR_CODES.MONTHLY_LIMIT_REACHED:
+    case ERROR_CODES.MONTHLY_LIMIT_REACHED: {
       return 403;
+    }
 
     // Validation errors
     case ERROR_CODES.INVALID_INPUT:
     case ERROR_CODES.MISSING_REQUIRED_FIELD:
     case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
-    case ERROR_CODES.FILE_TOO_LARGE:
+    case ERROR_CODES.FILE_TOO_LARGE: {
       return 400;
+    }
 
     // Resource not found
     case ERROR_CODES.USER_NOT_FOUND:
     case ERROR_CODES.CHAT_NOT_FOUND:
     case ERROR_CODES.MESSAGE_NOT_FOUND:
-    case ERROR_CODES.FILE_NOT_FOUND:
+    case ERROR_CODES.FILE_NOT_FOUND: {
       return 404;
+    }
 
     // Business logic errors
     case ERROR_CODES.USER_KEY_REQUIRED:
     case ERROR_CODES.UNSUPPORTED_MODEL:
-    case ERROR_CODES.UNSUPPORTED_OPERATION:
+    case ERROR_CODES.UNSUPPORTED_OPERATION: {
       return 400;
-    case ERROR_CODES.UPLOAD_FAILED:
+    }
+    case ERROR_CODES.UPLOAD_FAILED: {
       return 500;
+    }
 
     // Connector errors
-    case ERROR_CODES.CONNECTION_NOT_FOUND:
+    case ERROR_CODES.CONNECTION_NOT_FOUND: {
       return 404;
-    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED:
+    }
+    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED: {
       return 400;
-    case ERROR_CODES.CONNECTOR_AUTH_FAILED:
+    }
+    case ERROR_CODES.CONNECTOR_AUTH_FAILED: {
       return 401;
+    }
     case ERROR_CODES.CONNECTION_FAILED:
-    case ERROR_CODES.CONNECTION_TIMEOUT:
+    case ERROR_CODES.CONNECTION_TIMEOUT: {
       return 500;
+    }
 
     // Streaming errors
     case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT:
     case ERROR_CODES.PROVIDER_STREAM_THROTTLED:
-    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED:
+    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED: {
       return 429;
+    }
     case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED:
-    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE:
+    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE: {
       return 402;
-    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR: {
       return 401;
-    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT: {
       return 408;
+    }
 
-    default:
+    default: {
       return 500;
+    }
   }
 }
 
@@ -126,77 +143,103 @@ function getHttpStatusForErrorCode(code: string): number {
 function getResponseTypeForErrorCode(code: string): string {
   switch (code) {
     // Auth errors
-    case ERROR_CODES.NOT_AUTHENTICATED:
+    case ERROR_CODES.NOT_AUTHENTICATED: {
       return "auth_error";
-    case ERROR_CODES.UNAUTHORIZED:
+    }
+    case ERROR_CODES.UNAUTHORIZED: {
       return "unauthorized";
-    case ERROR_CODES.TOKEN_EXPIRED:
+    }
+    case ERROR_CODES.TOKEN_EXPIRED: {
       return "token_expired";
+    }
 
     // Business errors
-    case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED:
+    case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED: {
       return "premium_access_denied";
-    case ERROR_CODES.USER_KEY_REQUIRED:
+    }
+    case ERROR_CODES.USER_KEY_REQUIRED: {
       return "api_key_required";
+    }
     case ERROR_CODES.PREMIUM_LIMIT_REACHED:
     case ERROR_CODES.DAILY_LIMIT_REACHED:
-    case ERROR_CODES.MONTHLY_LIMIT_REACHED:
+    case ERROR_CODES.MONTHLY_LIMIT_REACHED: {
       return "usage_limit";
+    }
 
     // Validation errors
     case ERROR_CODES.INVALID_INPUT:
-    case ERROR_CODES.MISSING_REQUIRED_FIELD:
+    case ERROR_CODES.MISSING_REQUIRED_FIELD: {
       return "validation_error";
-    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
+    }
+    case ERROR_CODES.UNSUPPORTED_FILE_TYPE: {
       return "unsupported_file_type";
-    case ERROR_CODES.FILE_TOO_LARGE:
+    }
+    case ERROR_CODES.FILE_TOO_LARGE: {
       return "file_too_large";
+    }
 
     // Resource errors
     case ERROR_CODES.USER_NOT_FOUND:
     case ERROR_CODES.CHAT_NOT_FOUND:
     case ERROR_CODES.MESSAGE_NOT_FOUND:
-    case ERROR_CODES.FILE_NOT_FOUND:
+    case ERROR_CODES.FILE_NOT_FOUND: {
       return "not_found";
+    }
 
     // Operation errors
-    case ERROR_CODES.UNSUPPORTED_MODEL:
+    case ERROR_CODES.UNSUPPORTED_MODEL: {
       return "unsupported_model";
-    case ERROR_CODES.UNSUPPORTED_OPERATION:
+    }
+    case ERROR_CODES.UNSUPPORTED_OPERATION: {
       return "unsupported_operation";
-    case ERROR_CODES.UPLOAD_FAILED:
+    }
+    case ERROR_CODES.UPLOAD_FAILED: {
       return "upload_failed";
+    }
 
     // Connector errors
-    case ERROR_CODES.CONNECTION_FAILED:
+    case ERROR_CODES.CONNECTION_FAILED: {
       return "connection_failed";
-    case ERROR_CODES.CONNECTION_NOT_FOUND:
+    }
+    case ERROR_CODES.CONNECTION_NOT_FOUND: {
       return "connection_not_found";
-    case ERROR_CODES.CONNECTION_TIMEOUT:
+    }
+    case ERROR_CODES.CONNECTION_TIMEOUT: {
       return "connection_timeout";
-    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED:
+    }
+    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED: {
       return "connector_not_supported";
-    case ERROR_CODES.CONNECTOR_AUTH_FAILED:
+    }
+    case ERROR_CODES.CONNECTOR_AUTH_FAILED: {
       return "connector_auth_failed";
+    }
 
     // Streaming errors
-    case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT:
+    case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT: {
       return "provider_rate_limit";
-    case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED: {
       return "provider_quota_exceeded";
-    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE: {
       return "provider_insufficient_balance";
-    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR: {
       return "provider_auth_error";
-    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT: {
       return "provider_timeout";
-    case ERROR_CODES.PROVIDER_STREAM_THROTTLED:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_THROTTLED: {
       return "provider_throttled";
-    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED:
+    }
+    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED: {
       return "provider_resource_exhausted";
+    }
 
-    default:
+    default: {
       return "unknown_error";
+    }
   }
 }
 

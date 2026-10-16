@@ -1,6 +1,8 @@
 import { calculateRateLimit } from "@convex-dev/rate-limiter";
-import { ConvexError, v, type Infer } from "convex/values";
-import { ERROR_CODES, type ErrorCode } from "../../src/lib/error-codes";
+import { ConvexError, v } from 'convex/values';
+import type { Infer } from 'convex/values';
+import { ERROR_CODES } from '../../src/lib/error-codes';
+import type { ErrorCode } from '../../src/lib/error-codes';
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { rateLimiter } from "../rateLimiter";

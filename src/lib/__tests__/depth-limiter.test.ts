@@ -3,13 +3,13 @@ import { limitDepth } from "../depth-limiter";
 
 describe("limitDepth", () => {
   it("returns primitives unchanged", () => {
-    expect(limitDepth(null)).toBe(null);
-    expect(limitDepth(undefined)).toBe(undefined);
+    expect(limitDepth(null)).toBeNull();
+    expect(limitDepth(undefined)).toBeUndefined();
     expect(limitDepth("string")).toBe("string");
     expect(limitDepth(123)).toBe(123);
     expect(limitDepth(true)).toBe(true);
     expect(limitDepth(false)).toBe(false);
-    expect(limitDepth(BigInt(123))).toBe(BigInt(123));
+    expect(limitDepth(123n)).toBe(123n);
   });
 
   it("replaces functions with [Function]", () => {

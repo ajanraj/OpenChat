@@ -66,7 +66,7 @@ describe("sanitizeAndValidateFileName", () => {
     const longBase = "a".repeat(MAX_FILENAME_LENGTH + 50);
     const out = sanitizeAndValidateFileName(`${longBase}.pdf`);
     expect(out.endsWith(".pdf")).toBe(true);
-    expect(out.length).toBe(MAX_FILENAME_LENGTH);
+    expect(out).toHaveLength(MAX_FILENAME_LENGTH);
   });
 
   it("normalizes unicode (NFKC)", () => {

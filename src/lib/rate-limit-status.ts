@@ -58,7 +58,7 @@ function resolveBucket(bucket: RateLimitBucket, now: number): BucketStatus {
 
 // Slowest users.getServerTime round trip trusted for a clock offset, which is off by up to
 // half the round trip
-const MAX_CLOCK_ROUND_TRIP_MS = 5_000;
+const MAX_CLOCK_ROUND_TRIP_MS = 5000;
 
 /**
  * How far the server's clock is ahead of this device's (negative when behind), from one

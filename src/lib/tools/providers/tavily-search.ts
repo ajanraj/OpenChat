@@ -1,11 +1,6 @@
 import { handleSearchError } from "../search-errors";
-import {
-  PROVIDER_LIMITS,
-  SEARCH_CONFIG,
-  type SearchAdapter,
-  type SearchOptions,
-  type SearchResult,
-} from "../types";
+import { PROVIDER_LIMITS, SEARCH_CONFIG } from '../types';
+import type { SearchAdapter, SearchOptions, SearchResult } from '../types';
 
 export class TavilySearchProvider implements SearchAdapter {
   readonly name = "tavily";
@@ -100,7 +95,7 @@ export class TavilySearchProvider implements SearchAdapter {
     if (includeContent && item.raw_content) {
       const truncatedContent =
         item.raw_content.length > SEARCH_CONFIG.maxTextCharacters
-          ? item.raw_content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3) + "..."
+          ? `${item.raw_content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3)  }...`
           : item.raw_content;
       markdown += `\n\n> ${truncatedContent}`;
     }

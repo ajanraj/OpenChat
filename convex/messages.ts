@@ -3,7 +3,8 @@ import { R2 } from "@convex-dev/r2";
 import { getDocumentSize, v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from './_generated/server';
+import type { MutationCtx } from './_generated/server';
 // Import helper functions
 import { ensureChatAccess, ensureMessageAccess } from "./lib/auth_helper";
 import { deleteChatCompletely, scheduleDeletedUploadCheck } from "./lib/cleanup_helper";
@@ -370,7 +371,7 @@ export const patchMessageContent = mutation({
     const { message, chat, userId } = await ensureMessageAccess(ctx, messageId);
 
     // If parts were provided, compute removed file URLs and clean up attachments
-    if (typeof newParts !== "undefined") {
+    if (newParts !== undefined) {
       // Collect previous and next file URLs (ignore blob:)
       const prevUrls: string[] = [];
       const nextUrls: string[] = [];
@@ -404,7 +405,7 @@ export const patchMessageContent = mutation({
 
     // Patch existing message with new content/parts
     const patch: Partial<Doc<"messages">> = { content: newContent };
-    if (typeof newParts !== "undefined") {
+    if (newParts !== undefined) {
       patch.parts = newParts;
     }
     await ctx.db.patch("messages", messageId, patch);

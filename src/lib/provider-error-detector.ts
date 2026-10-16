@@ -26,45 +26,58 @@ export function detectProviderErrorInText(text: string, provider: string): Detec
   let detectedError: DetectedError | null = null;
 
   switch (provider) {
-    case "openai":
+    case "openai": {
       detectedError = detectOpenAIErrors(text, lowercaseText);
       break;
-    case "anthropic":
+    }
+    case "anthropic": {
       detectedError = detectAnthropicErrors(text, lowercaseText);
       break;
-    case "google":
+    }
+    case "google": {
       detectedError = detectGoogleErrors(text, lowercaseText);
       break;
-    case "xai":
+    }
+    case "xai": {
       detectedError = detectXAIErrors(text, lowercaseText);
       break;
-    case "deepseek":
+    }
+    case "deepseek": {
       detectedError = detectDeepSeekErrors(text, lowercaseText);
       break;
-    case "mistral":
+    }
+    case "mistral": {
       detectedError = detectMistralErrors(text, lowercaseText);
       break;
-    case "openrouter":
+    }
+    case "openrouter": {
       detectedError = detectOpenRouterErrors(text, lowercaseText);
       break;
-    case "meta":
+    }
+    case "meta": {
       detectedError = detectMetaErrors(text, lowercaseText);
       break;
-    case "qwen":
+    }
+    case "qwen": {
       detectedError = detectQwenErrors(text, lowercaseText);
       break;
-    case "moonshot":
+    }
+    case "moonshot": {
       detectedError = detectMoonshotErrors(text, lowercaseText);
       break;
-    case "zhipuai":
+    }
+    case "zhipuai": {
       detectedError = detectZhipuAIErrors(text, lowercaseText);
       break;
-    case "fal":
+    }
+    case "fal": {
       detectedError = detectFalErrors(text, lowercaseText);
       break;
-    default:
+    }
+    default: {
       detectedError = null;
       break;
+    }
   }
 
   if (detectedError) {

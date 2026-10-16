@@ -2,12 +2,8 @@ import { getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
-import {
-  createFakeCtx,
-  createFakeDb,
-  type FakeCtx,
-  type FakeDb,
-} from "../../__tests__/fake_db.testutil";
+import { createFakeCtx, createFakeDb } from '../../__tests__/fake_db.testutil';
+import type { FakeCtx, FakeDb } from '../../__tests__/fake_db.testutil';
 import { purgeChatsBatch, purgeUserDataBatch, removeBranchReferences } from "../cleanup_helper";
 
 const mocks = vi.hoisted(() => ({
@@ -128,9 +124,9 @@ describe("purgeChatsBatch", () => {
         false,
       );
 
-    expect(await run()).toBe(false);
+    await expect(run()).resolves.toBe(false);
     expect(db.all("chats")).toHaveLength(1);
-    expect(await run()).toBe(true);
+    await expect(run()).resolves.toBe(true);
     expect(db.all("messages")).toEqual([]);
     expect(db.all("chats")).toEqual([]);
   });
@@ -147,12 +143,12 @@ describe("purgeChatsBatch", () => {
     const run = () => purgeChatsBatch(asCtx(createFakeCtx(db)), userId, each([parentDoc]), true);
 
     // The first run stops partway through the branches, keeping the parent
-    expect(await run()).toBe(false);
+    await expect(run()).resolves.toBe(false);
     expect(db.all("chats").some((chat) => chat._id === parent)).toBe(true);
     expect(linked().length).toBeGreaterThan(1);
     expect(linked().length).toBeLessThan(2101);
 
-    expect(await run()).toBe(true);
+    await expect(run()).resolves.toBe(true);
     expect(db.all("chats").some((chat) => chat._id === parent)).toBe(false);
     expect(linked()).toEqual([]);
   });
@@ -175,8 +171,8 @@ describe("purgeChatsBatch", () => {
         true,
       );
 
-    expect(await run()).toBe(false);
-    expect(await run()).toBe(true);
+    await expect(run()).resolves.toBe(false);
+    await expect(run()).resolves.toBe(true);
     expect(db.all("chats")).toEqual([]);
   });
 
@@ -249,7 +245,7 @@ describe("purgeUserDataBatch", () => {
     db.seed("stripe_credit_resets", { userId, stripeInvoiceId: "in_1" });
     const ctx = createFakeCtx(db);
 
-    expect(await purgeUserDataBatch(asCtx(ctx), userId)).toBe(true);
+    await expect(purgeUserDataBatch(asCtx(ctx), userId)).resolves.toBe(true);
 
     for (const table of purgedTables) {
       expect(db.all(table).filter((row) => row.userId === userId)).toEqual([]);
@@ -277,13 +273,13 @@ describe("purgeUserDataBatch", () => {
       db.seed("messages", { chatId, userId, role: "user", content: `m${i}`, createdAt: i });
     }
 
-    expect(await purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).toBe(false);
+    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(false);
     const left = db.all("messages").length;
     expect(left).toBeGreaterThan(0);
     expect(left).toBeLessThan(2100);
     expect(mocks.rateLimiterReset).not.toHaveBeenCalled();
 
-    expect(await purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).toBe(true);
+    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(true);
     expect(db.all("messages")).toEqual([]);
     expect(db.all("chats")).toEqual([]);
   });
@@ -295,9 +291,9 @@ describe("purgeUserDataBatch", () => {
       db.seed("chat_attachments", { userId, key: `uploads/${i}.png` });
     }
 
-    expect(await purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).toBe(false);
+    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(false);
     expect(mocks.r2DeleteObject).toHaveBeenCalledTimes(100);
-    expect(await purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).toBe(true);
+    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(true);
     expect(mocks.r2DeleteObject).toHaveBeenCalledTimes(150);
     expect(db.all("chat_attachments")).toEqual([]);
   });
@@ -309,7 +305,7 @@ describe("purgeUserDataBatch", () => {
     mocks.r2DeleteObject.mockRejectedValueOnce(new Error("R2 config missing"));
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    expect(await purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).toBe(true);
+    await expect(purgeUserDataBatch(asCtx(createFakeCtx(db)), userId)).resolves.toBe(true);
 
     expect(db.all("chat_attachments")).toEqual([]);
     expect(consoleError).toHaveBeenCalledWith(

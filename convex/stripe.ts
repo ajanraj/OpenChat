@@ -5,7 +5,8 @@ import Stripe from "stripe";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { api, components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { action, type ActionCtx, type QueryCtx } from "./_generated/server";
+import { action } from './_generated/server';
+import type { ActionCtx, QueryCtx } from './_generated/server';
 
 const stripeClient = new StripeSubscriptions(components.stripe);
 
@@ -191,9 +192,10 @@ export async function handleStripeEvent(
   switch (event.type) {
     case "customer.subscription.created":
     case "customer.subscription.updated":
-    case "customer.subscription.deleted":
+    case "customer.subscription.deleted": {
       await syncSubscriptionFromStripe(ctx, stripe, event.data.object.id);
       return;
+    }
     case "invoice.paid": {
       await processEvent(ctx, components.stripe, event, stripe);
       const invoice = event.data.object;
@@ -206,8 +208,9 @@ export async function handleStripeEvent(
       }
       return;
     }
-    default:
+    default: {
       await processEvent(ctx, components.stripe, event, stripe);
+    }
   }
 }
 

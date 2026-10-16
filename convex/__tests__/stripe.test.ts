@@ -106,15 +106,13 @@ describe("getOrCreateCustomerId", () => {
 
   it("reuses the customer linked to this user", async () => {
     mocks.createCustomer.mockClear();
-    expect(
-      await getOrCreateCustomerId(ctxWithCustomer({ stripeCustomerId: "cus_old" }), user),
-    ).toBe("cus_old");
+    await expect(getOrCreateCustomerId(ctxWithCustomer({ stripeCustomerId: "cus_old" }), user)).resolves.toBe("cus_old");
     expect(mocks.createCustomer).not.toHaveBeenCalled();
   });
 
   it("creates a customer linked by userId instead of matching by email", async () => {
     mocks.createCustomer.mockClear();
-    expect(await getOrCreateCustomerId(ctxWithCustomer(null), user)).toBe("cus_new");
+    await expect(getOrCreateCustomerId(ctxWithCustomer(null), user)).resolves.toBe("cus_new");
     expect(mocks.createCustomer).toHaveBeenCalledWith(expect.anything(), {
       email: user.email,
       name: user.name,
@@ -140,7 +138,7 @@ describe("hasActivePremium", () => {
     [["canceled", "incomplete_expired", "unpaid"], false],
     [[], false],
   ])("statuses %j -> %s", async (statuses, expected) => {
-    expect(await hasActivePremium(ctxWithStatuses(statuses), USER_ID)).toBe(expected);
+    await expect(hasActivePremium(ctxWithStatuses(statuses), USER_ID)).resolves.toBe(expected);
   });
 });
 
@@ -213,9 +211,9 @@ describe("subscription sync revisions", () => {
 
   it("reserves increasing revisions per subscription", async () => {
     const { ctx } = setup();
-    expect(await reserve(ctx, { stripeSubscriptionId: "sub_1" })).toBe(1);
-    expect(await reserve(ctx, { stripeSubscriptionId: "sub_1" })).toBe(2);
-    expect(await reserve(ctx, { stripeSubscriptionId: "sub_2" })).toBe(1);
+    await expect(reserve(ctx, { stripeSubscriptionId: "sub_1" })).resolves.toBe(1);
+    await expect(reserve(ctx, { stripeSubscriptionId: "sub_1" })).resolves.toBe(2);
+    await expect(reserve(ctx, { stripeSubscriptionId: "sub_2" })).resolves.toBe(1);
   });
 
   // Concurrent deliveries: read A (active) reserves first, read B (canceled) reserves later but
@@ -224,8 +222,8 @@ describe("subscription sync revisions", () => {
     const { ctx, stored } = setup();
     const a = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
     const b = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
-    expect(await apply(ctx, { revision: b, snapshot: snapshot("canceled") })).toBe(true);
-    expect(await apply(ctx, { revision: a, snapshot: snapshot("active") })).toBe(false);
+    await expect(apply(ctx, { revision: b, snapshot: snapshot("canceled") })).resolves.toBe(true);
+    await expect(apply(ctx, { revision: a, snapshot: snapshot("active") })).resolves.toBe(false);
     expect(stored()).toEqual(["canceled"]);
   });
 
@@ -242,7 +240,7 @@ describe("subscription sync revisions", () => {
     const { ctx, stored } = setup();
     await reserve(ctx, { stripeSubscriptionId: "sub_1" }); // read failed, never applied
     const retry = await reserve(ctx, { stripeSubscriptionId: "sub_1" });
-    expect(await apply(ctx, { revision: retry, snapshot: snapshot("canceled") })).toBe(true);
+    await expect(apply(ctx, { revision: retry, snapshot: snapshot("canceled") })).resolves.toBe(true);
     expect(stored()).toEqual(["canceled"]);
   });
 });
@@ -291,7 +289,7 @@ describe("syncSubscriptionFromStripe", () => {
       syncSubscriptionFromStripe({ runMutation }, new StripeClass("sk_test"), "sub_1"),
     ).rejects.toThrow("Stripe down");
     // Only the revision was reserved; nothing was stored
-    expect(runMutation).toHaveBeenCalledTimes(1);
+    expect(runMutation).toHaveBeenCalledOnce();
   });
 });
 
@@ -340,13 +338,13 @@ describe("handleStripeEvent", () => {
         },
       },
     });
-    expect(mocks.processEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.processEvent).toHaveBeenCalledOnce();
     expect(runMutation.mock.calls[0]?.[1]).toEqual({ userId: USER_ID, stripeInvoiceId: "in_1" });
   });
 
   it("other events use the component's default syncing", async () => {
     const runMutation = await run({ type: "customer.updated", data: { object: { id: "cus_1" } } });
-    expect(mocks.processEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.processEvent).toHaveBeenCalledOnce();
     expect(runMutation).not.toHaveBeenCalled();
   });
 });
@@ -370,7 +368,7 @@ describe("createCheckout", () => {
       vi.stubEnv("STRIPE_PREMIUM_PRICE_ID", "price_test");
       vi.stubEnv("STRIPE_SECRET_KEY", "sk_test");
       mocks.createCheckoutSession.mockClear();
-      expect(await handler(ctxWith([status]), {})).toEqual({
+      await expect(handler(ctxWith([status]), {})).resolves.toEqual({
         url: "https://billing.stripe.com/portal",
       });
       expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
@@ -385,7 +383,7 @@ describe("createCheckout", () => {
     mocks.listCheckoutSessions.mockResolvedValueOnce({
       data: [{ url: "https://checkout.stripe.com/open" }],
     });
-    expect(await handler(ctxWith(["canceled"]), {})).toEqual({
+    await expect(handler(ctxWith(["canceled"]), {})).resolves.toEqual({
       url: "https://checkout.stripe.com/open",
     });
     expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
@@ -396,7 +394,7 @@ describe("createCheckout", () => {
     vi.stubEnv("STRIPE_PREMIUM_PRICE_ID", "price_test");
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test");
     mocks.createCheckoutSession.mockClear();
-    expect(await handler(ctxWith([]), {})).toEqual({ url: "https://checkout.stripe.com/new" });
+    await expect(handler(ctxWith([]), {})).resolves.toEqual({ url: "https://checkout.stripe.com/new" });
     expect(mocks.createCheckoutSession).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({

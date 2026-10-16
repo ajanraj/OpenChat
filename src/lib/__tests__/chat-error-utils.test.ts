@@ -115,6 +115,6 @@ describe("createChatErrorHandler", () => {
     const error = new Error("test error");
 
     // Should not throw
-    expect(() => handler(error)).not.toThrow();
+    expect(() =>{  handler(error); }).not.toThrow();
   });
 });

@@ -1,7 +1,8 @@
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 import { useEffect } from "react";
-import { type UserProfile, useUser } from "./user-provider";
+import { useUser } from './user-provider';
+import type { UserProfile } from './user-provider';
 
 export function CSPostHogProvider({ children }: { children: React.ReactNode }) {
   return (

@@ -6,7 +6,8 @@ import { ERROR_CODES } from "../../src/lib/error-codes";
 import type { Id } from "../_generated/dataModel";
 import { revokeDeletedUserAccess } from "../account_deletion";
 import { deleteAccount, purgeDeletedUserData } from "../users";
-import { createFakeCtx, createFakeDb, type FakeCtx, type FakeDb } from "./fake_db.testutil";
+import { createFakeCtx, createFakeDb } from './fake_db.testutil';
+import type { FakeCtx, FakeDb } from './fake_db.testutil';
 
 const mocks = vi.hoisted(() => ({
   cancelBillableSubscriptions: vi.fn<(ctx: unknown, userId: string) => Promise<void>>(
@@ -101,7 +102,7 @@ describe("deleteAccount", () => {
     const db = createFakeDb();
     const ctx = createFakeCtx(db);
 
-    expect(await asHandler(deleteAccount)(ctx, {})).toBeNull();
+    await expect(asHandler(deleteAccount)(ctx, {})).resolves.toBeNull();
     expect(db.stats.writes).toBe(0);
     expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
   });
@@ -114,7 +115,7 @@ describe("deleteAccount", () => {
     authUser.mockResolvedValue(userId);
     const ctx = createFakeCtx(db);
 
-    expect(await asHandler(deleteAccount)(ctx, {})).toBeNull();
+    await expect(asHandler(deleteAccount)(ctx, {})).resolves.toBeNull();
 
     expect(db.all("users").map((u) => u._id)).toEqual([other.userId]);
     expect(db.all("authAccounts").map((a) => a.userId)).toEqual([other.userId]);

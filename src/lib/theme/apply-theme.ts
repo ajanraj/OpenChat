@@ -25,8 +25,8 @@ const FONT_VAR_MAP: Readonly<Record<string, string>> = {
 const normalizeFontKey = (value: string): string =>
   value
     .trim()
-    .replace(/^['"]|['"]$/g, "")
-    .replace(/\s+/g, " ")
+    .replaceAll(/^['"]|['"]$/g, "")
+    .replaceAll(/\s+/g, " ")
     .toLowerCase();
 
 // Build a normalized map to allow case/spacing-insensitive lookups
@@ -47,7 +47,7 @@ const extractPrimaryAndRest = (
   }
   const parts = familyList.split(",");
   const primaryRaw = parts[0]?.trim() ?? "";
-  const primary = primaryRaw.replace(/^['"]|['"]$/g, "");
+  const primary = primaryRaw.replaceAll(/^['"]|['"]$/g, "");
   const rest = parts.slice(1).join(",").trim();
   return { primary: primary || null, rest };
 };
@@ -71,11 +71,7 @@ const buildActiveFontValue = (
 
 // Helper functions (not exported, used internally by applyThemeToElement)
 const updateThemeClass = (root: HTMLElement, mode: Theme) => {
-  if (mode === "light") {
-    root.classList.remove("dark");
-  } else {
-    root.classList.add("dark");
-  }
+  root.classList.toggle("dark", !(mode === "light"));
 };
 
 const applyStyleToElement = (

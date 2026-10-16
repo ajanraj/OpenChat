@@ -95,24 +95,28 @@ export function validateApiKey(
 
   if (!pattern.test(key)) {
     switch (provider) {
-      case "openai":
+      case "openai": {
         return {
           isValid: false,
           error: "OpenAI API keys should start with 'sk-' followed by at least 20 characters",
         };
-      case "anthropic":
+      }
+      case "anthropic": {
         return {
           isValid: false,
           error:
             "Anthropic API keys should start with 'sk-ant-' followed by at least 8 characters (letters, numbers, hyphens, underscores)",
         };
-      case "gemini":
+      }
+      case "gemini": {
         return {
           isValid: false,
           error: "Google API keys should start with 'AIza' followed by 35+ characters",
         };
-      default:
+      }
+      default: {
         return { isValid: false, error: "Invalid API key format" };
+      }
     }
   }
 

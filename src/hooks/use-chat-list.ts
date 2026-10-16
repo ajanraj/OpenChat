@@ -51,7 +51,7 @@ export function useChatList(searchTerm: string, profileId: Id<"profiles"> | null
     };
   }, [term, matches, pinned, results]);
 
-  const loadNextPage = useCallback(() => loadMore(CHAT_LIST_PAGE_SIZE), [loadMore]);
+  const loadNextPage = useCallback(() =>{  loadMore(CHAT_LIST_PAGE_SIZE); }, [loadMore]);
 
   return {
     pinnedChats,
@@ -82,7 +82,7 @@ export function useLoadMoreRef(canLoadMore: boolean, loadMore: () => void) {
         }
       });
       observer.observe(node);
-      return () => observer.disconnect();
+      return () =>{  observer.disconnect(); };
     },
     [canLoadMore, loadMore],
   );

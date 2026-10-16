@@ -5,7 +5,8 @@
 
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider";
 import { MODEL_DEFAULT, MODELS } from "@/lib/config";
-import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
+import { ReasoningEffortSchema } from '@/lib/config/schemas';
+import type { ReasoningEffort } from '@/lib/config/schemas';
 
 export function getReasoningEffortOptions(modelId: string): ReasoningEffort[] {
   const model = MODELS.find((candidate) => candidate.id === modelId);

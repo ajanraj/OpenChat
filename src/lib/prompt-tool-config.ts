@@ -107,5 +107,5 @@ export const getSupportedConnectorsWithPrompts = (): ConnectorType[] => {
     }
   }
 
-  return Array.from(allConnectors);
+  return [...allConnectors];
 };

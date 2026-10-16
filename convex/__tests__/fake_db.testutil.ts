@@ -15,7 +15,7 @@ interface Bound {
   op: "eq" | "gt" | "gte" | "lt" | "lte";
   value: unknown;
 }
-type RangeBuilder = { [Op in Bound["op"]]: (field: string, value: unknown) => RangeBuilder };
+type RangeBuilder = Record<Bound["op"], (field: string, value: unknown) => RangeBuilder>;
 interface SearchBuilder {
   search: (field: string, text: string) => SearchBuilder;
   eq: (field: string, value: unknown) => SearchBuilder;
@@ -31,17 +31,17 @@ const LIMITS = {
 
 // Convex orders values by type (undefined < null < number < boolean < string), then by value
 function typeRank(value: unknown): number {
-  if (value === undefined) return 0;
-  if (value === null) return 1;
-  if (typeof value === "number") return 2;
-  if (typeof value === "boolean") return 3;
+  if (value === undefined) {return 0;}
+  if (value === null) {return 1;}
+  if (typeof value === "number") {return 2;}
+  if (typeof value === "boolean") {return 3;}
   return 4;
 }
 
 function compareValues(a: unknown, b: unknown): number {
   const rankDiff = typeRank(a) - typeRank(b);
-  if (rankDiff !== 0) return rankDiff;
-  if (typeof a === "number" && typeof b === "number") return a - b;
+  if (rankDiff !== 0) {return rankDiff;}
+  if (typeof a === "number" && typeof b === "number") {return a - b;}
   const [sa, sb] = [String(a), String(b)];
   return sa < sb ? -1 : sa > sb ? 1 : 0;
 }
@@ -71,13 +71,13 @@ const exportedTables = (
 
 function tableDefinition(table: TableNames): ExportedTable {
   const found = exportedTables.find((t) => t.tableName === table);
-  if (!found) throw new Error(`Table ${table} is not defined in the schema`);
+  if (!found) {throw new Error(`Table ${table} is not defined in the schema`);}
   return found;
 }
 
 // Like Convex, every index ends with _creationTime
 function indexFields(table: TableNames, index: string): string[] {
-  if (index === "by_creation_time") return ["_creationTime"];
+  if (index === "by_creation_time") {return ["_creationTime"];}
   const found = tableDefinition(table).indexes.find((i) => i.indexDescriptor === index);
   if (!found) {
     throw new Error(`Index ${table}.${index} is not defined in the schema`);
@@ -97,7 +97,7 @@ export function createFakeDb() {
   // Ids of documents handed to the code under test, in order
   const readIds: string[] = [];
   let nextId = 0;
-  let clock = 1_000;
+  let clock = 1000;
 
   const read = (doc: Row) => {
     stats.reads += 1;
@@ -109,7 +109,7 @@ export function createFakeDb() {
 
   // Resolves `(table, id)` or legacy `(id)` call arguments to a row
   const findRow = (tableOrId: string, maybeId?: string) => {
-    if (maybeId === undefined) return rows.get(tableOrId);
+    if (maybeId === undefined) {return rows.get(tableOrId);}
     const found = rows.get(maybeId);
     if (found && found.table !== tableOrId) {
       throw new Error(`document ${maybeId} is in table ${found.table}, not ${tableOrId}`);
@@ -118,7 +118,7 @@ export function createFakeDb() {
   };
 
   class FakeQuery {
-    private bounds: Bound[] = [];
+    private readonly bounds: Bound[] = [];
     private fields: string[] = ["_creationTime"];
     private descending = false;
     private searchField: string | null = null;
@@ -196,7 +196,7 @@ export function createFakeDb() {
         const terms = this.searchTerms;
         const last = terms.at(-1);
         // Like Convex, a search with no terms matches nothing
-        if (last === undefined) return [];
+        if (last === undefined) {return [];}
         // Any term matches a word; the last term also matches as a prefix
         return found.filter((doc) =>
           tokens(doc[field]).some((word) => terms.includes(word) || word.startsWith(last)),
@@ -205,7 +205,7 @@ export function createFakeDb() {
       found.sort((a, b) => {
         for (const key of this.fields) {
           const cmp = compareValues(a[key], b[key]);
-          if (cmp !== 0) return cmp;
+          if (cmp !== 0) {return cmp;}
         }
         return 0;
       });
@@ -227,7 +227,7 @@ export function createFakeDb() {
 
     async unique() {
       const found = this.matching();
-      if (found.length > 1) throw new Error(`unique() matched ${found.length} documents`);
+      if (found.length > 1) {throw new Error(`unique() matched ${found.length} documents`);}
       return found[0] ? read(found[0]) : null;
     }
 
@@ -289,7 +289,7 @@ export function createFakeDb() {
       const [id, fields] =
         typeof idOrFields === "string" ? [idOrFields, maybeFields ?? {}] : [tableOrId, idOrFields];
       const found = findRow(tableOrId, typeof idOrFields === "string" ? idOrFields : undefined);
-      if (!found) throw new Error(`patch of missing document ${id}`);
+      if (!found) {throw new Error(`patch of missing document ${id}`);}
       stats.writes += 1;
       for (const [key, value] of Object.entries(fields)) {
         if (value === undefined) {

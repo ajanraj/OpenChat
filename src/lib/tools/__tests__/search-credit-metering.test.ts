@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  consumeOneStandardCreditForSearch,
-  createMeteredSearchTool,
-  type ConsumeStandardCredits,
-} from "../search-credit-metering";
+import { consumeOneStandardCreditForSearch, createMeteredSearchTool } from '../search-credit-metering';
+import type { ConsumeStandardCredits } from '../search-credit-metering';
 
 interface SearchToolOptions {
   onSearchSuccess?: () => Promise<void> | void;
@@ -27,7 +24,7 @@ describe("search-credit-metering", () => {
 
     await consumeOneStandardCreditForSearch(consumeStandardCredits);
 
-    expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
+    expect(consumeStandardCredits).toHaveBeenCalledOnce();
     expect(consumeStandardCredits).toHaveBeenCalledWith(1);
   });
 
@@ -61,7 +58,7 @@ describe("search-credit-metering", () => {
       consumeStandardCredits,
     });
 
-    expect(createSearchToolMock).toHaveBeenCalledTimes(1);
+    expect(createSearchToolMock).toHaveBeenCalledOnce();
     const [options] = createSearchToolMock.mock.calls[0] ?? [];
 
     if (
@@ -75,7 +72,7 @@ describe("search-credit-metering", () => {
 
     await options.onSearchSuccess();
 
-    expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
+    expect(consumeStandardCredits).toHaveBeenCalledOnce();
     expect(consumeStandardCredits).toHaveBeenCalledWith(1);
   });
 
@@ -89,7 +86,7 @@ describe("search-credit-metering", () => {
       consumeStandardCredits,
     });
 
-    expect(createSearchToolMock).toHaveBeenCalledTimes(1);
+    expect(createSearchToolMock).toHaveBeenCalledOnce();
     const [options] = createSearchToolMock.mock.calls[0] ?? [];
 
     if (
@@ -102,7 +99,7 @@ describe("search-credit-metering", () => {
     }
 
     await expect(options.onSearchSuccess()).rejects.toThrow("billing unavailable");
-    expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
+    expect(consumeStandardCredits).toHaveBeenCalledOnce();
     expect(consumeStandardCredits).toHaveBeenCalledWith(1);
   });
 });

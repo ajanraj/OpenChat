@@ -1,7 +1,8 @@
 import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ERROR_CODES } from "../../../src/lib/error-codes";
-import { calculateNextExecution, type TaskSchedule, validateSchedule } from "../schedule_helper";
+import { calculateNextExecution, validateSchedule } from '../schedule_helper';
+import type { TaskSchedule } from '../schedule_helper';
 
 const utc = (iso: string) => Date.parse(iso);
 
@@ -196,17 +197,17 @@ describe("validateSchedule", () => {
   });
 
   it("accepts well-formed schedules", () => {
-    expect(() => validateSchedule(daily("23:59", "America/New_York"))).not.toThrow();
-    expect(() =>
-      validateSchedule({ scheduleType: "weekly", scheduledTime: "6:00:00", timezone: "UTC" }),
+    expect(() =>{  validateSchedule(daily("23:59", "America/New_York")); }).not.toThrow();
+    expect(() =>{ 
+      validateSchedule({ scheduleType: "weekly", scheduledTime: "6:00:00", timezone: "UTC" }); },
     ).not.toThrow();
-    expect(() =>
+    expect(() =>{ 
       validateSchedule({
         scheduleType: "onetime",
         scheduledTime: "09:00",
         scheduledDate: "2028-02-29",
         timezone: "Europe/London",
-      }),
+      }); },
     ).not.toThrow();
   });
 });

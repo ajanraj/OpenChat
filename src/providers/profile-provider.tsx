@@ -231,9 +231,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // tree), so the save still goes out as that account; a session whose token was already rejected
   // can't save. Nothing stays pending, or scheduled, for the next account.
   const userId = user?._id;
-  useEffect(() => {
-    return () => flushPendingThemeSave(prevProfileIdRef.current);
-  }, [userId, flushPendingThemeSave]);
+  useEffect(() => 
+    () =>{  flushPendingThemeSave(prevProfileIdRef.current); }
+  , [userId, flushPendingThemeSave]);
 
   const [slideDirection, setSlideDirection] = useState(0);
   const chatByProfileRef = useRef<Map<string, string>>(new Map());
@@ -289,12 +289,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   );
 
   const executePendingSwitch = useCallback(() => {
-    if (!pendingSwitch) return;
+    if (!pendingSwitch) {return;}
     executeSwitch(pendingSwitch.profileId, pendingSwitch.currentChatId);
     setPendingSwitch(null);
   }, [pendingSwitch, executeSwitch]);
 
-  const clearPendingSwitch = useCallback(() => setPendingSwitch(null), []);
+  const clearPendingSwitch = useCallback(() =>{  setPendingSwitch(null); }, []);
 
   const registerBeforeProfileSwitch = useCallback((fn: () => boolean) => {
     beforeProfileSwitchRef.current = fn;

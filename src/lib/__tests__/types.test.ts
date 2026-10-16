@@ -77,7 +77,7 @@ describe("types", () => {
         "twitter",
       ];
 
-      expect(connectors.length).toBe(10);
+      expect(connectors).toHaveLength(10);
     });
   });
 });

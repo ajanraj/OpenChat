@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type GenerateUploadUrl, uploadToR2 } from "../r2-upload";
+import { uploadToR2 } from '../r2-upload';
+import type { GenerateUploadUrl } from '../r2-upload';
 
 const reserve = vi.fn<GenerateUploadUrl>(async () => ({
   key: "obj-key",

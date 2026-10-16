@@ -1,4 +1,5 @@
-import { getConvexSize, type Value } from "convex/values";
+import { getConvexSize } from 'convex/values';
+import type { Value } from 'convex/values';
 import { describe, expect, it } from "vitest";
 import {
   compactMessagePartsForStorage,

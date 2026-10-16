@@ -31,7 +31,7 @@ describe("search utilities", () => {
       const content = "a".repeat(SEARCH_CONFIG.maxTextCharacters + 100);
       const result = truncateContent(content);
 
-      expect(result.length).toBe(SEARCH_CONFIG.maxTextCharacters);
+      expect(result).toHaveLength(SEARCH_CONFIG.maxTextCharacters);
       expect(result.endsWith("...")).toBe(true);
     });
 
@@ -39,7 +39,7 @@ describe("search utilities", () => {
       const content = "This is a longer string that should be truncated";
       const result = truncateContent(content, 20);
 
-      expect(result.length).toBe(20);
+      expect(result).toHaveLength(20);
       expect(result).toBe("This is a longer ...");
     });
 
@@ -266,7 +266,7 @@ describe("createSearchTool", () => {
     }
 
     expect(result.success).toBe(true);
-    expect(onSearchSuccess).toHaveBeenCalledTimes(1);
+    expect(onSearchSuccess).toHaveBeenCalledOnce();
   });
 
   it("does not call onSearchSuccess when search fails", async () => {
@@ -322,7 +322,7 @@ describe("createSearchTool", () => {
     }
 
     expect(result.success).toBe(false);
-    expect(onSearchSuccess).toHaveBeenCalledTimes(1);
+    expect(onSearchSuccess).toHaveBeenCalledOnce();
   });
 
   it("passes the caller's abort signal to the search", async () => {

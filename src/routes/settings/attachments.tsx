@@ -65,7 +65,7 @@ export function AttachmentsSettingsPage() {
     }
     setSelectedIds(new Set(attachments.map((a) => a._id)));
   };
-  const clearSelection = () => setSelectedIds(new Set());
+  const clearSelection = () =>{  setSelectedIds(new Set()); };
 
   const deleteSelected = () => {
     if (selectedIds.size === 0) {
@@ -75,7 +75,7 @@ export function AttachmentsSettingsPage() {
   };
 
   const confirmDeleteSelected = async () => {
-    const ids = Array.from(selectedIds);
+    const ids = [...selectedIds];
     try {
       // The mutation accepts a bounded batch; large selections span several calls
       for (let start = 0; start < ids.length; start += ATTACHMENT_DELETE_BATCH_SIZE) {
@@ -164,7 +164,7 @@ export function AttachmentsSettingsPage() {
               )}
               key={att._id}
             >
-              <Checkbox checked={selected} onCheckedChange={() => toggleSelect(att._id)} />
+              <Checkbox checked={selected} onCheckedChange={() =>{  toggleSelect(att._id); }} />
               {(att.fileType?.startsWith("image/") ?? false) && att.url ? (
                 <div className="size-10 shrink-0 overflow-hidden rounded-lg border">
                   <img
@@ -197,7 +197,7 @@ export function AttachmentsSettingsPage() {
               <Button
                 aria-label={`Delete ${att.fileName ?? "attachment"}`}
                 className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => handleDelete(att._id)}
+                onClick={() =>{  handleDelete(att._id); }}
                 size="icon"
                 variant="ghost"
               >
@@ -210,7 +210,7 @@ export function AttachmentsSettingsPage() {
           <Button
             className="self-center"
             disabled={status === "LoadingMore"}
-            onClick={() => loadMore(ATTACHMENTS_PAGE_SIZE)}
+            onClick={() =>{  loadMore(ATTACHMENTS_PAGE_SIZE); }}
             size="sm"
             variant="outline"
           >
@@ -310,7 +310,7 @@ export function AttachmentsSettingsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => setShowDeleteSelectedDialog(false)} variant="outline">
+            <Button onClick={() =>{  setShowDeleteSelectedDialog(false); }} variant="outline">
               Cancel
             </Button>
             <Button onClick={confirmDeleteSelected} variant="destructive">

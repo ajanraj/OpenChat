@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type Connector, calculateConnectorStatus, SUPPORTED_CONNECTORS } from "../connector-utils";
+import { calculateConnectorStatus, SUPPORTED_CONNECTORS } from '../connector-utils';
+import type { Connector } from '../connector-utils';
 
 describe("SUPPORTED_CONNECTORS", () => {
   it("is defined and is an array", () => {
@@ -18,7 +19,7 @@ describe("calculateConnectorStatus", () => {
 
     expect(result.enabled).toEqual([]);
     expect(result.disabled).toEqual([]);
-    expect(result.notConnected.length).toBe(SUPPORTED_CONNECTORS.length);
+    expect(result.notConnected).toHaveLength(SUPPORTED_CONNECTORS.length);
   });
 
   it("correctly identifies enabled connectors", () => {

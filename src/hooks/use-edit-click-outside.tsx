@@ -1,4 +1,5 @@
-import { type RefObject, useEffect } from "react";
+import { useEffect } from 'react';
+import type { RefObject } from 'react';
 
 /**
  * Custom click-outside hook for edit components that ignores clicks on portal elements

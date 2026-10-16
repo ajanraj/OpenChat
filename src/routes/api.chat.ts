@@ -2,27 +2,17 @@ import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { createFileRoute } from "@tanstack/react-router";
 import { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
-import {
-  consumeStream,
-  convertToModelMessages,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-  type FileUIPart,
-  generateImage,
-  isStepCount,
-  smoothStream,
-  streamText,
-  toUIMessageStream,
-  type Tool,
-  type UIMessage,
-} from "ai";
+import { consumeStream, convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, generateImage, isStepCount, smoothStream, streamText, toUIMessageStream } from 'ai';
+import type { FileUIPart, Tool, UIMessage } from 'ai';
 import type { ConvexHttpClient } from "convex/browser";
-import { ConvexError, type Infer } from "convex/values";
+import { ConvexError } from 'convex/values';
+import type { Infer } from 'convex/values';
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { Message } from "@/convex/schema/message";
 import { MODEL_DEFAULT, MODELS_MAP } from "@/lib/config";
-import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
+import { ReasoningEffortSchema } from '@/lib/config/schemas';
+import type { ReasoningEffort } from '@/lib/config/schemas';
 import { calculateConnectorStatus } from "@/lib/connector-utils";
 import { createAgentTool } from "@/lib/create-agent-tool";
 import { ERROR_CODES } from "@/lib/error-codes";
@@ -33,11 +23,8 @@ import {
   createStreamingError,
   shouldShowInConversation,
 } from "@/lib/error-utils";
-import {
-  createMessageCreditTracker,
-  shouldRefundGeneration,
-  type MessageCreditTracker,
-} from "@/lib/message-credits";
+import { createMessageCreditTracker, shouldRefundGeneration } from '@/lib/message-credits';
+import type { MessageCreditTracker } from '@/lib/message-credits';
 import { compactMessagePartsForStorage } from "@/lib/message-parts-storage";
 import { authMiddleware, getServerRouteSecret } from "@/lib/middleware/auth";
 import { getOpenRouterReasoningOptions, resolveReasoningEffort } from "@/lib/model-utils";
@@ -46,11 +33,8 @@ import {
   detectProviderErrorFromObject,
   detectProviderErrorInText,
 } from "@/lib/provider-error-detector";
-import {
-  getOpenAIStreamModel,
-  isOpenAITransportEligible,
-  type OpenAIWebSocketFetch,
-} from "@/lib/openai-websocket-transport";
+import { getOpenAIStreamModel, isOpenAITransportEligible } from '@/lib/openai-websocket-transport';
+import type { OpenAIWebSocketFetch } from '@/lib/openai-websocket-transport';
 import { sanitizeUserInput } from "@/lib/sanitize";
 import { uploadBlobToR2 } from "@/lib/server-upload-helpers";
 import { createMeteredSearchTool } from "@/lib/tools/search-credit-metering";
@@ -469,14 +453,14 @@ export const Route = createFileRoute("/api/chat")({
                   provider: selectedModel.provider as SupportedProvider,
                   serverSecret,
                 });
-              } catch (e) {
+              } catch (error) {
                 // If this is a critical error (auth failure), we should return early
-                if (e instanceof ConvexError && e.data === ERROR_CODES.NOT_AUTHENTICATED) {
-                  return createErrorResponse(e);
+                if (error instanceof ConvexError && error.data === ERROR_CODES.NOT_AUTHENTICATED) {
+                  return createErrorResponse(error);
                 }
                 // Convex rejected the server secret: fail loudly rather than silently
                 // billing the platform key for a user who brought their own
-                if (e instanceof ConvexError && e.data === ERROR_CODES.UNAUTHORIZED) {
+                if (error instanceof ConvexError && error.data === ERROR_CODES.UNAUTHORIZED) {
                   throw new Error(
                     "Convex rejected SERVER_ROUTE_SECRET; set the same value in the web server and Convex env.",
                   );
@@ -932,9 +916,10 @@ export const Route = createFileRoute("/api/chat")({
                         }
                         break;
                       }
-                      default:
+                      default: {
                         // For other part types, process normally
                         break;
+                      }
                     }
                   }
                 })();
@@ -1137,12 +1122,12 @@ export const Route = createFileRoute("/api/chat")({
             stream,
             consumeSseStream: consumeStream,
           });
-        } catch (err) {
+        } catch (error) {
           closeAllWebSocketFetches();
           // Failed before generating (e.g. reload/edit setup): return the credit
           await credits.refund();
-          console.error("Chat request failed:", err);
-          return createErrorResponse(err);
+          console.error("Chat request failed:", error);
+          return createErrorResponse(error);
         }
       },
     },

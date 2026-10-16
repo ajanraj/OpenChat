@@ -1,11 +1,7 @@
 import { DAY, HOUR } from "@convex-dev/rate-limiter";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  getNextRateLimitReset,
-  measureServerClockOffset,
-  type RateLimitState,
-  resolveRateLimitStatus,
-} from "../rate-limit-status";
+import { getNextRateLimitReset, measureServerClockOffset, resolveRateLimitStatus } from '../rate-limit-status';
+import type { RateLimitState } from '../rate-limit-status';
 
 const WINDOW_START = Date.UTC(2026, 9, 1, 8);
 const MONTH = 30 * DAY;
@@ -142,8 +138,8 @@ describe("measureServerClockOffset", () => {
     vi.setSystemTime(WINDOW_START);
 
     const measured = measureServerClockOffset(async () => {
-      vi.setSystemTime(WINDOW_START + 6_000);
-      return WINDOW_START + 3_000;
+      vi.setSystemTime(WINDOW_START + 6000);
+      return WINDOW_START + 3000;
     });
 
     await expect(measured).rejects.toThrow("measure again");

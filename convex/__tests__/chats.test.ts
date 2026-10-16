@@ -16,7 +16,8 @@ import {
   searchChats,
 } from "../chats";
 import { bulkImportChat } from "../import_export";
-import { createFakeCtx, createFakeDb, type FakeCtx, type FakeDb } from "./fake_db.testutil";
+import { createFakeCtx, createFakeDb } from './fake_db.testutil';
+import type { FakeCtx, FakeDb } from './fake_db.testutil';
 
 // Keep the real authTables, which the schema (and so the fake db) needs
 vi.mock(import("@convex-dev/auth/server"), async (importOriginal) => ({
@@ -137,12 +138,10 @@ describe("listChatsForUser", () => {
     const { ctx } = setup();
     authUser.mockResolvedValue(null);
 
-    expect(
-      await asHandler(listChatsForUser)(ctx, {
+    await expect(asHandler(listChatsForUser)(ctx, {
         profileId: null,
         paginationOpts: { numItems: 10, cursor: null },
-      }),
-    ).toEqual({ page: [], isDone: true, continueCursor: "" });
+      })).resolves.toEqual({ page: [], isDone: true, continueCursor: "" });
   });
 });
 
@@ -179,7 +178,7 @@ describe("searchChats", () => {
     // Order is by relevance; convex/tsconfig targets ES2022, so no toSorted here
     expect(found.map((c) => c._id)).toHaveLength(2);
     expect(found.map((c) => c._id)).toEqual(expect.arrayContaining([trip, budget]));
-    expect(await asHandler(searchChats)(ctx, { query: "   ", profileId })).toEqual([]);
+    await expect(asHandler(searchChats)(ctx, { query: "   ", profileId })).resolves.toEqual([]);
   });
 });
 

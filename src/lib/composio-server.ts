@@ -25,11 +25,7 @@ const composio = new Composio({
 });
 
 const normalizeToolkitSlugs = (toolkitSlugs: string[]): string[] =>
-  Array.from(
-    new Set(
-      toolkitSlugs.map((slug) => slug.trim().toLowerCase()).filter((slug) => slug.length > 0),
-    ),
-  );
+  [...new Set(toolkitSlugs.map((slug) => slug.trim().toLowerCase()).filter((slug) => slug.length > 0))];
 
 const createSessionConfig = (toolkitSlugs: string[]): ToolRouterCreateSessionConfig => ({
   toolkits: toolkitSlugs,
@@ -197,7 +193,7 @@ export const revokeUserConnections = async (userId: string): Promise<void> => {
 };
 
 // Deleting a session is best-effort cleanup, so it never holds up the caller for longer than this
-const SESSION_DELETE_TIMEOUT_MS = 5_000;
+const SESSION_DELETE_TIMEOUT_MS = 5000;
 
 /**
  * Settles like `promise`, but rejects with the abort reason as soon as `signal` aborts. For SDK
@@ -208,9 +204,9 @@ const untilAborted = <T>(promise: Promise<T>, signal: AbortSignal | undefined): 
     return promise;
   }
   return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
+    const onAbort = () =>{  reject(signal.reason); };
     // Attached first, so `promise` rejecting after an abort is still handled
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+    promise.then(resolve, reject).finally(() =>{  signal.removeEventListener("abort", onAbort); });
     if (signal.aborted) {
       onAbort();
       return;

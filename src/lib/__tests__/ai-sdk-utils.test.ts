@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  type Attachment,
-  convertAttachmentsToFileParts,
-  createPartsFromAIResponse,
-  extractAttachmentsFromParts,
-  extractReasoningFromParts,
-  extractReasoningFromResponse,
-  isConvexStorageId,
-} from "../ai-sdk-utils";
+import { convertAttachmentsToFileParts, createPartsFromAIResponse, extractAttachmentsFromParts, extractReasoningFromParts, extractReasoningFromResponse, isConvexStorageId } from '../ai-sdk-utils';
+import type { Attachment } from '../ai-sdk-utils';
 
 describe("isConvexStorageId", () => {
   it("returns true for valid 32-character lowercase alphanumeric string", () => {
@@ -122,7 +115,7 @@ describe("convertAttachmentsToFileParts", () => {
 
     const result = convertAttachmentsToFileParts(attachments);
 
-    expect(result.length).toBe(1);
+    expect(result).toHaveLength(1);
     expect(result[0].type).toBe("file");
     expect(result[0].url).toBe("https://example.com/test.png");
     expect(result[0].mediaType).toBe("image/png");
@@ -230,7 +223,7 @@ describe("createPartsFromAIResponse", () => {
   it("creates parts with text content", () => {
     const result = createPartsFromAIResponse("Hello world");
 
-    expect(result.length).toBe(1);
+    expect(result).toHaveLength(1);
     expect(result[0].type).toBe("text");
     expect((result[0] as { text: string }).text).toBe("Hello world");
   });
@@ -238,7 +231,7 @@ describe("createPartsFromAIResponse", () => {
   it("adds reasoning part when provided", () => {
     const result = createPartsFromAIResponse("Hello", "Thinking...");
 
-    expect(result.length).toBe(2);
+    expect(result).toHaveLength(2);
     expect(result[1].type).toBe("reasoning");
     expect((result[1] as { text: string }).text).toBe("Thinking...");
   });
@@ -256,7 +249,7 @@ describe("createPartsFromAIResponse", () => {
 
     const result = createPartsFromAIResponse("Result", undefined, toolInvocations);
 
-    expect(result.length).toBe(2);
+    expect(result).toHaveLength(2);
     expect(result[1].type).toBe("tool-web_search");
   });
 
@@ -276,18 +269,18 @@ describe("createPartsFromAIResponse", () => {
 
     const result = createPartsFromAIResponse("Result", undefined, toolInvocations);
 
-    expect(result.length).toBe(3);
+    expect(result).toHaveLength(3);
   });
 
   it("handles empty tool invocations array", () => {
     const result = createPartsFromAIResponse("Hello", undefined, []);
 
-    expect(result.length).toBe(1);
+    expect(result).toHaveLength(1);
   });
 
   it("handles undefined tool invocations", () => {
     const result = createPartsFromAIResponse("Hello", undefined, undefined);
 
-    expect(result.length).toBe(1);
+    expect(result).toHaveLength(1);
   });
 });

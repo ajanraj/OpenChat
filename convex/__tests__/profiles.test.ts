@@ -2,7 +2,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "../_generated/dataModel";
 import { deleteProfile, ensureDefaultProfile } from "../profiles";
-import { createFakeCtx, createFakeDb, type FakeDb } from "./fake_db.testutil";
+import { createFakeCtx, createFakeDb } from './fake_db.testutil';
+import type { FakeDb } from './fake_db.testutil';
 
 // Keep the real authTables, which the schema (and so the fake db) needs
 vi.mock(import("@convex-dev/auth/server"), async (importOriginal) => ({
@@ -115,7 +116,7 @@ describe("ensureDefaultProfile", () => {
     const { db, userId } = setup();
     const defaultId = seedProfile(db, userId, { isDefault: true, order: 0 });
 
-    expect(await asHandler(ensureDefaultProfile)(createFakeCtx(db), {})).toBe(defaultId);
+    await expect(asHandler(ensureDefaultProfile)(createFakeCtx(db), {})).resolves.toBe(defaultId);
     expect(defaultProfiles(db)).toHaveLength(1);
   });
 });

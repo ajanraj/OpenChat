@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
-import { type ReactNode } from "react";
+import type { ReactNode } from 'react';
 import { getFunctionName } from "convex/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditorStore } from "@/lib/store/editor-store";
@@ -91,10 +91,10 @@ function TestHarness() {
   return (
     <div>
       <div data-testid="active-profile-id">{activeProfile?._id ?? "none"}</div>
-      <button data-testid="switch-p2" onClick={() => setActiveProfile(profileP2._id)} type="button">
+      <button data-testid="switch-p2" onClick={() =>{  setActiveProfile(profileP2._id); }} type="button">
         switch p2
       </button>
-      <button data-testid="switch-p3" onClick={() => setActiveProfile(profileP3._id)} type="button">
+      <button data-testid="switch-p3" onClick={() =>{  setActiveProfile(profileP3._id); }} type="button">
         switch p3
       </button>
     </div>
@@ -316,7 +316,7 @@ describe("ProfileProvider theme saves", () => {
     act(() => {
       useEditorStore.getState().setThemeState(edited);
     });
-    return () => rerender(<ProfileProvider>{null}</ProfileProvider>);
+    return () =>{  rerender(<ProfileProvider>{null}</ProfileProvider>); };
   }
 
   function signOut() {
@@ -350,7 +350,7 @@ describe("ProfileProvider theme saves", () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(updateProfile).toHaveBeenCalledTimes(1);
+    expect(updateProfile).toHaveBeenCalledOnce();
   });
 
   it("saves it once when the account changes while the same profile is still shown", () => {
