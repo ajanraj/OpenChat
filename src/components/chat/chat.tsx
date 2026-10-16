@@ -61,6 +61,7 @@ import {
 	createModelValidator,
 	getDefaultReasoningEffort,
 	getReasoningEffortOptions,
+	normalizeReasoningEffort,
 	supportsReasoningEffort,
 } from "@/lib/model-utils";
 import { TRANSITION_LAYOUT } from "@/lib/motion";
@@ -126,13 +127,6 @@ function cleanupChatInstance(chatId: string) {
 // that account signs out or another takes over, the registry starts empty. A visitor becoming a
 // guest keeps it: their first message is already in flight.
 let chatRegistryOwner: string | null = null;
-
-/** The effort a model runs with: the chosen one if the model offers it, else the model's default. */
-function resolveReasoningEffort(model: string, chosen: ReasoningEffort): ReasoningEffort {
-	return getReasoningEffortOptions(model).includes(chosen)
-		? chosen
-		: (getDefaultReasoningEffort(model) ?? chosen);
-}
 
 function scopeChatRegistry(userId: string | null) {
 	if (chatRegistryOwner !== null && chatRegistryOwner !== userId) {
@@ -337,7 +331,7 @@ function useChatContentView() {
 				tempSelectedModel ?? activeProfile?.preferredModel ?? user?.preferredModel ?? MODEL_DEFAULT,
 				disabledModels,
 			);
-	const selectedReasoningEffort = resolveReasoningEffort(selectedModel, reasoningEffort);
+	const selectedReasoningEffort = normalizeReasoningEffort(selectedModel, reasoningEffort);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
@@ -520,7 +514,7 @@ function useChatContentView() {
 					? { enableSearch: options.enableSearch }
 					: {}),
 				...(isReasoningModel
-					? { reasoningEffort: resolveReasoningEffort(model, reasoningEffort) }
+					? { reasoningEffort: normalizeReasoningEffort(model, reasoningEffort) }
 					: {}),
 				...(timezone ? { userInfo: { timezone } } : {}),
 			};
