@@ -122,6 +122,20 @@ function cleanupChatInstance(chatId: string) {
 	chatRegistry.delete(chatId);
 }
 
+// The account whose conversations the registry holds. Instances keep messages in memory, so once
+// that account signs out or another takes over, the registry starts empty. A visitor becoming a
+// guest keeps it: their first message is already in flight.
+let chatRegistryOwner: string | null = null;
+
+function scopeChatRegistry(userId: string | null) {
+	if (chatRegistryOwner !== null && chatRegistryOwner !== userId) {
+		for (const key of [...chatRegistry.keys()]) {
+			cleanupChatInstance(key);
+		}
+	}
+	chatRegistryOwner = userId;
+}
+
 function getChatIdentity(instance: ChatInstance<MessageWithExtras>) {
 	const existing = chatIdentityRegistry.get(instance);
 	if (existing) {
@@ -1250,8 +1264,10 @@ function useChatContentView() {
 
 export default function Chat() {
 	const { chatId } = useChatSession();
+	const { user } = useUser();
 	const authToken = useAuthToken();
 	const storeKey = chatId ?? DRAFT_CHAT_KEY;
+	const userId = user?._id ?? null;
 
 	// The shared transport reads the token per request, so instances never need recreating
 	useEffect(() => {
@@ -1264,6 +1280,7 @@ export default function Chat() {
 		if (typeof window === "undefined") {
 			return new ChatInstance<MessageWithExtras>({ id: storeKey, transport: chatTransport });
 		}
+		scopeChatRegistry(userId);
 		const existing = chatRegistry.get(storeKey);
 		if (existing) {
 			// Promote reused entry to most-recently-used position.
@@ -1279,7 +1296,7 @@ export default function Chat() {
 		chatRegistry.set(storeKey, instance);
 		evictOldestChats();
 		return instance;
-	}, [storeKey]);
+	}, [storeKey, userId]);
 
 	const chatIdentity = useMemo(
 		() => getChatIdentity(chatInstance),

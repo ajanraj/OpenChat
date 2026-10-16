@@ -14,6 +14,8 @@ type ChatInputProps = {
 
 const mocks = vi.hoisted(() => ({
 	chatInput: { current: null as ChatInputProps | null },
+	// The messages the open conversation shows
+	conversation: { current: [] as { role: string }[] },
 	search: { current: {} as Record<string, string> },
 	user: {
 		current: { user: null as { _id: string; isAnonymous: boolean } | null, isLoading: false },
@@ -47,7 +49,12 @@ vi.mock("@/components/chat-input/chat-input", () => ({
 		return null;
 	},
 }));
-vi.mock("@/components/chat/conversation", () => ({ Conversation: () => null }));
+vi.mock("@/components/chat/conversation", () => ({
+	Conversation: ({ messages }: { messages: { role: string }[] }) => {
+		mocks.conversation.current = messages;
+		return null;
+	},
+}));
 vi.mock("../dialog-auth", () => ({ DialogAuth: () => null }));
 vi.mock("@/components/ui/toast", () => ({ toast: vi.fn() }));
 vi.mock("@convex-dev/auth/react", () => ({ useAuthToken: () => null }));
@@ -317,5 +324,36 @@ describe("Chat first send", () => {
 
 		await waitFor(() => expect(mocks.chatInput.current?.initialValue).toBe("from the link"));
 		expect(mocks.sendMessages).not.toHaveBeenCalled();
+	});
+
+	it("forgets an account's conversations once it signs out", async () => {
+		mocks.user.current = { user: { _id: "users:owner", isAnonymous: false }, isLoading: false };
+		mocks.chatId.current = "chats:private";
+		const { rerender } = render(<Chat />);
+		await act(async () => {
+			await mocks.chatInput.current?.onSendAction("private note", { enableSearch: false });
+		});
+		await waitFor(() => expect(mocks.conversation.current).toHaveLength(1));
+
+		// The next person on this browser goes back to the same chat
+		mocks.user.current = { user: null, isLoading: false };
+		rerender(<Chat />);
+
+		expect(mocks.conversation.current).toEqual([]);
+	});
+
+	it("keeps a visitor's first message when their guest account arrives", async () => {
+		const { rerender } = render(<Chat />);
+		await act(async () => {
+			await mocks.chatInput.current?.onSendAction("first", { enableSearch: false });
+		});
+		const newChatId = await mocks.handleCreateChat.mock.results[0]?.value;
+
+		// The guest's user loads as the page moves to the new chat
+		mocks.user.current = { user: { _id: "users:guest", isAnonymous: true }, isLoading: false };
+		mocks.chatId.current = newChatId ?? null;
+		rerender(<Chat />);
+
+		await waitFor(() => expect(mocks.conversation.current).toHaveLength(1));
 	});
 });
