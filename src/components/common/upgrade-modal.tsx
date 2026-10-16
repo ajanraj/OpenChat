@@ -13,7 +13,7 @@ type UpgradeModalProps = {
 };
 
 export function UpgradeModal({ isOpen, onOpenChange }: UpgradeModalProps) {
-	const { user, isLoading: isUserLoading } = useUser();
+	const { user } = useUser();
 	const createCheckout = useAction(api.stripe.createCheckout);
 	const router = useRouter();
 	const isCheckoutInFlight = useRef(false);
@@ -30,9 +30,8 @@ export function UpgradeModal({ isOpen, onOpenChange }: UpgradeModalProps) {
 				return;
 			}
 
-			// Guests and signed-out visitors: send to auth page. Until the session settles a returning
-			// user isn't known yet, so checkout goes ahead; it refuses anyone not signed in
-			if (!isUserLoading && (!user || user.isAnonymous)) {
+			// Guests and signed-out visitors: send to auth page
+			if (!user || user.isAnonymous) {
 				router.navigate({ to: "/auth" });
 				return;
 			}
@@ -51,7 +50,7 @@ export function UpgradeModal({ isOpen, onOpenChange }: UpgradeModalProps) {
 				isCheckoutInFlight.current = false;
 			}
 		},
-		[isUserLoading, user, createCheckout, router],
+		[user, createCheckout, router],
 	);
 
 	return (

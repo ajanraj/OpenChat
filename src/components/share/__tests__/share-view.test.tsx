@@ -36,7 +36,8 @@ describe("ShareView's call to action", () => {
 
 		expect(screen.queryByRole("button")).toBeNull();
 
-		mocks.session.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
+		// Known, though the account's settings are still loading
+		mocks.session.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: true };
 		rerender(<ShareView messages={messages} sourceChatId="chats:1" />);
 
 		expect(screen.getByRole("button", { name: "Continue in your chat" })).toBeTruthy();

@@ -52,6 +52,8 @@ export function ShareView({
 	const [showCannotForkDialog, setShowCannotForkDialog] = useState(false);
 
 	const isAuthenticated = Boolean(user && !user.isAnonymous);
+	// Who this is isn't known until the session settles (not the account's settings, which can lag)
+	const isSessionPending = !user && isUserLoading;
 
 	// Check if messages contain redacted content
 	const canFork = !shouldDisableFork(messages);
@@ -138,7 +140,7 @@ export function ShareView({
 			))}
 			{/* Floating CTA inspired by Zola's "Ask Zola". Shown once the session settles: until then a
 			    returning user isn't known yet, and it would offer them sign-in */}
-			{isUserLoading ? null : (
+			{isSessionPending ? null : (
 				<div className="fixed bottom-6 left-0 z-50 flex w-full justify-center">
 					<Button
 						aria-label={getAriaLabel(canFork, isAuthenticated)}
