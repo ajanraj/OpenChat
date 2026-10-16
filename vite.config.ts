@@ -14,9 +14,7 @@ const config = defineConfig({
   },
   plugins: [
     devtools(),
-    oxlintPlugin({
-      configFile: ".oxlintrc.json",
-    }),
+    oxlintPlugin(),
     nitro({
       compatibilityDate: "2025-12-24",
       vercel: {

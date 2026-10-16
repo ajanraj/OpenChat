@@ -13,7 +13,9 @@
     "lint": "oxlint --type-aware --fix",
     "lint:check": "oxlint --type-aware",
     "typecheck": "tsc -p .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check": "ultracite check",
+    "fix": "ultracite fix"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",
@@ -138,6 +140,7 @@
     "oxlint": "^1.88.0",
     "oxlint-tsgolint": "^7.0.2004",
     "typescript": "^7.0.2",
+    "ultracite": "8.0.1",
     "vite": "^8.3.4",
     "vite-plugin-oxlint": "^2.2.1",
     "vite-plugin-pwa": "^2.0.0",

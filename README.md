@@ -102,7 +102,7 @@
 - [Zustand](https://zustand.docs.pmnd.rs) - Lightweight state management
 - [Cloudflare R2](https://developers.cloudflare.com/r2/) - Object storage for file attachments
 - [Tailwind CSS v4](https://tailwindcss.com) - Utility-first CSS framework
-- [Ultracite](https://ultracite.io) - Lightning-fast linting with Biome
+- [Ultracite](https://www.ultracite.ai) - Oxlint and Oxfmt presets for linting and formatting
 
 ## 🚀 Getting Started
 
