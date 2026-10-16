@@ -7,28 +7,18 @@ import { ChatInput } from "../chat-input";
 vi.mock("../button-file-upload", () => ({ ButtonFileUpload: () => null }));
 vi.mock("../button-tools-dropdown", () => ({ ButtonToolsDropdown: () => null }));
 vi.mock("../file-list", () => ({ FileList: () => null }));
-vi.mock("../prompt-system", () => ({
-	PromptSystem: ({ onSuggestion }: { onSuggestion: (suggestion: string) => void }) => (
-		<button onClick={() => onSuggestion("a suggestion")} type="button">
-			Suggest
-		</button>
-	),
-}));
+vi.mock("../prompt-system", () => ({ PromptSystem: () => null }));
 vi.mock("../select-model", () => ({ SelectModel: () => null }));
 vi.mock("../select-reasoning-effort", () => ({ SelectReasoningEffort: () => null }));
 
-function renderInput({
-	status = "ready",
-	isStartingChat = false,
-	isSettingsLoading = false,
-}: { status?: ChatStatus; isStartingChat?: boolean; isSettingsLoading?: boolean }) {
+type InputState = { status?: ChatStatus; isStartingChat?: boolean; isSettingsLoading?: boolean };
+
+function renderInput(initial: InputState) {
 	const stop = vi.fn<() => void>();
 	const onSendAction = vi.fn<(message: string, options: { enableSearch: boolean }) => void>();
-	const onSuggestionAction = vi.fn<(suggestion: string) => void>();
-	render(
+	const input = ({ status = "ready", isStartingChat = false, isSettingsLoading = false }: InputState) => (
 		<ChatInput
 			files={[]}
-			hasSuggestions
 			initialValue="hello"
 			isReasoningModel={false}
 			isSettingsLoading={isSettingsLoading}
@@ -40,17 +30,17 @@ function renderInput({
 			onSelectReasoningEffortAction={vi.fn()}
 			onSelectSystemPromptAction={vi.fn()}
 			onSendAction={onSendAction}
-			onSuggestionAction={onSuggestionAction}
+			onSuggestionAction={vi.fn()}
 			reasoningEffort="none"
 			selectedModel="gpt-5.4-nano"
 			status={status}
 			stop={stop}
-		/>,
-		{ wrapper: TooltipProvider },
+		/>
 	);
+	const { rerender } = render(input(initial), { wrapper: TooltipProvider });
 	const button = screen.getByRole<HTMLButtonElement>("button", { name: "Send message" });
 	const textarea = screen.getByRole<HTMLTextAreaElement>("textbox");
-	return { button, textarea, stop, onSendAction, onSuggestionAction };
+	return { button, textarea, stop, onSendAction, update: (next: InputState) => rerender(input(next)) };
 }
 
 describe("ChatInput while a new chat starts", () => {
@@ -79,31 +69,19 @@ describe("ChatInput while a new chat starts", () => {
 });
 
 describe("ChatInput while saved settings load", () => {
-	it("keeps typing open but holds the send, message intact", () => {
-		const { button, textarea, onSendAction } = renderInput({ isSettingsLoading: true });
+	it("keeps typing open and holds the message until the settings arrive", () => {
+		const { button, textarea, onSendAction, update } = renderInput({ isSettingsLoading: true });
 
 		expect(textarea.disabled).toBe(false);
 		expect(button.disabled).toBe(true);
 		fireEvent.keyDown(textarea, { key: "Enter" });
-
 		expect(onSendAction).not.toHaveBeenCalled();
 		expect(textarea.value).toBe("hello");
-	});
 
-	it("puts a picked suggestion in the input instead of sending it", () => {
-		const { textarea, onSuggestionAction } = renderInput({ isSettingsLoading: true });
-
-		fireEvent.click(screen.getByRole("button", { name: "Suggest" }));
-
-		expect(onSuggestionAction).not.toHaveBeenCalled();
-		expect(textarea.value).toBe("a suggestion");
-	});
-
-	it("sends once the settings have loaded", () => {
-		const { textarea, onSendAction } = renderInput({});
-
+		update({ isSettingsLoading: false });
+		expect(button.disabled).toBe(false);
 		fireEvent.keyDown(textarea, { key: "Enter" });
 
-		expect(onSendAction).toHaveBeenCalledWith("hello", { enableSearch: false });
+		expect(onSendAction).toHaveBeenCalledExactlyOnceWith("hello", { enableSearch: false });
 	});
 });

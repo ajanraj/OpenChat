@@ -4,7 +4,7 @@ import { useAuthToken } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import type { FileUIPart } from "ai";
 import { AnimatePresence, m } from "motion/react";
 import {
@@ -282,7 +282,7 @@ function useChatContentView() {
 		enabled: Boolean(chatId),
 	});
 
-	const { data: currentChat } = useTanStackQuery({
+	const { data: currentChat, isLoading: isChatLoading } = useTanStackQuery({
 		...convexQuery(
 			api.chats.getChat,
 			chatId ? { chatId: chatId as Id<"chats"> } : "skip",
@@ -292,9 +292,12 @@ function useChatContentView() {
 
 	// Derived state
 	const { activeProfile, isProfilesLoading } = useProfile();
-	// A returning user's saved model and profile load after the page does. A send reads them when
-	// it starts, so sends wait for them
-	const isSettingsLoading = isUserLoading || isProfilesLoading;
+	const { isAuthenticated: hasSession } = useConvexAuth();
+	// A returning user's saved model and profile, and an open chat's own settings, load after the
+	// page does. A send reads them when it starts, so sends wait for them. A session whose user
+	// hasn't loaded (or failed to) waits too, rather than send with defaults
+	const isSettingsLoading =
+		isUserLoading || isProfilesLoading || (hasSession && !user) || isChatLoading;
 	const disabledModels = activeProfile?.disabledModels ?? user?.disabledModels;
 	const currentChatModelId = currentChat?.model;
 	const retiredChatModel = currentChatModelId
@@ -316,6 +319,11 @@ function useChatContentView() {
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
+	// Only signed-in accounts can attach files. The view stays mounted when one signs out, so drop
+	// what it attached rather than send it from a guest account
+	if (!isAuthenticated && files.length > 0) {
+		clearFiles();
+	}
 
 	useEffect(() => {
 		if (

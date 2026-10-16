@@ -32,8 +32,8 @@ type ChatInputProps = {
 	 */
 	isStartingChat?: boolean;
 	/**
-	 * A returning user's saved settings (model, profile) are still loading: sends, suggestions
-	 * included, wait so the message uses them. Typing doesn't wait.
+	 * The settings a send reads (the user's saved model and profile, an open chat's own model and
+	 * persona) are still loading: sends wait so the message uses them. Typing doesn't wait.
 	 */
 	isSettingsLoading?: boolean;
 	stop: () => void;
@@ -130,11 +130,9 @@ export function ChatInput({
 	const handleSuggestionClick = useCallback(
 		(suggestion: string) => {
 			setDraftValue(suggestion);
-			if (!isSendHeld) {
-				onSuggestionAction(suggestion);
-			}
+			onSuggestionAction(suggestion);
 		},
-		[isSendHeld, onSuggestionAction],
+		[onSuggestionAction],
 	);
 
 	const handlePaste = useCallback(

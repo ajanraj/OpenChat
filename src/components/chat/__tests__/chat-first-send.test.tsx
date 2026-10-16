@@ -13,9 +13,18 @@ type ChatInputProps = {
 const mocks = vi.hoisted(() => ({
 	chatInput: { current: null as ChatInputProps | null },
 	search: { current: {} as Record<string, string> },
+	user: {
+		current: { user: null as { _id: string; isAnonymous: boolean } | null, isLoading: false },
+	},
 	profile: {
 		current: { activeProfile: undefined as { _id: string } | undefined, isProfilesLoading: false },
 	},
+	// useConvexAuth: the backend has confirmed a session
+	hasSession: { current: false },
+	chatId: { current: null as string | null },
+	isQueryLoading: { current: false },
+	files: { current: [] as File[] },
+	clearFiles: vi.fn<() => void>(),
 	ensureSession: vi.fn<() => Promise<void>>(),
 	handleCreateChat:
 		vi.fn<
@@ -42,27 +51,35 @@ vi.mock("../dialog-auth", () => ({ DialogAuth: () => null }));
 vi.mock("@/components/ui/toast", () => ({ toast: vi.fn() }));
 vi.mock("@convex-dev/auth/react", () => ({ useAuthToken: () => null }));
 vi.mock("@convex-dev/react-query", () => ({ convexQuery: () => ({}) }));
-vi.mock("@tanstack/react-query", () => ({ useQuery: () => ({ data: undefined }) }));
+vi.mock("@tanstack/react-query", () => ({
+	useQuery: () => ({ data: undefined, isLoading: mocks.isQueryLoading.current }),
+}));
 vi.mock("@tanstack/react-router", () => ({
 	useRouter: () => ({ navigate: vi.fn() }),
 	useSearch: () => mocks.search.current,
 }));
-vi.mock("convex/react", () => ({ useMutation: () => vi.fn() }));
+vi.mock("convex/react", () => ({
+	useConvexAuth: () => ({ isLoading: false, isAuthenticated: mocks.hasSession.current }),
+	useMutation: () => vi.fn(),
+}));
 vi.mock("@/lib/chat-transport", () => ({
 	chatTransport: { sendMessages: mocks.sendMessages, reconnectToStream: async () => null },
 	setChatAuthToken: () => undefined,
 }));
 vi.mock("@/providers/chat-session-provider", () => ({
-	useChatSession: () => ({ chatId: null, isDeleting: false, setIsDeleting: () => undefined }),
+	useChatSession: () => ({
+		chatId: mocks.chatId.current,
+		isDeleting: false,
+		setIsDeleting: () => undefined,
+	}),
 }));
 vi.mock("@/providers/profile-provider", () => ({
 	useProfile: () => mocks.profile.current,
 }));
 vi.mock("@/providers/user-provider", () => ({
 	useUser: () => ({
-		user: null,
+		...mocks.user.current,
 		hasPremium: false,
-		isLoading: false,
 		hasApiKey: new Map(),
 		isApiKeysLoading: false,
 		ensureSession: mocks.ensureSession,
@@ -85,10 +102,10 @@ vi.mock("@/hooks/use-chat-validation", () => ({
 }));
 vi.mock("@/hooks/use-file-handling", () => ({
 	useFileHandling: () => ({
-		files: [],
+		files: mocks.files.current,
 		addFiles: vi.fn(),
 		removeFile: vi.fn(),
-		clearFiles: vi.fn(),
+		clearFiles: mocks.clearFiles,
 		processFiles: vi.fn(),
 		createOptimisticFiles: vi.fn(),
 		hasFiles: false,
@@ -112,7 +129,12 @@ describe("Chat first send", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.search.current = {};
+		mocks.user.current = { user: null, isLoading: false };
 		mocks.profile.current = { activeProfile: undefined, isProfilesLoading: false };
+		mocks.hasSession.current = false;
+		mocks.chatId.current = null;
+		mocks.isQueryLoading.current = false;
+		mocks.files.current = [];
 		mocks.handleCreateChat.mockResolvedValue("chats:new");
 	});
 
@@ -176,5 +198,59 @@ describe("Chat first send", () => {
 		await vi.waitFor(() => expect(mocks.handleCreateChat).toHaveBeenCalledTimes(1));
 		expect(mocks.handleCreateChat.mock.calls[0]?.[3]).toBe("profiles:work");
 		expect(mocks.chatInput.current?.isSettingsLoading).toBe(false);
+	});
+
+	it("lets a signed-out visitor send at once: there are no saved settings to wait for", () => {
+		render(<Chat />);
+
+		expect(mocks.chatInput.current?.isSettingsLoading).toBe(false);
+	});
+
+	it.each([
+		{
+			settings: "the user's data",
+			arrange: () => {
+				mocks.user.current = { user: null, isLoading: true };
+			},
+		},
+		{
+			settings: "the user's profiles",
+			arrange: () => {
+				mocks.profile.current = { activeProfile: undefined, isProfilesLoading: true };
+			},
+		},
+		{
+			// e.g. the user query failed: main refused these sends rather than use defaults
+			settings: "the user behind a confirmed session",
+			arrange: () => {
+				mocks.hasSession.current = true;
+			},
+		},
+		{
+			settings: "the open chat's model and persona",
+			arrange: () => {
+				mocks.chatId.current = "chats:open";
+				mocks.isQueryLoading.current = true;
+			},
+		},
+	])("holds sends while $settings load", ({ arrange }) => {
+		arrange();
+		render(<Chat />);
+
+		expect(mocks.chatInput.current?.isSettingsLoading).toBe(true);
+	});
+
+	it("drops a signed-in user's attachments when they sign out", () => {
+		mocks.user.current = { user: { _id: "users:1", isAnonymous: false }, isLoading: false };
+		mocks.hasSession.current = true;
+		mocks.files.current = [new File(["notes"], "notes.txt")];
+		const { rerender } = render(<Chat />);
+		expect(mocks.clearFiles).not.toHaveBeenCalled();
+
+		mocks.user.current = { user: null, isLoading: false };
+		mocks.hasSession.current = false;
+		rerender(<Chat />);
+
+		expect(mocks.clearFiles).toHaveBeenCalled();
 	});
 });
