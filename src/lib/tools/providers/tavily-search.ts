@@ -15,14 +15,20 @@ const getStringField = (value: object, key: string): string | undefined => {
   return typeof field === "string" ? field : undefined;
 };
 
-// Reads the result entries from a Tavily response body, ignoring anything malformed
+/**
+ * Reads the result entries from a Tavily response body. A reply without results has none; any
+ * other malformed reply throws, so the search falls back to the next provider.
+ */
 const parseTavilyResults = (data: unknown): TavilyResult[] => {
-  if (typeof data !== "object" || data === null || !("results" in data)) {
+  if (typeof data !== "object" || data === null) {
+    throw new TypeError("Tavily returned a malformed reply");
+  }
+  const results: unknown = "results" in data ? data.results : undefined;
+  if (results === undefined || results === null) {
     return [];
   }
-  const { results } = data;
   if (!Array.isArray(results)) {
-    return [];
+    throw new TypeError("Tavily returned malformed results");
   }
   return results.map((result: unknown): TavilyResult => {
     if (typeof result !== "object" || result === null) {

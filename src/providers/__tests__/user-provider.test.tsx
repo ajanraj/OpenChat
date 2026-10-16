@@ -261,6 +261,45 @@ describe("UserProvider loading", () => {
     expect(result.current.rateLimitStatus?.effectiveRemaining).toBe(5);
   });
 
+  it("re-arms the reset timer when the reset is beyond setTimeout's maximum delay", () => {
+    vi.useFakeTimers();
+    const day = 24 * 60 * 60 * 1000;
+    // setTimeout's longest delay, about 24.8 days
+    const maxTimeoutMs = 2_147_483_647;
+    queryClient.setQueryData(["serverClockOffset"], 0);
+    // The monthly window ends 30 days out, so the first timer wakes before it does
+    answer("users:getRateLimitStatus", {
+      isPremium: false,
+      daily: { value: 5, ts: 0, rate: 5, capacity: 5, period: day },
+      monthly: {
+        value: 0,
+        ts: Date.now(),
+        rate: 1500,
+        capacity: 1500,
+        period: 30 * day,
+      },
+      premium: null,
+    });
+    mocks.auth.current = { isLoading: false, isAuthenticated: true };
+    mocks.tokenUserId.current = "users:1";
+    answer("users:getCurrentUser", guest);
+    const { result } = renderUser();
+    expect(result.current.rateLimitStatus?.effectiveRemaining).toBe(0);
+
+    act(() => {
+      vi.advanceTimersByTime(maxTimeoutMs);
+    });
+    expect(result.current.rateLimitStatus?.effectiveRemaining).toBe(0);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+    act(() => {
+      vi.advanceTimersByTime(30 * day - maxTimeoutMs);
+    });
+    expect(result.current.rateLimitStatus?.effectiveRemaining).toBeGreaterThan(
+      0
+    );
+  });
+
   it("reloads instead of waiting when another tab's sign-in swaps the token's account", () => {
     const reload = vi.fn<() => void>();
     vi.stubGlobal("location", { reload });

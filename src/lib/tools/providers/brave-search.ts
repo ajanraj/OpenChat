@@ -15,18 +15,27 @@ const getStringField = (value: object, key: string): string | undefined => {
   return typeof field === "string" ? field : undefined;
 };
 
-// Reads the result entries from a Brave response body, ignoring anything malformed
+/**
+ * Reads the result entries from a Brave response body. A reply without web results has none; any
+ * other malformed reply throws, so the search falls back to the next provider.
+ */
 const parseBraveResults = (data: unknown): BraveResult[] => {
-  if (typeof data !== "object" || data === null || !("web" in data)) {
+  if (typeof data !== "object" || data === null) {
+    throw new TypeError("Brave Search returned a malformed reply");
+  }
+  const web: unknown = "web" in data ? data.web : undefined;
+  if (web === undefined || web === null) {
     return [];
   }
-  const { web } = data;
-  if (typeof web !== "object" || web === null || !("results" in web)) {
+  if (typeof web !== "object") {
+    throw new TypeError("Brave Search returned malformed web results");
+  }
+  const results: unknown = "results" in web ? web.results : undefined;
+  if (results === undefined || results === null) {
     return [];
   }
-  const { results } = web;
   if (!Array.isArray(results)) {
-    return [];
+    throw new TypeError("Brave Search returned malformed web results");
   }
   return results.map((result: unknown): BraveResult => {
     if (typeof result !== "object" || result === null) {
