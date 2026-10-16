@@ -133,10 +133,13 @@ export function ChatInput({
 		});
 	}, [onSendAction, searchEnabled, value]);
 
-	// Enter while saved settings load sends nothing, so the status says why
-	const [isSettingsWaitNoticed, setIsSettingsWaitNoticed] = useState(false);
-	if (isSettingsWaitNoticed && !isSettingsLoading) {
-		setIsSettingsWaitNoticed(false);
+	// Enter while saved settings load sends nothing, so the status says why, then that sending works
+	// once they arrive; that lasts until the next hold, so it isn't announced again after it
+	const [settingsWait, setSettingsWait] = useState<"idle" | "waiting" | "ready">("idle");
+	if (settingsWait === "waiting" && !isSettingsLoading) {
+		setSettingsWait("ready");
+	} else if (settingsWait === "ready" && isSendHeld) {
+		setSettingsWait("idle");
 	}
 
 	const handleKeyDown = useCallback(
@@ -145,7 +148,9 @@ export function ChatInput({
 				return;
 			}
 			if (isSendHeld) {
-				setIsSettingsWaitNoticed(isSettingsLoading);
+				if (isSettingsLoading) {
+					setSettingsWait("waiting");
+				}
 				return;
 			}
 			e.preventDefault();
@@ -308,12 +313,14 @@ export function ChatInput({
 	} else if (isStartPending) {
 		sendIcon = <SpinnerGapIcon className="size-4 animate-spin" />;
 	}
-	// Announced to screen readers: why a send is waiting
+	// Announced to screen readers: why a send is waiting, and when it no longer is
 	let holdStatus = "";
 	if (isStartPending) {
 		holdStatus = "Starting your chat…";
-	} else if (isSettingsWaitNoticed) {
+	} else if (settingsWait === "waiting") {
 		holdStatus = "Loading your settings…";
+	} else if (settingsWait === "ready") {
+		holdStatus = "Ready to send.";
 	}
 
 	return (
