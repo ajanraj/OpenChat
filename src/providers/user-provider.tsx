@@ -1,4 +1,4 @@
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useConvexAuth, useMutation } from "convex/react";
@@ -62,13 +62,14 @@ const MAX_TIMEOUT_MS = 2_147_483_647;
 export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
   const { signIn, signOut } = useAuthActions();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
+  const hasToken = useAuthToken() !== null;
   const [sessionGate] = useState(() =>
-    createSessionGate({ isLoading: isAuthLoading, isAuthenticated }),
+    createSessionGate({ isLoading: isAuthLoading, isAuthenticated, hasToken }),
   );
   // Publish Convex's auth state to the gate: it is how ensureSession learns a new token is live
   useEffect(() => {
-    sessionGate.update({ isLoading: isAuthLoading, isAuthenticated });
-  }, [sessionGate, isAuthLoading, isAuthenticated]);
+    sessionGate.update({ isLoading: isAuthLoading, isAuthenticated, hasToken });
+  }, [sessionGate, isAuthLoading, isAuthenticated, hasToken]);
   const ensureSession = useCallback(
     () => sessionGate.ensure(() => signIn("anonymous")),
     [sessionGate, signIn],

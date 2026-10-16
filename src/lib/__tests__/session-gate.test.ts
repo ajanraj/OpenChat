@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSessionGate, SESSION_TIMEOUT_MS } from "../session-gate";
 
-const LOADING = { isLoading: true, isAuthenticated: false };
-const SIGNED_OUT = { isLoading: false, isAuthenticated: false };
-const SIGNED_IN = { isLoading: false, isAuthenticated: true };
+const SIGNED_OUT = { isLoading: false, isAuthenticated: false, hasToken: false };
+// A returning user's stored token, before the backend confirms it
+const RESTORING = { isLoading: true, isAuthenticated: false, hasToken: true };
+// A fresh sign-in's token: useConvexAuth() still reads signed out until the backend confirms it
+const UNCONFIRMED = { isLoading: false, isAuthenticated: false, hasToken: true };
+const SIGNED_IN = { isLoading: false, isAuthenticated: true, hasToken: true };
 
 function signInMock(signingIn = true) {
   return vi.fn<() => Promise<{ signingIn: boolean }>>(async () => ({ signingIn }));
@@ -30,7 +33,7 @@ describe("createSessionGate", () => {
 
   it("waits for a returning user's session to load instead of creating a guest", async () => {
     vi.useFakeTimers();
-    const gate = createSessionGate(LOADING);
+    const gate = createSessionGate(RESTORING);
     const signIn = signInMock();
     const done = vi.fn<() => void>();
 
@@ -54,6 +57,8 @@ describe("createSessionGate", () => {
     void gate.ensure(signIn).then(done);
     await flush();
     // signIn has resolved, but the websocket is not authenticated yet
+    gate.update(UNCONFIRMED);
+    await flush();
     expect(signIn).toHaveBeenCalledTimes(1);
     expect(done).not.toHaveBeenCalled();
 
@@ -77,18 +82,62 @@ describe("createSessionGate", () => {
     expect(signIn).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects when sign-in does not start a session", async () => {
+  it("rejects when sign-in does not start a session, and the next send signs in again", async () => {
     const gate = createSessionGate(SIGNED_OUT);
+    const signIn = signInMock(false);
 
-    await expect(gate.ensure(signInMock(false))).rejects.toThrow(/did not start a session/);
+    await expect(gate.ensure(signIn)).rejects.toThrow(/did not start a session/);
+    await expect(gate.ensure(signIn)).rejects.toThrow(/did not start a session/);
+
+    expect(signIn).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects when Convex never confirms the token, then retries on the next send", async () => {
+  it("times out a slow confirmation, and the retry waits on the same guest's token", async () => {
     vi.useFakeTimers();
     const gate = createSessionGate(SIGNED_OUT);
     const signIn = signInMock();
 
     const failure = gate.ensure(signIn).catch((error: Error) => error);
+    await flush();
+    gate.update(UNCONFIRMED);
+    await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
+    expect((await failure)?.message).toMatch(/Timed out/);
+
+    const retry = gate.ensure(signIn);
+    await flush();
+    gate.update(SIGNED_IN);
+    await retry;
+
+    expect(signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses a finished sign-in whose token has not reached React state yet", async () => {
+    vi.useFakeTimers();
+    const gate = createSessionGate(SIGNED_OUT);
+    const signIn = signInMock();
+
+    const failure = gate.ensure(signIn).catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
+    expect((await failure)?.message).toMatch(/Timed out/);
+
+    // The gate still reads signed out, with no token
+    const retry = gate.ensure(signIn);
+    await flush();
+    gate.update(SIGNED_IN);
+    await retry;
+
+    expect(signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("signs in again once Convex Auth drops a token the backend rejected", async () => {
+    vi.useFakeTimers();
+    const gate = createSessionGate(SIGNED_OUT);
+    const signIn = signInMock();
+
+    const failure = gate.ensure(signIn).catch((error: Error) => error);
+    await flush();
+    gate.update(UNCONFIRMED);
+    gate.update(SIGNED_OUT);
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
     expect((await failure)?.message).toMatch(/Timed out/);
 
