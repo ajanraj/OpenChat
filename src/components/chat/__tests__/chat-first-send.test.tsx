@@ -34,7 +34,7 @@ const mocks = vi.hoisted(() => ({
 		vi.fn<
 			(title: string, model: string, personaId?: string, profileId?: string) => Promise<string | null>
 		>(),
-	sendMessages: vi.fn<() => Promise<ReadableStream>>(
+	sendMessages: vi.fn<(options: { body?: object }) => Promise<ReadableStream>>(
 		async () =>
 			new ReadableStream({
 				start(controller) {
@@ -293,6 +293,17 @@ describe("Chat first send", () => {
 		await waitFor(() => expect(mocks.chatInput.current?.initialValue).toBe("from the link"));
 		expect(mocks.chatInput.current?.selectedModel).toBe("gpt-5.4-mini");
 		expect(mocks.handleCreateChat).not.toHaveBeenCalled();
+	});
+
+	it("sends a ?q= link's first message with the link's model, not the default", async () => {
+		mocks.search.current = { model: "gpt-5.4-mini", q: "from the link" };
+		render(<Chat />);
+
+		await waitFor(() => expect(mocks.sendMessages).toHaveBeenCalledTimes(1));
+		expect(mocks.handleCreateChat.mock.calls[0]?.[1]).toBe("gpt-5.4-mini");
+		expect(mocks.sendMessages.mock.calls[0]?.[0]).toMatchObject({
+			body: { model: "gpt-5.4-mini" },
+		});
 	});
 
 	it("keeps a signed-in user's attachments when a new chat has no text to start from", async () => {

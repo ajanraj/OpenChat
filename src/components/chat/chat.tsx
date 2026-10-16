@@ -127,6 +127,13 @@ function cleanupChatInstance(chatId: string) {
 // guest keeps it: their first message is already in flight.
 let chatRegistryOwner: string | null = null;
 
+/** The effort a model runs with: the chosen one if the model offers it, else the model's default. */
+function resolveReasoningEffort(model: string, chosen: ReasoningEffort): ReasoningEffort {
+	return getReasoningEffortOptions(model).includes(chosen)
+		? chosen
+		: (getDefaultReasoningEffort(model) ?? chosen);
+}
+
 function scopeChatRegistry(userId: string | null) {
 	if (chatRegistryOwner !== null && chatRegistryOwner !== userId) {
 		for (const key of [...chatRegistry.keys()]) {
@@ -330,10 +337,7 @@ function useChatContentView() {
 				tempSelectedModel ?? activeProfile?.preferredModel ?? user?.preferredModel ?? MODEL_DEFAULT,
 				disabledModels,
 			);
-	const reasoningEffortOptions = getReasoningEffortOptions(selectedModel);
-	const selectedReasoningEffort = reasoningEffortOptions.includes(reasoningEffort)
-		? reasoningEffort
-		: (getDefaultReasoningEffort(selectedModel) ?? reasoningEffort);
+	const selectedReasoningEffort = resolveReasoningEffort(selectedModel, reasoningEffort);
 
 	const personaId = currentChat?.personaId ?? tempPersonaId;
 	const isAuthenticated = isUserAuthenticated(user);
@@ -495,25 +499,29 @@ function useChatContentView() {
 		async (
 			inputMessage: string,
 			currentChatId?: string,
-			options?: { enableSearch?: boolean },
+			// `model` is a ?q= link's: its chat was just created with it, before this render knows
+			options?: { enableSearch?: boolean; model?: string },
 		): Promise<boolean> => {
 			const chatIdToUse = currentChatId || chatId;
 			if (!chatIdToUse) {
 				return false;
 			}
 
-			const isReasoningModel = supportsReasoningEffort(selectedModel);
+			const model = options?.model ?? selectedModel;
+			const isReasoningModel = supportsReasoningEffort(model);
 			const timezone = getUserTimezone();
 
 			const body: ChatBody = {
 				chatId: chatIdToUse,
-				model: selectedModel,
+				model,
 				personaId,
 				profileId: activeProfile?._id,
 				...(typeof options?.enableSearch !== "undefined"
 					? { enableSearch: options.enableSearch }
 					: {}),
-				...(isReasoningModel ? { reasoningEffort: selectedReasoningEffort } : {}),
+				...(isReasoningModel
+					? { reasoningEffort: resolveReasoningEffort(model, reasoningEffort) }
+					: {}),
 				...(timezone ? { userInfo: { timezone } } : {}),
 			};
 
@@ -567,7 +575,7 @@ function useChatContentView() {
 			selectedModel,
 			personaId,
 			activeProfile?._id,
-			selectedReasoningEffort,
+			reasoningEffort,
 			hasFiles,
 			createOptimisticFiles,
 			processFiles,
@@ -611,7 +619,10 @@ function useChatContentView() {
 
 					promoteDraftChatToReal(newChatId);
 					void router.navigate({ to: `/c/${newChatId}` });
-					return sendMessageHelper(trimmedQuery, newChatId, { enableSearch: false });
+					return sendMessageHelper(trimmedQuery, newChatId, {
+						enableSearch: false,
+						model: modelId,
+					});
 				};
 
 				// The link is only processed once, so a start that didn't go out (e.g. the guest
