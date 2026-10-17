@@ -1,10 +1,12 @@
 // Filename validation & sanitization utilities
 
-const MAX_FILENAME_LENGTH = 200; // Reasonable UI-friendly cap while keeping extension
-const INVALID_FILENAME_PUNCT = /[<>:"/\\|?*]/g; // Reserved punctuation
-const WHITESPACE_RE = /\s+/g;
-const JUST_DOTS_RE = /^\.+$/;
-const TRAILING_SPACES_DOTS_RE = /[ .]+$/g;
+// Reasonable UI-friendly cap while keeping extension
+const MAX_FILENAME_LENGTH = 200;
+// Reserved punctuation
+const INVALID_FILENAME_PUNCT = /[<>:"/\\|?*]/gu;
+const WHITESPACE_RE = /\s+/gu;
+const JUST_DOTS_RE = /^\.+$/u;
+const TRAILING_SPACES_DOTS_RE = /[ .]+$/gu;
 
 const RESERVED_BASENAMES = new Set([
   "con",
@@ -31,23 +33,26 @@ const RESERVED_BASENAMES = new Set([
   "lpt9",
 ]);
 
-function stripControlChars(s: string): string {
+const stripControlChars = (s: string): string => {
   let out = "";
   for (const ch of s) {
-    const code = ch.charCodeAt(0);
+    // Each `ch` is one code point, so `codePointAt(0)` is always defined
+    const code = ch.codePointAt(0) ?? 0;
     if (code >= 32 && code !== 127) {
       out += ch;
     }
   }
   return out;
-}
+};
 
-export function sanitizeAndValidateFileName(input: string): string {
+export const sanitizeAndValidateFileName = (input: string): string => {
   // Normalize and trim
   const normalized = (input ?? "").normalize("NFKC").trim();
   // Remove control chars and forbidden punctuation
   const noCtrl = stripControlChars(normalized);
-  const cleaned = noCtrl.replace(INVALID_FILENAME_PUNCT, "_").replace(WHITESPACE_RE, " ");
+  const cleaned = noCtrl
+    .replace(INVALID_FILENAME_PUNCT, "_")
+    .replace(WHITESPACE_RE, " ");
   // Disallow names that are just dots or empty after cleaning
   let candidate = cleaned.replace(JUST_DOTS_RE, "").trim();
   if (candidate.length === 0) {
@@ -56,7 +61,8 @@ export function sanitizeAndValidateFileName(input: string): string {
 
   // Split base and extension (preserve last extension if present)
   const lastDot = candidate.lastIndexOf(".");
-  const hasExt = lastDot > 0 && lastDot < candidate.length - 1; // dot not first/last
+  // Dot not first/last
+  const hasExt = lastDot > 0 && lastDot < candidate.length - 1;
   const base = (hasExt ? candidate.slice(0, lastDot) : candidate).trim();
   const ext = hasExt ? candidate.slice(lastDot + 1).trim() : "";
 
@@ -97,7 +103,7 @@ export function sanitizeAndValidateFileName(input: string): string {
     return result.slice(0, MAX_FILENAME_LENGTH);
   }
   return result;
-}
+};
 
 export const __filenameUtilsTesting__ = {
   MAX_FILENAME_LENGTH,

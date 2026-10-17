@@ -8,7 +8,7 @@ interface MeteredSearchToolOptions {
 }
 
 export const consumeOneStandardCreditForSearch = async (
-  consumeStandardCredits: ConsumeStandardCredits,
+  consumeStandardCredits: ConsumeStandardCredits
 ): Promise<void> => {
   await consumeStandardCredits(1);
 };
@@ -16,14 +16,11 @@ export const consumeOneStandardCreditForSearch = async (
 export const createMeteredSearchTool = ({
   enableSearch,
   consumeStandardCredits,
-}: MeteredSearchToolOptions) => {
-  if (!enableSearch) {
-    return undefined;
-  }
-
-  return createSearchTool({
-    onSearchSuccess: async () => {
-      await consumeOneStandardCreditForSearch(consumeStandardCredits);
-    },
-  });
-};
+}: MeteredSearchToolOptions) =>
+  enableSearch
+    ? createSearchTool({
+        onSearchSuccess: async () => {
+          await consumeOneStandardCreditForSearch(consumeStandardCredits);
+        },
+      })
+    : undefined;

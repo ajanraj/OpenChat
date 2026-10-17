@@ -1,7 +1,15 @@
-import { Check, CircleNotch, Headset, Rocket, Sparkle, Trash } from "@phosphor-icons/react";
+import {
+  CheckIcon,
+  CircleNotchIcon,
+  HeadsetIcon,
+  RocketIcon,
+  SparkleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useAction, useMutation } from "convex/react";
 import { useCallback, useState } from "react";
+
 import { MessageUsageCard } from "@/components/layout/settings/message-usage-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,11 +24,45 @@ import { toast } from "@/components/ui/toast";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/providers/user-provider";
 
-export const Route = createFileRoute("/settings/")({
-  component: AccountSettingsPage,
-});
+/** Manages an active plan, or starts the upgrade once the plan is known. */
+const SubscriptionButton = ({
+  hasPremium,
+  isLoading,
+  onManage,
+  onUpgrade,
+}: {
+  hasPremium: boolean;
+  isLoading: boolean;
+  onManage: () => void;
+  onUpgrade: () => void;
+}) => {
+  if (hasPremium) {
+    return (
+      <Button
+        className="w-full cursor-pointer md:w-auto"
+        onClick={onManage}
+        variant="outline"
+      >
+        Manage Subscription
+      </Button>
+    );
+  }
+  if (isLoading) {
+    return (
+      <Button className="w-full md:w-auto" disabled variant="secondary">
+        Loading...
+      </Button>
+    );
+  }
+  return (
+    <Button className="w-full cursor-pointer md:w-auto" onClick={onUpgrade}>
+      <SparkleIcon className="mr-2 size-4" weight="fill" />
+      Upgrade Now
+    </Button>
+  );
+};
 
-export function AccountSettingsPage() {
+export const AccountSettingsPage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
   const deleteAccount = useMutation(api.users.deleteAccount);
@@ -32,16 +74,17 @@ export function AccountSettingsPage() {
   const handleUpgrade = useCallback(async () => {
     const checkoutUrl = await createCheckout({})
       .then(({ url }) => url)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error("Failed to start upgrade process:", error);
         toast({
           title: "Unable to start upgrade process",
-          description: "Please try again or contact support if the problem persists.",
+          description:
+            "Please try again or contact support if the problem persists.",
           status: "error",
         });
         return null;
       });
-    if (!checkoutUrl) {
+    if (checkoutUrl === null || checkoutUrl === "") {
       return;
     }
 
@@ -51,16 +94,17 @@ export function AccountSettingsPage() {
   const handleManageSubscription = useCallback(async () => {
     const customerPortalUrl = await createPortalSession({})
       .then(({ url }) => url)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error("Failed to access customer portal:", error);
         toast({
           title: "Unable to access customer portal",
-          description: "Please try again or contact support if the problem persists.",
+          description:
+            "Please try again or contact support if the problem persists.",
           status: "error",
         });
         return null;
       });
-    if (!customerPortalUrl) {
+    if (customerPortalUrl === null || customerPortalUrl === "") {
       return;
     }
 
@@ -92,23 +136,17 @@ export function AccountSettingsPage() {
       });
   }, [deleteAccount, signOut, router]);
 
-  const subscriptionButton = hasPremium ? (
-    <Button
-      className="w-full cursor-pointer md:w-auto"
-      onClick={handleManageSubscription}
-      variant="outline"
-    >
-      Manage Subscription
-    </Button>
-  ) : isLoading ? (
-    <Button className="w-full md:w-auto" disabled variant="secondary">
-      Loading...
-    </Button>
-  ) : (
-    <Button className="w-full cursor-pointer md:w-auto" onClick={handleUpgrade}>
-      <Sparkle className="mr-2 size-4" weight="fill" />
-      Upgrade Now
-    </Button>
+  const subscriptionButton = (
+    <SubscriptionButton
+      hasPremium={hasPremium}
+      isLoading={isLoading}
+      onManage={() => {
+        void handleManageSubscription();
+      }}
+      onUpgrade={() => {
+        void handleUpgrade();
+      }}
+    />
   );
 
   const features = [
@@ -122,43 +160,51 @@ export function AccountSettingsPage() {
     <div className="w-full space-y-10">
       {/* Premium Plan */}
       <section className="space-y-6">
-        {Boolean(hasPremium) && (
+        {hasPremium && (
           <>
             <div className="flex items-baseline justify-between">
-              <h1 className="font-semibold text-2xl tracking-tight">Premium Plan</h1>
-              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 text-xs dark:text-emerald-400">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Premium Plan
+              </h1>
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 Active
               </span>
             </div>
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="leading-relaxed text-muted-foreground">
               You have access to all premium features and priority support.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Rocket className="size-5 text-primary" />
+                  <RocketIcon className="size-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">All Models</p>
-                  <p className="text-muted-foreground text-xs">Claude, GPT-5 & more</p>
+                  <p className="text-sm font-medium">All Models</p>
+                  <p className="text-xs text-muted-foreground">
+                    Claude, GPT-5 & more
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Sparkle className="size-5 text-primary" />
+                  <SparkleIcon className="size-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">1600 Credits</p>
-                  <p className="text-muted-foreground text-xs">1500 + 100 premium*</p>
+                  <p className="text-sm font-medium">1600 Credits</p>
+                  <p className="text-xs text-muted-foreground">
+                    1500 + 100 premium*
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Headset className="size-5 text-primary" />
+                  <HeadsetIcon className="size-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">Priority Support</p>
-                  <p className="text-muted-foreground text-xs">Fast responses</p>
+                  <p className="text-sm font-medium">Priority Support</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fast responses
+                  </p>
                 </div>
               </div>
             </div>
@@ -172,15 +218,25 @@ export function AccountSettingsPage() {
               <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-4">
                   <div>
-                    <h1 className="font-semibold text-2xl tracking-tight">Upgrade to Premium</h1>
-                    <p className="mt-1 text-muted-foreground">Unlock the full potential of AI</p>
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                      Upgrade to Premium
+                    </h1>
+                    <p className="mt-1 text-muted-foreground">
+                      Unlock the full potential of AI
+                    </p>
                   </div>
 
                   <ul className="space-y-2.5">
                     {features.map((feature) => (
-                      <li className="flex items-center gap-2 text-sm" key={feature}>
+                      <li
+                        className="flex items-center gap-2 text-sm"
+                        key={feature}
+                      >
                         <div className="flex size-5 items-center justify-center rounded-full bg-primary/20">
-                          <Check className="size-3 text-primary" weight="bold" />
+                          <CheckIcon
+                            className="size-3 text-primary"
+                            weight="bold"
+                          />
                         </div>
                         {feature}
                       </li>
@@ -189,9 +245,13 @@ export function AccountSettingsPage() {
                 </div>
 
                 <div className="flex flex-col items-center rounded-xl border bg-background/80 p-6 text-center backdrop-blur-sm sm:min-w-[200px]">
-                  <div className="mb-1 text-muted-foreground text-sm">Monthly</div>
+                  <div className="mb-1 text-sm text-muted-foreground">
+                    Monthly
+                  </div>
                   <div className="flex items-baseline">
-                    <span className="font-bold text-5xl tracking-tight">$10</span>
+                    <span className="text-5xl font-bold tracking-tight">
+                      $10
+                    </span>
                   </div>
                   <div className="mt-4 w-full">{subscriptionButton}</div>
                 </div>
@@ -200,10 +260,10 @@ export function AccountSettingsPage() {
           </div>
         )}
 
-        <p className="text-muted-foreground text-xs">
-          *Premium credits are used for models marked with a gem icon in the model selector. This
-          includes, among others, Claude Sonnet, GPT-5 (Reasoning), Grok 3/4, Image Generation
-          models, and Gemini 2.5 Pro.{" "}
+        <p className="text-xs text-muted-foreground">
+          *Premium credits are used for models marked with a gem icon in the
+          model selector. This includes, among others, Claude Sonnet, GPT-5
+          (Reasoning), Grok 3/4, Image Generation models, and Gemini 2.5 Pro.{" "}
           <Link
             className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
             search={{ tier: "premium" }}
@@ -220,12 +280,15 @@ export function AccountSettingsPage() {
 
       {/* Danger Zone */}
       <section className="space-y-4">
-        <h2 className="font-semibold text-destructive text-lg tracking-tight">Danger Zone</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-destructive">
+          Danger Zone
+        </h2>
         <div className="flex items-center justify-between rounded-xl border border-destructive/20 bg-destructive/[0.02] p-4">
           <div className="space-y-0.5">
-            <p className="font-medium text-sm">Delete account</p>
-            <p className="text-muted-foreground text-xs">
-              Permanently delete your account and all associated data. This cannot be undone.
+            <p className="text-sm font-medium">Delete account</p>
+            <p className="text-xs text-muted-foreground">
+              Permanently delete your account and all associated data. This
+              cannot be undone.
             </p>
           </div>
           <Button
@@ -236,12 +299,12 @@ export function AccountSettingsPage() {
           >
             {isDeleting ? (
               <>
-                <CircleNotch className="mr-2 size-4 animate-spin" />
+                <CircleNotchIcon className="mr-2 size-4 animate-spin" />
                 Deleting...
               </>
             ) : (
               <>
-                <Trash className="mr-2 size-4" />
+                <TrashIcon className="mr-2 size-4" />
                 Delete
               </>
             )}
@@ -250,21 +313,35 @@ export function AccountSettingsPage() {
       </section>
 
       {/* Delete account confirmation dialog */}
-      <Dialog onOpenChange={setShowDeleteAccountDialog} open={showDeleteAccountDialog}>
+      <Dialog
+        onOpenChange={setShowDeleteAccountDialog}
+        open={showDeleteAccountDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete account?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete your account and all
-              associated data including chat history, API keys, and all other settings. Any active
-              subscription is canceled immediately.
+              This action cannot be undone. This will permanently delete your
+              account and all associated data including chat history, API keys,
+              and all other settings. Any active subscription is canceled
+              immediately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => setShowDeleteAccountDialog(false)} variant="outline">
+            <Button
+              onClick={() => {
+                setShowDeleteAccountDialog(false);
+              }}
+              variant="outline"
+            >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteAccount} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteAccount();
+              }}
+              variant="destructive"
+            >
               Delete Account
             </Button>
           </DialogFooter>
@@ -272,4 +349,8 @@ export function AccountSettingsPage() {
       </Dialog>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/")({
+  component: AccountSettingsPage,
+});

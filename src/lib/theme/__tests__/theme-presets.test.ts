@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
+
 import { defaultPresets } from "../theme-presets";
 
-const WARM_COLOR_REGEX = /^#[c-f][0-9a-f]/i;
+const WARM_COLOR_REGEX = /^#[c-f][0-9a-f]/iu;
 
 describe("Theme Presets", () => {
   describe("defaultPresets object", () => {
     it("is defined", () => {
       expect(defaultPresets).toBeDefined();
-      expect(typeof defaultPresets).toBe("object");
+      expect(defaultPresets).toBeTypeOf("object");
     });
 
     it("has at least one preset", () => {
@@ -36,7 +37,7 @@ describe("Theme Presets", () => {
     it("each preset has a label", () => {
       for (const preset of Object.values(defaultPresets)) {
         expect(preset.label).toBeDefined();
-        expect(typeof preset.label).toBe("string");
+        expect(preset.label).toBeTypeOf("string");
         expect((preset.label ?? "").length).toBeGreaterThan(0);
       }
     });
@@ -50,12 +51,17 @@ describe("Theme Presets", () => {
     });
 
     it("each preset has required color properties", () => {
-      const requiredColors = ["background", "foreground", "primary", "secondary"];
+      const requiredColors = [
+        "background",
+        "foreground",
+        "primary",
+        "secondary",
+      ] as const;
 
       for (const preset of Object.values(defaultPresets)) {
         for (const color of requiredColors) {
-          expect(preset.styles.light[color as keyof typeof preset.styles.light]).toBeDefined();
-          expect(preset.styles.dark[color as keyof typeof preset.styles.dark]).toBeDefined();
+          expect(preset.styles.light[color]).toBeDefined();
+          expect(preset.styles.dark[color]).toBeDefined();
         }
       }
     });
@@ -69,7 +75,7 @@ describe("Theme Presets", () => {
   });
 
   describe("oschat preset", () => {
-    const oschat = defaultPresets.oschat;
+    const { oschat } = defaultPresets;
 
     it("has correct label", () => {
       expect(oschat.label).toBe("OS Chat");
@@ -93,23 +99,24 @@ describe("Theme Presets", () => {
   });
 
   describe("claude preset", () => {
-    const claude = defaultPresets.claude;
+    const { claude } = defaultPresets;
 
     it("has correct label", () => {
       expect(claude.label).toBe("Claude");
     });
 
     it("has warm terracotta/orange primary color", () => {
-      const primary = claude.styles.light.primary;
+      const { primary } = claude.styles.light;
       // Claude uses #c96442 - a warm terracotta/orange
       // Warm colors have red (R) as dominant channel
-      expect(primary).toMatch(WARM_COLOR_REGEX); // Starts with high red value
+      // Starts with high red value
+      expect(primary).toMatch(WARM_COLOR_REGEX);
       expect(primary).toBe("#c96442");
     });
   });
 
   describe("vercel preset", () => {
-    const vercel = defaultPresets.vercel;
+    const { vercel } = defaultPresets;
 
     it("has correct label", () => {
       expect(vercel.label).toBe("Vercel");

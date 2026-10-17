@@ -4,7 +4,8 @@
 
 import { ConvexError } from "convex/values";
 import { z } from "zod";
-import { ERROR_CODES, type ErrorCode, getErrorMessage } from "./error-codes";
+
+import { ERROR_CODES, getErrorMessage } from "./error-codes";
 import type { DetectedError } from "./provider-error-detector";
 
 export type ErrorDisplayType = "conversation" | "toast" | "both";
@@ -22,23 +23,19 @@ const ConvexRateLimitErrorSchema = z.object({
 /**
  * Type guard to check if an error is a ConvexError
  */
-function isConvexError(error: unknown): error is ConvexError<string> {
-  return error instanceof ConvexError;
-}
+const isConvexError = (error: unknown): error is ConvexError<string> =>
+  error instanceof ConvexError;
 
 /**
  * Type guard to check if an error is a DetectedError from provider error detection
  */
-function isDetectedError(error: unknown): error is DetectedError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "type" in error &&
-    "provider" in error &&
-    "message" in error &&
-    "userFriendlyMessage" in error
-  );
-}
+const isDetectedError = (error: unknown): error is DetectedError =>
+  typeof error === "object" &&
+  error !== null &&
+  "type" in error &&
+  "provider" in error &&
+  "message" in error &&
+  "userFriendlyMessage" in error;
 
 export interface ClassifiedError {
   displayType: ErrorDisplayType;
@@ -50,160 +47,151 @@ export interface ClassifiedError {
   originalError?: unknown;
 }
 
+const HTTP_STATUS_BY_CODE = new Map<string, number>([
+  // Auth errors
+  [ERROR_CODES.NOT_AUTHENTICATED, 401],
+  [ERROR_CODES.TOKEN_EXPIRED, 401],
+  [ERROR_CODES.UNAUTHORIZED, 403],
+  // Business errors
+  [ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED, 403],
+  [ERROR_CODES.PREMIUM_LIMIT_REACHED, 403],
+  [ERROR_CODES.DAILY_LIMIT_REACHED, 403],
+  [ERROR_CODES.MONTHLY_LIMIT_REACHED, 403],
+  // Validation errors
+  [ERROR_CODES.INVALID_INPUT, 400],
+  [ERROR_CODES.MISSING_REQUIRED_FIELD, 400],
+  [ERROR_CODES.UNSUPPORTED_FILE_TYPE, 400],
+  [ERROR_CODES.FILE_TOO_LARGE, 400],
+  // Resource not found
+  [ERROR_CODES.USER_NOT_FOUND, 404],
+  [ERROR_CODES.CHAT_NOT_FOUND, 404],
+  [ERROR_CODES.MESSAGE_NOT_FOUND, 404],
+  [ERROR_CODES.FILE_NOT_FOUND, 404],
+  // Business logic errors
+  [ERROR_CODES.USER_KEY_REQUIRED, 400],
+  [ERROR_CODES.UNSUPPORTED_MODEL, 400],
+  [ERROR_CODES.UNSUPPORTED_OPERATION, 400],
+  [ERROR_CODES.UPLOAD_FAILED, 500],
+  // Connector errors
+  [ERROR_CODES.CONNECTION_NOT_FOUND, 404],
+  [ERROR_CODES.CONNECTOR_NOT_SUPPORTED, 400],
+  [ERROR_CODES.CONNECTOR_AUTH_FAILED, 401],
+  [ERROR_CODES.CONNECTION_FAILED, 500],
+  [ERROR_CODES.CONNECTION_TIMEOUT, 500],
+  // Streaming errors
+  [ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT, 429],
+  [ERROR_CODES.PROVIDER_STREAM_THROTTLED, 429],
+  [ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED, 429],
+  [ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED, 402],
+  [ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE, 402],
+  [ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR, 401],
+  [ERROR_CODES.PROVIDER_STREAM_TIMEOUT, 408],
+]);
+
 /**
- * HTTP status code mapping for different error types
+ * HTTP status code mapping for different error types (500 for unknown codes)
  */
-function getHttpStatusForErrorCode(code: string): number {
-  switch (code) {
-    // Auth errors
-    case ERROR_CODES.NOT_AUTHENTICATED:
-    case ERROR_CODES.TOKEN_EXPIRED:
-      return 401;
-    case ERROR_CODES.UNAUTHORIZED:
-      return 403;
+const getHttpStatusForErrorCode = (code: string): number =>
+  HTTP_STATUS_BY_CODE.get(code) ?? 500;
 
-    // Business errors
-    case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED:
-    case ERROR_CODES.PREMIUM_LIMIT_REACHED:
-    case ERROR_CODES.DAILY_LIMIT_REACHED:
-    case ERROR_CODES.MONTHLY_LIMIT_REACHED:
-      return 403;
-
-    // Validation errors
-    case ERROR_CODES.INVALID_INPUT:
-    case ERROR_CODES.MISSING_REQUIRED_FIELD:
-    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
-    case ERROR_CODES.FILE_TOO_LARGE:
-      return 400;
-
-    // Resource not found
-    case ERROR_CODES.USER_NOT_FOUND:
-    case ERROR_CODES.CHAT_NOT_FOUND:
-    case ERROR_CODES.MESSAGE_NOT_FOUND:
-    case ERROR_CODES.FILE_NOT_FOUND:
-      return 404;
-
-    // Business logic errors
-    case ERROR_CODES.USER_KEY_REQUIRED:
-    case ERROR_CODES.UNSUPPORTED_MODEL:
-    case ERROR_CODES.UNSUPPORTED_OPERATION:
-      return 400;
-    case ERROR_CODES.UPLOAD_FAILED:
-      return 500;
-
-    // Connector errors
-    case ERROR_CODES.CONNECTION_NOT_FOUND:
-      return 404;
-    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED:
-      return 400;
-    case ERROR_CODES.CONNECTOR_AUTH_FAILED:
-      return 401;
-    case ERROR_CODES.CONNECTION_FAILED:
-    case ERROR_CODES.CONNECTION_TIMEOUT:
-      return 500;
-
-    // Streaming errors
-    case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT:
-    case ERROR_CODES.PROVIDER_STREAM_THROTTLED:
-    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED:
-      return 429;
-    case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED:
-    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE:
-      return 402;
-    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR:
-      return 401;
-    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT:
-      return 408;
-
-    default:
-      return 500;
-  }
-}
+const RESPONSE_TYPE_BY_CODE = new Map<string, string>([
+  // Auth errors
+  [ERROR_CODES.NOT_AUTHENTICATED, "auth_error"],
+  [ERROR_CODES.UNAUTHORIZED, "unauthorized"],
+  [ERROR_CODES.TOKEN_EXPIRED, "token_expired"],
+  // Business errors
+  [ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED, "premium_access_denied"],
+  [ERROR_CODES.USER_KEY_REQUIRED, "api_key_required"],
+  [ERROR_CODES.PREMIUM_LIMIT_REACHED, "usage_limit"],
+  [ERROR_CODES.DAILY_LIMIT_REACHED, "usage_limit"],
+  [ERROR_CODES.MONTHLY_LIMIT_REACHED, "usage_limit"],
+  // Validation errors
+  [ERROR_CODES.INVALID_INPUT, "validation_error"],
+  [ERROR_CODES.MISSING_REQUIRED_FIELD, "validation_error"],
+  [ERROR_CODES.UNSUPPORTED_FILE_TYPE, "unsupported_file_type"],
+  [ERROR_CODES.FILE_TOO_LARGE, "file_too_large"],
+  // Resource errors
+  [ERROR_CODES.USER_NOT_FOUND, "not_found"],
+  [ERROR_CODES.CHAT_NOT_FOUND, "not_found"],
+  [ERROR_CODES.MESSAGE_NOT_FOUND, "not_found"],
+  [ERROR_CODES.FILE_NOT_FOUND, "not_found"],
+  // Operation errors
+  [ERROR_CODES.UNSUPPORTED_MODEL, "unsupported_model"],
+  [ERROR_CODES.UNSUPPORTED_OPERATION, "unsupported_operation"],
+  [ERROR_CODES.UPLOAD_FAILED, "upload_failed"],
+  // Connector errors
+  [ERROR_CODES.CONNECTION_FAILED, "connection_failed"],
+  [ERROR_CODES.CONNECTION_NOT_FOUND, "connection_not_found"],
+  [ERROR_CODES.CONNECTION_TIMEOUT, "connection_timeout"],
+  [ERROR_CODES.CONNECTOR_NOT_SUPPORTED, "connector_not_supported"],
+  [ERROR_CODES.CONNECTOR_AUTH_FAILED, "connector_auth_failed"],
+  // Streaming errors
+  [ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT, "provider_rate_limit"],
+  [ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED, "provider_quota_exceeded"],
+  [
+    ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE,
+    "provider_insufficient_balance",
+  ],
+  [ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR, "provider_auth_error"],
+  [ERROR_CODES.PROVIDER_STREAM_TIMEOUT, "provider_timeout"],
+  [ERROR_CODES.PROVIDER_STREAM_THROTTLED, "provider_throttled"],
+  [
+    ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED,
+    "provider_resource_exhausted",
+  ],
+]);
 
 /**
  * Get API response type identifier for error code
  */
-function getResponseTypeForErrorCode(code: string): string {
-  switch (code) {
-    // Auth errors
-    case ERROR_CODES.NOT_AUTHENTICATED:
-      return "auth_error";
-    case ERROR_CODES.UNAUTHORIZED:
-      return "unauthorized";
-    case ERROR_CODES.TOKEN_EXPIRED:
-      return "token_expired";
+const getResponseTypeForErrorCode = (code: string): string =>
+  RESPONSE_TYPE_BY_CODE.get(code) ?? "unknown_error";
 
-    // Business errors
-    case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED:
-      return "premium_access_denied";
-    case ERROR_CODES.USER_KEY_REQUIRED:
-      return "api_key_required";
-    case ERROR_CODES.PREMIUM_LIMIT_REACHED:
-    case ERROR_CODES.DAILY_LIMIT_REACHED:
-    case ERROR_CODES.MONTHLY_LIMIT_REACHED:
-      return "usage_limit";
-
-    // Validation errors
-    case ERROR_CODES.INVALID_INPUT:
-    case ERROR_CODES.MISSING_REQUIRED_FIELD:
-      return "validation_error";
-    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
-      return "unsupported_file_type";
-    case ERROR_CODES.FILE_TOO_LARGE:
-      return "file_too_large";
-
-    // Resource errors
-    case ERROR_CODES.USER_NOT_FOUND:
-    case ERROR_CODES.CHAT_NOT_FOUND:
-    case ERROR_CODES.MESSAGE_NOT_FOUND:
-    case ERROR_CODES.FILE_NOT_FOUND:
-      return "not_found";
-
-    // Operation errors
-    case ERROR_CODES.UNSUPPORTED_MODEL:
-      return "unsupported_model";
-    case ERROR_CODES.UNSUPPORTED_OPERATION:
-      return "unsupported_operation";
-    case ERROR_CODES.UPLOAD_FAILED:
-      return "upload_failed";
-
-    // Connector errors
-    case ERROR_CODES.CONNECTION_FAILED:
-      return "connection_failed";
-    case ERROR_CODES.CONNECTION_NOT_FOUND:
-      return "connection_not_found";
-    case ERROR_CODES.CONNECTION_TIMEOUT:
-      return "connection_timeout";
-    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED:
-      return "connector_not_supported";
-    case ERROR_CODES.CONNECTOR_AUTH_FAILED:
-      return "connector_auth_failed";
-
-    // Streaming errors
-    case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT:
-      return "provider_rate_limit";
-    case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED:
-      return "provider_quota_exceeded";
-    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE:
-      return "provider_insufficient_balance";
-    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR:
-      return "provider_auth_error";
-    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT:
-      return "provider_timeout";
-    case ERROR_CODES.PROVIDER_STREAM_THROTTLED:
-      return "provider_throttled";
-    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED:
-      return "provider_resource_exhausted";
-
-    default:
-      return "unknown_error";
+/**
+ * Create a classified error from a detected streaming error
+ */
+export const classifyStreamingError = (detectedError: {
+  type: string;
+  provider: string;
+  message: string;
+  userFriendlyMessage: string;
+  isRateLimit?: boolean;
+  isQuotaExceeded?: boolean;
+  isInsufficientBalance?: boolean;
+  isAuthError?: boolean;
+}): ClassifiedError => {
+  // Map detected error types to error codes
+  let code: string;
+  if (detectedError.isRateLimit === true) {
+    code = "PROVIDER_STREAM_RATE_LIMIT";
+  } else if (detectedError.isQuotaExceeded === true) {
+    code = "PROVIDER_STREAM_QUOTA_EXCEEDED";
+  } else if (detectedError.isInsufficientBalance === true) {
+    code = "PROVIDER_STREAM_INSUFFICIENT_BALANCE";
+  } else if (detectedError.isAuthError === true) {
+    code = "PROVIDER_STREAM_AUTH_ERROR";
+  } else {
+    code = "PROVIDER_STREAM_THROTTLED";
   }
-}
+
+  // Determine display type - streaming errors should be shown in conversation
+  const displayType: ErrorDisplayType = "conversation";
+
+  return {
+    displayType,
+    code,
+    message: detectedError.message,
+    userFriendlyMessage: detectedError.userFriendlyMessage,
+    httpStatus: getHttpStatusForErrorCode(code),
+    responseType: getResponseTypeForErrorCode(code),
+    originalError: detectedError,
+  };
+};
 
 /**
  * Classify an error and determine how it should be displayed
  */
-export function classifyError(error: unknown): ClassifiedError {
+export const classifyError = (error: unknown): ClassifiedError => {
   // Handle DetectedError from provider error detection first
   if (isDetectedError(error)) {
     // Use the existing classifyStreamingError function which handles DetectedError properly
@@ -212,7 +200,7 @@ export function classifyError(error: unknown): ClassifiedError {
 
   // Handle ConvexError second (our new standardized errors)
   if (isConvexError(error)) {
-    const errorCode = error.data as ErrorCode;
+    const errorCode = error.data;
     const userFriendlyMessage = getErrorMessage(errorCode);
 
     // Determine display type based on error code
@@ -244,7 +232,7 @@ export function classifyError(error: unknown): ClassifiedError {
     return {
       displayType: "conversation",
       code,
-      message: `Rate limit exceeded. ${name || "Unknown limit"}`,
+      message: `Rate limit exceeded. ${name !== undefined && name !== "" ? name : "Unknown limit"}`,
       userFriendlyMessage: `You've reached your usage limit. Please try again in a moment.`,
       httpStatus: 429,
       responseType: "rate_limit",
@@ -254,9 +242,13 @@ export function classifyError(error: unknown): ClassifiedError {
 
   // Handle any remaining Error instances or unknown errors
   let errorMsg: string;
-  if (error && error instanceof Error) {
+  if (error instanceof Error) {
     errorMsg = error.message;
-  } else if (error && typeof error === "object" && "message" in error) {
+  } else if (
+    error !== null &&
+    typeof error === "object" &&
+    "message" in error
+  ) {
     errorMsg = String(error.message);
   } else {
     errorMsg = String(error);
@@ -272,12 +264,12 @@ export function classifyError(error: unknown): ClassifiedError {
     responseType: "unknown_error",
     originalError: error,
   };
-}
+};
 
 /**
  * Create a standardized API error response
  */
-export function createErrorResponse(error: unknown): Response {
+export const createErrorResponse = (error: unknown): Response => {
   const classified = classifyError(error);
 
   const errorPayload = {
@@ -288,16 +280,18 @@ export function createErrorResponse(error: unknown): Response {
     },
   };
 
-  return new Response(JSON.stringify(errorPayload), {
+  return Response.json(errorPayload, {
     status: classified.httpStatus,
     headers: { "Content-Type": "application/json" },
   });
-}
+};
 
 /**
  * Create a standardized streaming error for conversation display
  */
-export function createStreamingError(error: unknown): {
+export const createStreamingError = (
+  error: unknown
+): {
   shouldSaveToConversation: boolean;
   errorPayload: {
     error: {
@@ -305,7 +299,7 @@ export function createStreamingError(error: unknown): {
       message: string;
     };
   };
-} {
+} => {
   const classified = classifyError(error);
 
   const errorPayload = {
@@ -317,86 +311,53 @@ export function createStreamingError(error: unknown): {
 
   return {
     shouldSaveToConversation:
-      classified.displayType === "conversation" || classified.displayType === "both",
+      classified.displayType === "conversation" ||
+      classified.displayType === "both",
     errorPayload,
   };
-}
+};
 
 /**
  * Create an ErrorUIPart for conversation display
  */
-export function createErrorPart(code: string, message: string, rawError?: string) {
-  return {
-    type: "error" as const,
-    error: {
-      code,
-      message,
-      ...(rawError && { rawError }),
-    },
-  };
-}
+export const createErrorPart = (
+  code: string,
+  message: string,
+  rawError?: string
+) => ({
+  type: "error" as const,
+  error: {
+    code,
+    message,
+    ...(rawError !== undefined && rawError !== "" ? { rawError } : {}),
+  },
+});
 
 /**
  * Check if an error should be displayed in conversation
  */
-export function shouldShowInConversation(error: unknown): boolean {
+export const shouldShowInConversation = (error: unknown): boolean => {
   const classified = classifyError(error);
-  return classified.displayType === "conversation" || classified.displayType === "both";
-}
+  return (
+    classified.displayType === "conversation" ||
+    classified.displayType === "both"
+  );
+};
 
 /**
  * Check if an error should be displayed as toast
  */
-export function shouldShowAsToast(error: unknown): boolean {
+export const shouldShowAsToast = (error: unknown): boolean => {
   const classified = classifyError(error);
-  return classified.displayType === "toast" || classified.displayType === "both";
-}
-
-/**
- * Create a classified error from a detected streaming error
- */
-export function classifyStreamingError(detectedError: {
-  type: string;
-  provider: string;
-  message: string;
-  userFriendlyMessage: string;
-  isRateLimit?: boolean;
-  isQuotaExceeded?: boolean;
-  isInsufficientBalance?: boolean;
-  isAuthError?: boolean;
-}): ClassifiedError {
-  // Map detected error types to error codes
-  let code: string;
-  if (detectedError.isRateLimit) {
-    code = "PROVIDER_STREAM_RATE_LIMIT";
-  } else if (detectedError.isQuotaExceeded) {
-    code = "PROVIDER_STREAM_QUOTA_EXCEEDED";
-  } else if (detectedError.isInsufficientBalance) {
-    code = "PROVIDER_STREAM_INSUFFICIENT_BALANCE";
-  } else if (detectedError.isAuthError) {
-    code = "PROVIDER_STREAM_AUTH_ERROR";
-  } else {
-    code = "PROVIDER_STREAM_THROTTLED";
-  }
-
-  // Determine display type - streaming errors should be shown in conversation
-  const displayType: ErrorDisplayType = "conversation";
-
-  return {
-    displayType,
-    code,
-    message: detectedError.message,
-    userFriendlyMessage: detectedError.userFriendlyMessage,
-    httpStatus: getHttpStatusForErrorCode(code),
-    responseType: getResponseTypeForErrorCode(code),
-    originalError: detectedError,
-  };
-}
+  return (
+    classified.displayType === "toast" || classified.displayType === "both"
+  );
+};
 
 /**
  * Create an ErrorUIPart from a detected streaming error
  */
-export function createErrorPartFromDetectedError(detectedError: {
+export const createErrorPartFromDetectedError = (detectedError: {
   type: string;
   provider: string;
   message: string;
@@ -405,7 +366,11 @@ export function createErrorPartFromDetectedError(detectedError: {
   isQuotaExceeded?: boolean;
   isInsufficientBalance?: boolean;
   isAuthError?: boolean;
-}) {
+}) => {
   const classified = classifyStreamingError(detectedError);
-  return createErrorPart(classified.code, classified.userFriendlyMessage, detectedError.message);
-}
+  return createErrorPart(
+    classified.code,
+    classified.userFriendlyMessage,
+    detectedError.message
+  );
+};

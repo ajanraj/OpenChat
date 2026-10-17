@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  defaultDarkThemeStyles,
+  defaultLightThemeStyles,
+} from "../../config/theme";
 import type { ThemeEditorState } from "../../types/theme";
 import { applyThemeToElement } from "../apply-theme";
 
-// Mock minimal theme styles for testing
+// Mock theme styles for testing: the defaults, with the values the tests assert on
 const mockLightStyles = {
+  ...defaultLightThemeStyles,
   background: "oklch(1 0 0)",
   foreground: "oklch(0.141 0.005 285.823)",
   primary: "oklch(0.21 0.006 285.885)",
@@ -13,6 +19,7 @@ const mockLightStyles = {
 };
 
 const mockDarkStyles = {
+  ...defaultDarkThemeStyles,
   background: "oklch(0.2 0 0)",
   foreground: "oklch(0.985 0 0)",
   primary: "oklch(0.8 0.006 285.885)",
@@ -29,17 +36,19 @@ const defaultHslAdjustments = {
 };
 
 // Helper to create a valid ThemeEditorState
-const createThemeState = (overrides: Partial<ThemeEditorState> = {}): ThemeEditorState => ({
+const createThemeState = (
+  overrides: Partial<ThemeEditorState> = {}
+): ThemeEditorState => ({
   currentMode: "light",
   styles: {
-    light: mockLightStyles as never,
-    dark: mockDarkStyles as never,
+    light: mockLightStyles,
+    dark: mockDarkStyles,
   },
   hslAdjustments: defaultHslAdjustments,
   ...overrides,
 });
 
-describe("applyThemeToElement", () => {
+describe(applyThemeToElement, () => {
   let mockElement: HTMLElement;
 
   beforeEach(() => {
@@ -50,11 +59,13 @@ describe("applyThemeToElement", () => {
     vi.clearAllMocks();
   });
 
-  it("does nothing when rootElement is null/undefined", () => {
+  it("does nothing when rootElement is null", () => {
     const themeState = createThemeState();
 
     // Should not throw
-    expect(() => applyThemeToElement(themeState, null as unknown as HTMLElement)).not.toThrow();
+    expect(() => {
+      applyThemeToElement(themeState, null);
+    }).not.toThrow();
   });
 
   it("applies light mode class correctly", () => {
@@ -63,7 +74,7 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(themeState, mockElement);
 
-    expect(mockElement.classList.contains("dark")).toBe(false);
+    expect(mockElement.classList.contains("dark")).toBeFalsy();
   });
 
   it("applies dark mode class correctly", () => {
@@ -71,7 +82,7 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(themeState, mockElement);
 
-    expect(mockElement.classList.contains("dark")).toBe(true);
+    expect(mockElement.classList.contains("dark")).toBeTruthy();
   });
 
   it("sets color CSS variables for light mode", () => {
@@ -79,8 +90,12 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(themeState, mockElement);
 
-    expect(mockElement.style.getPropertyValue("--background")).toBe("oklch(1 0 0)");
-    expect(mockElement.style.getPropertyValue("--foreground")).toBe("oklch(0.141 0.005 285.823)");
+    expect(mockElement.style.getPropertyValue("--background")).toBe(
+      "oklch(1 0 0)"
+    );
+    expect(mockElement.style.getPropertyValue("--foreground")).toBe(
+      "oklch(0.141 0.005 285.823)"
+    );
   });
 
   it("sets color CSS variables for dark mode", () => {
@@ -88,8 +103,12 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(themeState, mockElement);
 
-    expect(mockElement.style.getPropertyValue("--background")).toBe("oklch(0.2 0 0)");
-    expect(mockElement.style.getPropertyValue("--foreground")).toBe("oklch(0.985 0 0)");
+    expect(mockElement.style.getPropertyValue("--background")).toBe(
+      "oklch(0.2 0 0)"
+    );
+    expect(mockElement.style.getPropertyValue("--foreground")).toBe(
+      "oklch(0.985 0 0)"
+    );
   });
 
   it("sets common styles like radius", () => {
@@ -121,8 +140,8 @@ describe("applyThemeToElement", () => {
           ...mockLightStyles,
           "font-sans": "Geist, ui-sans-serif, system-ui, sans-serif",
           "font-mono": "'Geist Mono', ui-monospace, monospace",
-        } as never,
-        dark: mockDarkStyles as never,
+        },
+        dark: mockDarkStyles,
       },
     });
 
@@ -139,8 +158,8 @@ describe("applyThemeToElement", () => {
         light: {
           ...mockLightStyles,
           "font-sans": "Inter, ui-sans-serif, sans-serif",
-        } as never,
-        dark: mockDarkStyles as never,
+        },
+        dark: mockDarkStyles,
       },
     });
 
@@ -157,8 +176,8 @@ describe("applyThemeToElement", () => {
         light: {
           ...mockLightStyles,
           "font-mono": "'JetBrains Mono', ui-monospace, monospace",
-        } as never,
-        dark: mockDarkStyles as never,
+        },
+        dark: mockDarkStyles,
       },
     });
 
@@ -175,8 +194,8 @@ describe("applyThemeToElement", () => {
         light: {
           ...mockLightStyles,
           "font-sans": "CustomFont, sans-serif",
-        } as never,
-        dark: mockDarkStyles as never,
+        },
+        dark: mockDarkStyles,
       },
     });
 
@@ -193,7 +212,7 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(lightState, mockElement);
 
-    expect(mockElement.classList.contains("dark")).toBe(false);
+    expect(mockElement.classList.contains("dark")).toBeFalsy();
   });
 
   it("switches from light to dark mode correctly", () => {
@@ -201,6 +220,6 @@ describe("applyThemeToElement", () => {
 
     applyThemeToElement(darkState, mockElement);
 
-    expect(mockElement.classList.contains("dark")).toBe(true);
+    expect(mockElement.classList.contains("dark")).toBeTruthy();
   });
 });

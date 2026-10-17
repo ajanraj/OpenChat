@@ -14,7 +14,13 @@ import {
   QwenDark,
   QwenLight,
 } from "@ridemountainpig/svgl-react";
-import { FluxIcon, KimiIcon, MinimaxIcon, ZAIIcon } from "@/components/icons/provider-brand-icons";
+
+import {
+  FluxIcon,
+  KimiIcon,
+  MinimaxIcon,
+  ZAIIcon,
+} from "@/components/icons/provider-brand-icons";
 
 export interface Provider {
   id: string;

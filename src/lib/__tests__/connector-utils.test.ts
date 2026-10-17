@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { type Connector, calculateConnectorStatus, SUPPORTED_CONNECTORS } from "../connector-utils";
 
-describe("SUPPORTED_CONNECTORS", () => {
+import {
+  calculateConnectorStatus,
+  SUPPORTED_CONNECTORS,
+} from "../connector-utils";
+import type { Connector } from "../connector-utils";
+
+describe("SUPPORTED_CONNECTORS list", () => {
   it("is defined and is an array", () => {
     expect(SUPPORTED_CONNECTORS).toBeDefined();
-    expect(Array.isArray(SUPPORTED_CONNECTORS)).toBe(true);
+    expect(Array.isArray(SUPPORTED_CONNECTORS)).toBeTruthy();
   });
 
   it("contains expected connector types", () => {
@@ -12,13 +17,13 @@ describe("SUPPORTED_CONNECTORS", () => {
   });
 });
 
-describe("calculateConnectorStatus", () => {
+describe(calculateConnectorStatus, () => {
   it("returns empty arrays when no connectors provided", () => {
     const result = calculateConnectorStatus([]);
 
-    expect(result.enabled).toEqual([]);
-    expect(result.disabled).toEqual([]);
-    expect(result.notConnected.length).toBe(SUPPORTED_CONNECTORS.length);
+    expect(result.enabled).toStrictEqual([]);
+    expect(result.disabled).toStrictEqual([]);
+    expect(result.notConnected).toHaveLength(SUPPORTED_CONNECTORS.length);
   });
 
   it("correctly identifies enabled connectors", () => {
@@ -34,7 +39,9 @@ describe("calculateConnectorStatus", () => {
   });
 
   it("correctly identifies disabled connectors", () => {
-    const connectors: Connector[] = [{ type: "gmail", isConnected: true, enabled: false }];
+    const connectors: Connector[] = [
+      { type: "gmail", isConnected: true, enabled: false },
+    ];
 
     const result = calculateConnectorStatus(connectors);
 

@@ -1,11 +1,10 @@
-import { type ClassValue, clsx } from "clsx";
+import { clsx } from "clsx";
+import type { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
-export function isDeepEqual(a: unknown, b: unknown): boolean {
+export const isDeepEqual = (a: unknown, b: unknown): boolean => {
   if (a === b) {
     return true;
   }
@@ -18,21 +17,21 @@ export function isDeepEqual(a: unknown, b: unknown): boolean {
     return false;
   }
 
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
+  const entriesA: [string, unknown][] = Object.entries(a);
+  const valuesB = new Map<string, unknown>(Object.entries(b));
 
-  if (keysA.length !== keysB.length) {
+  if (entriesA.length !== valuesB.size) {
     return false;
   }
 
-  for (const key of keysA) {
-    if (!keysB.includes(key)) {
+  for (const [key, valueA] of entriesA) {
+    if (!valuesB.has(key)) {
       return false;
     }
-    if (!isDeepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
+    if (!isDeepEqual(valueA, valuesB.get(key))) {
       return false;
     }
   }
 
   return true;
-}
+};

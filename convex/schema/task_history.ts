@@ -2,19 +2,24 @@ import { v } from "convex/values";
 
 export const TaskHistory = v.object({
   taskId: v.id("scheduled_tasks"),
-  executionId: v.string(), // Unique identifier for this execution
+  // Unique identifier for this execution
+  executionId: v.string(),
   status: v.union(
     v.literal("pending"),
     v.literal("running"),
     v.literal("success"),
     v.literal("failure"),
     v.literal("cancelled"),
-    v.literal("timeout"),
+    v.literal("timeout")
   ),
-  startTime: v.number(), // Execution start timestamp
-  endTime: v.optional(v.number()), // Execution end timestamp
-  chatId: v.optional(v.id("chats")), // Link to generated chat (if successful)
-  errorMessage: v.optional(v.string()), // Capture failures and exceptions
+  // Execution start timestamp
+  startTime: v.number(),
+  // Execution end timestamp
+  endTime: v.optional(v.number()),
+  // Link to generated chat (if successful)
+  chatId: v.optional(v.id("chats")),
+  // Capture failures and exceptions
+  errorMessage: v.optional(v.string()),
   metadata: v.optional(
     v.object({
       modelId: v.optional(v.string()),
@@ -27,8 +32,9 @@ export const TaskHistory = v.object({
       serverDurationMs: v.optional(v.number()),
       includeSearch: v.optional(v.boolean()),
       toolkitSlugs: v.optional(v.array(v.string())),
-    }),
+    })
   ),
-  isManualTrigger: v.optional(v.boolean()), // Track manual vs scheduled executions
+  // Track manual vs scheduled executions
+  isManualTrigger: v.optional(v.boolean()),
   createdAt: v.number(),
 });

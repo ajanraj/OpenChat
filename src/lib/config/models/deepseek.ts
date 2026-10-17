@@ -1,4 +1,5 @@
 import { gateway } from "@ai-sdk/gateway";
+
 import {
   FILE_UPLOAD_FEATURE,
   REASONING_FEATURE,
@@ -20,7 +21,11 @@ export const DEEPSEEK_MODELS = [
       "DeepSeek's fastest model with vision and one-million-token context.\nSupports optional reasoning, images, and tool-driven agentic work.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: gateway("deepseek/deepseek-v4.1-flash"),
-    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+    features: [
+      FILE_UPLOAD_FEATURE,
+      TOOL_CALLING_FEATURE,
+      REASONING_FEATURE_TOGGLE,
+    ],
   },
   {
     id: "deepseek/deepseek-v4-flash",

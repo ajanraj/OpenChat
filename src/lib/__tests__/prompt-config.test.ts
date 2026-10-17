@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   buildSystemPrompt,
   EMAIL_PROMPT_INSTRUCTIONS,
@@ -9,22 +10,24 @@ import {
   PERSONAS_MAP,
   SEARCH_PROMPT_INSTRUCTIONS,
   TOOL_PROMPT_INSTRUCTIONS,
-} from "../prompt_config";
+} from "../prompt-config";
 
-describe("PERSONAS", () => {
+describe("PERSONAS constant", () => {
   it("is a non-empty array", () => {
-    expect(Array.isArray(PERSONAS)).toBe(true);
+    expect(Array.isArray(PERSONAS)).toBeTruthy();
     expect(PERSONAS.length).toBeGreaterThan(0);
   });
 
-  it("each persona has required properties", () => {
+  it("each persona has a string id, label and prompt", () => {
     for (const persona of PERSONAS) {
-      expect(persona.id).toBeDefined();
-      expect(typeof persona.id).toBe("string");
-      expect(persona.label).toBeDefined();
-      expect(typeof persona.label).toBe("string");
-      expect(persona.prompt).toBeDefined();
-      expect(typeof persona.prompt).toBe("string");
+      expect(persona.id).toBeTypeOf("string");
+      expect(persona.label).toBeTypeOf("string");
+      expect(persona.prompt).toBeTypeOf("string");
+    }
+  });
+
+  it("each persona has an icon", () => {
+    for (const persona of PERSONAS) {
       expect(persona.icon).toBeDefined();
     }
   });
@@ -44,10 +47,10 @@ describe("PERSONAS", () => {
   });
 });
 
-describe("PERSONAS_MAP", () => {
+describe("PERSONAS_MAP constant", () => {
   it("is an object with persona entries", () => {
-    expect(typeof PERSONAS_MAP).toBe("object");
-    expect(Object.keys(PERSONAS_MAP).length).toBe(PERSONAS.length);
+    expect(PERSONAS_MAP).toBeTypeOf("object");
+    expect(Object.keys(PERSONAS_MAP)).toHaveLength(PERSONAS.length);
   });
 
   it("provides O(1) lookup by id", () => {
@@ -62,9 +65,9 @@ describe("PERSONAS_MAP", () => {
   });
 });
 
-describe("FORMATTING_RULES", () => {
+describe("FORMATTING_RULES constant", () => {
   it("is a non-empty string", () => {
-    expect(typeof FORMATTING_RULES).toBe("string");
+    expect(FORMATTING_RULES).toBeTypeOf("string");
     expect(FORMATTING_RULES.length).toBeGreaterThan(0);
   });
 
@@ -77,9 +80,9 @@ describe("FORMATTING_RULES", () => {
   });
 });
 
-describe("SEARCH_PROMPT_INSTRUCTIONS", () => {
+describe("SEARCH_PROMPT_INSTRUCTIONS constant", () => {
   it("is a non-empty string", () => {
-    expect(typeof SEARCH_PROMPT_INSTRUCTIONS).toBe("string");
+    expect(SEARCH_PROMPT_INSTRUCTIONS).toBeTypeOf("string");
     expect(SEARCH_PROMPT_INSTRUCTIONS.length).toBeGreaterThan(0);
   });
 
@@ -88,9 +91,9 @@ describe("SEARCH_PROMPT_INSTRUCTIONS", () => {
   });
 });
 
-describe("TOOL_PROMPT_INSTRUCTIONS", () => {
+describe("TOOL_PROMPT_INSTRUCTIONS constant", () => {
   it("is a non-empty string", () => {
-    expect(typeof TOOL_PROMPT_INSTRUCTIONS).toBe("string");
+    expect(TOOL_PROMPT_INSTRUCTIONS).toBeTypeOf("string");
     expect(TOOL_PROMPT_INSTRUCTIONS.length).toBeGreaterThan(0);
   });
 
@@ -99,9 +102,9 @@ describe("TOOL_PROMPT_INSTRUCTIONS", () => {
   });
 });
 
-describe("EMAIL_PROMPT_INSTRUCTIONS", () => {
+describe("EMAIL_PROMPT_INSTRUCTIONS constant", () => {
   it("is a non-empty string", () => {
-    expect(typeof EMAIL_PROMPT_INSTRUCTIONS).toBe("string");
+    expect(EMAIL_PROMPT_INSTRUCTIONS).toBeTypeOf("string");
     expect(EMAIL_PROMPT_INSTRUCTIONS.length).toBeGreaterThan(0);
   });
 
@@ -110,10 +113,10 @@ describe("EMAIL_PROMPT_INSTRUCTIONS", () => {
   });
 });
 
-describe("getSystemPromptDefault", () => {
+describe(getSystemPromptDefault, () => {
   it("returns a non-empty string", () => {
     const result = getSystemPromptDefault();
-    expect(typeof result).toBe("string");
+    expect(result).toBeTypeOf("string");
     expect(result.length).toBeGreaterThan(0);
   });
 
@@ -129,7 +132,7 @@ describe("getSystemPromptDefault", () => {
 
   it("accepts timezone parameter", () => {
     const result = getSystemPromptDefault("America/New_York");
-    expect(typeof result).toBe("string");
+    expect(result).toBeTypeOf("string");
   });
 
   it("accepts connectors status", () => {
@@ -143,10 +146,10 @@ describe("getSystemPromptDefault", () => {
   });
 });
 
-describe("getTaskPromptDefault", () => {
+describe(getTaskPromptDefault, () => {
   it("returns a non-empty string", () => {
     const result = getTaskPromptDefault();
-    expect(typeof result).toBe("string");
+    expect(result).toBeTypeOf("string");
     expect(result.length).toBeGreaterThan(0);
   });
 
@@ -161,7 +164,7 @@ describe("getTaskPromptDefault", () => {
   });
 });
 
-describe("buildSystemPrompt", () => {
+describe(buildSystemPrompt, () => {
   it("returns default prompt when no user provided", () => {
     const result = buildSystemPrompt();
     expect(result).toContain("OS Chat");
@@ -190,12 +193,25 @@ describe("buildSystemPrompt", () => {
   });
 
   it("adds email instructions when enabled", () => {
-    const result = buildSystemPrompt(null, undefined, false, false, undefined, true);
+    const result = buildSystemPrompt(
+      null,
+      undefined,
+      false,
+      false,
+      undefined,
+      true
+    );
     expect(result).toContain("email_formatting");
   });
 
   it("adds timezone when provided", () => {
-    const result = buildSystemPrompt(null, undefined, false, false, "America/New_York");
+    const result = buildSystemPrompt(
+      null,
+      undefined,
+      false,
+      false,
+      "America/New_York"
+    );
     expect(result).toContain("America/New_York");
   });
 
@@ -207,7 +223,7 @@ describe("buildSystemPrompt", () => {
       false,
       "America/New_York",
       false,
-      true,
+      true
     );
     expect(result).toContain("scheduled task");
   });
@@ -220,7 +236,7 @@ describe("buildSystemPrompt", () => {
       traits: "friendly",
       about: "Loves coding",
     };
-    const result = buildSystemPrompt(user as never);
+    const result = buildSystemPrompt(user);
     expect(result).toContain("Name: John Doe");
     expect(result).toContain("Preferred Name: John");
     expect(result).toContain("Occupation: Developer");
@@ -232,7 +248,7 @@ describe("buildSystemPrompt", () => {
     const user = {
       name: "Jane",
     };
-    const result = buildSystemPrompt(user as never);
+    const result = buildSystemPrompt(user);
     expect(result).toContain("Name: Jane");
     expect(result).not.toContain("Preferred Name:");
   });
@@ -250,7 +266,7 @@ describe("buildSystemPrompt", () => {
       traits: "focused",
     };
     const result = buildSystemPrompt(
-      user as never,
+      user,
       undefined,
       false,
       false,
@@ -258,7 +274,7 @@ describe("buildSystemPrompt", () => {
       false,
       false,
       undefined,
-      profile,
+      profile
     );
 
     expect(result).toContain("Name: Jane Doe");

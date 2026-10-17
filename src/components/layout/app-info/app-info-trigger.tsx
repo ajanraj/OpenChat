@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/drawer";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME } from "@/lib/config/constants";
 import { AppInfoContent } from "./app-info-content";
 
 type AppInfoTriggerProps = {

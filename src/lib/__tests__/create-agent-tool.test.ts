@@ -1,7 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
 import * as ai from "ai";
 import { MockLanguageModelV4 } from "ai/test";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+
+import type { getToolSpecificPrompts } from "@/lib/prompt-tool-config";
+
 import type { ComposioToolsSession } from "../composio-server";
 import {
   analyzeSubAgentExecution,
@@ -17,25 +20,32 @@ const { mockGetComposioTools, mockStreamText } = vi.hoisted(() => ({
       (
         userId: string,
         toolkitSlugs: string[],
-        signal?: AbortSignal,
+        signal?: AbortSignal
       ) => Promise<ComposioToolsSession | null>
     >(),
   mockStreamText: vi.fn<typeof ai.streamText>(),
 }));
 
-vi.mock("ai", async (importOriginal) => ({
-  ...(await importOriginal<typeof ai>()),
-  streamText: mockStreamText,
-}));
+// A vi.fn can't take streamText's generic signature, so the factory is checked against the
+// rest of the module only
+vi.mock<Omit<typeof ai, "streamText">>(
+  import("ai"),
+  async (importOriginal) => ({
+    ...(await importOriginal()),
+    streamText: mockStreamText,
+  })
+);
 
 // Mock the composio-server module to avoid environment variable requirements
-vi.mock("@/lib/composio-server", () => ({
+vi.mock(import("@/lib/composio-server"), () => ({
   getComposioTools: mockGetComposioTools,
 }));
 
 // Mock prompt-tool-config to avoid any side effects
-vi.mock("@/lib/prompt-tool-config", () => ({
-  getToolSpecificPrompts: vi.fn<(toolkits: string[]) => string>().mockReturnValue(""),
+vi.mock(import("@/lib/prompt-tool-config"), () => ({
+  getToolSpecificPrompts: vi
+    .fn<typeof getToolSpecificPrompts>()
+    .mockReturnValue(""),
 }));
 
 const successfulConnectorResult: ai.DynamicToolResult = {
@@ -82,8 +92,8 @@ describe("create-agent-tool", () => {
     await expect(
       agentTool.execute(
         { tool: "GMAIL", task: "Send an email" },
-        { toolCallId: "agent-call", messages: [], context: {} },
-      ),
+        { toolCallId: "agent-call", messages: [], context: {} }
+      )
     ).rejects.toThrow("Agent startup failed");
     expect(close).toHaveBeenCalledOnce();
   });
@@ -123,10 +133,12 @@ describe("create-agent-tool", () => {
     await expect(
       agentTool.execute(
         { tool: "GMAIL", task: "Send an email" },
-        { toolCallId: "agent-call", messages: [], context: {} },
-      ),
+        { toolCallId: "agent-call", messages: [], context: {} }
+      )
     ).rejects.toThrow("Stop after inspecting options");
-    expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ reasoning: "high" }));
+    expect(mockStreamText).toHaveBeenCalledWith(
+      expect.objectContaining({ reasoning: "high" })
+    );
     expect(close).toHaveBeenCalledOnce();
   });
 
@@ -144,10 +156,12 @@ describe("create-agent-tool", () => {
     });
     // A model that streams nothing until it is cancelled, like a stalled provider
     const model = new MockLanguageModelV4({
-      doStream: async () => ({ stream: new ReadableStream() }),
+      doStream: { stream: new ReadableStream() },
     });
     const { streamText } = await vi.importActual<typeof ai>("ai");
-    mockStreamText.mockImplementation((options) => streamText({ ...options, model }));
+    mockStreamText.mockImplementation((options) =>
+      streamText({ ...options, model })
+    );
     const writer: ai.UIMessageStreamWriter = {
       write: vi.fn<ai.UIMessageStreamWriter["write"]>(),
       merge: vi.fn<ai.UIMessageStreamWriter["merge"]>(),
@@ -167,17 +181,28 @@ describe("create-agent-tool", () => {
     const controller = new AbortController();
     const execution = agentTool.execute(
       { tool: "GMAIL", task: "Send an email" },
-      { toolCallId: "agent-call", messages: [], context: {}, abortSignal: controller.signal },
+      {
+        toolCallId: "agent-call",
+        messages: [],
+        context: {},
+        abortSignal: controller.signal,
+      }
     );
-    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1));
+    await vi.waitFor(() => {
+      expect(model.doStreamCalls).toHaveLength(1);
+    });
     controller.abort(new Error("Run deadline reached"));
 
     await expect(execution).rejects.toThrow("Run deadline reached");
-    expect(mockGetComposioTools).toHaveBeenCalledWith("user-123", ["GMAIL"], controller.signal);
+    expect(mockGetComposioTools).toHaveBeenCalledWith(
+      "user-123",
+      ["GMAIL"],
+      controller.signal
+    );
     expect(close).toHaveBeenCalledOnce();
   });
 
-  describe("createAgentInputSchema", () => {
+  describe("createAgentInputSchema schema", () => {
     describe("tool field validation", () => {
       it("accepts a single string tool name", () => {
         const result = createAgentInputSchema.safeParse({
@@ -185,7 +210,7 @@ describe("create-agent-tool", () => {
           task: "Send an email to test@example.com",
         });
 
-        expect(result.success).toBe(true);
+        expect(result.success).toBeTruthy();
         expect(result.success && result.data.tool).toBe("GMAIL");
       });
 
@@ -195,8 +220,11 @@ describe("create-agent-tool", () => {
           task: "Create a note and email it",
         });
 
-        expect(result.success).toBe(true);
-        expect(result.success && result.data.tool).toEqual(["GMAIL", "NOTION"]);
+        expect(result.success).toBeTruthy();
+        expect(result.success && result.data.tool).toStrictEqual([
+          "GMAIL",
+          "NOTION",
+        ]);
       });
 
       it("rejects empty string tool name", () => {
@@ -205,7 +233,7 @@ describe("create-agent-tool", () => {
           task: "Send an email",
         });
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBeFalsy();
       });
 
       it("rejects empty array of tools", () => {
@@ -214,7 +242,7 @@ describe("create-agent-tool", () => {
           task: "Send an email",
         });
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBeFalsy();
       });
     });
 
@@ -225,7 +253,7 @@ describe("create-agent-tool", () => {
           task: "Send an email to the team about the meeting",
         });
 
-        expect(result.success).toBe(true);
+        expect(result.success).toBeTruthy();
       });
 
       it("rejects empty task", () => {
@@ -234,7 +262,7 @@ describe("create-agent-tool", () => {
           task: "",
         });
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBeFalsy();
       });
 
       it("rejects task over 2000 characters", () => {
@@ -244,7 +272,7 @@ describe("create-agent-tool", () => {
           task: longTask,
         });
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBeFalsy();
       });
 
       it("accepts task exactly 2000 characters", () => {
@@ -254,7 +282,7 @@ describe("create-agent-tool", () => {
           task: maxTask,
         });
 
-        expect(result.success).toBe(true);
+        expect(result.success).toBeTruthy();
       });
     });
 
@@ -266,8 +294,10 @@ describe("create-agent-tool", () => {
           context: "Previous operation returned user list",
         });
 
-        expect(result.success).toBe(true);
-        expect(result.success && result.data.context).toBe("Previous operation returned user list");
+        expect(result.success).toBeTruthy();
+        expect(result.success && result.data.context).toBe(
+          "Previous operation returned user list"
+        );
       });
 
       it("accepts missing context", () => {
@@ -276,7 +306,7 @@ describe("create-agent-tool", () => {
           task: "Send an email",
         });
 
-        expect(result.success).toBe(true);
+        expect(result.success).toBeTruthy();
         expect(result.success && result.data.context).toBeUndefined();
       });
 
@@ -288,7 +318,7 @@ describe("create-agent-tool", () => {
           context: longContext,
         });
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBeFalsy();
       });
 
       it("accepts context exactly 5000 characters", () => {
@@ -299,12 +329,12 @@ describe("create-agent-tool", () => {
           context: maxContext,
         });
 
-        expect(result.success).toBe(true);
+        expect(result.success).toBeTruthy();
       });
     });
   });
 
-  describe("analyzeSubAgentExecution", () => {
+  describe(analyzeSubAgentExecution, () => {
     it("returns success when all conditions are met", () => {
       const result = analyzeSubAgentExecution({
         toolCalls: [
@@ -317,9 +347,12 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(true);
+      expect(result.success).toBeTruthy();
       expect(result.toolCallCount).toBe(2);
-      expect(result.toolNames).toEqual(["COMPOSIO_SEARCH_TOOLS", "COMPOSIO_MULTI_EXECUTE_TOOL"]);
+      expect(result.toolNames).toStrictEqual([
+        "COMPOSIO_SEARCH_TOOLS",
+        "COMPOSIO_MULTI_EXECUTE_TOOL",
+      ]);
       expect(result.finishReason).toBe("stop");
       expect(result.issues).toHaveLength(0);
     });
@@ -333,7 +366,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("No tools were called");
     });
 
@@ -346,7 +379,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("No connector action was executed");
     });
 
@@ -359,7 +392,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("Sub-agent encountered an error");
     });
 
@@ -372,7 +405,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("Sub-agent stopped mid-execution");
     });
 
@@ -381,11 +414,12 @@ describe("create-agent-tool", () => {
         toolCalls: [{ toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" }],
         toolResults: [successfulConnectorResult],
         finishReason: "stop",
-        finalText: "Done", // Less than 25 characters
+        // Less than 25 characters
+        finalText: "Done",
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("Insufficient output produced");
     });
 
@@ -399,7 +433,7 @@ describe("create-agent-tool", () => {
         subAgentError: error,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("Error: API rate limit exceeded");
       expect(result.errorMessage).toBe("API rate limit exceeded");
     });
@@ -414,7 +448,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.summary.length).toBe(300);
+      expect(result.summary).toHaveLength(300);
     });
 
     it("handles length finish reason as success", () => {
@@ -426,7 +460,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(true);
+      expect(result.success).toBeTruthy();
     });
 
     it("returns failure when a connector action has no result", () => {
@@ -438,7 +472,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("Connector action produced no result");
     });
 
@@ -451,7 +485,11 @@ describe("create-agent-tool", () => {
             toolCallId: "connector-call",
             toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
             input: {},
-            output: { data: {}, error: "Gmail rejected the request", successful: false },
+            output: {
+              data: {},
+              error: "Gmail rejected the request",
+              successful: false,
+            },
             dynamic: true,
           },
         ],
@@ -460,8 +498,10 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
-      expect(result.issues).toContain("Connector action failed: Gmail rejected the request");
+      expect(result.success).toBeFalsy();
+      expect(result.issues).toContain(
+        "Connector action failed: Gmail rejected the request"
+      );
     });
 
     it("returns failure when the connector reports unsuccessful without an error message", () => {
@@ -482,7 +522,7 @@ describe("create-agent-tool", () => {
         subAgentError: null,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("Connector action failed");
     });
 
@@ -496,7 +536,7 @@ describe("create-agent-tool", () => {
         subAgentError: error,
       });
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
       expect(result.issues).toContain("Error: Connection failed");
       expect(result.issues).toContain("No tools were called");
       expect(result.issues).toContain("Sub-agent encountered an error");
@@ -504,43 +544,49 @@ describe("create-agent-tool", () => {
     });
   });
 
-  describe("appendComposioToolRouterInstructions", () => {
+  describe(appendComposioToolRouterInstructions, () => {
     it("preserves a custom prompt and appends search-then-execute guidance", () => {
-      const result = appendComposioToolRouterInstructions("Follow the user's custom policy.");
+      const result = appendComposioToolRouterInstructions(
+        "Follow the user's custom policy."
+      );
 
-      expect(result).toContain("Follow the user's custom policy.");
-      expect(result).toContain("COMPOSIO_SEARCH_TOOLS");
-      expect(result).toContain("COMPOSIO_MULTI_EXECUTE_TOOL");
-      expect(result).toContain("session_id");
-      expect(result).toContain("A search alone does not complete the task");
-      expect(result).toContain("reconnect it in Settings");
+      for (const fragment of [
+        "Follow the user's custom policy.",
+        "COMPOSIO_SEARCH_TOOLS",
+        "COMPOSIO_MULTI_EXECUTE_TOOL",
+        "session_id",
+        "A search alone does not complete the task",
+        "reconnect it in Settings",
+      ]) {
+        expect(result).toContain(fragment);
+      }
     });
   });
 
-  describe("toolListSchema", () => {
+  describe("toolListSchema schema", () => {
     it("validates single string", () => {
       const result = toolListSchema.safeParse("GMAIL");
-      expect(result.success).toBe(true);
+      expect(result.success).toBeTruthy();
     });
 
     it("validates array of strings", () => {
       const result = toolListSchema.safeParse(["GMAIL", "NOTION", "SLACK"]);
-      expect(result.success).toBe(true);
+      expect(result.success).toBeTruthy();
     });
 
     it("rejects number", () => {
       const result = toolListSchema.safeParse(123);
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
     });
 
     it("rejects array with empty strings", () => {
       const result = toolListSchema.safeParse(["GMAIL", ""]);
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
     });
 
     it("rejects null", () => {
       const result = toolListSchema.safeParse(null);
-      expect(result.success).toBe(false);
+      expect(result.success).toBeFalsy();
     });
   });
 });

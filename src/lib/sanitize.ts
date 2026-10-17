@@ -6,9 +6,11 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
   "'": "&#39;",
 };
 
-const HTML_ESCAPE_REGEX = /[&<>"']/g;
+const HTML_ESCAPE_REGEX = /[&<>"']/gu;
 
-export function sanitizeUserInput(input: string): string {
-  const safeInput = input ?? "";
-  return safeInput.replace(HTML_ESCAPE_REGEX, (char) => HTML_ESCAPE_MAP[char] || char);
-}
+/** HTML-escapes user text; null/undefined become "". */
+export const sanitizeUserInput = (input?: string | null): string =>
+  (input ?? "").replace(
+    HTML_ESCAPE_REGEX,
+    (char) => HTML_ESCAPE_MAP[char] || char
+  );

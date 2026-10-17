@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   formatBytes,
   getAllowedLabel,
@@ -11,13 +12,13 @@ import {
 } from "../upload";
 
 describe("Upload Config Constants", () => {
-  describe("UPLOAD_MAX_BYTES", () => {
+  describe("UPLOAD_MAX_BYTES constant", () => {
     it("is 10 MiB", () => {
       expect(UPLOAD_MAX_BYTES).toBe(10 * 1024 * 1024);
     });
   });
 
-  describe("UPLOAD_ALLOWED_MIME", () => {
+  describe("UPLOAD_ALLOWED_MIME constant", () => {
     it("includes common image types", () => {
       expect(UPLOAD_ALLOWED_MIME).toContain("image/jpeg");
       expect(UPLOAD_ALLOWED_MIME).toContain("image/png");
@@ -30,19 +31,19 @@ describe("Upload Config Constants", () => {
     });
   });
 
-  describe("UPLOAD_ACCEPT", () => {
+  describe("UPLOAD_ACCEPT constant", () => {
     it("is a comma-separated string of MIME types", () => {
-      expect(typeof UPLOAD_ACCEPT).toBe("string");
+      expect(UPLOAD_ACCEPT).toBeTypeOf("string");
       expect(UPLOAD_ACCEPT).toContain(",");
       expect(UPLOAD_ACCEPT).toContain("image/jpeg");
       expect(UPLOAD_ACCEPT).toContain("application/pdf");
     });
   });
 
-  describe("PASTE_ALLOWED_MIME", () => {
+  describe("PASTE_ALLOWED_MIME constant", () => {
     it("only includes image types", () => {
       for (const mime of PASTE_ALLOWED_MIME) {
-        expect(mime.startsWith("image/")).toBe(true);
+        expect(mime.startsWith("image/")).toBeTruthy();
       }
     });
 
@@ -51,15 +52,15 @@ describe("Upload Config Constants", () => {
     });
   });
 
-  describe("UPLOAD_MAX_LABEL", () => {
+  describe("UPLOAD_MAX_LABEL constant", () => {
     it("is a formatted string", () => {
-      expect(typeof UPLOAD_MAX_LABEL).toBe("string");
+      expect(UPLOAD_MAX_LABEL).toBeTypeOf("string");
       expect(UPLOAD_MAX_LABEL).toContain("MB");
     });
   });
 });
 
-describe("formatBytes", () => {
+describe(formatBytes, () => {
   it("returns '0 B' for zero bytes", () => {
     expect(formatBytes(0)).toBe("0 B");
   });
@@ -91,7 +92,7 @@ describe("formatBytes", () => {
   });
 });
 
-describe("getAllowedLabel", () => {
+describe(getAllowedLabel, () => {
   it("returns empty string for empty array", () => {
     expect(getAllowedLabel([])).toBe("");
   });
@@ -106,7 +107,9 @@ describe("getAllowedLabel", () => {
   });
 
   it("returns formatted list for multiple MIME types", () => {
-    expect(getAllowedLabel(["image/jpeg", "image/png", "image/gif"])).toBe("JPG, PNG and GIF");
+    expect(getAllowedLabel(["image/jpeg", "image/png", "image/gif"])).toBe(
+      "JPG, PNG and GIF"
+    );
   });
 
   it("handles unknown MIME types by returning them as-is", () => {
@@ -124,26 +127,34 @@ describe("getAllowedLabel", () => {
   });
 });
 
-describe("getUploadPolicyError", () => {
+describe(getUploadPolicyError, () => {
   it("accepts allowed types up to the size cap", () => {
     expect(getUploadPolicyError({ type: "image/png", size: 0 })).toBeNull();
-    expect(getUploadPolicyError({ type: "application/pdf", size: UPLOAD_MAX_BYTES })).toBeNull();
+    expect(
+      getUploadPolicyError({ type: "application/pdf", size: UPLOAD_MAX_BYTES })
+    ).toBeNull();
   });
 
   it("rejects types outside the allow-list, including a missing type", () => {
-    expect(getUploadPolicyError({ type: "text/html", size: 10 })).toBe("UNSUPPORTED_FILE_TYPE");
-    expect(getUploadPolicyError({ type: "", size: 10 })).toBe("UNSUPPORTED_FILE_TYPE");
+    expect(getUploadPolicyError({ type: "text/html", size: 10 })).toBe(
+      "UNSUPPORTED_FILE_TYPE"
+    );
+    expect(getUploadPolicyError({ type: "", size: 10 })).toBe(
+      "UNSUPPORTED_FILE_TYPE"
+    );
   });
 
   it("rejects files over the cap", () => {
-    expect(getUploadPolicyError({ type: "image/png", size: UPLOAD_MAX_BYTES + 1 })).toBe(
-      "FILE_TOO_LARGE",
-    );
+    expect(
+      getUploadPolicyError({ type: "image/png", size: UPLOAD_MAX_BYTES + 1 })
+    ).toBe("FILE_TOO_LARGE");
   });
 
   it("rejects sizes that are not byte counts", () => {
     for (const size of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(getUploadPolicyError({ type: "image/png", size })).toBe("INVALID_INPUT");
+      expect(getUploadPolicyError({ type: "image/png", size })).toBe(
+        "INVALID_INPUT"
+      );
     }
   });
 });

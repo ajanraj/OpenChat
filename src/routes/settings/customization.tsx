@@ -1,15 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+
 import { ProfileManagementSection } from "@/components/profile/profile-management-section";
 import { PersonalizationSection } from "@/components/settings/personalization-section";
 import { VisualOptionsSection } from "@/components/settings/visual-options-section";
 import { useProfile } from "@/providers/profile-provider";
 import { useUser } from "@/providers/user-provider";
 
-export const Route = createFileRoute("/settings/customization")({
-  component: CustomizationSettingsPage,
-});
-
-export function CustomizationSettingsPage() {
+export const CustomizationSettingsPage = () => {
   const { profiles, activeProfile, setActiveProfile } = useProfile();
   const { user } = useUser();
 
@@ -26,4 +23,8 @@ export function CustomizationSettingsPage() {
       <VisualOptionsSection />
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/customization")({
+  component: CustomizationSettingsPage,
+});

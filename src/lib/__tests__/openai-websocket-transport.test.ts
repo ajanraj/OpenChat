@@ -1,6 +1,10 @@
 import { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
 import { describe, expect, it } from "vitest";
-import { getOpenAIStreamModel, isOpenAITransportEligible } from "@/lib/openai-websocket-transport";
+
+import {
+  getOpenAIStreamModel,
+  isOpenAITransportEligible,
+} from "@/lib/openai-websocket-transport";
 
 describe("openai websocket transport helpers", () => {
   it("returns eligible only for openai provider-backed sdk models", () => {
@@ -8,22 +12,22 @@ describe("openai websocket transport helpers", () => {
       isOpenAITransportEligible({
         provider: "openai",
         api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
-      }),
-    ).toBe(true);
+      })
+    ).toBeTruthy();
 
     expect(
       isOpenAITransportEligible({
         provider: "openai",
         api_sdk: { provider: "gateway", modelId: "openai/gpt-oss-20b" },
-      }),
-    ).toBe(false);
+      })
+    ).toBeFalsy();
 
     expect(
       isOpenAITransportEligible({
         provider: "anthropic",
         api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
-      }),
-    ).toBe(false);
+      })
+    ).toBeFalsy();
   });
 
   it("returns undefined when model id is missing", () => {
@@ -35,7 +39,7 @@ describe("openai websocket transport helpers", () => {
         api_sdk: { provider: "openai.responses" },
       },
       wsFetch,
-      false,
+      false
     );
     wsFetch.close();
 
@@ -51,12 +55,12 @@ describe("openai websocket transport helpers", () => {
         api_sdk: { provider: "openai.responses", modelId: "gpt-5.4" },
       },
       wsFetch,
-      true,
+      true
     );
     wsFetch.close();
 
     expect(model).toBeDefined();
-    const hasDoStream = Boolean(model && typeof model === "object" && "doStream" in model);
-    expect(hasDoStream).toBe(true);
+    const hasDoStream = typeof model === "object" && "doStream" in model;
+    expect(hasDoStream).toBeTruthy();
   });
 });

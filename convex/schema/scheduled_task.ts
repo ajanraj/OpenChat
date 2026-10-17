@@ -5,22 +5,31 @@ export const ScheduledTask = v.object({
   profileId: v.optional(v.id("profiles")),
   title: v.string(),
   prompt: v.string(),
-  scheduleType: v.union(v.literal("onetime"), v.literal("daily"), v.literal("weekly")),
-  scheduledTime: v.string(), // "HH:MM"; weekly tasks use "D:HH:MM" (D: 0 = Sunday ... 6 = Saturday)
-  scheduledDate: v.optional(v.string()), // "YYYY-MM-DD" format for onetime tasks
+  scheduleType: v.union(
+    v.literal("onetime"),
+    v.literal("daily"),
+    v.literal("weekly")
+  ),
+  // "HH:MM"; weekly tasks use "D:HH:MM" (D: 0 = Sunday ... 6 = Saturday)
+  scheduledTime: v.string(),
+  // "YYYY-MM-DD" format for onetime tasks
+  scheduledDate: v.optional(v.string()),
   timezone: v.string(),
   status: v.union(
     v.literal("active"),
     v.literal("paused"),
     v.literal("archived"),
-    v.literal("running"),
+    v.literal("running")
   ),
   enableSearch: v.optional(v.boolean()),
   enabledToolSlugs: v.optional(v.array(v.string())),
   emailNotifications: v.optional(v.boolean()),
-  lastExecuted: v.optional(v.number()), // Start of the latest run; while "running", when the run was claimed
+  // Start of the latest run; while "running", when the run was claimed
+  lastExecuted: v.optional(v.number()),
   nextExecution: v.optional(v.number()),
-  scheduledFunctionId: v.optional(v.string()), // Convex scheduled function ID
+  // Convex scheduled function ID
+  scheduledFunctionId: v.optional(v.string()),
   createdAt: v.number(),
-  chatId: v.optional(v.id("chats")), // Chat of the latest run that got as far as creating one (server-managed)
+  // Chat of the latest run that got as far as creating one (server-managed)
+  chatId: v.optional(v.id("chats")),
 });

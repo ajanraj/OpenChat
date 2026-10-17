@@ -5,39 +5,52 @@
 
 import { isRateLimitError } from "@convex-dev/rate-limiter";
 import { ConvexError } from "convex/values";
+
 import { toast } from "@/components/ui/toast";
-import { getAllowedLabel, UPLOAD_ALLOWED_MIME, UPLOAD_MAX_LABEL } from "@/lib/config/upload";
+import {
+  getAllowedLabel,
+  UPLOAD_ALLOWED_MIME,
+  UPLOAD_MAX_LABEL,
+} from "@/lib/config/upload";
 import { ERROR_CODES } from "@/lib/error-codes";
 import { classifyError, shouldShowAsToast } from "@/lib/error-utils";
 
 /**
  * Maps backend upload error codes to user-friendly messages
  */
-export function humaniseUploadError(err: unknown): string {
+export const humaniseUploadError = (err: unknown): string => {
   // files:generateUploadUrl throws the rate limiter's own error for the fileUpload bucket
   if (isRateLimitError(err)) {
     return "Upload limit reached. Please wait a few minutes before uploading more files.";
   }
-  const code = err instanceof ConvexError && typeof err.data === "string" ? err.data : null;
+  // "" matches no error code, so non-coded errors take the default message.
+  const code =
+    err instanceof ConvexError && typeof err.data === "string" ? err.data : "";
   switch (code) {
-    case ERROR_CODES.UNSUPPORTED_MODEL:
+    case ERROR_CODES.UNSUPPORTED_MODEL: {
       return "File uploads are not supported for the selected model.";
-    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
+    }
+    case ERROR_CODES.UNSUPPORTED_FILE_TYPE: {
       return `File not supported. Allowed: ${getAllowedLabel(UPLOAD_ALLOWED_MIME)}`;
-    case ERROR_CODES.FILE_TOO_LARGE:
+    }
+    case ERROR_CODES.FILE_TOO_LARGE: {
       return `File too large. Max ${UPLOAD_MAX_LABEL} per file`;
-    case ERROR_CODES.NOT_AUTHENTICATED:
+    }
+    case ERROR_CODES.NOT_AUTHENTICATED: {
       return "Sign in with Google to upload files.";
-    default:
+    }
+    default: {
       return "Error uploading file";
+    }
   }
-}
+};
 
 /**
  * Processes branch operation errors and returns user-friendly messages
  */
-export function processBranchError(branchError: unknown): string {
-  const errorMsg = branchError instanceof Error ? branchError.message : String(branchError);
+export const processBranchError = (branchError: unknown): string => {
+  const errorMsg =
+    branchError instanceof Error ? branchError.message : String(branchError);
   if (errorMsg.includes("Can only branch from assistant messages")) {
     return "You can only branch from assistant messages";
   }
@@ -48,13 +61,13 @@ export function processBranchError(branchError: unknown): string {
     return "You don't have permission to branch this chat";
   }
   return "Failed to branch chat";
-}
+};
 
 /**
  * Standardized error handler for chat operations
  * Integrates with AI SDK error handling patterns
  */
-export function handleChatError(error: Error): void {
+export const handleChatError = (error: Error): void => {
   if (shouldShowAsToast(error)) {
     const classified = classifyError(error);
     toast({
@@ -62,13 +75,11 @@ export function handleChatError(error: Error): void {
       status: "error",
     });
   }
-}
+};
 
 /**
  * Creates an error callback for useChat hook
  */
-export function createChatErrorHandler() {
-  return (error: Error) => {
-    handleChatError(error);
-  };
-}
+export const createChatErrorHandler = () => (error: Error) => {
+  handleChatError(error);
+};

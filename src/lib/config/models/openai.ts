@@ -1,5 +1,6 @@
 import { gateway } from "@ai-sdk/gateway";
 import { openai } from "@ai-sdk/openai";
+
 import {
   FILE_UPLOAD_FEATURE,
   IMAGE_GENERATION_FEATURE,

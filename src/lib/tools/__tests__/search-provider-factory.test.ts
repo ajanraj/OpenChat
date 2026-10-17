@@ -1,5 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const tavilyHit = {
+  results: [{ url: "https://tavily.example", title: "Tavily hit" }],
+};
+const braveHit = {
+  web: {
+    results: [{ url: "https://brave.example", title: "Brave hit" }],
+  },
+};
+
+/** Answers each provider's request with its reply, as HTTP 200 JSON. */
+const stubReplies = (replies: { brave: unknown; tavily: unknown }) => {
+  process.env.BRAVE_API_KEY = "brave-key";
+  process.env.TAVILY_API_KEY = "tavily-key";
+  const fetchMock = vi.fn<typeof fetch>(async (input) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    return await Promise.resolve(
+      Response.json(url.includes("brave") ? replies.brave : replies.tavily)
+    );
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+};
+
 describe("search-provider-factory", () => {
   const originalEnv = { ...process.env };
 
@@ -22,7 +45,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       expect(() => module.getProvider("brave")).toThrow(
-        "BRAVE_API_KEY environment variable is not set",
+        "BRAVE_API_KEY environment variable is not set"
       );
     });
 
@@ -31,7 +54,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       expect(() => module.getProvider("tavily")).toThrow(
-        "TAVILY_API_KEY environment variable is not set",
+        "TAVILY_API_KEY environment variable is not set"
       );
     });
 
@@ -40,16 +63,17 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       expect(() => module.getProvider("exa")).toThrow(
-        "EXA_API_KEY environment variable is not set",
+        "EXA_API_KEY environment variable is not set"
       );
     });
 
     it("throws for unknown provider", async () => {
       const module = await import("../search-provider-factory");
 
-      expect(() => module.getProvider("unknown" as never)).toThrow(
-        "Unknown search provider: unknown",
-      );
+      // An untyped caller can pass a provider outside SearchProvider
+      expect(() => {
+        Reflect.apply(module.getProvider, undefined, ["unknown"]);
+      }).toThrow("Unknown search provider: unknown");
     });
 
     it("creates brave provider when API key is set", async () => {
@@ -59,7 +83,7 @@ describe("search-provider-factory", () => {
       const provider = module.getProvider("brave");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.search).toBe("function");
+      expect(provider.search).toBeTypeOf("function");
     });
 
     it("creates tavily provider when API key is set", async () => {
@@ -69,7 +93,7 @@ describe("search-provider-factory", () => {
       const provider = module.getProvider("tavily");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.search).toBe("function");
+      expect(provider.search).toBeTypeOf("function");
     });
 
     it("creates exa provider when API key is set", async () => {
@@ -79,7 +103,7 @@ describe("search-provider-factory", () => {
       const provider = module.getProvider("exa");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.search).toBe("function");
+      expect(provider.search).toBeTypeOf("function");
     });
 
     it("returns cached instance on subsequent calls", async () => {
@@ -97,7 +121,7 @@ describe("search-provider-factory", () => {
     it("is exported as a function", async () => {
       const module = await import("../search-provider-factory");
 
-      expect(typeof module.searchWithFallback).toBe("function");
+      expect(module.searchWithFallback).toBeTypeOf("function");
     });
 
     it("rejects when no API keys are configured", async () => {
@@ -109,7 +133,7 @@ describe("search-provider-factory", () => {
       const module = await import("../search-provider-factory");
 
       await expect(module.searchWithFallback("test query")).rejects.toThrow(
-        "All search providers failed",
+        "All search providers failed"
       );
     });
 
@@ -119,16 +143,83 @@ describe("search-provider-factory", () => {
       const controller = new AbortController();
       const fetchMock = vi.fn<typeof fetch>(async () => {
         controller.abort();
-        throw new DOMException("This operation was aborted", "AbortError");
+        return await Promise.reject(
+          new DOMException("This operation was aborted", "AbortError")
+        );
       });
       vi.stubGlobal("fetch", fetchMock);
       const module = await import("../search-provider-factory");
 
       await expect(
-        module.searchWithFallback("test query", { signal: controller.signal }, ["brave", "tavily"]),
+        module.searchWithFallback("test query", { signal: controller.signal }, [
+          "brave",
+          "tavily",
+        ])
       ).rejects.toThrow("All search providers failed");
       expect(fetchMock).toHaveBeenCalledOnce();
-      expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal: controller.signal });
+      expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+        signal: controller.signal,
+      });
+    });
+
+    describe("replies that parse as JSON", () => {
+      it.each([null, { web: "none" }, { web: { results: {} } }])(
+        "falls back to Tavily when Brave's reply is malformed: %j",
+        async (brave) => {
+          const fetchMock = stubReplies({ brave, tavily: tavilyHit });
+          const module = await import("../search-provider-factory");
+
+          const results = await module.searchWithFallback("test query", {}, [
+            "brave",
+            "tavily",
+          ]);
+
+          expect(results.map((r) => r.title)).toStrictEqual(["Tavily hit"]);
+          expect(fetchMock).toHaveBeenCalledTimes(2);
+        }
+      );
+
+      it.each([null, { results: {} }, { results: "none" }])(
+        "falls back to Brave when Tavily's reply is malformed: %j",
+        async (tavily) => {
+          const fetchMock = stubReplies({ brave: braveHit, tavily });
+          const module = await import("../search-provider-factory");
+
+          const results = await module.searchWithFallback("test query", {}, [
+            "tavily",
+            "brave",
+          ]);
+
+          expect(results.map((r) => r.title)).toStrictEqual(["Brave hit"]);
+          expect(fetchMock).toHaveBeenCalledTimes(2);
+        }
+      );
+
+      it.each([{}, { web: {} }, { web: { results: [] } }])(
+        "treats a Brave reply without results as no results: %j",
+        async (brave) => {
+          const fetchMock = stubReplies({ brave, tavily: tavilyHit });
+          const module = await import("../search-provider-factory");
+
+          await expect(
+            module.searchWithFallback("test query", {}, ["brave", "tavily"])
+          ).resolves.toStrictEqual([]);
+          expect(fetchMock).toHaveBeenCalledOnce();
+        }
+      );
+
+      it.each([{}, { results: [] }])(
+        "treats a Tavily reply without results as no results: %j",
+        async (tavily) => {
+          const fetchMock = stubReplies({ brave: braveHit, tavily });
+          const module = await import("../search-provider-factory");
+
+          await expect(
+            module.searchWithFallback("test query", {}, ["tavily", "brave"])
+          ).resolves.toStrictEqual([]);
+          expect(fetchMock).toHaveBeenCalledOnce();
+        }
+      );
     });
 
     it("accepts query parameter", async () => {

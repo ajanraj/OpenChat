@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
+
 import {
   detectRedactedContent,
   detectRedactedInParts,
   shouldDisableFork,
 } from "../redacted-content-detector";
 
-describe("detectRedactedInParts", () => {
+describe(detectRedactedInParts, () => {
   it("returns zeros for empty array", () => {
-    expect(detectRedactedInParts([])).toEqual({
+    expect(detectRedactedInParts([])).toStrictEqual({
       redactedFiles: 0,
       redactedTools: 0,
       redactedParts: 0,
@@ -15,7 +16,7 @@ describe("detectRedactedInParts", () => {
   });
 
   it("returns zeros for non-array input", () => {
-    expect(detectRedactedInParts(null as unknown as unknown[])).toEqual({
+    expect(detectRedactedInParts(null)).toStrictEqual({
       redactedFiles: 0,
       redactedTools: 0,
       redactedParts: 0,
@@ -28,7 +29,7 @@ describe("detectRedactedInParts", () => {
       { type: "file", url: "https://example.com/image.png" },
       { type: "file", url: "redacted" },
     ];
-    expect(detectRedactedInParts(parts)).toEqual({
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 2,
       redactedTools: 0,
       redactedParts: 0,
@@ -38,7 +39,7 @@ describe("detectRedactedInParts", () => {
   it("detects redacted reasoning files", () => {
     const parts = [{ type: "reasoning-file", url: "redacted" }];
 
-    expect(detectRedactedInParts(parts)).toEqual({
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 1,
       redactedTools: 0,
       redactedParts: 0,
@@ -46,8 +47,10 @@ describe("detectRedactedInParts", () => {
   });
 
   it("detects redacted tool calls with REDACTED input", () => {
-    const parts = [{ type: "tool-call", input: "REDACTED", output: "some output" }];
-    expect(detectRedactedInParts(parts)).toEqual({
+    const parts = [
+      { type: "tool-call", input: "REDACTED", output: "some output" },
+    ];
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 0,
       redactedTools: 1,
       redactedParts: 0,
@@ -55,8 +58,10 @@ describe("detectRedactedInParts", () => {
   });
 
   it("detects redacted tool calls with REDACTED output", () => {
-    const parts = [{ type: "tool-result", input: "some input", output: "REDACTED" }];
-    expect(detectRedactedInParts(parts)).toEqual({
+    const parts = [
+      { type: "tool-result", input: "some input", output: "REDACTED" },
+    ];
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 0,
       redactedTools: 1,
       redactedParts: 0,
@@ -65,7 +70,7 @@ describe("detectRedactedInParts", () => {
 
   it("detects redacted tool calls with REDACTED error", () => {
     const parts = [{ type: "tool-error", error: "REDACTED" }];
-    expect(detectRedactedInParts(parts)).toEqual({
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 0,
       redactedTools: 1,
       redactedParts: 0,
@@ -74,7 +79,7 @@ describe("detectRedactedInParts", () => {
 
   it("detects redacted message parts", () => {
     const parts = [{ type: "redacted" }, { type: "text", text: "Hello" }];
-    expect(detectRedactedInParts(parts)).toEqual({
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 0,
       redactedTools: 0,
       redactedParts: 1,
@@ -87,7 +92,7 @@ describe("detectRedactedInParts", () => {
       { type: "tool-call", input: "REDACTED" },
       { type: "redacted" },
     ];
-    expect(detectRedactedInParts(parts)).toEqual({
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 1,
       redactedTools: 1,
       redactedParts: 1,
@@ -96,7 +101,7 @@ describe("detectRedactedInParts", () => {
 
   it("skips invalid parts", () => {
     const parts = [null, undefined, "string", 123, { type: "text" }];
-    expect(detectRedactedInParts(parts as unknown[])).toEqual({
+    expect(detectRedactedInParts(parts)).toStrictEqual({
       redactedFiles: 0,
       redactedTools: 0,
       redactedParts: 0,
@@ -104,16 +109,16 @@ describe("detectRedactedInParts", () => {
   });
 });
 
-describe("detectRedactedContent", () => {
+describe(detectRedactedContent, () => {
   it("returns no redacted content for empty array", () => {
     const result = detectRedactedContent([]);
-    expect(result.hasRedactedContent).toBe(false);
+    expect(result.hasRedactedContent).toBeFalsy();
     expect(result.description).toBe("Complete content available");
   });
 
   it("returns no redacted content for non-array input", () => {
-    const result = detectRedactedContent(null as unknown as unknown[]);
-    expect(result.hasRedactedContent).toBe(false);
+    const result = detectRedactedContent(null);
+    expect(result.hasRedactedContent).toBeFalsy();
     expect(result.description).toBe("No content to check");
   });
 
@@ -124,7 +129,7 @@ describe("detectRedactedContent", () => {
       { parts: [{ type: "redacted" }] },
     ];
     const result = detectRedactedContent(messages);
-    expect(result.hasRedactedContent).toBe(true);
+    expect(result.hasRedactedContent).toBeTruthy();
     expect(result.redactedFiles).toBe(1);
     expect(result.redactedParts).toBe(1);
   });
@@ -172,31 +177,33 @@ describe("detectRedactedContent", () => {
       },
     ];
     const result = detectRedactedContent(messages);
-    expect(result.description).toBe("Contains private 1 file, 1 tool call, and 1 message part");
+    expect(result.description).toBe(
+      "Contains private 1 file, 1 tool call, and 1 message part"
+    );
   });
 
   it("skips invalid messages", () => {
     const messages = [null, undefined, "string", { noparts: true }];
-    const result = detectRedactedContent(messages as unknown[]);
-    expect(result.hasRedactedContent).toBe(false);
+    const result = detectRedactedContent(messages);
+    expect(result.hasRedactedContent).toBeFalsy();
   });
 });
 
-describe("shouldDisableFork", () => {
+describe(shouldDisableFork, () => {
   it("returns false for messages without redacted content", () => {
     const messages = [
       { parts: [{ type: "text", text: "Hello" }] },
       { parts: [{ type: "file", url: "https://example.com/image.png" }] },
     ];
-    expect(shouldDisableFork(messages)).toBe(false);
+    expect(shouldDisableFork(messages)).toBeFalsy();
   });
 
   it("returns true for messages with redacted content", () => {
     const messages = [{ parts: [{ type: "file", url: "redacted" }] }];
-    expect(shouldDisableFork(messages)).toBe(true);
+    expect(shouldDisableFork(messages)).toBeTruthy();
   });
 
   it("returns false for empty messages", () => {
-    expect(shouldDisableFork([])).toBe(false);
+    expect(shouldDisableFork([])).toBeFalsy();
   });
 });

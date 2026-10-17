@@ -1,18 +1,20 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-export function useBreakpoint(breakpoint: number) {
+export const useBreakpoint = (breakpoint: number) => {
   const subscribe = useCallback(
     (onChange: () => void) => {
       const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
       mql.addEventListener("change", onChange);
-      return () => mql.removeEventListener("change", onChange);
+      return () => {
+        mql.removeEventListener("change", onChange);
+      };
     },
-    [breakpoint],
+    [breakpoint]
   );
 
   return useSyncExternalStore(
     subscribe,
     () => window.innerWidth < breakpoint,
-    () => false,
+    () => false
   );
-}
+};

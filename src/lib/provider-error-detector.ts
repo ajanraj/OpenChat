@@ -15,69 +15,12 @@ export interface DetectedError {
 }
 
 /**
- * Detects provider-specific error patterns in streaming text content
- */
-export function detectProviderErrorInText(text: string, provider: string): DetectedError | null {
-  if (!(text && provider)) {
-    return null;
-  }
-
-  const lowercaseText = text.toLowerCase();
-  let detectedError: DetectedError | null = null;
-
-  switch (provider) {
-    case "openai":
-      detectedError = detectOpenAIErrors(text, lowercaseText);
-      break;
-    case "anthropic":
-      detectedError = detectAnthropicErrors(text, lowercaseText);
-      break;
-    case "google":
-      detectedError = detectGoogleErrors(text, lowercaseText);
-      break;
-    case "xai":
-      detectedError = detectXAIErrors(text, lowercaseText);
-      break;
-    case "deepseek":
-      detectedError = detectDeepSeekErrors(text, lowercaseText);
-      break;
-    case "mistral":
-      detectedError = detectMistralErrors(text, lowercaseText);
-      break;
-    case "openrouter":
-      detectedError = detectOpenRouterErrors(text, lowercaseText);
-      break;
-    case "meta":
-      detectedError = detectMetaErrors(text, lowercaseText);
-      break;
-    case "qwen":
-      detectedError = detectQwenErrors(text, lowercaseText);
-      break;
-    case "moonshot":
-      detectedError = detectMoonshotErrors(text, lowercaseText);
-      break;
-    case "zhipuai":
-      detectedError = detectZhipuAIErrors(text, lowercaseText);
-      break;
-    case "fal":
-      detectedError = detectFalErrors(text, lowercaseText);
-      break;
-    default:
-      detectedError = null;
-      break;
-  }
-
-  if (detectedError) {
-    return detectedError;
-  }
-
-  return detectGenericErrors(text, lowercaseText, provider);
-}
-
-/**
  * OpenAI error patterns
  */
-function detectOpenAIErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectOpenAIErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Quota exceeded errors
   if (
     lowercaseText.includes("exceeded your current quota") ||
@@ -104,7 +47,8 @@ function detectOpenAIErrors(text: string, lowercaseText: string): DetectedError 
       type: "RATE_LIMIT",
       provider: "openai",
       message: text,
-      userFriendlyMessage: "OpenAI rate limit reached. Please wait a moment before trying again.",
+      userFriendlyMessage:
+        "OpenAI rate limit reached. Please wait a moment before trying again.",
       isRateLimit: true,
     };
   }
@@ -120,18 +64,22 @@ function detectOpenAIErrors(text: string, lowercaseText: string): DetectedError 
       type: "AUTH_ERROR",
       provider: "openai",
       message: text,
-      userFriendlyMessage: "Invalid OpenAI API key. Please check your API key in settings.",
+      userFriendlyMessage:
+        "Invalid OpenAI API key. Please check your API key in settings.",
       isAuthError: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Anthropic (Claude) error patterns
  */
-function detectAnthropicErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectAnthropicErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Insufficient credits/balance
   if (
     lowercaseText.includes("insufficient credits") ||
@@ -159,7 +107,8 @@ function detectAnthropicErrors(text: string, lowercaseText: string): DetectedErr
       type: "RATE_LIMIT",
       provider: "anthropic",
       message: text,
-      userFriendlyMessage: "Claude API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "Claude API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
@@ -174,18 +123,22 @@ function detectAnthropicErrors(text: string, lowercaseText: string): DetectedErr
       type: "AUTH_ERROR",
       provider: "anthropic",
       message: text,
-      userFriendlyMessage: "Invalid Claude API key. Please check your API key in settings.",
+      userFriendlyMessage:
+        "Invalid Claude API key. Please check your API key in settings.",
       isAuthError: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Google (Gemini) error patterns
  */
-function detectGoogleErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectGoogleErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Resource exhausted (quota/rate limit)
   if (
     lowercaseText.includes("resource_exhausted") ||
@@ -212,7 +165,8 @@ function detectGoogleErrors(text: string, lowercaseText: string): DetectedError 
       type: "RATE_LIMIT",
       provider: "google",
       message: text,
-      userFriendlyMessage: "Google Gemini rate limit reached. Please wait before trying again.",
+      userFriendlyMessage:
+        "Google Gemini rate limit reached. Please wait before trying again.",
       isRateLimit: true,
     };
   }
@@ -228,18 +182,22 @@ function detectGoogleErrors(text: string, lowercaseText: string): DetectedError 
       type: "AUTH_ERROR",
       provider: "google",
       message: text,
-      userFriendlyMessage: "Invalid Google API key. Please check your API key in settings.",
+      userFriendlyMessage:
+        "Invalid Google API key. Please check your API key in settings.",
       isAuthError: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * xAI (Grok) error patterns
  */
-function detectXAIErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectXAIErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Rate limit errors
   if (
     lowercaseText.includes("too many requests") ||
@@ -250,7 +208,8 @@ function detectXAIErrors(text: string, lowercaseText: string): DetectedError | n
       type: "RATE_LIMIT",
       provider: "xai",
       message: text,
-      userFriendlyMessage: "Grok API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "Grok API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
@@ -265,18 +224,22 @@ function detectXAIErrors(text: string, lowercaseText: string): DetectedError | n
       type: "AUTH_ERROR",
       provider: "xai",
       message: text,
-      userFriendlyMessage: "Invalid xAI API key. Please check your API key in settings.",
+      userFriendlyMessage:
+        "Invalid xAI API key. Please check your API key in settings.",
       isAuthError: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * DeepSeek error patterns
  */
-function detectDeepSeekErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectDeepSeekErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Timeout/throttling errors
   if (
     lowercaseText.includes("timeout") ||
@@ -288,18 +251,22 @@ function detectDeepSeekErrors(text: string, lowercaseText: string): DetectedErro
       type: "RATE_LIMIT",
       provider: "deepseek",
       message: text,
-      userFriendlyMessage: "DeepSeek API is experiencing high load. Please try again in a moment.",
+      userFriendlyMessage:
+        "DeepSeek API is experiencing high load. Please try again in a moment.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Mistral error patterns
  */
-function detectMistralErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectMistralErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Rate limit errors
   if (
     lowercaseText.includes("rate limit exceeded") ||
@@ -311,18 +278,22 @@ function detectMistralErrors(text: string, lowercaseText: string): DetectedError
       type: "RATE_LIMIT",
       provider: "mistral",
       message: text,
-      userFriendlyMessage: "Mistral API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "Mistral API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * OpenRouter error patterns
  */
-function detectOpenRouterErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectOpenRouterErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Credit balance errors
   if (
     lowercaseText.includes("negative credit balance") ||
@@ -333,7 +304,8 @@ function detectOpenRouterErrors(text: string, lowercaseText: string): DetectedEr
       type: "INSUFFICIENT_BALANCE",
       provider: "openrouter",
       message: text,
-      userFriendlyMessage: "OpenRouter credit balance is low. Please add credits to your account.",
+      userFriendlyMessage:
+        "OpenRouter credit balance is low. Please add credits to your account.",
       isInsufficientBalance: true,
     };
   }
@@ -348,18 +320,22 @@ function detectOpenRouterErrors(text: string, lowercaseText: string): DetectedEr
       type: "RATE_LIMIT",
       provider: "openrouter",
       message: text,
-      userFriendlyMessage: "OpenRouter rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "OpenRouter rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Meta error patterns
  */
-function detectMetaErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectMetaErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Rate limit errors
   if (
     lowercaseText.includes("rate limit") ||
@@ -370,18 +346,22 @@ function detectMetaErrors(text: string, lowercaseText: string): DetectedError | 
       type: "RATE_LIMIT",
       provider: "meta",
       message: text,
-      userFriendlyMessage: "Meta Llama API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "Meta Llama API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Qwen error patterns
  */
-function detectQwenErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectQwenErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Rate limit errors
   if (
     lowercaseText.includes("rate limit") ||
@@ -392,18 +372,22 @@ function detectQwenErrors(text: string, lowercaseText: string): DetectedError | 
       type: "RATE_LIMIT",
       provider: "qwen",
       message: text,
-      userFriendlyMessage: "Qwen API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "Qwen API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Moonshot error patterns
  */
-function detectMoonshotErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectMoonshotErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Rate limit errors
   if (
     lowercaseText.includes("rate limit") ||
@@ -414,18 +398,22 @@ function detectMoonshotErrors(text: string, lowercaseText: string): DetectedErro
       type: "RATE_LIMIT",
       provider: "moonshot",
       message: text,
-      userFriendlyMessage: "Moonshot API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "Moonshot API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * ZhipuAI (GLM) error patterns
  */
-function detectZhipuAIErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectZhipuAIErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Rate limit errors
   if (
     lowercaseText.includes("rate limit") ||
@@ -436,18 +424,22 @@ function detectZhipuAIErrors(text: string, lowercaseText: string): DetectedError
       type: "RATE_LIMIT",
       provider: "zhipuai",
       message: text,
-      userFriendlyMessage: "GLM API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "GLM API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Fal error patterns
  */
-function detectFalErrors(text: string, lowercaseText: string): DetectedError | null {
+const detectFalErrors = (
+  text: string,
+  lowercaseText: string
+): DetectedError | null => {
   // Rate limit errors
   if (
     lowercaseText.includes("rate limit") ||
@@ -458,22 +450,23 @@ function detectFalErrors(text: string, lowercaseText: string): DetectedError | n
       type: "RATE_LIMIT",
       provider: "fal",
       message: text,
-      userFriendlyMessage: "Fal API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "Fal API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
 
   return null;
-}
+};
 
 /**
  * Generic error patterns for unknown providers
  */
-function detectGenericErrors(
+const detectGenericErrors = (
   text: string,
   lowercaseText: string,
-  provider: string,
-): DetectedError | null {
+  provider: string
+): DetectedError | null => {
   // Generic rate limit patterns
   if (
     lowercaseText.includes("rate limit") ||
@@ -484,7 +477,8 @@ function detectGenericErrors(
       type: "RATE_LIMIT",
       provider,
       message: text,
-      userFriendlyMessage: "API rate limit exceeded. Please wait before trying again.",
+      userFriendlyMessage:
+        "API rate limit exceeded. Please wait before trying again.",
       isRateLimit: true,
     };
   }
@@ -499,7 +493,8 @@ function detectGenericErrors(
       type: "QUOTA_EXCEEDED",
       provider,
       message: text,
-      userFriendlyMessage: "API quota exceeded. Please check your plan or wait before retrying.",
+      userFriendlyMessage:
+        "API quota exceeded. Please check your plan or wait before retrying.",
       isQuotaExceeded: true,
     };
   }
@@ -516,22 +511,100 @@ function detectGenericErrors(
       type: "AUTH_ERROR",
       provider,
       message: text,
-      userFriendlyMessage: "Invalid API key. Please check your API key in settings.",
+      userFriendlyMessage:
+        "Invalid API key. Please check your API key in settings.",
       isAuthError: true,
     };
   }
 
   return null;
-}
+};
+
+/**
+ * Detects provider-specific error patterns in streaming text content
+ */
+export const detectProviderErrorInText = (
+  text: string,
+  provider: string
+): DetectedError | null => {
+  if (!(text && provider)) {
+    return null;
+  }
+
+  const lowercaseText = text.toLowerCase();
+  let detectedError: DetectedError | null = null;
+
+  switch (provider) {
+    case "openai": {
+      detectedError = detectOpenAIErrors(text, lowercaseText);
+      break;
+    }
+    case "anthropic": {
+      detectedError = detectAnthropicErrors(text, lowercaseText);
+      break;
+    }
+    case "google": {
+      detectedError = detectGoogleErrors(text, lowercaseText);
+      break;
+    }
+    case "xai": {
+      detectedError = detectXAIErrors(text, lowercaseText);
+      break;
+    }
+    case "deepseek": {
+      detectedError = detectDeepSeekErrors(text, lowercaseText);
+      break;
+    }
+    case "mistral": {
+      detectedError = detectMistralErrors(text, lowercaseText);
+      break;
+    }
+    case "openrouter": {
+      detectedError = detectOpenRouterErrors(text, lowercaseText);
+      break;
+    }
+    case "meta": {
+      detectedError = detectMetaErrors(text, lowercaseText);
+      break;
+    }
+    case "qwen": {
+      detectedError = detectQwenErrors(text, lowercaseText);
+      break;
+    }
+    case "moonshot": {
+      detectedError = detectMoonshotErrors(text, lowercaseText);
+      break;
+    }
+    case "zhipuai": {
+      detectedError = detectZhipuAIErrors(text, lowercaseText);
+      break;
+    }
+    case "fal": {
+      detectedError = detectFalErrors(text, lowercaseText);
+      break;
+    }
+    default: {
+      detectedError = null;
+      break;
+    }
+  }
+
+  if (detectedError) {
+    return detectedError;
+  }
+
+  return detectGenericErrors(text, lowercaseText, provider);
+};
 
 /**
  * Detects errors in error objects that might contain provider-specific information
  */
-export function detectProviderErrorFromObject(
+export const detectProviderErrorFromObject = (
   error: unknown,
-  provider: string,
-): DetectedError | null {
-  if (!(error && provider)) {
+  provider: string
+): DetectedError | null => {
+  // Other falsy errors (0, false, "") produce empty text, which detects nothing
+  if (error === null || error === undefined || provider === "") {
     return null;
   }
 
@@ -548,15 +621,12 @@ export function detectProviderErrorFromObject(
   }
 
   return detectProviderErrorInText(errorText, provider);
-}
+};
 
 /**
  * Determines if a detected error should trigger API key fallback
  */
-export function shouldTriggerFallback(detectedError: DetectedError): boolean {
-  return (
-    Boolean(detectedError.isAuthError) ||
-    Boolean(detectedError.isInsufficientBalance) ||
-    Boolean(detectedError.isQuotaExceeded)
-  );
-}
+export const shouldTriggerFallback = (detectedError: DetectedError): boolean =>
+  Boolean(detectedError.isAuthError) ||
+  Boolean(detectedError.isInsufficientBalance) ||
+  Boolean(detectedError.isQuotaExceeded);

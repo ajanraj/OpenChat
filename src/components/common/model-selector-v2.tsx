@@ -38,7 +38,8 @@ import {
 } from "@/hooks/use-enriched-models";
 import { useModelPreferences } from "@/hooks/use-model-preferences";
 import { useModelSettings } from "@/hooks/use-model-settings";
-import { MODELS_OPTIONS, PROVIDERS_OPTIONS } from "@/lib/config";
+import { MODELS_OPTIONS } from "@/lib/config/models";
+import { PROVIDERS_OPTIONS } from "@/lib/config/providers";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";

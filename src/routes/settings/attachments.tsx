@@ -7,6 +7,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, usePaginatedQuery } from "convex/react";
 import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -25,27 +26,47 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ATTACHMENT_DELETE_BATCH_SIZE, formatBytes } from "@/lib/config/upload";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/settings/attachments")({
-  component: AttachmentsSettingsPage,
-});
-
 const ATTACHMENTS_PAGE_SIZE = 50;
 
-export function AttachmentsSettingsPage() {
+/**
+ * Deletes attachments one bounded batch at a time, starting at `start`. Batches run
+ * sequentially and stop at the first failure, which rejects.
+ */
+const deleteInBatches = async (
+  deleteBatch: (args: {
+    attachmentIds: Id<"chat_attachments">[];
+  }) => Promise<unknown>,
+  ids: Id<"chat_attachments">[],
+  start = 0
+): Promise<void> => {
+  if (start >= ids.length) {
+    return;
+  }
+  await deleteBatch({
+    attachmentIds: ids.slice(start, start + ATTACHMENT_DELETE_BATCH_SIZE),
+  });
+  await deleteInBatches(deleteBatch, ids, start + ATTACHMENT_DELETE_BATCH_SIZE);
+};
+
+export const AttachmentsSettingsPage = () => {
   // Newest first; the header counts and totals cover loaded pages only ("50+ files")
   const { results, status, loadMore } = usePaginatedQuery(
     api.files.getAttachmentsForUser,
     {},
-    { initialNumItems: ATTACHMENTS_PAGE_SIZE },
+    { initialNumItems: ATTACHMENTS_PAGE_SIZE }
   );
   const attachments = status === "LoadingFirstPage" ? undefined : results;
   const hasMore = status === "CanLoadMore" || status === "LoadingMore";
   const moreSuffix = hasMore ? "+" : "";
   const deleteAttachments = useMutation(api.files.deleteAttachments);
-  const [selectedIds, setSelectedIds] = useState<Set<Id<"chat_attachments">>>(new Set());
-  const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<Id<"chat_attachments">>>(
+    new Set()
+  );
+  const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] =
+    useState(false);
   const [showDeleteSingleDialog, setShowDeleteSingleDialog] = useState(false);
-  const [attachmentToDelete, setAttachmentToDelete] = useState<Id<"chat_attachments"> | null>(null);
+  const [attachmentToDelete, setAttachmentToDelete] =
+    useState<Id<"chat_attachments"> | null>(null);
 
   const isSelected = (id: Id<"chat_attachments">) => selectedIds.has(id);
   const toggleSelect = (id: Id<"chat_attachments">) => {
@@ -65,7 +86,9 @@ export function AttachmentsSettingsPage() {
     }
     setSelectedIds(new Set(attachments.map((a) => a._id)));
   };
-  const clearSelection = () => setSelectedIds(new Set());
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
 
   const deleteSelected = () => {
     if (selectedIds.size === 0) {
@@ -75,21 +98,15 @@ export function AttachmentsSettingsPage() {
   };
 
   const confirmDeleteSelected = async () => {
-    const ids = Array.from(selectedIds);
     try {
       // The mutation accepts a bounded batch; large selections span several calls
-      for (let start = 0; start < ids.length; start += ATTACHMENT_DELETE_BATCH_SIZE) {
-        await deleteAttachments({
-          attachmentIds: ids.slice(start, start + ATTACHMENT_DELETE_BATCH_SIZE),
-        });
-      }
+      await deleteInBatches(deleteAttachments, [...selectedIds]);
       toast({ title: "Selected attachments deleted", status: "success" });
       setSelectedIds(new Set());
     } catch {
       toast({ title: "Failed to delete some attachments", status: "error" });
-    } finally {
-      setShowDeleteSelectedDialog(false);
     }
+    setShowDeleteSelectedDialog(false);
   };
 
   const handleDelete = (attachmentId: Id<"chat_attachments">) => {
@@ -114,14 +131,20 @@ export function AttachmentsSettingsPage() {
       });
   };
 
-  const totalSize = attachments?.reduce((acc, att) => acc + (att.fileSize ?? 0), 0);
+  const totalSize = attachments?.reduce(
+    (acc, att) => acc + (att.fileSize ?? 0),
+    0
+  );
 
   const renderAttachmentsList = () => {
     if (!attachments) {
       return (
         <div className="flex flex-col gap-3">
           {["skeleton-1", "skeleton-2", "skeleton-3"].map((skeletonId) => (
-            <div className="flex items-center gap-4 rounded-xl border bg-card p-4" key={skeletonId}>
+            <div
+              className="flex items-center gap-4 rounded-xl border bg-card p-4"
+              key={skeletonId}
+            >
               <Skeleton className="size-4 rounded" />
               <Skeleton className="size-10 rounded-lg" />
               <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -138,12 +161,14 @@ export function AttachmentsSettingsPage() {
     if (attachments.length === 0 && !hasMore) {
       return (
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed bg-muted/20 py-16 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full border-2 border-muted-foreground/30 border-dashed">
+          <div className="flex size-12 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30">
             <FileTextIcon className="size-5 text-muted-foreground/60" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-medium text-muted-foreground">No attachments</h3>
-            <p className="max-w-sm text-muted-foreground/80 text-sm">
+            <h3 className="font-medium text-muted-foreground">
+              No attachments
+            </h3>
+            <p className="max-w-sm text-sm text-muted-foreground/80">
               Files you upload in chats will appear here for management.
             </p>
           </div>
@@ -160,12 +185,20 @@ export function AttachmentsSettingsPage() {
               className={cn(
                 "group flex items-center gap-4 rounded-xl border bg-card p-4",
                 "hover:border-border/80 hover:shadow-sm",
-                selected && "border-primary/20 bg-primary/[0.02]",
+                selected && "border-primary/20 bg-primary/[0.02]"
               )}
               key={att._id}
             >
-              <Checkbox checked={selected} onCheckedChange={() => toggleSelect(att._id)} />
-              {(att.fileType?.startsWith("image/") ?? false) && att.url ? (
+              <Checkbox
+                checked={selected}
+                onCheckedChange={() => {
+                  toggleSelect(att._id);
+                }}
+              />
+              {(att.fileType?.startsWith("image/") ?? false) &&
+              att.url !== undefined &&
+              att.url !== null &&
+              att.url !== "" ? (
                 <div className="size-10 shrink-0 overflow-hidden rounded-lg border">
                   <img
                     alt={att.fileName ?? "attachment"}
@@ -187,17 +220,21 @@ export function AttachmentsSettingsPage() {
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  <span className="truncate font-medium">{att.fileName ?? att.key}</span>
+                  <span className="truncate font-medium">
+                    {att.fileName ?? att.key}
+                  </span>
                   <ArrowSquareOutIcon className="size-3.5 shrink-0 text-muted-foreground" />
                 </a>
-                <span className="text-muted-foreground text-xs">
+                <span className="text-xs text-muted-foreground">
                   {att.fileType ?? "file"} · {formatBytes(att.fileSize ?? 0)}
                 </span>
               </div>
               <Button
                 aria-label={`Delete ${att.fileName ?? "attachment"}`}
                 className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => handleDelete(att._id)}
+                onClick={() => {
+                  handleDelete(att._id);
+                }}
                 size="icon"
                 variant="ghost"
               >
@@ -210,7 +247,9 @@ export function AttachmentsSettingsPage() {
           <Button
             className="self-center"
             disabled={status === "LoadingMore"}
-            onClick={() => loadMore(ATTACHMENTS_PAGE_SIZE)}
+            onClick={() => {
+              loadMore(ATTACHMENTS_PAGE_SIZE);
+            }}
             size="sm"
             variant="outline"
           >
@@ -230,24 +269,25 @@ export function AttachmentsSettingsPage() {
       {/* Header */}
       <header className="space-y-4">
         <div className="flex items-baseline justify-between">
-          <h1 className="font-semibold text-2xl tracking-tight">Attachments</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Attachments</h1>
           {Boolean(attachments && attachments.length > 0) && (
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs tabular-nums">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground tabular-nums">
                 {attachments?.length}
-                {moreSuffix} file{attachments?.length === 1 && !hasMore ? "" : "s"}
+                {moreSuffix} file
+                {attachments?.length === 1 && !hasMore ? "" : "s"}
               </span>
               <span className="text-muted-foreground/40">·</span>
-              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs tabular-nums">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground tabular-nums">
                 {formatBytes(totalSize ?? 0)}
                 {moreSuffix}
               </span>
             </div>
           )}
         </div>
-        <p className="text-muted-foreground leading-relaxed">
-          Manage your uploaded files and attachments. Deleting files here will remove them from the
-          relevant chats but won't delete those chats.
+        <p className="leading-relaxed text-muted-foreground">
+          Manage your uploaded files and attachments. Deleting files here will
+          remove them from the relevant chats but won&apos;t delete those chats.
         </p>
       </header>
 
@@ -257,7 +297,9 @@ export function AttachmentsSettingsPage() {
           <Label className="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-1.5 hover:bg-accent/25 has-aria-checked:border-primary/30 has-aria-checked:bg-primary/5">
             <Checkbox
               checked={Boolean(
-                attachments && attachments.length > 0 && selectedIds.size === attachments.length,
+                attachments &&
+                attachments.length > 0 &&
+                selectedIds.size === attachments.length
               )}
               disabled={!attachments || attachments.length === 0}
               id="select-all"
@@ -273,15 +315,22 @@ export function AttachmentsSettingsPage() {
                 }
               }}
             />
-            <span className="hidden font-medium text-sm sm:inline">Select All</span>
+            <span className="hidden text-sm font-medium sm:inline">
+              Select All
+            </span>
           </Label>
-          {Boolean(selectedIds.size > 0) && (
-            <Button onClick={clearSelection} size="sm" type="button" variant="secondary">
+          {selectedIds.size > 0 && (
+            <Button
+              onClick={clearSelection}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
               Clear <span className="hidden sm:inline">Selection</span>
             </Button>
           )}
         </div>
-        {Boolean(selectedIds.size > 0) && (
+        {selectedIds.size > 0 && (
           <Button
             className="flex items-center gap-2"
             onClick={deleteSelected}
@@ -299,21 +348,34 @@ export function AttachmentsSettingsPage() {
       {attachmentsList}
 
       {/* Delete selected attachments dialog */}
-      <Dialog onOpenChange={setShowDeleteSelectedDialog} open={showDeleteSelectedDialog}>
+      <Dialog
+        onOpenChange={setShowDeleteSelectedDialog}
+        open={showDeleteSelectedDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete selected attachments?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete {selectedIds.size} selected
-              attachment
+              This action cannot be undone. This will permanently delete{" "}
+              {selectedIds.size} selected attachment
               {selectedIds.size === 1 ? "" : "s"}.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => setShowDeleteSelectedDialog(false)} variant="outline">
+            <Button
+              onClick={() => {
+                setShowDeleteSelectedDialog(false);
+              }}
+              variant="outline"
+            >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteSelected} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteSelected();
+              }}
+              variant="destructive"
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -321,13 +383,16 @@ export function AttachmentsSettingsPage() {
       </Dialog>
 
       {/* Delete single attachment dialog */}
-      <Dialog onOpenChange={setShowDeleteSingleDialog} open={showDeleteSingleDialog}>
+      <Dialog
+        onOpenChange={setShowDeleteSingleDialog}
+        open={showDeleteSingleDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete attachment?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete this attachment and remove
-              it from the relevant chats.
+              This action cannot be undone. This will permanently delete this
+              attachment and remove it from the relevant chats.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -340,7 +405,12 @@ export function AttachmentsSettingsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteSingle} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteSingle();
+              }}
+              variant="destructive"
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -348,4 +418,8 @@ export function AttachmentsSettingsPage() {
       </Dialog>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/settings/attachments")({
+  component: AttachmentsSettingsPage,
+});

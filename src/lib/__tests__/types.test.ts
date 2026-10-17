@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+
 import type { ConnectorType } from "../types";
 
 describe("types", () => {
-  describe("ConnectorType", () => {
+  describe("ConnectorType values", () => {
     it("allows gmail as valid connector type", () => {
       const connector: ConnectorType = "gmail";
 
@@ -77,7 +78,7 @@ describe("types", () => {
         "twitter",
       ];
 
-      expect(connectors.length).toBe(10);
+      expect(connectors).toHaveLength(10);
     });
   });
 });

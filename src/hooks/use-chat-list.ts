@@ -2,6 +2,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { usePaginatedQuery } from "convex/react";
 import { useCallback, useMemo } from "react";
+
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -16,30 +17,41 @@ export const CHAT_LIST_PAGE_SIZE = 50;
  * chats past that query's cap stay in the paged list. With a term, both lists hold the server's
  * title-search matches.
  */
-export function useChatList(searchTerm: string, profileId: Id<"profiles"> | null | undefined) {
+export const useChatList = (
+  searchTerm: string,
+  profileId: Id<"profiles"> | null | undefined
+) => {
   const term = searchTerm.trim();
   const { results, status, loadMore } = usePaginatedQuery(
     api.chats.listChatsForUser,
     profileId ? { profileId } : "skip",
-    { initialNumItems: CHAT_LIST_PAGE_SIZE },
+    { initialNumItems: CHAT_LIST_PAGE_SIZE }
   );
   const { data: pinned } = useQuery(
-    convexQuery(api.chats.listPinnedChatsForUser, profileId ? { profileId } : "skip"),
+    convexQuery(
+      api.chats.listPinnedChatsForUser,
+      profileId ? { profileId } : "skip"
+    )
   );
   const { data: matches } = useQuery({
-    ...convexQuery(api.chats.searchChats, profileId && term ? { query: term, profileId } : "skip"),
+    ...convexQuery(
+      api.chats.searchChats,
+      profileId && term ? { query: term, profileId } : "skip"
+    ),
     // Keep the last results on screen while the next keystroke's search loads, unless they are
     // another profile's (the profile just switched)
     placeholderData: (previous) =>
-      previous?.every((chat) => chat.profileId === profileId) ? previous : undefined,
+      previous?.every((chat) => chat.profileId === profileId) === true
+        ? previous
+        : undefined,
   });
 
   const { pinnedChats, otherChats } = useMemo(() => {
     if (term) {
       const found = matches ?? [];
       return {
-        pinnedChats: found.filter((chat) => chat.isPinned),
-        otherChats: found.filter((chat) => !chat.isPinned),
+        pinnedChats: found.filter((chat) => chat.isPinned === true),
+        otherChats: found.filter((chat) => chat.isPinned !== true),
       };
     }
     // Drop the chats the pinned list shows; until it loads, drop every pinned chat so none
@@ -47,22 +59,41 @@ export function useChatList(searchTerm: string, profileId: Id<"profiles"> | null
     const pinnedIds = pinned && new Set(pinned.map((chat) => chat._id));
     return {
       pinnedChats: pinned ?? [],
-      otherChats: results.filter((chat) => (pinnedIds ? !pinnedIds.has(chat._id) : !chat.isPinned)),
+      otherChats: results.filter((chat) =>
+        pinnedIds ? !pinnedIds.has(chat._id) : chat.isPinned !== true
+      ),
     };
   }, [term, matches, pinned, results]);
 
-  const loadNextPage = useCallback(() => loadMore(CHAT_LIST_PAGE_SIZE), [loadMore]);
+  const loadNextPage = useCallback(() => {
+    loadMore(CHAT_LIST_PAGE_SIZE);
+  }, [loadMore]);
 
   return {
     pinnedChats,
     otherChats,
-    isLoading: profileId !== null && (term ? matches === undefined : status === "LoadingFirstPage"),
+    isLoading:
+      profileId !== null &&
+      (term ? matches === undefined : status === "LoadingFirstPage"),
     // More pages exist (one may be loading right now)
     hasMore: !term && (status === "CanLoadMore" || status === "LoadingMore"),
     canLoadMore: !term && status === "CanLoadMore",
     loadMore: loadNextPage,
   };
-}
+};
+
+/** Calls `loadMore` whenever `node` becomes visible; returns the cleanup that stops observing. */
+const observeSentinel = (node: HTMLElement, loadMore: () => void) => {
+  const observer = new IntersectionObserver(([entry]) => {
+    if (entry?.isIntersecting) {
+      loadMore();
+    }
+  });
+  observer.observe(node);
+  return () => {
+    observer.disconnect();
+  };
+};
 
 /**
  * Callback ref for a sentinel element at the end of a scrolling list. Whenever another page can
@@ -70,20 +101,11 @@ export function useChatList(searchTerm: string, profileId: Id<"profiles"> | null
  * turns true again, so short pages (e.g. of chats the pinned list already shows) keep loading
  * until the view fills.
  */
-export function useLoadMoreRef(canLoadMore: boolean, loadMore: () => void) {
-  return useCallback(
-    (node: HTMLElement | null) => {
-      if (!(node && canLoadMore)) {
-        return;
-      }
-      const observer = new IntersectionObserver(([entry]) => {
-        if (entry?.isIntersecting) {
-          loadMore();
-        }
-      });
-      observer.observe(node);
-      return () => observer.disconnect();
-    },
-    [canLoadMore, loadMore],
+export const useLoadMoreRef = (canLoadMore: boolean, loadMore: () => void) =>
+  useCallback(
+    (node: HTMLElement | null) =>
+      node !== null && canLoadMore
+        ? observeSentinel(node, loadMore)
+        : undefined,
+    [canLoadMore, loadMore]
   );
-}

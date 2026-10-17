@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME } from "@/lib/config/constants";
 
 export function PopoverContentAuth() {
 	const [isLoading, setIsLoading] = useState(false);

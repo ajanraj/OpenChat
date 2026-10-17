@@ -1,26 +1,36 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
-import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { ConvexError, type Infer, v } from "convex/values";
-import { ATTACHMENT_DELETE_BATCH_SIZE, getUploadPolicyError } from "../src/lib/config/upload";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
+import { ConvexError, v } from "convex/values";
+import type { Infer } from "convex/values";
+
+import {
+  ATTACHMENT_DELETE_BATCH_SIZE,
+  getUploadPolicyError,
+} from "../src/lib/config/upload";
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { sanitizeAndValidateFileName } from "../src/lib/filename";
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  type ActionCtx,
   action,
   internalAction,
   internalMutation,
   internalQuery,
-  type MutationCtx,
   mutation,
-  type QueryCtx,
   query,
 } from "./_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import { assertServerSecret } from "./lib/auth_helper";
-import { scheduleDeletedUploadCheck, uploadRecheckTime } from "./lib/cleanup_helper";
+import {
+  scheduleDeletedUploadCheck,
+  uploadRecheckTime,
+} from "./lib/cleanup_helper";
 import { supportsFileUploadModel } from "./lib/fileUploadModels";
+import { forEachInOrder } from "./lib/sequence";
 import { rateLimiter } from "./rateLimiter";
 import schema from "./schema";
 
@@ -40,11 +50,13 @@ import schema from "./schema";
 
 const r2 = new R2(components.r2);
 
-const TRAILING_SLASH_RE = /\/$/;
+const TRAILING_SLASH_RE = /\/$/u;
 
 // Pending uploads older than this are deleted by the cron in crons.ts; their URLs have expired.
 const PENDING_UPLOAD_TTL_MS = 60 * 60 * 1000;
 const PENDING_CLEANUP_BATCH_SIZE = 50;
+// Pending uploads have no chatId until they are attached to a chat.
+const PENDING_CHAT_ID = undefined;
 
 const attachmentDoc = schema.doc("chat_attachments");
 
@@ -72,44 +84,50 @@ const saveResult = v.union(
     error: v.union(
       v.literal(ERROR_CODES.UNSUPPORTED_FILE_TYPE),
       v.literal(ERROR_CODES.FILE_TOO_LARGE),
-      v.literal(ERROR_CODES.INVALID_INPUT),
+      v.literal(ERROR_CODES.INVALID_INPUT)
     ),
-  }),
+  })
 );
 type SaveResult = Infer<typeof saveResult>;
 
 /** Permanent public URL for an R2 key, or undefined when R2_PUBLIC_URL_BASE is unset. */
-function getPublicUrl(key: string): string | undefined {
+const getPublicUrl = (key: string): string | undefined => {
   const base = process.env.R2_PUBLIC_URL_BASE;
-  return base ? `${base.replace(TRAILING_SLASH_RE, "")}/${key}` : undefined;
-}
+  return base !== undefined && base !== ""
+    ? `${base.replace(TRAILING_SLASH_RE, "")}/${key}`
+    : undefined;
+};
 
 /**
  * Upload policy for a stored object's synced R2 metadata; generated images must be images.
  * Missing metadata fields fail the check.
  */
-function getStoredObjectPolicyError(
+const getStoredObjectPolicyError = (
   meta: { contentType?: string; size?: number },
-  isGenerated: boolean,
-) {
+  isGenerated: boolean
+) => {
   const file = { type: meta.contentType ?? "", size: meta.size ?? -1 };
   return (
     getUploadPolicyError(file) ??
-    (isGenerated && !file.type.startsWith("image/") ? ERROR_CODES.UNSUPPORTED_FILE_TYPE : null)
+    (isGenerated && !file.type.startsWith("image/")
+      ? ERROR_CODES.UNSUPPORTED_FILE_TYPE
+      : null)
   );
-}
+};
 
 /** Fallback name for generated images saved without one, e.g. "gen-1700000000000.png". */
-function defaultGeneratedFileName(contentType: string): string {
+const defaultGeneratedFileName = (contentType: string): string => {
   const subtype = contentType.split("/")[1]?.split("+")[0];
   return `gen-${Date.now()}.${subtype || "bin"}`;
-}
+};
 
 /**
  * Returns the caller's user id. Guest (anonymous) accounts cannot store files, so they get
  * NOT_AUTHENTICATED, which tells the client to sign in.
  */
-async function requireRegisteredUser(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
+const requireRegisteredUser = async (
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"users">> => {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
@@ -118,20 +136,20 @@ async function requireRegisteredUser(ctx: QueryCtx | MutationCtx): Promise<Id<"u
   if (!user) {
     throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
   }
-  if (user.isAnonymous) {
+  if (user.isAnonymous === true) {
     throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
   }
   return userId;
-}
+};
 
 /**
  * Loads the caller's upload row for `key` and checks it may be attached to `chatId`.
  * Never inserts: rows only come from generateUploadUrl.
  */
-async function requireAttachableUpload(
+const requireAttachableUpload = async (
   ctx: QueryCtx | MutationCtx,
-  args: FinalizeArgs,
-): Promise<Doc<"chat_attachments">> {
+  args: FinalizeArgs
+): Promise<Doc<"chat_attachments">> => {
   const userId = await requireRegisteredUser(ctx);
   const row = await ctx.db
     .query("chat_attachments")
@@ -146,11 +164,18 @@ async function requireAttachableUpload(
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
   }
   // Generated images come from our image models; user uploads need a file-capable chat model.
-  if (!(args.isGenerated || (chat.model && supportsFileUploadModel(chat.model)))) {
+  if (
+    !(
+      args.isGenerated ||
+      (chat.model !== undefined &&
+        chat.model !== "" &&
+        supportsFileUploadModel(chat.model))
+    )
+  ) {
     throw new ConvexError(ERROR_CODES.UNSUPPORTED_MODEL);
   }
   return row;
-}
+};
 
 /**
  * Issues a presigned R2 PUT URL for one file and records a pending upload owned by the caller.
@@ -159,11 +184,18 @@ async function requireAttachableUpload(
  * message credit, so they skip the per-user upload rate limit.
  */
 export const generateUploadUrl = mutation({
-  args: { contentType: v.string(), size: v.number(), serverSecret: v.optional(v.string()) },
+  args: {
+    contentType: v.string(),
+    size: v.number(),
+    serverSecret: v.optional(v.string()),
+  },
   returns: v.object({ key: v.string(), url: v.string() }),
   handler: async (ctx, args) => {
     const userId = await requireRegisteredUser(ctx);
-    const policyError = getUploadPolicyError({ type: args.contentType, size: args.size });
+    const policyError = getUploadPolicyError({
+      type: args.contentType,
+      size: args.size,
+    });
     if (policyError) {
       throw new ConvexError(policyError);
     }
@@ -215,7 +247,9 @@ export const internalSave = internalMutation({
     const fileType = meta.contentType ?? "";
     const saved = {
       chatId: args.chatId,
-      fileName: sanitizeAndValidateFileName(args.fileName ?? defaultGeneratedFileName(fileType)),
+      fileName: sanitizeAndValidateFileName(
+        args.fileName ?? defaultGeneratedFileName(fileType)
+      ),
       fileType,
       fileSize: meta.size ?? 0,
       url: getPublicUrl(args.key),
@@ -227,7 +261,9 @@ export const internalSave = internalMutation({
     // after this check. Check it once more after the URL expires.
     const recheckAt = uploadRecheckTime(row);
     if (recheckAt !== null) {
-      await ctx.scheduler.runAt(recheckAt, internal.files.recheckAttachment, { key: args.key });
+      await ctx.scheduler.runAt(recheckAt, internal.files.recheckAttachment, {
+        key: args.key,
+      });
     }
     return { status: "saved", attachment: { ...row, ...saved } };
   },
@@ -237,10 +273,10 @@ export const internalSave = internalMutation({
  * Shared body of saveFileAttachment and saveGeneratedImage: authorizes, syncs the object's real
  * metadata from R2, then validates and attaches it. Throws the policy error for rejected files.
  */
-async function finalizeUpload(
+const finalizeUpload = async (
   ctx: ActionCtx,
-  args: FinalizeArgs,
-): Promise<Infer<typeof savedAttachment>> {
+  args: FinalizeArgs
+): Promise<Infer<typeof savedAttachment>> => {
   // Authorize before touching R2 so callers can't trigger syncs for keys they don't own.
   await ctx.runQuery(internal.files.checkAttachable, args);
   try {
@@ -249,12 +285,15 @@ async function finalizeUpload(
     console.error("R2 metadata sync failed", { key: args.key, error });
     throw new ConvexError(ERROR_CODES.UPLOAD_FAILED);
   }
-  const result: SaveResult = await ctx.runMutation(internal.files.internalSave, args);
+  const result: SaveResult = await ctx.runMutation(
+    internal.files.internalSave,
+    args
+  );
   if (result.status === "rejected") {
     throw new ConvexError(result.error);
   }
   return result.attachment;
-}
+};
 
 /** Attaches a file the user uploaded via generateUploadUrl to one of their chats. */
 export const saveFileAttachment = action({
@@ -264,7 +303,8 @@ export const saveFileAttachment = action({
     fileName: v.string(),
   },
   returns: savedAttachment,
-  handler: (ctx, args) => finalizeUpload(ctx, { ...args, isGenerated: false }),
+  handler: async (ctx, args) =>
+    await finalizeUpload(ctx, { ...args, isGenerated: false }),
 });
 
 /**
@@ -278,7 +318,8 @@ export const saveGeneratedImage = action({
     fileName: v.optional(v.string()),
   },
   returns: savedAttachment,
-  handler: (ctx, args) => finalizeUpload(ctx, { ...args, isGenerated: true }),
+  handler: async (ctx, args) =>
+    await finalizeUpload(ctx, { ...args, isGenerated: true }),
 });
 
 /**
@@ -301,7 +342,7 @@ export const getAttachmentsForUser = query({
       .order("desc")
       // Inside the pagination, so pages and isDone count only saved attachments. Pending uploads
       // are few (rate-limited, deleted after an hour), so skipping them costs little.
-      .filter((q) => q.neq(q.field("chatId"), undefined))
+      .filter((q) => q.neq(q.field("chatId"), PENDING_CHAT_ID))
       .paginate(args.paginationOpts);
   },
 });
@@ -322,15 +363,15 @@ export const deleteAttachments = mutation({
       throw new ConvexError(ERROR_CODES.INVALID_INPUT);
     }
 
-    for (const attachmentId of new Set(attachmentIds)) {
+    await forEachInOrder([...new Set(attachmentIds)], async (attachmentId) => {
       const attachment = await ctx.db.get("chat_attachments", attachmentId);
       if (!attachment || attachment.userId !== userId) {
-        continue;
+        return;
       }
       await r2.deleteObject(ctx, attachment.key);
       await ctx.db.delete("chat_attachments", attachment._id);
       await scheduleDeletedUploadCheck(ctx, attachment);
-    }
+    });
     return null;
   },
 });
@@ -347,13 +388,15 @@ export const cleanupPendingUploads = internalMutation({
     const cutoff = Date.now() - PENDING_UPLOAD_TTL_MS;
     const expired = await ctx.db
       .query("chat_attachments")
-      .withIndex("by_chatId", (q) => q.eq("chatId", undefined).lt("_creationTime", cutoff))
+      .withIndex("by_chatId", (q) =>
+        q.eq("chatId", PENDING_CHAT_ID).lt("_creationTime", cutoff)
+      )
       .take(PENDING_CLEANUP_BATCH_SIZE);
 
-    for (const row of expired) {
+    await forEachInOrder(expired, async (row) => {
       await r2.deleteObject(ctx, row.key);
       await ctx.db.delete("chat_attachments", row._id);
-    }
+    });
     if (expired.length === PENDING_CLEANUP_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.files.cleanupPendingUploads, {});
     }
@@ -387,11 +430,19 @@ export const recheckAttachment = internalAction({
         console.error("R2 metadata re-check failed; giving up", { key, error });
         return null;
       }
-      console.warn("R2 metadata re-check failed; retrying", { key, attempt, error });
-      await ctx.scheduler.runAfter(retryDelay, internal.files.recheckAttachment, {
+      console.warn("R2 metadata re-check failed; retrying", {
         key,
-        attempt: attempt + 1,
+        attempt,
+        error,
       });
+      await ctx.scheduler.runAfter(
+        retryDelay,
+        internal.files.recheckAttachment,
+        {
+          key,
+          attempt: attempt + 1,
+        }
+      );
       return null;
     }
     await ctx.runMutation(internal.files.enforceAttachmentPolicy, { key });
@@ -431,7 +482,9 @@ export const enforceAttachmentPolicy = internalMutation({
     }
     const meta = await r2.getMetadata(ctx, args.key);
     if (meta && getStoredObjectPolicyError(meta, row.isGenerated === true)) {
-      console.warn("Deleting attachment replaced after upload", { key: args.key });
+      console.warn("Deleting attachment replaced after upload", {
+        key: args.key,
+      });
       await r2.deleteObject(ctx, args.key);
       await ctx.db.delete("chat_attachments", row._id);
     }

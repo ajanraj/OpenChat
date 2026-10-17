@@ -1,5 +1,6 @@
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { z } from "zod";
+
 import { ModelSchema } from "../schemas";
 import { ANTHROPIC_MODELS } from "./anthropic";
 import { DEEPSEEK_MODELS } from "./deepseek";
@@ -40,16 +41,19 @@ export const MODELS_DATA = [
 
 export const MODELS_RAW = z.array(ModelSchema).parse(MODELS_DATA);
 
+// Reasoning models get the middleware that extracts <think> blocks into reasoning parts
 export const MODELS = MODELS_RAW.map((m) => ({
   ...m,
-  api_sdk: m.features?.some((f) => f.id === "reasoning" && f.enabled)
-    ? wrapLanguageModel({ model: m.api_sdk, middleware: reasoningMiddleware })
-    : m.api_sdk,
+  api_sdk:
+    m.features?.some((f) => f.id === "reasoning" && f.enabled) &&
+    typeof m.api_sdk === "object" &&
+    "doStream" in m.api_sdk
+      ? wrapLanguageModel({ model: m.api_sdk, middleware: reasoningMiddleware })
+      : m.api_sdk,
 }));
 
 // Add a map for O(1) lookup by id
-export const MODELS_MAP: Record<string, (typeof MODELS)[0]> = Object.fromEntries(
-  MODELS.map((model) => [model.id, model]),
-);
+export const MODELS_MAP: Record<string, (typeof MODELS)[0]> =
+  Object.fromEntries(MODELS.map((model) => [model.id, model]));
 
-export const MODELS_OPTIONS = MODELS.filter((model) => !model.retired);
+export const MODELS_OPTIONS = MODELS.filter((model) => model.retired !== true);

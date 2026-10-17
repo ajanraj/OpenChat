@@ -4,10 +4,13 @@ export const Message = v.object({
   chatId: v.id("chats"),
   userId: v.optional(v.id("users")),
   role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
-  content: v.string(), // Keeping content for search compatibility
-  parts: v.optional(v.any()), // New parts system
+  // Keeping content for search compatibility
+  content: v.string(),
+  // New parts system
+  parts: v.optional(v.any()),
   createdAt: v.optional(v.number()),
-  parentMessageId: v.optional(v.id("messages")), // Keeping for threading
+  // Keeping for threading
+  parentMessageId: v.optional(v.id("messages")),
   metadata: v.object({
     modelId: v.optional(v.string()),
     modelName: v.optional(v.string()),

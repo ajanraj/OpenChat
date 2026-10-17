@@ -13,10 +13,25 @@ export type ApiKeyProvider =
 
 // API key validation patterns
 export const API_KEY_PATTERNS = {
-  openai: /^sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}(?:T3BlbkFJ[A-Za-z0-9_-]{20,})?$/,
-  anthropic: /^sk-ant-[a-zA-Z0-9_-]{8,}$/,
-  gemini: /^AIza[a-zA-Z0-9_-]{35,}$/,
+  openai:
+    /^sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}(?:T3BlbkFJ[A-Za-z0-9_-]{20,})?$/u,
+  anthropic: /^sk-ant-[a-zA-Z0-9_-]{8,}$/u,
+  gemini: /^AIza[a-zA-Z0-9_-]{35,}$/u,
 } as const;
+
+type PatternProvider = keyof typeof API_KEY_PATTERNS;
+
+const hasKeyPattern = (provider: ApiKeyProvider): provider is PatternProvider =>
+  provider in API_KEY_PATTERNS;
+
+// Shown when a key doesn't match its provider's pattern
+const API_KEY_FORMAT_ERRORS: Record<PatternProvider, string> = {
+  openai:
+    "OpenAI API keys should start with 'sk-' followed by at least 20 characters",
+  anthropic:
+    "Anthropic API keys should start with 'sk-ant-' followed by at least 8 characters (letters, numbers, hyphens, underscores)",
+  gemini: "Google API keys should start with 'AIza' followed by 35+ characters",
+};
 
 // Provider configuration with metadata for API keys page
 const PROVIDER_CONFIGS = [
@@ -43,17 +58,20 @@ const PROVIDER_CONFIGS = [
 /**
  * Generate display name for a model, combining name and subName if present
  */
-function getModelDisplayName(model: Model): string {
-  return model.subName ? `${model.name} (${model.subName})` : model.name;
-}
+const getModelDisplayName = (model: Model): string =>
+  model.subName !== undefined && model.subName !== ""
+    ? `${model.name} (${model.subName})`
+    : model.name;
 
 /**
  * Get providers that support API keys along with their models
  * This replaces the hardcoded PROVIDERS array in the API keys page
  */
-export function getApiKeyProviders() {
+export const getApiKeyProviders = () => {
   // Filter models that allow user API keys
-  const apiKeyModels = MODELS_RAW.filter((model) => model.apiKeyUsage?.allowUserKey === true);
+  const apiKeyModels = MODELS_RAW.filter(
+    (model) => model.apiKeyUsage?.allowUserKey
+  );
 
   // Group models by provider
   const providerGroups = new Map<string, string[]>();
@@ -68,53 +86,36 @@ export function getApiKeyProviders() {
   }
 
   // Return only providers that have models with API key support
-  return PROVIDER_CONFIGS.filter((config) => providerGroups.has(config.id)).map((config) => ({
-    id: config.id,
-    title: config.title,
-    placeholder: config.placeholder,
-    docs: config.docs,
-    models: providerGroups.get(config.id) || [],
-  }));
-}
+  return PROVIDER_CONFIGS.filter((config) => providerGroups.has(config.id)).map(
+    (config) => ({
+      id: config.id,
+      title: config.title,
+      placeholder: config.placeholder,
+      docs: config.docs,
+      models: providerGroups.get(config.id) ?? [],
+    })
+  );
+};
 
 /**
  * Validation function for API keys
  */
-export function validateApiKey(
+export const validateApiKey = (
   provider: ApiKeyProvider,
-  key: string,
-): { isValid: boolean; error?: string } {
+  key: string
+): { isValid: boolean; error?: string } => {
   if (!key.trim()) {
     return { isValid: false, error: "API key is required" };
   }
 
-  const pattern = API_KEY_PATTERNS[provider as keyof typeof API_KEY_PATTERNS];
-  if (!pattern) {
-    return { isValid: true }; // No specific pattern for this provider
+  if (!hasKeyPattern(provider)) {
+    // No specific pattern for this provider
+    return { isValid: true };
   }
 
-  if (!pattern.test(key)) {
-    switch (provider) {
-      case "openai":
-        return {
-          isValid: false,
-          error: "OpenAI API keys should start with 'sk-' followed by at least 20 characters",
-        };
-      case "anthropic":
-        return {
-          isValid: false,
-          error:
-            "Anthropic API keys should start with 'sk-ant-' followed by at least 8 characters (letters, numbers, hyphens, underscores)",
-        };
-      case "gemini":
-        return {
-          isValid: false,
-          error: "Google API keys should start with 'AIza' followed by 35+ characters",
-        };
-      default:
-        return { isValid: false, error: "Invalid API key format" };
-    }
+  if (!API_KEY_PATTERNS[provider].test(key)) {
+    return { isValid: false, error: API_KEY_FORMAT_ERRORS[provider] };
   }
 
   return { isValid: true };
-}
+};

@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
+
 import {
   CONNECTOR_CONFIGS,
   CONNECTOR_TOOL_NAMES,
   getConnectorConfig,
   getConnectorTypeFromToolName,
   isConnectorTool,
+  isConnectorType,
   SUPPORTED_CONNECTORS,
 } from "../tools";
 
-describe("CONNECTOR_CONFIGS", () => {
+describe("CONNECTOR_CONFIGS record", () => {
   it("is defined and has entries", () => {
     expect(CONNECTOR_CONFIGS).toBeDefined();
-    expect(typeof CONNECTOR_CONFIGS).toBe("object");
+    expect(CONNECTOR_CONFIGS).toBeTypeOf("object");
   });
 
   it("contains gmail config", () => {
@@ -21,7 +23,9 @@ describe("CONNECTOR_CONFIGS", () => {
 
   it("contains google calendar config", () => {
     expect(CONNECTOR_CONFIGS.googlecalendar).toBeDefined();
-    expect(CONNECTOR_CONFIGS.googlecalendar.displayName).toBe("Google Calendar");
+    expect(CONNECTOR_CONFIGS.googlecalendar.displayName).toBe(
+      "Google Calendar"
+    );
   });
 
   it("each connector config has required properties", () => {
@@ -35,9 +39,9 @@ describe("CONNECTOR_CONFIGS", () => {
   });
 });
 
-describe("SUPPORTED_CONNECTORS", () => {
+describe("SUPPORTED_CONNECTORS list", () => {
   it("is an array of connector types", () => {
-    expect(Array.isArray(SUPPORTED_CONNECTORS)).toBe(true);
+    expect(Array.isArray(SUPPORTED_CONNECTORS)).toBeTruthy();
     expect(SUPPORTED_CONNECTORS.length).toBeGreaterThan(0);
   });
 
@@ -50,13 +54,13 @@ describe("SUPPORTED_CONNECTORS", () => {
   });
 });
 
-describe("CONNECTOR_TOOL_NAMES", () => {
+describe("CONNECTOR_TOOL_NAMES alias", () => {
   it("equals SUPPORTED_CONNECTORS", () => {
     expect(CONNECTOR_TOOL_NAMES).toBe(SUPPORTED_CONNECTORS);
   });
 });
 
-describe("getConnectorConfig", () => {
+describe(getConnectorConfig, () => {
   it("returns config for valid connector type", () => {
     const config = getConnectorConfig("gmail");
 
@@ -72,46 +76,60 @@ describe("getConnectorConfig", () => {
   });
 
   it("throws for invalid connector type", () => {
-    expect(() => getConnectorConfig("invalid" as unknown as "gmail")).toThrow(
-      "Unknown connector type: invalid",
-    );
+    // Called untyped, like callers passing an unchecked runtime string
+    expect(() => {
+      Reflect.apply(getConnectorConfig, undefined, ["invalid"]);
+    }).toThrow("Unknown connector type: invalid");
   });
 });
 
-describe("isConnectorTool", () => {
+describe(isConnectorType, () => {
+  it("accepts configured connector types", () => {
+    expect(SUPPORTED_CONNECTORS.every(isConnectorType)).toBeTruthy();
+  });
+
+  it.each(["invalid", "", "Gmail", "toString", "__proto__"])(
+    "rejects %j",
+    (value) => {
+      expect(isConnectorType(value)).toBeFalsy();
+    }
+  );
+});
+
+describe(isConnectorTool, () => {
   it("returns true for direct connector names", () => {
-    expect(isConnectorTool("gmail")).toBe(true);
-    expect(isConnectorTool("slack")).toBe(true);
-    expect(isConnectorTool("github")).toBe(true);
+    expect(isConnectorTool("gmail")).toBeTruthy();
+    expect(isConnectorTool("slack")).toBeTruthy();
+    expect(isConnectorTool("github")).toBeTruthy();
   });
 
   it("returns true for tool names containing connector types", () => {
-    expect(isConnectorTool("GMAIL_SEND_EMAIL")).toBe(true);
-    expect(isConnectorTool("slack_post_message")).toBe(true);
-    expect(isConnectorTool("GITHUB_CREATE_ISSUE")).toBe(true);
+    expect(isConnectorTool("GMAIL_SEND_EMAIL")).toBeTruthy();
+    expect(isConnectorTool("slack_post_message")).toBeTruthy();
+    expect(isConnectorTool("GITHUB_CREATE_ISSUE")).toBeTruthy();
   });
 
   it("returns true for alternative patterns", () => {
-    expect(isConnectorTool("calendar")).toBe(true);
-    expect(isConnectorTool("drive")).toBe(true);
-    expect(isConnectorTool("docs")).toBe(true);
-    expect(isConnectorTool("sheets")).toBe(true);
+    expect(isConnectorTool("calendar")).toBeTruthy();
+    expect(isConnectorTool("drive")).toBeTruthy();
+    expect(isConnectorTool("docs")).toBeTruthy();
+    expect(isConnectorTool("sheets")).toBeTruthy();
   });
 
   it("returns false for non-connector tools", () => {
-    expect(isConnectorTool("web_search")).toBe(false);
-    expect(isConnectorTool("calculator")).toBe(false);
-    expect(isConnectorTool("random_tool")).toBe(false);
+    expect(isConnectorTool("web_search")).toBeFalsy();
+    expect(isConnectorTool("calculator")).toBeFalsy();
+    expect(isConnectorTool("random_tool")).toBeFalsy();
   });
 
   it("is case insensitive", () => {
-    expect(isConnectorTool("GMAIL")).toBe(true);
-    expect(isConnectorTool("Gmail")).toBe(true);
-    expect(isConnectorTool("SLACK")).toBe(true);
+    expect(isConnectorTool("GMAIL")).toBeTruthy();
+    expect(isConnectorTool("Gmail")).toBeTruthy();
+    expect(isConnectorTool("SLACK")).toBeTruthy();
   });
 });
 
-describe("getConnectorTypeFromToolName", () => {
+describe(getConnectorTypeFromToolName, () => {
   it("returns correct type for direct connector names", () => {
     expect(getConnectorTypeFromToolName("gmail")).toBe("gmail");
     expect(getConnectorTypeFromToolName("slack")).toBe("slack");
@@ -124,8 +142,12 @@ describe("getConnectorTypeFromToolName", () => {
   });
 
   it("returns correct type for alternative patterns", () => {
-    expect(getConnectorTypeFromToolName("calendar_create_event")).toBe("googlecalendar");
-    expect(getConnectorTypeFromToolName("drive_list_files")).toBe("googledrive");
+    expect(getConnectorTypeFromToolName("calendar_create_event")).toBe(
+      "googlecalendar"
+    );
+    expect(getConnectorTypeFromToolName("drive_list_files")).toBe(
+      "googledrive"
+    );
   });
 
   it("is case insensitive", () => {
@@ -135,10 +157,10 @@ describe("getConnectorTypeFromToolName", () => {
 
   it("throws for unknown tool names", () => {
     expect(() => getConnectorTypeFromToolName("web_search")).toThrow(
-      "Unable to determine connector type",
+      "Unable to determine connector type"
     );
     expect(() => getConnectorTypeFromToolName("calculator")).toThrow(
-      "Unable to determine connector type",
+      "Unable to determine connector type"
     );
   });
 });

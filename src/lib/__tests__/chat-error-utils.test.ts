@@ -1,7 +1,10 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vitest";
+
 import type { toast } from "@/components/ui/toast";
+import type { getAllowedLabel } from "@/lib/config/upload";
 import type { classifyError, shouldShowAsToast } from "@/lib/error-utils";
+
 import {
   createChatErrorHandler,
   humaniseUploadError,
@@ -9,11 +12,11 @@ import {
 } from "../chat-error-utils";
 
 // Mock toast and error-utils
-vi.mock("@/components/ui/toast", () => ({
+vi.mock(import("@/components/ui/toast"), () => ({
   toast: vi.fn<typeof toast>(),
 }));
 
-vi.mock("@/lib/error-utils", () => ({
+vi.mock(import("@/lib/error-utils"), () => ({
   classifyError: vi.fn<typeof classifyError>(() => ({
     code: "unknown_error",
     displayType: "toast",
@@ -25,66 +28,83 @@ vi.mock("@/lib/error-utils", () => ({
   shouldShowAsToast: vi.fn<typeof shouldShowAsToast>(() => true),
 }));
 
-vi.mock("@/lib/config/upload", () => ({
-  getAllowedLabel: vi.fn<(mimes?: readonly string[]) => string>(() => "images, PDFs"),
-  UPLOAD_ALLOWED_MIME: ["image/*", "application/pdf"],
+vi.mock(import("@/lib/config/upload"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  getAllowedLabel: vi.fn<typeof getAllowedLabel>(() => "images, PDFs"),
   UPLOAD_MAX_LABEL: "10MB",
 }));
 
-describe("humaniseUploadError", () => {
+describe(humaniseUploadError, () => {
   it("returns generic message for non-Error objects", () => {
     expect(humaniseUploadError("string error")).toBe("Error uploading file");
-    expect(humaniseUploadError(null)).toBe("Error uploading file");
-    expect(humaniseUploadError(undefined)).toBe("Error uploading file");
-    expect(humaniseUploadError({ message: "test" })).toBe("Error uploading file");
+    for (const missing of [null, undefined]) {
+      expect(humaniseUploadError(missing)).toBe("Error uploading file");
+    }
+    expect(humaniseUploadError({ message: "test" })).toBe(
+      "Error uploading file"
+    );
   });
 
   it("maps server upload error codes", () => {
     expect(humaniseUploadError(new ConvexError("UNSUPPORTED_MODEL"))).toBe(
-      "File uploads are not supported for the selected model.",
+      "File uploads are not supported for the selected model."
     );
     expect(humaniseUploadError(new ConvexError("UNSUPPORTED_FILE_TYPE"))).toBe(
-      "File not supported. Allowed: images, PDFs",
+      "File not supported. Allowed: images, PDFs"
     );
     expect(humaniseUploadError(new ConvexError("FILE_TOO_LARGE"))).toBe(
-      "File too large. Max 10MB per file",
+      "File too large. Max 10MB per file"
     );
     expect(humaniseUploadError(new ConvexError("NOT_AUTHENTICATED"))).toBe(
-      "Sign in with Google to upload files.",
+      "Sign in with Google to upload files."
     );
   });
 
   it("maps the upload rate limit error", () => {
-    const error = new ConvexError({ kind: "RateLimited", name: "fileUpload", retryAfter: 1000 });
+    const error = new ConvexError({
+      kind: "RateLimited",
+      name: "fileUpload",
+      retryAfter: 1000,
+    });
 
     expect(humaniseUploadError(error)).toBe(
-      "Upload limit reached. Please wait a few minutes before uploading more files.",
+      "Upload limit reached. Please wait a few minutes before uploading more files."
     );
   });
 
   it("returns generic message for unknown errors", () => {
-    expect(humaniseUploadError(new ConvexError("UPLOAD_FAILED"))).toBe("Error uploading file");
-    expect(humaniseUploadError(new Error("ERR_FILE_TOO_LARGE"))).toBe("Error uploading file");
+    expect(humaniseUploadError(new ConvexError("UPLOAD_FAILED"))).toBe(
+      "Error uploading file"
+    );
+    expect(humaniseUploadError(new Error("ERR_FILE_TOO_LARGE"))).toBe(
+      "Error uploading file"
+    );
   });
 });
 
-describe("processBranchError", () => {
+describe(processBranchError, () => {
   it("handles branch from non-assistant message error", () => {
     const error = new Error("Can only branch from assistant messages");
 
-    expect(processBranchError(error)).toBe("You can only branch from assistant messages");
+    expect(processBranchError(error)).toBe(
+      "You can only branch from assistant messages"
+    );
   });
 
   it("handles not found error", () => {
     const error = new Error("Message not found in the database");
 
-    expect(processBranchError(error)).toBe("Message not found or chat unavailable");
+    expect(processBranchError(error)).toBe(
+      "Message not found or chat unavailable"
+    );
   });
 
   it("handles unauthorized error", () => {
     const error = new Error("unauthorized access to chat");
 
-    expect(processBranchError(error)).toBe("You don't have permission to branch this chat");
+    expect(processBranchError(error)).toBe(
+      "You don't have permission to branch this chat"
+    );
   });
 
   it("handles unknown errors", () => {
@@ -95,19 +115,23 @@ describe("processBranchError", () => {
 
   it("handles non-Error objects", () => {
     expect(processBranchError("string error")).toBe("Failed to branch chat");
-    expect(processBranchError({ message: "test" })).toBe("Failed to branch chat");
+    expect(processBranchError({ message: "test" })).toBe(
+      "Failed to branch chat"
+    );
   });
 
   it("handles string containing not found", () => {
-    expect(processBranchError("Chat not found")).toBe("Message not found or chat unavailable");
+    expect(processBranchError("Chat not found")).toBe(
+      "Message not found or chat unavailable"
+    );
   });
 });
 
-describe("createChatErrorHandler", () => {
+describe(createChatErrorHandler, () => {
   it("returns a function", () => {
     const handler = createChatErrorHandler();
 
-    expect(typeof handler).toBe("function");
+    expect(handler).toBeTypeOf("function");
   });
 
   it("handler accepts an Error parameter", () => {
@@ -115,6 +139,8 @@ describe("createChatErrorHandler", () => {
     const error = new Error("test error");
 
     // Should not throw
-    expect(() => handler(error)).not.toThrow();
+    expect(() => {
+      handler(error);
+    }).not.toThrow();
   });
 });

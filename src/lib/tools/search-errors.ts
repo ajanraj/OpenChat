@@ -1,10 +1,22 @@
 import type { SearchProvider } from "./types";
 
-export class SearchError extends Error {
-  provider: SearchProvider;
-  code: string;
+export type SearchErrorCode =
+  | "SEARCH_ERROR"
+  | "AUTH_ERROR"
+  | "NETWORK_ERROR"
+  | "RATE_LIMIT_ERROR"
+  | "INVALID_RESPONSE";
 
-  constructor(message: string, provider: SearchProvider, code = "SEARCH_ERROR") {
+/** A failed search, tagged with the provider and what went wrong. */
+export class SearchError extends Error {
+  readonly provider: SearchProvider;
+  readonly code: SearchErrorCode;
+
+  constructor(
+    message: string,
+    provider: SearchProvider,
+    code: SearchErrorCode = "SEARCH_ERROR"
+  ) {
     super(`[${provider}] ${message}`);
     this.name = "SearchError";
     this.provider = provider;
@@ -12,35 +24,11 @@ export class SearchError extends Error {
   }
 }
 
-export class SearchAuthenticationError extends SearchError {
-  constructor(provider: SearchProvider, message = "Authentication failed") {
-    super(message, provider, "AUTH_ERROR");
-    this.name = "SearchAuthenticationError";
-  }
-}
-
-export class SearchNetworkError extends SearchError {
-  constructor(provider: SearchProvider, message = "Network request failed") {
-    super(message, provider, "NETWORK_ERROR");
-    this.name = "SearchNetworkError";
-  }
-}
-
-export class SearchRateLimitError extends SearchError {
-  constructor(provider: SearchProvider, message = "Rate limit exceeded") {
-    super(message, provider, "RATE_LIMIT_ERROR");
-    this.name = "SearchRateLimitError";
-  }
-}
-
-export class SearchInvalidResponseError extends SearchError {
-  constructor(provider: SearchProvider, message = "Invalid response format") {
-    super(message, provider, "INVALID_RESPONSE");
-    this.name = "SearchInvalidResponseError";
-  }
-}
-
-export function handleSearchError(error: unknown, provider: SearchProvider): never {
+// Explicitly typed so TypeScript treats calls as never-returning in control-flow analysis
+export const handleSearchError: (
+  error: unknown,
+  provider: SearchProvider
+) => never = (error, provider) => {
   // Handle search errors without console logging to avoid linting issues
 
   if (error instanceof SearchError) {
@@ -50,19 +38,22 @@ export function handleSearchError(error: unknown, provider: SearchProvider): nev
   if (error instanceof Error) {
     // Check for specific error patterns
     if (error.message.includes("401") || error.message.includes("403")) {
-      throw new SearchAuthenticationError(provider, error.message);
+      throw new SearchError(error.message, provider, "AUTH_ERROR");
     }
 
     if (error.message.includes("429")) {
-      throw new SearchRateLimitError(provider, error.message);
+      throw new SearchError(error.message, provider, "RATE_LIMIT_ERROR");
     }
 
-    if (error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT")) {
-      throw new SearchNetworkError(provider, error.message);
+    if (
+      error.message.includes("ENOTFOUND") ||
+      error.message.includes("ETIMEDOUT")
+    ) {
+      throw new SearchError(error.message, provider, "NETWORK_ERROR");
     }
 
     throw new SearchError(error.message, provider);
   }
 
   throw new SearchError("Unknown error occurred", provider);
-}
+};

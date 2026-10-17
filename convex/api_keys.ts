@@ -1,21 +1,22 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { mutation, query } from "./_generated/server";
 import { assertServerSecret } from "./lib/auth_helper";
 
-const API_KEY_SECRET = process.env.API_KEY_SECRET;
-if (!API_KEY_SECRET) {
+const { API_KEY_SECRET } = process.env;
+if (API_KEY_SECRET === undefined || API_KEY_SECRET === "") {
   throw new Error(
-    "CRITICAL SECURITY ERROR: API_KEY_SECRET environment variable is required but not set. API keys cannot be stored securely without encryption. Set API_KEY_SECRET to continue.",
+    "CRITICAL SECURITY ERROR: API_KEY_SECRET environment variable is required but not set. API keys cannot be stored securely without encryption. Set API_KEY_SECRET to continue."
   );
 }
 
 // Define regex at top level for performance
-const HEX_REGEX = /^[0-9a-fA-F]+$/;
+const HEX_REGEX = /^[0-9a-fA-F]+$/u;
 
 // Convert string to ArrayBuffer
-function stringToArrayBuffer(str: string): ArrayBuffer {
+const stringToArrayBuffer = (str: string): ArrayBuffer => {
   const encoder = new TextEncoder();
   const uint8Array = encoder.encode(str);
   // Create a new ArrayBuffer and copy the data
@@ -23,26 +24,25 @@ function stringToArrayBuffer(str: string): ArrayBuffer {
   const view = new Uint8Array(buffer);
   view.set(uint8Array);
   return buffer;
-}
+};
 
 // Convert ArrayBuffer to string
-function arrayBufferToString(buffer: ArrayBuffer): string {
+const arrayBufferToString = (buffer: ArrayBuffer): string => {
   const decoder = new TextDecoder();
   return decoder.decode(buffer);
-}
+};
 
 // Convert ArrayBuffer to hex string
-function arrayBufferToHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
+const arrayBufferToHex = (buffer: ArrayBuffer): string =>
+  [...new Uint8Array(buffer)]
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-}
 
 // Convert hex string to ArrayBuffer
-function hexToArrayBuffer(hex: string): ArrayBuffer {
+const hexToArrayBuffer = (hex: string): ArrayBuffer => {
   // Input validation
   if (typeof hex !== "string") {
-    throw new Error("Input must be a string");
+    throw new TypeError("Input must be a string");
   }
 
   if (hex.length === 0) {
@@ -60,13 +60,13 @@ function hexToArrayBuffer(hex: string): ArrayBuffer {
 
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = Number.parseInt(hex.substring(i, i + 2), 16);
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
   }
   return bytes.buffer;
-}
+};
 
-async function getKey(userId: string): Promise<CryptoKey> {
-  if (!API_KEY_SECRET) {
+const getKey = async (userId: string): Promise<CryptoKey> => {
+  if (API_KEY_SECRET === undefined || API_KEY_SECRET === "") {
     throw new Error("API_KEY_SECRET not configured");
   }
 
@@ -75,29 +75,33 @@ async function getKey(userId: string): Promise<CryptoKey> {
     stringToArrayBuffer(API_KEY_SECRET),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"],
+    ["deriveKey"]
   );
 
   // Create a unique salt per user using a hash for additional security
-  const userIdHash = await crypto.subtle.digest("SHA-256", stringToArrayBuffer(userId));
+  const userIdHash = await crypto.subtle.digest(
+    "SHA-256",
+    stringToArrayBuffer(userId)
+  );
   const userSalt = `convex-api-keys-${arrayBufferToHex(userIdHash)}`;
 
-  return crypto.subtle.deriveKey(
+  return await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: stringToArrayBuffer(userSalt), // User-specific salt for security
+      // User-specific salt for security
+      salt: stringToArrayBuffer(userSalt),
       iterations: 100_000,
       hash: "SHA-256",
     },
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt", "decrypt"],
+    ["encrypt", "decrypt"]
   );
-}
+};
 
-async function encrypt(text: string, userId: string): Promise<string> {
-  if (!API_KEY_SECRET) {
+const encrypt = async (text: string, userId: string): Promise<string> => {
+  if (API_KEY_SECRET === undefined || API_KEY_SECRET === "") {
     throw new Error("Cannot encrypt API key: API_KEY_SECRET not configured");
   }
 
@@ -106,33 +110,37 @@ async function encrypt(text: string, userId: string): Promise<string> {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const data = stringToArrayBuffer(text);
 
-    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      data
+    );
 
     return `${arrayBufferToHex(iv.buffer)}:${arrayBufferToHex(encrypted)}`;
   } catch {
     // Prevent sensitive information leakage by throwing a generic error
     throw new Error("Failed to encrypt API key");
   }
-}
+};
 
-async function decrypt(payload: string, userId: string): Promise<string> {
-  if (!API_KEY_SECRET) {
+const decrypt = async (payload: string, userId: string): Promise<string> => {
+  if (API_KEY_SECRET === undefined || API_KEY_SECRET === "") {
     throw new Error("Cannot decrypt API key: API_KEY_SECRET not configured");
   }
 
   // Validate payload format before splitting
   if (typeof payload !== "string") {
-    throw new Error("Payload must be a string");
+    throw new TypeError("Payload must be a string");
   }
 
   if (payload.length === 0) {
     throw new Error("Payload cannot be empty");
   }
 
-  const colonCount = (payload.match(/:/g) || []).length;
+  const colonCount = (payload.match(/:/gu) ?? []).length;
   if (colonCount !== 1) {
     throw new Error(
-      "Invalid payload format: must contain exactly one colon separator between IV and data parts",
+      "Invalid payload format: must contain exactly one colon separator between IV and data parts"
     );
   }
 
@@ -142,13 +150,20 @@ async function decrypt(payload: string, userId: string): Promise<string> {
   const data = hexToArrayBuffer(dataHex);
 
   try {
-    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      data
+    );
     return arrayBufferToString(decrypted);
   } catch {
     // Silently handle decryption errors to prevent sensitive information leakage
     throw new Error("Failed to decrypt API key");
   }
-}
+};
+
+export const decryptKey = async (encrypted: string, userId: string) =>
+  await decrypt(encrypted, userId);
 
 export const getApiKeys = query({
   args: {},
@@ -160,7 +175,7 @@ export const getApiKeys = query({
       messageCount: v.optional(v.number()),
       createdAt: v.optional(v.number()),
       updatedAt: v.optional(v.number()),
-    }),
+    })
   ),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -172,14 +187,16 @@ export const getApiKeys = query({
       .query("user_api_keys")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId))
       .collect();
-    return keys.map(({ _id, provider, mode, messageCount, createdAt, updatedAt }) => ({
-      _id,
-      provider,
-      mode,
-      messageCount,
-      createdAt,
-      updatedAt,
-    }));
+    return keys.map(
+      ({ _id, provider, mode, messageCount, createdAt, updatedAt }) => ({
+        _id,
+        provider,
+        mode,
+        messageCount,
+        createdAt,
+        updatedAt,
+      })
+    );
   },
 });
 
@@ -192,7 +209,7 @@ export const saveApiKey = mutation({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
     key: v.string(),
     mode: v.optional(v.union(v.literal("priority"), v.literal("fallback"))),
@@ -207,29 +224,31 @@ export const saveApiKey = mutation({
       encrypt(key, userId),
       ctx.db
         .query("user_api_keys")
-        .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+        .withIndex("by_user_provider", (q) =>
+          q.eq("userId", userId).eq("provider", provider)
+        )
         .unique(),
     ]);
     const now = Date.now();
     // Default to "fallback" mode if not specified
-    const finalMode = mode || "fallback";
+    const finalMode = mode ?? "fallback";
     if (existing) {
       await ctx.db.patch("user_api_keys", existing._id, {
         encryptedKey: encrypted,
         mode: finalMode,
         updatedAt: now,
       });
-    } else {
-      await ctx.db.insert("user_api_keys", {
-        userId,
-        provider,
-        encryptedKey: encrypted,
-        mode: finalMode,
-        messageCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      });
+      return null;
     }
+    await ctx.db.insert("user_api_keys", {
+      userId,
+      provider,
+      encryptedKey: encrypted,
+      mode: finalMode,
+      messageCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
     return null;
   },
 });
@@ -243,7 +262,7 @@ export const deleteApiKey = mutation({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
   },
   returns: v.null(),
@@ -254,7 +273,9 @@ export const deleteApiKey = mutation({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (existing) {
       await ctx.db.delete("user_api_keys", existing._id);
@@ -272,7 +293,7 @@ export const updateApiKeyMode = mutation({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
     mode: v.union(v.literal("priority"), v.literal("fallback")),
   },
@@ -284,10 +305,15 @@ export const updateApiKeyMode = mutation({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (existing) {
-      await ctx.db.patch("user_api_keys", existing._id, { mode, updatedAt: Date.now() });
+      await ctx.db.patch("user_api_keys", existing._id, {
+        mode,
+        updatedAt: Date.now(),
+      });
     }
     return null;
   },
@@ -304,7 +330,7 @@ export const getDecryptedKey = query({
       v.literal("gemini"),
       v.literal("mistral"),
       v.literal("meta"),
-      v.literal("Qwen"),
+      v.literal("Qwen")
     ),
     serverSecret: v.string(),
   },
@@ -317,7 +343,9 @@ export const getDecryptedKey = query({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (!existing) {
       return null;
@@ -325,10 +353,6 @@ export const getDecryptedKey = query({
     return await decryptKey(existing.encryptedKey, userId);
   },
 });
-
-export async function decryptKey(encrypted: string, userId: string) {
-  return await decrypt(encrypted, userId);
-}
 
 export const incrementUserApiKeyUsage = mutation({
   args: { provider: v.string() },
@@ -340,11 +364,15 @@ export const incrementUserApiKeyUsage = mutation({
     }
     const existing = await ctx.db
       .query("user_api_keys")
-      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", userId).eq("provider", provider)
+      )
       .unique();
     if (existing) {
-      const currentCount = existing.messageCount || 0;
-      await ctx.db.patch("user_api_keys", existing._id, { messageCount: currentCount + 1 });
+      const currentCount = existing.messageCount ?? 0;
+      await ctx.db.patch("user_api_keys", existing._id, {
+        messageCount: currentCount + 1,
+      });
     }
     return null;
   },

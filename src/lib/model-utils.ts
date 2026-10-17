@@ -4,48 +4,57 @@
  */
 
 import type { OpenRouterProviderOptions } from "@openrouter/ai-sdk-provider";
-import { MODEL_DEFAULT, MODELS } from "@/lib/config";
-import { ReasoningEffortSchema, type ReasoningEffort } from "@/lib/config/schemas";
 
-export function getReasoningEffortOptions(modelId: string): ReasoningEffort[] {
+import { MODEL_DEFAULT } from "@/lib/config/constants";
+import { MODELS } from "@/lib/config/models";
+import { ReasoningEffortSchema } from "@/lib/config/schemas";
+import type { ReasoningEffort } from "@/lib/config/schemas";
+
+export const getReasoningEffortOptions = (
+  modelId: string
+): ReasoningEffort[] => {
   const model = MODELS.find((candidate) => candidate.id === modelId);
   const reasoningFeature = model?.features.find(
-    (feature) => feature.id === "reasoning" && feature.enabled,
+    (feature) => feature.id === "reasoning" && feature.enabled
   );
   return reasoningFeature?.effortOptions ?? [];
-}
+};
 
-export function getDefaultReasoningEffort(modelId: string): ReasoningEffort | undefined {
+export const getDefaultReasoningEffort = (
+  modelId: string
+): ReasoningEffort | undefined => {
   const effortOptions = getReasoningEffortOptions(modelId);
   return effortOptions.includes("none") ? "none" : effortOptions[0];
-}
+};
 
-export function normalizeReasoningEffort(
+export const normalizeReasoningEffort = (
   modelId: string,
-  requestedEffort: ReasoningEffort,
-): ReasoningEffort {
+  requestedEffort: ReasoningEffort
+): ReasoningEffort => {
   const effortOptions = getReasoningEffortOptions(modelId);
   return effortOptions.includes(requestedEffort)
     ? requestedEffort
     : (getDefaultReasoningEffort(modelId) ?? requestedEffort);
-}
+};
 
-export function getMessageReasoningEffort(
+export const getMessageReasoningEffort = (
   modelId: string,
   storedEffort: string | undefined,
-  fallbackEffort: ReasoningEffort,
-): ReasoningEffort {
+  fallbackEffort: ReasoningEffort
+): ReasoningEffort => {
   const parsedEffort = ReasoningEffortSchema.safeParse(storedEffort);
   return normalizeReasoningEffort(
     modelId,
-    parsedEffort.success ? parsedEffort.data : fallbackEffort,
+    parsedEffort.success ? parsedEffort.data : fallbackEffort
   );
-}
+};
 
-export function resolveReasoningEffort(
+export const resolveReasoningEffort = (
   modelId: string,
-  requestedEffort?: ReasoningEffort,
-): { success: true; effort: ReasoningEffort | undefined } | { success: false } {
+  requestedEffort?: ReasoningEffort
+):
+  | { success: true; effort: ReasoningEffort | undefined }
+  | { success: false } => {
   const effortOptions = getReasoningEffortOptions(modelId);
   if (requestedEffort === undefined) {
     return { success: true, effort: getDefaultReasoningEffort(modelId) };
@@ -53,17 +62,21 @@ export function resolveReasoningEffort(
   return effortOptions.includes(requestedEffort)
     ? { success: true, effort: requestedEffort }
     : { success: false };
-}
+};
 
-export function getOpenRouterReasoningOptions(
+export const getOpenRouterReasoningOptions = (
   modelId: string,
-  reasoningEffort?: ReasoningEffort,
-): OpenRouterProviderOptions {
+  reasoningEffort?: ReasoningEffort
+): OpenRouterProviderOptions => {
   const model = MODELS.find((candidate) => candidate.id === modelId);
   const hasReasoning = model?.features.some(
-    (feature) => feature.id === "reasoning" && feature.enabled,
+    (feature) => feature.id === "reasoning" && feature.enabled
   );
-  if (model?.provider !== "openrouter" || !hasReasoning || reasoningEffort === undefined) {
+  if (
+    model?.provider !== "openrouter" ||
+    hasReasoning !== true ||
+    reasoningEffort === undefined
+  ) {
     return {};
   }
   return {
@@ -72,22 +85,26 @@ export function getOpenRouterReasoningOptions(
         ? { enabled: false, effort: "none" }
         : { enabled: true, effort: reasoningEffort },
   };
-}
+};
 
 /**
  * Checks if a model supports configurable reasoning effort
  */
-export function supportsReasoningEffort(modelId: string): boolean {
-  return getReasoningEffortOptions(modelId).length > 0;
-}
+export const supportsReasoningEffort = (modelId: string): boolean =>
+  getReasoningEffortOptions(modelId).length > 0;
 
 /**
  * Creates a memoized model validator function
  */
-export function createModelValidator() {
-  const validModels = new Set(MODELS.filter((model) => !model.retired).map((model) => model.id));
+export const createModelValidator = () => {
+  const validModels = new Set(
+    MODELS.filter((model) => model.retired !== true).map((model) => model.id)
+  );
 
-  return function getValidModel(preferredModel: string, disabledModels: string[] = []): string {
+  return function getValidModel(
+    preferredModel: string,
+    disabledModels: string[] = []
+  ): string {
     // Check if model exists and is not disabled
     if (!validModels.has(preferredModel)) {
       return MODEL_DEFAULT;
@@ -101,35 +118,34 @@ export function createModelValidator() {
 
     return preferredModel;
   };
-}
+};
 
 /**
  * Gets model configuration by ID
  */
-export function getModelById(modelId: string) {
-  return MODELS.find((m) => m.id === modelId);
-}
+export const getModelById = (modelId: string) =>
+  MODELS.find((m) => m.id === modelId);
 
 /**
  * Checks if a model requires premium access
  */
-export function isModelPremium(modelId: string): boolean {
+export const isModelPremium = (modelId: string): boolean => {
   const model = getModelById(modelId);
   return model?.premium === true;
-}
+};
 
 /**
  * Checks if a model requires user API key
  */
-export function requiresUserApiKey(modelId: string): boolean {
+export const requiresUserApiKey = (modelId: string): boolean => {
   const model = getModelById(modelId);
   return model?.apiKeyUsage?.userKeyOnly === true;
-}
+};
 
 /**
  * Gets the provider for a model
  */
-export function getModelProvider(modelId: string): string | undefined {
+export const getModelProvider = (modelId: string): string | undefined => {
   const model = getModelById(modelId);
   return model?.provider;
-}
+};

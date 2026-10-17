@@ -24,7 +24,7 @@ import {
 	Message as MessageContainer,
 	MessageContent,
 } from "@/components/prompt-kit/message";
-import type { ReasoningEffort } from "@/lib/config";
+import type { ReasoningEffort } from "@/lib/config/schemas";
 import { cn } from "@/lib/utils";
 
 const getTextFromDataUrl = (dataUrl: string) => {

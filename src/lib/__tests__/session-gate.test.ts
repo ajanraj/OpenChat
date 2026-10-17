@@ -1,26 +1,48 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { createSessionGate, SESSION_TIMEOUT_MS } from "../session-gate";
 
-const SIGNED_OUT = { isLoading: false, isAuthenticated: false, hasToken: false };
+const SIGNED_OUT = {
+  isLoading: false,
+  isAuthenticated: false,
+  hasToken: false,
+};
 // A returning user's stored token, before the backend confirms it
 const RESTORING = { isLoading: true, isAuthenticated: false, hasToken: true };
 // A token the backend hasn't accepted: a fresh sign-in's until it is confirmed, or a stored one it
 // rejected. useConvexAuth() reads both as signed out
-const UNCONFIRMED = { isLoading: false, isAuthenticated: false, hasToken: true };
+const UNCONFIRMED = {
+  isLoading: false,
+  isAuthenticated: false,
+  hasToken: true,
+};
 const SIGNED_IN = { isLoading: false, isAuthenticated: true, hasToken: true };
 
-function guestAuth(
-  signIn = vi.fn<() => Promise<{ signingIn: boolean }>>(async () => ({ signingIn: true })),
-) {
-  return { signIn, signOut: vi.fn<() => Promise<void>>(async () => undefined) };
-}
+const guestAuth = (
+  signIn = vi
+    .fn<() => Promise<{ signingIn: boolean }>>()
+    .mockResolvedValue({ signingIn: true })
+) => ({
+  signIn,
+  signOut: vi.fn<() => Promise<void>>().mockResolvedValue(),
+});
 
 /** Lets pending promise callbacks run. */
-async function flush() {
+const flush = async () => {
   await vi.advanceTimersByTimeAsync(0);
-}
+};
 
-describe("createSessionGate", () => {
+/** Settles with what `promise` rejects with, so a test can advance timers before asserting on it. */
+const errorFrom = async (promise: Promise<void>): Promise<unknown> => {
+  try {
+    await promise;
+  } catch (error) {
+    return error;
+  }
+  return null;
+};
+
+describe(createSessionGate, () => {
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -38,16 +60,18 @@ describe("createSessionGate", () => {
     vi.useFakeTimers();
     const gate = createSessionGate(RESTORING);
     const auth = guestAuth();
-    const done = vi.fn<() => void>();
+    const onResolved = vi.fn<() => void>();
 
-    void gate.ensure(auth).then(done);
+    void gate.ensure(auth).then(() => {
+      onResolved();
+    });
     await flush();
-    expect(done).not.toHaveBeenCalled();
+    expect(onResolved).not.toHaveBeenCalled();
 
     gate.update(SIGNED_IN);
     await flush();
 
-    expect(done).toHaveBeenCalled();
+    expect(onResolved).toHaveBeenCalledExactlyOnceWith();
     expect(auth.signIn).not.toHaveBeenCalled();
   });
 
@@ -55,21 +79,23 @@ describe("createSessionGate", () => {
     vi.useFakeTimers();
     const gate = createSessionGate(SIGNED_OUT);
     const auth = guestAuth();
-    const done = vi.fn<() => void>();
+    const onResolved = vi.fn<() => void>();
 
-    void gate.ensure(auth).then(done);
+    void gate.ensure(auth).then(() => {
+      onResolved();
+    });
     await flush();
     // signIn has resolved, but the websocket is not authenticated yet
     gate.update(UNCONFIRMED);
     await flush();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
     expect(auth.signOut).not.toHaveBeenCalled();
-    expect(done).not.toHaveBeenCalled();
+    expect(onResolved).not.toHaveBeenCalled();
 
     gate.update(SIGNED_IN);
     await flush();
 
-    expect(done).toHaveBeenCalled();
+    expect(onResolved).toHaveBeenCalledExactlyOnceWith();
   });
 
   it("shares one sign-in between concurrent sends", async () => {
@@ -83,15 +109,19 @@ describe("createSessionGate", () => {
     gate.update(SIGNED_IN);
     await Promise.all([first, second]);
 
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
   });
 
   it("rejects when sign-in does not start a session, and the next send signs in again", async () => {
     const gate = createSessionGate(SIGNED_OUT);
-    const auth = guestAuth(vi.fn(async () => ({ signingIn: false })));
+    const auth = guestAuth(
+      vi
+        .fn<() => Promise<{ signingIn: boolean }>>()
+        .mockResolvedValue({ signingIn: false })
+    );
 
-    await expect(gate.ensure(auth)).rejects.toThrow(/did not start a session/);
-    await expect(gate.ensure(auth)).rejects.toThrow(/did not start a session/);
+    await expect(gate.ensure(auth)).rejects.toThrow(/did not start a session/u);
+    await expect(gate.ensure(auth)).rejects.toThrow(/did not start a session/u);
 
     expect(auth.signIn).toHaveBeenCalledTimes(2);
   });
@@ -101,18 +131,21 @@ describe("createSessionGate", () => {
     const gate = createSessionGate(SIGNED_OUT);
     const auth = guestAuth();
 
-    const failure = gate.ensure(auth).catch((error: Error) => error);
+    const failure = errorFrom(gate.ensure(auth));
     await flush();
     gate.update(UNCONFIRMED);
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await failure)?.message).toMatch(/Timed out/);
+    await expect(failure).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
 
     const retry = gate.ensure(auth);
     await flush();
     gate.update(SIGNED_IN);
     await retry;
 
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
   });
 
   it("uses a confirmation that lands just as the retry starts", async () => {
@@ -120,11 +153,14 @@ describe("createSessionGate", () => {
     const gate = createSessionGate(SIGNED_OUT);
     const auth = guestAuth();
 
-    const failure = gate.ensure(auth).catch((error: Error) => error);
+    const failure = errorFrom(gate.ensure(auth));
     await flush();
     gate.update(UNCONFIRMED);
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await failure)?.message).toMatch(/Timed out/);
+    await expect(failure).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
 
     // Confirmed after the retry's first check, before its next step runs
     const retry = gate.ensure(auth);
@@ -132,7 +168,7 @@ describe("createSessionGate", () => {
     await flush();
 
     expect(auth.signOut).not.toHaveBeenCalled();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
     await retry;
   });
 
@@ -142,20 +178,26 @@ describe("createSessionGate", () => {
     const auth = guestAuth();
 
     // Convex Auth keeps the new token, and the backend never confirms it
-    const first = gate.ensure(auth).catch((error: Error) => error);
+    const first = errorFrom(gate.ensure(auth));
     await flush();
     gate.update(UNCONFIRMED);
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await first)?.message).toMatch(/Timed out/);
+    await expect(first).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
 
-    const second = gate.ensure(auth).catch((error: Error) => error);
+    const second = errorFrom(gate.ensure(auth));
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await second)?.message).toMatch(/Timed out/);
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    await expect(second).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
+    expect(auth.signIn).toHaveBeenCalledOnce();
 
     const third = gate.ensure(auth);
     await flush();
-    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signOut).toHaveBeenCalledOnce();
     gate.update(SIGNED_OUT);
     await flush();
     gate.update(SIGNED_IN);
@@ -170,9 +212,12 @@ describe("createSessionGate", () => {
     const auth = guestAuth();
 
     // e.g. another tab signs out in the same render batch: the gate never sees a token
-    const failure = gate.ensure(auth).catch((error: Error) => error);
+    const failure = errorFrom(gate.ensure(auth));
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await failure)?.message).toMatch(/Timed out/);
+    await expect(failure).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
 
     const retry = gate.ensure(auth);
     await flush();
@@ -186,40 +231,45 @@ describe("createSessionGate", () => {
     vi.useFakeTimers();
     const gate = createSessionGate(RESTORING);
     const auth = guestAuth();
-    const done = vi.fn<() => void>();
+    const onResolved = vi.fn<() => void>();
 
     // Convex Auth keeps a stored token it has no refresh token for
     gate.update(UNCONFIRMED);
-    void gate.ensure(auth).then(done);
+    void gate.ensure(auth).then(() => {
+      onResolved();
+    });
     await flush();
-    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signOut).toHaveBeenCalledOnce();
     // Signing in now would swap tokens without Convex noticing
     expect(auth.signIn).not.toHaveBeenCalled();
 
     gate.update(SIGNED_OUT);
     await flush();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
 
     gate.update(SIGNED_IN);
     await flush();
-    expect(done).toHaveBeenCalled();
+    expect(onResolved).toHaveBeenCalledExactlyOnceWith();
   });
 
   it("gives a sign-out that outlasts its attempt a fresh wait for the token to go", async () => {
     vi.useFakeTimers();
     const gate = createSessionGate(UNCONFIRMED);
-    let finishSignOut = () => {};
+    const signOutDone: PromiseWithResolvers<void> = Promise.withResolvers();
+    const finishSignOut = () => {
+      signOutDone.resolve();
+    };
     const auth = guestAuth();
-    auth.signOut.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finishSignOut = resolve;
-        }),
-    );
+    auth.signOut.mockImplementation(async () => {
+      await signOutDone.promise;
+    });
 
-    const failure = gate.ensure(auth).catch((error: Error) => error);
+    const failure = errorFrom(gate.ensure(auth));
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await failure)?.message).toMatch(/Timed out/);
+    await expect(failure).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
 
     // The retry reuses the stalled sign-out, which then finishes
     const retry = gate.ensure(auth);
@@ -227,11 +277,11 @@ describe("createSessionGate", () => {
     await flush();
     gate.update(SIGNED_OUT);
     await flush();
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
 
     gate.update(SIGNED_IN);
     await retry;
-    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signOut).toHaveBeenCalledOnce();
   });
 
   it("signs in again once Convex Auth drops a token the backend rejected", async () => {
@@ -239,12 +289,15 @@ describe("createSessionGate", () => {
     const gate = createSessionGate(SIGNED_OUT);
     const auth = guestAuth();
 
-    const failure = gate.ensure(auth).catch((error: Error) => error);
+    const failure = errorFrom(gate.ensure(auth));
     await flush();
     gate.update(UNCONFIRMED);
     gate.update(SIGNED_OUT);
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await failure)?.message).toMatch(/Timed out/);
+    await expect(failure).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
 
     const retry = gate.ensure(auth);
     await flush();
@@ -258,19 +311,18 @@ describe("createSessionGate", () => {
   it("bounds a stalled sign-in, and the retry reuses it rather than creating a second guest", async () => {
     vi.useFakeTimers();
     const gate = createSessionGate(SIGNED_OUT);
-    let finishSignIn: (result: { signingIn: boolean }) => void = () => {};
-    const auth = guestAuth(
-      vi.fn(
-        () =>
-          new Promise<{ signingIn: boolean }>((resolve) => {
-            finishSignIn = resolve;
-          }),
-      ),
-    );
+    const signInDone = Promise.withResolvers<{ signingIn: boolean }>();
+    const finishSignIn = (result: { signingIn: boolean }) => {
+      signInDone.resolve(result);
+    };
+    const auth = guestAuth(vi.fn(async () => await signInDone.promise));
 
-    const failure = gate.ensure(auth).catch((error: Error) => error);
+    const failure = errorFrom(gate.ensure(auth));
     await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS);
-    expect((await failure)?.message).toMatch(/Timed out/);
+    await expect(failure).resolves.toHaveProperty(
+      "message",
+      expect.stringMatching(/Timed out/u)
+    );
 
     const retry = gate.ensure(auth);
     finishSignIn({ signingIn: true });
@@ -278,6 +330,6 @@ describe("createSessionGate", () => {
     gate.update(SIGNED_IN);
     await retry;
 
-    expect(auth.signIn).toHaveBeenCalledTimes(1);
+    expect(auth.signIn).toHaveBeenCalledOnce();
   });
 });

@@ -1,8 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
+import { forEachInOrder } from "./lib/sequence";
 import { resolveChatProfileId } from "./profiles";
 
 export const bulkImportChat = mutation({
@@ -14,9 +16,14 @@ export const bulkImportChat = mutation({
     }),
     messages: v.array(
       v.object({
-        role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+        role: v.union(
+          v.literal("user"),
+          v.literal("assistant"),
+          v.literal("system")
+        ),
         content: v.string(),
-        parts: v.optional(v.array(v.any())), // Use any to allow any part structure
+        // Use any to allow any part structure
+        parts: v.optional(v.array(v.any())),
         metadata: v.optional(
           v.object({
             modelId: v.optional(v.string()),
@@ -27,13 +34,13 @@ export const bulkImportChat = mutation({
             serverDurationMs: v.optional(v.number()),
             includeSearch: v.optional(v.boolean()),
             reasoningEffort: v.optional(v.string()),
-          }),
+          })
         ),
         createdAt: v.optional(v.number()),
         parentMessageId: v.optional(v.id("messages")),
         originalId: v.optional(v.string()),
         parentOriginalId: v.optional(v.string()),
-      }),
+      })
     ),
   },
   returns: v.object({
@@ -54,7 +61,7 @@ export const bulkImportChat = mutation({
       model: args.chat.model,
       personaId: args.chat.personaId,
       // Imports go to the user's active profile
-      profileId: await resolveChatProfileId(ctx, userId, undefined),
+      profileId: await resolveChatProfileId(ctx, userId),
       createdAt: now,
       updatedAt: now,
       // Always set explicit boolean defaults (never undefined)
@@ -65,13 +72,18 @@ export const bulkImportChat = mutation({
     // Create ID mapping for threading
     const idMap = new Map<string, Id<"messages">>();
 
-    // Insert all messages in order (preserving threading)
-    for (const msg of args.messages) {
-      const parentMessageId = msg.parentOriginalId ? idMap.get(msg.parentOriginalId) : undefined;
+    // Insert all messages in order (preserving threading). Each insert must
+    // finish before the next one, because a reply looks up its parent's new id.
+    await forEachInOrder(args.messages, async (msg) => {
+      const parentMessageId =
+        msg.parentOriginalId !== undefined && msg.parentOriginalId !== ""
+          ? idMap.get(msg.parentOriginalId)
+          : undefined;
 
       const messageId = await ctx.db.insert("messages", {
         chatId,
-        userId, // Always attribute imported messages to the importing user for consistency
+        // Always attribute imported messages to the importing user for consistency
+        userId,
         role: msg.role,
         content: msg.content,
         parts: msg.parts,
@@ -80,10 +92,10 @@ export const bulkImportChat = mutation({
         createdAt: msg.createdAt ?? now,
       });
 
-      if (msg.originalId) {
+      if (msg.originalId !== undefined && msg.originalId !== "") {
         idMap.set(msg.originalId, messageId);
       }
-    }
+    });
 
     // Update chat timestamp to reflect last message
     await ctx.db.patch("chats", chatId, { updatedAt: now });

@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { query } from "./_generated/server";
 import { ensureAuthenticated } from "./lib/auth_helper";
@@ -16,26 +17,30 @@ const taskHistoryEntityValidator = v.object({
 });
 
 /** Keeps the newest `keepCount` execution rows of a task and deletes the rest. */
-export async function pruneExecutionHistory(
+export const pruneExecutionHistory = async (
   ctx: MutationCtx,
   taskId: Id<"scheduled_tasks">,
-  keepCount = 30,
-): Promise<void> {
+  keepCount = 30
+): Promise<void> => {
   const rows = await ctx.db
     .query("task_history")
     .withIndex("by_task_and_time", (q) => q.eq("taskId", taskId))
     .order("desc")
     .collect();
-  await Promise.all(rows.slice(keepCount).map((row) => ctx.db.delete("task_history", row._id)));
-}
+  await Promise.all(
+    rows.slice(keepCount).map(async (row) => {
+      await ctx.db.delete("task_history", row._id);
+    })
+  );
+};
 
 /** Deletes every execution row of a task; call before deleting the task itself. */
-export async function deleteExecutionHistory(
+export const deleteExecutionHistory = async (
   ctx: MutationCtx,
-  taskId: Id<"scheduled_tasks">,
-): Promise<void> {
+  taskId: Id<"scheduled_tasks">
+): Promise<void> => {
   await pruneExecutionHistory(ctx, taskId, 0);
-}
+};
 
 // Get execution history for a specific task
 export const getTaskExecutionHistory = query({
@@ -54,7 +59,11 @@ export const getTaskExecutionHistory = query({
     }
 
     // Get execution history for this task, ordered by most recent first
-    const limit = args.limit || 30;
+    // A missing, zero or NaN limit falls back to the default
+    const limit =
+      args.limit === undefined || args.limit === 0 || Number.isNaN(args.limit)
+        ? 30
+        : args.limit;
     const history = await ctx.db
       .query("task_history")
       .withIndex("by_task_and_time", (q) => q.eq("taskId", args.taskId))
@@ -86,7 +95,7 @@ export const getTaskExecutionStats = query({
         endTime: v.optional(v.number()),
         chatId: v.optional(v.id("chats")),
         isManualTrigger: v.optional(v.boolean()),
-      }),
+      })
     ),
   }),
   handler: async (ctx, args) => {
@@ -105,34 +114,47 @@ export const getTaskExecutionStats = query({
       .collect();
 
     const totalExecutions = allHistory.length;
-    const successfulExecutions = allHistory.filter((h) => h.status === "success").length;
+    const successfulExecutions = allHistory.filter(
+      (h) => h.status === "success"
+    ).length;
     const failedExecutions = allHistory.filter(
-      (h) => h.status === "failure" || h.status === "cancelled" || h.status === "timeout",
+      (h) =>
+        h.status === "failure" ||
+        h.status === "cancelled" ||
+        h.status === "timeout"
     ).length;
     const runningExecutions = allHistory.filter(
-      (h) => h.status === "running" || h.status === "pending",
+      (h) => h.status === "running" || h.status === "pending"
     ).length;
     const completedExecutions = successfulExecutions + failedExecutions;
     const successRate =
-      completedExecutions > 0 ? (successfulExecutions / completedExecutions) * 100 : 0;
+      completedExecutions > 0
+        ? (successfulExecutions / completedExecutions) * 100
+        : 0;
 
     // Calculate average duration for completed executions (only those with endTime)
-    const executionsWithEndTime = allHistory.filter((h) => h.endTime !== undefined);
+    const executionsWithEndTime = allHistory.filter(
+      (h) => h.endTime !== undefined
+    );
+    let totalDuration = 0;
+    for (const h of executionsWithEndTime) {
+      totalDuration += (h.endTime ?? 0) - h.startTime;
+    }
     const averageDuration =
       executionsWithEndTime.length > 0
-        ? executionsWithEndTime.reduce((sum, h) => {
-            const duration = (h.endTime ?? 0) - h.startTime;
-            return sum + duration;
-          }, 0) / executionsWithEndTime.length
+        ? totalDuration / executionsWithEndTime.length
         : undefined;
 
-    // Get most recent execution
-    const lastExecution =
-      allHistory.length > 0
-        ? allHistory.reduce((latest, current) =>
-            current.startTime > latest.startTime ? current : latest,
-          )
-        : undefined;
+    // Get most recent execution (the first one wins on equal start times)
+    let lastExecution: Doc<"task_history"> | undefined;
+    for (const current of allHistory) {
+      if (
+        lastExecution === undefined ||
+        current.startTime > lastExecution.startTime
+      ) {
+        lastExecution = current;
+      }
+    }
 
     return {
       totalExecutions,
@@ -140,7 +162,8 @@ export const getTaskExecutionStats = query({
       failedExecutions,
       runningExecutions,
       completedExecutions,
-      successRate: Math.round(successRate * 100) / 100, // Round to 2 decimal places
+      // Round to 2 decimal places
+      successRate: Math.round(successRate * 100) / 100,
       averageDuration,
       lastExecution: lastExecution
         ? {

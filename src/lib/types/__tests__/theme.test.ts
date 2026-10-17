@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+
 import { themeStylePropsSchema, themeStylesSchema } from "../theme";
 
-function omitKey<T extends Record<string, unknown>>(obj: T, key: string): Partial<T> {
-  return Object.fromEntries(Object.entries(obj).filter(([k]) => k !== key)) as Partial<T>;
-}
+const omitKey = (
+  obj: Record<string, unknown>,
+  key: string
+): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(obj).filter(([k]) => k !== key));
 
 const validThemeProps = {
   background: "oklch(1 0 0)",
@@ -52,68 +55,68 @@ const validThemeProps = {
   spacing: "0.25rem",
 };
 
-describe("themeStylePropsSchema", () => {
+describe("themeStylePropsSchema validation", () => {
   it("parses valid theme props", () => {
     const result = themeStylePropsSchema.safeParse(validThemeProps);
-    expect(result.success).toBe(true);
+    expect(result.success).toBeTruthy();
   });
 
   it("requires all color properties", () => {
     const incomplete = { background: "white" };
     const result = themeStylePropsSchema.safeParse(incomplete);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 
   it("requires string values for colors", () => {
     const invalid = { ...validThemeProps, background: 123 };
     const result = themeStylePropsSchema.safeParse(invalid);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 
   it("requires chart colors", () => {
     const withoutCharts = omitKey(validThemeProps, "chart-1");
     const result = themeStylePropsSchema.safeParse(withoutCharts);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 
   it("requires sidebar properties", () => {
     const withoutSidebar = omitKey(validThemeProps, "sidebar");
     const result = themeStylePropsSchema.safeParse(withoutSidebar);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 
   it("requires font properties", () => {
     const withoutFonts = omitKey(validThemeProps, "font-sans");
     const result = themeStylePropsSchema.safeParse(withoutFonts);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 
   it("requires shadow properties", () => {
     const withoutShadow = omitKey(validThemeProps, "shadow-color");
     const result = themeStylePropsSchema.safeParse(withoutShadow);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 });
 
-describe("themeStylesSchema", () => {
+describe("themeStylesSchema validation", () => {
   it("parses valid theme styles with light and dark", () => {
     const styles = {
       light: validThemeProps,
       dark: { ...validThemeProps, background: "oklch(0.2 0 0)" },
     };
     const result = themeStylesSchema.safeParse(styles);
-    expect(result.success).toBe(true);
+    expect(result.success).toBeTruthy();
   });
 
   it("requires both light and dark modes", () => {
     const lightOnly = { light: validThemeProps };
     const result = themeStylesSchema.safeParse(lightOnly);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 
   it("requires light mode", () => {
     const darkOnly = { dark: validThemeProps };
     const result = themeStylesSchema.safeParse(darkOnly);
-    expect(result.success).toBe(false);
+    expect(result.success).toBeFalsy();
   });
 });

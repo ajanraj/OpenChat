@@ -5,13 +5,16 @@ export interface AvatarUserData {
   image?: string | null;
 }
 
-const SIZE_PARAM_REGEX = /sz=\d+/;
-const S96_PARAM_REGEX = /s96-c/;
-const GOOGLE_USER_CONTENT_HOST_REGEX = /(^|\.)googleusercontent\.com$/;
-const GOOGLE_DEFAULT_AVATAR_PATTERNS = ["/a/default-user", "/AAAAAAAAAAI/AAAAAAAAAAA/"];
+const SIZE_PARAM_REGEX = /sz=\d+/u;
+const S96_PARAM_REGEX = /s96-c/u;
+const GOOGLE_USER_CONTENT_HOST_REGEX = /(?:^|\.)googleusercontent\.com$/u;
+const GOOGLE_DEFAULT_AVATAR_PATTERNS = [
+  "/a/default-user",
+  "/AAAAAAAAAAI/AAAAAAAAAAA/",
+];
 
 const normalizeSeedValue = (value?: string | null): string | null => {
-  if (!value) {
+  if (value === undefined || value === null || value === "") {
     return null;
   }
 
@@ -19,19 +22,21 @@ const normalizeSeedValue = (value?: string | null): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-export const getUserAvatarSeed = (user: AvatarUserData | null | undefined): string => {
+export const getUserAvatarSeed = (
+  user: AvatarUserData | null | undefined
+): string => {
   const preferredName = normalizeSeedValue(user?.preferredName);
-  if (preferredName) {
+  if (preferredName !== null) {
     return preferredName;
   }
 
   const name = normalizeSeedValue(user?.name);
-  if (name) {
+  if (name !== null) {
     return name;
   }
 
   const email = normalizeSeedValue(user?.email);
-  if (email) {
+  if (email !== null) {
     return email;
   }
 
@@ -40,10 +45,10 @@ export const getUserAvatarSeed = (user: AvatarUserData | null | undefined): stri
 
 export const getHighResolutionAvatarUrl = (
   imageUrl?: string | null,
-  size = 192,
+  size = 192
 ): string | undefined => {
-  if (!imageUrl) {
-    return;
+  if (imageUrl === undefined || imageUrl === null || imageUrl === "") {
+    return undefined;
   }
 
   if (imageUrl.includes("googleusercontent.com")) {
@@ -62,8 +67,10 @@ export const getHighResolutionAvatarUrl = (
   return imageUrl;
 };
 
-export const isLikelyDefaultGoogleAvatarUrl = (imageUrl?: string | null): boolean => {
-  if (!imageUrl) {
+export const isLikelyDefaultGoogleAvatarUrl = (
+  imageUrl?: string | null
+): boolean => {
+  if (imageUrl === undefined || imageUrl === null || imageUrl === "") {
     return false;
   }
 
@@ -74,17 +81,28 @@ export const isLikelyDefaultGoogleAvatarUrl = (imageUrl?: string | null): boolea
     }
 
     const urlValue = `${url.pathname}${url.search}${url.hash}`;
-    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) => urlValue.includes(pattern));
+    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) =>
+      urlValue.includes(pattern)
+    );
   } catch {
     if (!imageUrl.includes("googleusercontent.com")) {
       return false;
     }
-    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) => imageUrl.includes(pattern));
+    return GOOGLE_DEFAULT_AVATAR_PATTERNS.some((pattern) =>
+      imageUrl.includes(pattern)
+    );
   }
 };
 
-export const getRenderableAvatarImageSrc = (imageUrl?: string | null): string | undefined => {
-  if (!imageUrl || isLikelyDefaultGoogleAvatarUrl(imageUrl)) {
+export const getRenderableAvatarImageSrc = (
+  imageUrl?: string | null
+): string | undefined => {
+  if (
+    imageUrl === undefined ||
+    imageUrl === null ||
+    imageUrl === "" ||
+    isLikelyDefaultGoogleAvatarUrl(imageUrl)
+  ) {
     return undefined;
   }
 

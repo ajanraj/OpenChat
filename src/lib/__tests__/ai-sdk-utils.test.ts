@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+
 import {
-  type Attachment,
   convertAttachmentsToFileParts,
   createPartsFromAIResponse,
   extractAttachmentsFromParts,
@@ -8,45 +8,48 @@ import {
   extractReasoningFromResponse,
   isConvexStorageId,
 } from "../ai-sdk-utils";
+import type { Attachment } from "../ai-sdk-utils";
 
-describe("isConvexStorageId", () => {
+describe(isConvexStorageId, () => {
   it("returns true for valid 32-character lowercase alphanumeric string", () => {
-    expect(isConvexStorageId("abc123def456ghi789jkl012mno345pq")).toBe(true);
+    expect(isConvexStorageId("abc123def456ghi789jkl012mno345pq")).toBeTruthy();
   });
 
   it("returns false for strings starting with http", () => {
-    expect(isConvexStorageId("https://example.com/file.png")).toBe(false);
-    expect(isConvexStorageId("http://example.com/file.png")).toBe(false);
+    expect(isConvexStorageId("https://example.com/file.png")).toBeFalsy();
+    expect(isConvexStorageId("http://example.com/file.png")).toBeFalsy();
   });
 
   it("returns false for data URLs", () => {
-    expect(isConvexStorageId("data:image/png;base64,abc123")).toBe(false);
+    expect(isConvexStorageId("data:image/png;base64,abc123")).toBeFalsy();
   });
 
   it("returns false for blob URLs", () => {
-    expect(isConvexStorageId("blob:https://example.com/uuid")).toBe(false);
+    expect(isConvexStorageId("blob:https://example.com/uuid")).toBeFalsy();
   });
 
   it("returns false for strings that are too short", () => {
-    expect(isConvexStorageId("abc123")).toBe(false);
+    expect(isConvexStorageId("abc123")).toBeFalsy();
   });
 
   it("returns false for strings that are too long", () => {
-    expect(isConvexStorageId("abc123def456ghi789jkl012mno345pqrstuvwxyz")).toBe(false);
+    expect(
+      isConvexStorageId("abc123def456ghi789jkl012mno345pqrstuvwxyz")
+    ).toBeFalsy();
   });
 
   it("returns false for strings with uppercase letters", () => {
-    expect(isConvexStorageId("ABC123DEF456GHI789JKL012MNO345PQ")).toBe(false);
+    expect(isConvexStorageId("ABC123DEF456GHI789JKL012MNO345PQ")).toBeFalsy();
   });
 
   it("returns false for strings with special characters", () => {
-    expect(isConvexStorageId("abc123-def456-ghi789-jkl012-mno")).toBe(false);
+    expect(isConvexStorageId("abc123-def456-ghi789-jkl012-mno")).toBeFalsy();
   });
 });
 
-describe("extractAttachmentsFromParts", () => {
+describe(extractAttachmentsFromParts, () => {
   it("returns undefined for undefined parts", () => {
-    expect(extractAttachmentsFromParts(undefined)).toBeUndefined();
+    expect(extractAttachmentsFromParts()).toBeUndefined();
   });
 
   it("returns undefined for empty parts array", () => {
@@ -110,7 +113,7 @@ describe("extractAttachmentsFromParts", () => {
   });
 });
 
-describe("convertAttachmentsToFileParts", () => {
+describe(convertAttachmentsToFileParts, () => {
   it("converts attachments to file parts", () => {
     const attachments: Attachment[] = [
       {
@@ -122,7 +125,7 @@ describe("convertAttachmentsToFileParts", () => {
 
     const result = convertAttachmentsToFileParts(attachments);
 
-    expect(result.length).toBe(1);
+    expect(result).toHaveLength(1);
     expect(result[0].type).toBe("file");
     expect(result[0].url).toBe("https://example.com/test.png");
     expect(result[0].mediaType).toBe("image/png");
@@ -161,11 +164,11 @@ describe("convertAttachmentsToFileParts", () => {
   it("handles empty attachments array", () => {
     const result = convertAttachmentsToFileParts([]);
 
-    expect(result).toEqual([]);
+    expect(result).toStrictEqual([]);
   });
 });
 
-describe("extractReasoningFromResponse", () => {
+describe(extractReasoningFromResponse, () => {
   it("returns undefined for empty parts", () => {
     expect(extractReasoningFromResponse([])).toBeUndefined();
   });
@@ -199,9 +202,9 @@ describe("extractReasoningFromResponse", () => {
   });
 });
 
-describe("extractReasoningFromParts", () => {
+describe(extractReasoningFromParts, () => {
   it("returns undefined for undefined parts", () => {
-    expect(extractReasoningFromParts(undefined)).toBeUndefined();
+    expect(extractReasoningFromParts()).toBeUndefined();
   });
 
   it("returns undefined for empty parts", () => {
@@ -226,21 +229,19 @@ describe("extractReasoningFromParts", () => {
   });
 });
 
-describe("createPartsFromAIResponse", () => {
+describe(createPartsFromAIResponse, () => {
   it("creates parts with text content", () => {
     const result = createPartsFromAIResponse("Hello world");
 
-    expect(result.length).toBe(1);
-    expect(result[0].type).toBe("text");
-    expect((result[0] as { text: string }).text).toBe("Hello world");
+    expect(result).toHaveLength(1);
+    expect(result[0]).toStrictEqual({ type: "text", text: "Hello world" });
   });
 
   it("adds reasoning part when provided", () => {
     const result = createPartsFromAIResponse("Hello", "Thinking...");
 
-    expect(result.length).toBe(2);
-    expect(result[1].type).toBe("reasoning");
-    expect((result[1] as { text: string }).text).toBe("Thinking...");
+    expect(result).toHaveLength(2);
+    expect(result[1]).toStrictEqual({ type: "reasoning", text: "Thinking..." });
   });
 
   it("adds tool invocation parts", () => {
@@ -254,9 +255,13 @@ describe("createPartsFromAIResponse", () => {
       },
     ];
 
-    const result = createPartsFromAIResponse("Result", undefined, toolInvocations);
+    const result = createPartsFromAIResponse(
+      "Result",
+      undefined,
+      toolInvocations
+    );
 
-    expect(result.length).toBe(2);
+    expect(result).toHaveLength(2);
     expect(result[1].type).toBe("tool-web_search");
   });
 
@@ -274,20 +279,24 @@ describe("createPartsFromAIResponse", () => {
       },
     ];
 
-    const result = createPartsFromAIResponse("Result", undefined, toolInvocations);
+    const result = createPartsFromAIResponse(
+      "Result",
+      undefined,
+      toolInvocations
+    );
 
-    expect(result.length).toBe(3);
+    expect(result).toHaveLength(3);
   });
 
   it("handles empty tool invocations array", () => {
     const result = createPartsFromAIResponse("Hello", undefined, []);
 
-    expect(result.length).toBe(1);
+    expect(result).toHaveLength(1);
   });
 
   it("handles undefined tool invocations", () => {
-    const result = createPartsFromAIResponse("Hello", undefined, undefined);
+    const result = createPartsFromAIResponse("Hello");
 
-    expect(result.length).toBe(1);
+    expect(result).toHaveLength(1);
   });
 });

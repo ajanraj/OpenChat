@@ -1,4 +1,4 @@
-import type { Provider } from "@/lib/config";
+import type { Provider } from "@/lib/config/providers";
 import { cn } from "@/lib/utils";
 
 type ProviderIconProps = {

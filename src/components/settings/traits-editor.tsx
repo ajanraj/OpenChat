@@ -1,7 +1,7 @@
 import { Plus, X } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME } from "@/lib/config/constants";
 import { useState } from "react";
 
 const DEFAULT_TRAITS = [

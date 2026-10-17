@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { openrouter } from "../openrouter";
 
 describe("openrouter configuration", () => {
@@ -8,6 +9,6 @@ describe("openrouter configuration", () => {
 
   it("openrouter is a function that creates models", () => {
     // OpenRouter provider should be callable to create models
-    expect(typeof openrouter).toBe("function");
+    expect(openrouter).toBeTypeOf("function");
   });
 });

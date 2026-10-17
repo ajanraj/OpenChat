@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+
 import { sanitizeUserInput } from "../sanitize";
 
-describe("sanitizeUserInput", () => {
+describe(sanitizeUserInput, () => {
   it("escapes ampersand", () => {
     expect(sanitizeUserInput("foo & bar")).toBe("foo &amp; bar");
   });
@@ -24,7 +25,7 @@ describe("sanitizeUserInput", () => {
 
   it("escapes multiple special characters", () => {
     expect(sanitizeUserInput('<script>alert("XSS")</script>')).toBe(
-      "&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;",
+      "&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;"
     );
   });
 
@@ -33,13 +34,15 @@ describe("sanitizeUserInput", () => {
   });
 
   it("handles null/undefined", () => {
-    expect(sanitizeUserInput(null as unknown as string)).toBe("");
-    expect(sanitizeUserInput(undefined as unknown as string)).toBe("");
+    expect(sanitizeUserInput(null)).toBe("");
+    expect(sanitizeUserInput()).toBe("");
   });
 
   it("preserves normal text", () => {
     expect(sanitizeUserInput("Hello World")).toBe("Hello World");
-    expect(sanitizeUserInput("The quick brown fox")).toBe("The quick brown fox");
+    expect(sanitizeUserInput("The quick brown fox")).toBe(
+      "The quick brown fox"
+    );
   });
 
   it("handles special characters in HTML context", () => {
@@ -48,7 +51,7 @@ describe("sanitizeUserInput", () => {
     expect(sanitized).not.toContain("<");
     expect(sanitized).not.toContain(">");
     expect(sanitized).toBe(
-      "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#39;XSS&#39;)&quot;&gt;",
+      "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#39;XSS&#39;)&quot;&gt;"
     );
   });
 });

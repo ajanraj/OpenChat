@@ -23,21 +23,30 @@ export interface GuestAuthActions {
   signOut: () => Promise<void>;
 }
 
-const timeoutError = () => new Error("Timed out waiting for the session to start");
+const timeoutError = () =>
+  new Error("Timed out waiting for the session to start");
 
 /** Settles like `promise`, or rejects once `deadline` (epoch ms) passes. */
-function beforeDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(timeoutError()), deadline - Date.now());
-    promise.then(resolve, reject).finally(() => clearTimeout(timer));
-  });
-}
+const beforeDeadline = async <T>(
+  promise: Promise<T>,
+  deadline: number
+): Promise<T> => {
+  const timeout = Promise.withResolvers<never>();
+  const timer = setTimeout(() => {
+    timeout.reject(timeoutError());
+  }, deadline - Date.now());
+  try {
+    return await Promise.race([promise, timeout.promise]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 /**
  * Create one per app (useEnsureSession). Feed it every auth state change with `update`; `ensure`
  * resolves once Convex is authenticated, signing in anonymously when there is no session yet.
  */
-export function createSessionGate(initial: AuthState) {
+export const createSessionGate = (initial: AuthState) => {
   let current = initial;
   let pending: Promise<void> | null = null;
   // Outlives a timed-out attempt: the retry waits on the same sign-in instead of starting a second
@@ -50,35 +59,44 @@ export function createSessionGate(initial: AuthState) {
   let unconfirmedSignIn = false;
   const listeners = new Set<() => void>();
 
-  function waitFor(predicate: (state: AuthState) => boolean, deadline: number) {
-    return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        listeners.delete(check);
-        reject(timeoutError());
-      }, deadline - Date.now());
-      function check() {
-        if (predicate(current)) {
-          clearTimeout(timer);
-          listeners.delete(check);
-          resolve();
-        }
+  const waitFor = async (
+    predicate: (state: AuthState) => boolean,
+    deadline: number
+  ): Promise<void> => {
+    if (predicate(current)) {
+      return;
+    }
+    const satisfied: PromiseWithResolvers<void> = Promise.withResolvers();
+    const check = () => {
+      if (predicate(current)) {
+        satisfied.resolve();
       }
-      listeners.add(check);
-      check();
-    });
-  }
+    };
+    listeners.add(check);
+    try {
+      await beforeDeadline(satisfied.promise, deadline);
+    } finally {
+      listeners.delete(check);
+    }
+  };
 
   // ConvexProviderWithAuth hands Convex a token when one appears, not when it is replaced. So a
   // held token (one the backend rejected, or never confirmed) is signed out first, and the new
   // one only arrives once React has seen it gone. That wait is timed from the sign-out, which
   // may outlast the attempt that started it; the attempt itself stays bounded by its deadline.
-  async function signInAfresh(actions: GuestAuthActions, holdsToken: boolean) {
+  const signInAfresh = async (
+    actions: GuestAuthActions,
+    holdsToken: boolean
+  ) => {
     if (holdsToken) {
       await actions.signOut();
-      await waitFor((state) => !state.hasToken, Date.now() + SESSION_TIMEOUT_MS);
+      await waitFor(
+        (state) => !state.hasToken,
+        Date.now() + SESSION_TIMEOUT_MS
+      );
     }
-    return actions.signIn();
-  }
+    return await actions.signIn();
+  };
 
   return {
     update(next: AuthState) {
@@ -86,45 +104,51 @@ export function createSessionGate(initial: AuthState) {
       if (next.isAuthenticated) {
         unconfirmedSignIn = false;
       }
-      // A listener that resolves removes itself; deleting the current entry is safe mid-iteration
+      // A wait removes its listener once it settles; resolving one again before then is a no-op
       for (const listener of listeners) {
         listener();
       }
     },
 
     /** Concurrent calls share one attempt; a failed attempt is retried by the next call. */
-    ensure(actions: GuestAuthActions): Promise<void> {
+    async ensure(actions: GuestAuthActions): Promise<void> {
       pending ??= (async () => {
-        const deadline = Date.now() + SESSION_TIMEOUT_MS;
-        await waitFor((state) => !state.isLoading, deadline);
-        // Read `current`, not the state the wait resolved with: a confirmation can land in between
-        if (current.isAuthenticated) {
-          return;
-        }
-        // Wait on the guest this gate created, once; otherwise sign in, replacing any held token
-        const awaitsOwnToken = unconfirmedSignIn && current.hasToken;
-        unconfirmedSignIn = false;
-        if (!awaitsOwnToken) {
-          signInInFlight ??= signInAfresh(actions, current.hasToken)
-            .then((result) => {
-              unconfirmedSignIn = result.signingIn;
-              return result;
-            })
-            .finally(() => {
-              signInInFlight = null;
-            });
-          const { signingIn } = await beforeDeadline(signInInFlight, deadline);
-          if (!signingIn) {
-            throw new Error("Anonymous sign-in did not start a session");
+        try {
+          const deadline = Date.now() + SESSION_TIMEOUT_MS;
+          await waitFor((state) => !state.isLoading, deadline);
+          // Read `current`, not the state the wait resolved with: a confirmation can land in between
+          if (current.isAuthenticated) {
+            return;
           }
+          // Wait on the guest this gate created, once; otherwise sign in, replacing any held token
+          const awaitsOwnToken = unconfirmedSignIn && current.hasToken;
+          unconfirmedSignIn = false;
+          if (!awaitsOwnToken) {
+            signInInFlight ??= (async () => {
+              try {
+                const result = await signInAfresh(actions, current.hasToken);
+                unconfirmedSignIn = result.signingIn;
+                return result;
+              } finally {
+                signInInFlight = null;
+              }
+            })();
+            const { signingIn } = await beforeDeadline(
+              signInInFlight,
+              deadline
+            );
+            if (!signingIn) {
+              throw new Error("Anonymous sign-in did not start a session");
+            }
+          }
+          await waitFor((state) => state.isAuthenticated, deadline);
+        } finally {
+          pending = null;
         }
-        await waitFor((state) => state.isAuthenticated, deadline);
-      })().finally(() => {
-        pending = null;
-      });
-      return pending;
+      })();
+      await pending;
     },
   };
-}
+};
 
 export type SessionGate = ReturnType<typeof createSessionGate>;

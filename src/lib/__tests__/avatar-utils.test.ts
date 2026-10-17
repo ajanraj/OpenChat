@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   getRenderableAvatarImageSrc,
   getHighResolutionAvatarUrl,
@@ -7,14 +8,14 @@ import {
 } from "../avatar-utils";
 
 describe("avatar-utils", () => {
-  describe("getUserAvatarSeed", () => {
+  describe(getUserAvatarSeed, () => {
     it("uses preferred name first", () => {
       expect(
         getUserAvatarSeed({
           email: "google@example.com",
           name: "Google Name",
           preferredName: "Preferred Name",
-        }),
+        })
       ).toBe("Preferred Name");
     });
 
@@ -24,7 +25,7 @@ describe("avatar-utils", () => {
           email: "google@example.com",
           name: "Google Name",
           preferredName: undefined,
-        }),
+        })
       ).toBe("Google Name");
     });
 
@@ -32,7 +33,7 @@ describe("avatar-utils", () => {
       expect(
         getUserAvatarSeed({
           email: "person@example.com",
-        }),
+        })
       ).toBe("person@example.com");
     });
 
@@ -47,33 +48,42 @@ describe("avatar-utils", () => {
           email: "  person@example.com ",
           name: "   ",
           preferredName: "  ",
-        }),
+        })
       ).toBe("person@example.com");
     });
   });
 
-  describe("getHighResolutionAvatarUrl", () => {
+  describe(getHighResolutionAvatarUrl, () => {
     it("returns undefined for empty input", () => {
-      expect(getHighResolutionAvatarUrl(undefined)).toBeUndefined();
+      expect(getHighResolutionAvatarUrl()).toBeUndefined();
       expect(getHighResolutionAvatarUrl(null)).toBeUndefined();
     });
 
     it("replaces existing sz query param for google avatars", () => {
       expect(
-        getHighResolutionAvatarUrl("https://lh3.googleusercontent.com/a/abc?s=96-c&sz=96", 384),
+        getHighResolutionAvatarUrl(
+          "https://lh3.googleusercontent.com/a/abc?s=96-c&sz=96",
+          384
+        )
       ).toBe("https://lh3.googleusercontent.com/a/abc?s=96-c&sz=384");
     });
 
     it("replaces s96-c format for google avatars", () => {
-      expect(getHighResolutionAvatarUrl("https://lh3.googleusercontent.com/a/abc=s96-c", 256)).toBe(
-        "https://lh3.googleusercontent.com/a/abc=s256-c",
-      );
+      expect(
+        getHighResolutionAvatarUrl(
+          "https://lh3.googleusercontent.com/a/abc=s96-c",
+          256
+        )
+      ).toBe("https://lh3.googleusercontent.com/a/abc=s256-c");
     });
 
     it("adds sz query param when no size param exists", () => {
-      expect(getHighResolutionAvatarUrl("https://lh3.googleusercontent.com/a/abc", 320)).toBe(
-        "https://lh3.googleusercontent.com/a/abc?sz=320",
-      );
+      expect(
+        getHighResolutionAvatarUrl(
+          "https://lh3.googleusercontent.com/a/abc",
+          320
+        )
+      ).toBe("https://lh3.googleusercontent.com/a/abc?sz=320");
     });
 
     it("passes through non-google avatar URLs unchanged", () => {
@@ -82,43 +92,49 @@ describe("avatar-utils", () => {
     });
   });
 
-  describe("isLikelyDefaultGoogleAvatarUrl", () => {
+  describe(isLikelyDefaultGoogleAvatarUrl, () => {
     it("returns false for empty input", () => {
-      expect(isLikelyDefaultGoogleAvatarUrl(undefined)).toBe(false);
-      expect(isLikelyDefaultGoogleAvatarUrl(null)).toBe(false);
+      expect(isLikelyDefaultGoogleAvatarUrl()).toBeFalsy();
+      expect(isLikelyDefaultGoogleAvatarUrl(null)).toBeFalsy();
     });
 
     it("detects modern default user pattern", () => {
       expect(
-        isLikelyDefaultGoogleAvatarUrl("https://lh3.googleusercontent.com/a/default-user=s96-c"),
-      ).toBe(true);
+        isLikelyDefaultGoogleAvatarUrl(
+          "https://lh3.googleusercontent.com/a/default-user=s96-c"
+        )
+      ).toBeTruthy();
     });
 
     it("detects legacy default user pattern", () => {
       expect(
         isLikelyDefaultGoogleAvatarUrl(
-          "https://lh3.googleusercontent.com/-XdUIqdMkCWA/AAAAAAAAAAI/AAAAAAAAAAA/photo.jpg",
-        ),
-      ).toBe(true);
+          "https://lh3.googleusercontent.com/-XdUIqdMkCWA/AAAAAAAAAAI/AAAAAAAAAAA/photo.jpg"
+        )
+      ).toBeTruthy();
     });
 
     it("returns false for non-default google avatar", () => {
       expect(
         isLikelyDefaultGoogleAvatarUrl(
-          "https://lh3.googleusercontent.com/a/ACg8ocJ19jYKQxuq2CkaNytv5V4ODt8hA8k8j66IY6D2dg=s96-c",
-        ),
-      ).toBe(false);
+          "https://lh3.googleusercontent.com/a/ACg8ocJ19jYKQxuq2CkaNytv5V4ODt8hA8k8j66IY6D2dg=s96-c"
+        )
+      ).toBeFalsy();
     });
 
     it("returns false for non-google avatar", () => {
-      expect(isLikelyDefaultGoogleAvatarUrl("https://example.com/avatar.png")).toBe(false);
+      expect(
+        isLikelyDefaultGoogleAvatarUrl("https://example.com/avatar.png")
+      ).toBeFalsy();
     });
   });
 
-  describe("getRenderableAvatarImageSrc", () => {
+  describe(getRenderableAvatarImageSrc, () => {
     it("returns undefined for default google avatar URLs", () => {
       expect(
-        getRenderableAvatarImageSrc("https://lh3.googleusercontent.com/a/default-user=s96-c"),
+        getRenderableAvatarImageSrc(
+          "https://lh3.googleusercontent.com/a/default-user=s96-c"
+        )
       ).toBeUndefined();
     });
 

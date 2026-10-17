@@ -1,10 +1,14 @@
 import { calculateRateLimit } from "@convex-dev/rate-limiter";
-import { ConvexError, v, type Infer } from "convex/values";
-import { ERROR_CODES, type ErrorCode } from "../../src/lib/error-codes";
+import { ConvexError, v } from "convex/values";
+import type { Infer } from "convex/values";
+
+import { ERROR_CODES } from "../../src/lib/error-codes";
+import type { ErrorCode } from "../../src/lib/error-codes";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { rateLimiter } from "../rateLimiter";
 import { hasActivePremium } from "../stripe";
+import { forEachInOrder } from "./sequence";
 
 /**
  * Message credits for platform-key generations, backed by the rate limiter buckets
@@ -24,14 +28,14 @@ export const creditBucketValidator = v.union(
   v.literal("anonymousDaily"),
   v.literal("authenticatedDaily"),
   v.literal("standardMonthly"),
-  v.literal("premiumMonthly"),
+  v.literal("premiumMonthly")
 );
 
 export type CreditBucketName = Infer<typeof creditBucketValidator>;
 
 /** What a charge drew from: each bucket with the start of the window its token came from. */
 export const creditReceiptValidator = v.array(
-  v.object({ bucket: creditBucketValidator, windowStart: v.number() }),
+  v.object({ bucket: creditBucketValidator, windowStart: v.number() })
 );
 
 export type CreditReceipt = Infer<typeof creditReceiptValidator>;
@@ -49,22 +53,27 @@ export interface MessageCreditOptions {
   requiresPremium?: boolean;
 }
 
-async function getMessageCreditBuckets(
+const getMessageCreditBuckets = async (
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
-  { usesPremiumCredits, requiresPremium }: MessageCreditOptions,
-): Promise<CreditBucket[]> {
+  { usesPremiumCredits, requiresPremium }: MessageCreditOptions
+): Promise<CreditBucket[]> => {
   const user = await ctx.db.get("users", userId);
   if (!user) {
     throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
   }
 
   const isPremium = await hasActivePremium(ctx, userId);
-  if (requiresPremium && !isPremium) {
+  if (requiresPremium === true && !isPremium) {
     throw new ConvexError(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED);
   }
-  if (isPremium && usesPremiumCredits) {
-    return [{ name: "premiumMonthly", limitReached: ERROR_CODES.PREMIUM_LIMIT_REACHED }];
+  if (isPremium && usesPremiumCredits === true) {
+    return [
+      {
+        name: "premiumMonthly",
+        limitReached: ERROR_CODES.PREMIUM_LIMIT_REACHED,
+      },
+    ];
   }
 
   const monthly: CreditBucket = {
@@ -76,38 +85,43 @@ async function getMessageCreditBuckets(
   }
   return [
     {
-      name: user.isAnonymous ? "anonymousDaily" : "authenticatedDaily",
+      name: user.isAnonymous === true ? "anonymousDaily" : "authenticatedDaily",
       limitReached: ERROR_CODES.DAILY_LIMIT_REACHED,
     },
     monthly,
   ];
-}
+};
 
-async function assertBucketsHaveCredit(
+// Checks every bucket, then throws the limit error of the first exhausted one in bucket order
+const assertBucketsHaveCredit = async (
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
-  buckets: CreditBucket[],
-): Promise<void> {
-  for (const bucket of buckets) {
-    const { ok } = await rateLimiter.check(ctx, bucket.name, { key: userId });
-    if (!ok) {
-      throw new ConvexError(bucket.limitReached);
-    }
+  buckets: CreditBucket[]
+): Promise<void> => {
+  const checks = await Promise.all(
+    buckets.map(
+      async (bucket) =>
+        await rateLimiter.check(ctx, bucket.name, { key: userId })
+    )
+  );
+  const exhausted = buckets.find((_, index) => !checks[index].ok);
+  if (exhausted) {
+    throw new ConvexError(exhausted.limitReached);
   }
-}
+};
 
 /**
  * Throws DAILY/MONTHLY/PREMIUM_LIMIT_REACHED (or PREMIUM_MODEL_ACCESS_DENIED with
  * requiresPremium) when the user could not send a message right now. Charges nothing.
  */
-export async function assertMessageCreditAvailable(
+export const assertMessageCreditAvailable = async (
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
-  options: MessageCreditOptions = {},
-): Promise<void> {
+  options: MessageCreditOptions = {}
+): Promise<void> => {
   const buckets = await getMessageCreditBuckets(ctx, userId, options);
   await assertBucketsHaveCredit(ctx, userId, buckets);
-}
+};
 
 /**
  * Charges one message credit and returns its refund receipt, throwing the same errors
@@ -116,22 +130,22 @@ export async function assertMessageCreditAvailable(
  * partial charge. The writes join the calling mutation's transaction, so concurrent
  * requests serialize on the bucket documents and cannot spend the same credit twice.
  */
-export async function consumeMessageCredit(
+export const consumeMessageCredit = async (
   ctx: MutationCtx,
   userId: Id<"users">,
-  options: MessageCreditOptions = {},
-): Promise<CreditReceipt> {
+  options: MessageCreditOptions = {}
+): Promise<CreditReceipt> => {
   const buckets = await getMessageCreditBuckets(ctx, userId, options);
   await assertBucketsHaveCredit(ctx, userId, buckets);
   const receipt: CreditReceipt = [];
-  for (const { name } of buckets) {
+  await forEachInOrder(buckets, async ({ name }) => {
     await rateLimiter.limit(ctx, name, { key: userId, throws: true });
     // The charge just wrote the bucket, so its stored ts is the start of the window charged
     const { ts } = await rateLimiter.getValue(ctx, name, { key: userId });
     receipt.push({ bucket: name, windowStart: ts });
-  }
+  });
   return receipt;
-}
+};
 
 /**
  * Returns a credit charged by consumeMessageCredit to exactly the buckets on its receipt,
@@ -141,18 +155,22 @@ export async function consumeMessageCredit(
  * since ended is skipped: that window's tokens are gone, and adding one now would grant
  * an extra credit in the new window.
  */
-export async function refundMessageCredit(
+export const refundMessageCredit = async (
   ctx: MutationCtx,
   userId: Id<"users">,
-  receipt: CreditReceipt,
-): Promise<void> {
+  receipt: CreditReceipt
+): Promise<void> => {
   const now = Date.now();
-  const windowStarts = new Map(receipt.map((entry) => [entry.bucket, entry.windowStart]));
-  for (const [name, windowStart] of windowStarts) {
-    const { value, ts, config } = await rateLimiter.getValue(ctx, name, { key: userId });
+  const windowStarts = new Map(
+    receipt.map((entry) => [entry.bucket, entry.windowStart])
+  );
+  await forEachInOrder([...windowStarts], async ([name, windowStart]) => {
+    const { value, ts, config } = await rateLimiter.getValue(ctx, name, {
+      key: userId,
+    });
     if (calculateRateLimit({ value, ts }, config, now).ts !== windowStart) {
-      continue;
+      return;
     }
     await rateLimiter.limit(ctx, name, { key: userId, count: -1 });
-  }
-}
+  });
+};

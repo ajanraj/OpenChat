@@ -1,12 +1,15 @@
 import type { UIMessage } from "ai";
 import type { ConvexHttpClient } from "convex/browser";
+
 import { api } from "@/convex/_generated/api";
 import type { CreditReceipt } from "@/convex/lib/credits";
 import { getServerRouteSecret } from "@/lib/middleware/auth";
 
 type CreditClient = Pick<ConvexHttpClient, "mutation">;
 
-export type MessageCreditTracker = ReturnType<typeof createMessageCreditTracker>;
+export type MessageCreditTracker = ReturnType<
+  typeof createMessageCreditTracker
+>;
 
 /**
  * Tracks the platform message credit of one /api/chat request.
@@ -20,14 +23,19 @@ export type MessageCreditTracker = ReturnType<typeof createMessageCreditTracker>
  * itself fails. User aborts and failed saves keep the charge, otherwise deleting a chat
  * mid-stream would make replies free.
  */
-export function createMessageCreditTracker(client: CreditClient, signal: AbortSignal) {
+export const createMessageCreditTracker = (
+  client: CreditClient,
+  signal: AbortSignal
+) => {
   // The outstanding charge: its receipt and the secret to refund it with
   let charged: { receipt: CreditReceipt; serverSecret: string } | null = null;
 
   return {
     async charge(usesPremiumCredits: boolean): Promise<void> {
       const serverSecret = getServerRouteSecret();
-      const receipt = await client.mutation(api.users.consumeMessageCredit, { usesPremiumCredits });
+      const receipt = await client.mutation(api.users.consumeMessageCredit, {
+        usesPremiumCredits,
+      });
       charged = { receipt, serverSecret };
     },
 
@@ -38,20 +46,23 @@ export function createMessageCreditTracker(client: CreditClient, signal: AbortSi
       const { receipt, serverSecret } = charged;
       charged = null;
       try {
-        await client.mutation(api.users.refundMessageCredit, { serverSecret, receipt });
+        await client.mutation(api.users.refundMessageCredit, {
+          serverSecret,
+          receipt,
+        });
       } catch (error) {
         console.error("Failed to refund message credit:", error);
       }
     },
   };
-}
+};
 
 /**
  * Whether a finished /api/chat stream should refund its credit: when no attempt streamed at all,
  * or when the provider failed before any assistant output (text, reasoning, tool calls) reached
  * the client. Output delivered before a later step failed keeps the charge.
  */
-export function shouldRefundGeneration({
+export const shouldRefundGeneration = ({
   hasResult,
   generationFailed,
   parts,
@@ -59,14 +70,14 @@ export function shouldRefundGeneration({
   hasResult: boolean;
   generationFailed: boolean;
   parts: UIMessage["parts"];
-}): boolean {
+}): boolean => {
   if (!hasResult) {
     return true;
   }
   const producedOutput = parts.some((part) =>
     part.type === "text" || part.type === "reasoning"
       ? part.text.trim().length > 0
-      : part.type !== "step-start",
+      : part.type !== "step-start"
   );
   return generationFailed && !producedOutput;
-}
+};

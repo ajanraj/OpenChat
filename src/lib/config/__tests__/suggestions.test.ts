@@ -1,32 +1,40 @@
 import { describe, expect, it } from "vitest";
+
 import { SUGGESTIONS } from "../suggestions";
 
 describe("Suggestions Config", () => {
   describe("SUGGESTIONS array", () => {
     it("is a non-empty array", () => {
-      expect(Array.isArray(SUGGESTIONS)).toBe(true);
+      expect(Array.isArray(SUGGESTIONS)).toBeTruthy();
       expect(SUGGESTIONS.length).toBeGreaterThan(0);
     });
 
-    it("each suggestion has required properties", () => {
+    it("each suggestion has a non-empty label", () => {
       for (const suggestion of SUGGESTIONS) {
         expect(suggestion.label).toBeDefined();
-        expect(typeof suggestion.label).toBe("string");
+        expect(suggestion.label).toBeTypeOf("string");
         expect(suggestion.label.length).toBeGreaterThan(0);
+      }
+    });
 
+    it("each suggestion has highlight and prompt strings", () => {
+      for (const suggestion of SUGGESTIONS) {
         expect(suggestion.highlight).toBeDefined();
-        expect(typeof suggestion.highlight).toBe("string");
-
+        expect(suggestion.highlight).toBeTypeOf("string");
         expect(suggestion.prompt).toBeDefined();
-        expect(typeof suggestion.prompt).toBe("string");
+        expect(suggestion.prompt).toBeTypeOf("string");
+      }
+    });
 
+    it("each suggestion has an icon", () => {
+      for (const suggestion of SUGGESTIONS) {
         expect(suggestion.icon).toBeDefined();
       }
     });
 
     it("each suggestion has items array", () => {
       for (const suggestion of SUGGESTIONS) {
-        expect(Array.isArray(suggestion.items)).toBe(true);
+        expect(Array.isArray(suggestion.items)).toBeTruthy();
         expect(suggestion.items.length).toBeGreaterThan(0);
       }
     });
@@ -34,7 +42,7 @@ describe("Suggestions Config", () => {
     it("all items are non-empty strings", () => {
       for (const suggestion of SUGGESTIONS) {
         for (const item of suggestion.items) {
-          expect(typeof item).toBe("string");
+          expect(item).toBeTypeOf("string");
           expect(item.length).toBeGreaterThan(0);
         }
       }
@@ -45,7 +53,7 @@ describe("Suggestions Config", () => {
         for (const item of suggestion.items) {
           const startsWithPrompt = item.startsWith(suggestion.prompt);
           const startsWithHighlight = item.startsWith(suggestion.highlight);
-          expect(startsWithPrompt || startsWithHighlight).toBe(true);
+          expect(startsWithPrompt || startsWithHighlight).toBeTruthy();
         }
       }
     });

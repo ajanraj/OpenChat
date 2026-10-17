@@ -11,13 +11,15 @@ import {
   useRef,
   useState,
 } from "react";
+
 import { useEnsureSession } from "@/hooks/use-ensure-session";
 import {
   getNextRateLimitReset,
   measureServerClockOffset,
-  type RateLimitStatus,
   resolveRateLimitStatus,
 } from "@/lib/rate-limit-status";
+import type { RateLimitStatus } from "@/lib/rate-limit-status";
+
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 
@@ -71,38 +73,57 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
 /** The account a Convex Auth token was issued to: its subject is `userId|sessionId`. */
-function getTokenUserId(token: string | null): string | null {
+const getTokenUserId = (token: string | null): string | null => {
   const payload = token?.split(".")[1];
-  if (!payload) {
+  if (payload === undefined || payload === "") {
     return null;
   }
   try {
-    const claims: { sub?: unknown } = JSON.parse(
-      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    const claims: unknown = JSON.parse(
+      atob(payload.replaceAll("-", "+").replaceAll("_", "/"))
     );
-    return typeof claims.sub === "string" ? (claims.sub.split("|")[0] ?? null) : null;
+    return typeof claims === "object" &&
+      claims !== null &&
+      "sub" in claims &&
+      typeof claims.sub === "string"
+      ? (claims.sub.split("|")[0] ?? null)
+      : null;
   } catch {
     return null;
   }
-}
+};
 
-export function UserProvider({ children }: { children: React.ReactNode; initialUser?: null }) {
+/** Whether any of the loading flags is set. */
+const anyLoading = (flags: boolean[]): boolean => flags.includes(true);
+
+export const UserProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+  initialUser?: null;
+}) => {
   const { signIn, signOut } = useAuthActions();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
   const sessionUserId = getTokenUserId(useAuthToken());
   const ensureSession = useEnsureSession();
 
-  const { data: cachedUser = null, isLoading: isUserLoading } = useTanStackQuery({
-    ...convexQuery(api.users.getCurrentUser, {}),
-    // Extended cache for user data to prevent auth flickering
-    gcTime: 30 * 60 * 1000, // 30 minutes - user data persists longer
-  });
+  const { data: cachedUser = null, isLoading: isUserLoading } =
+    useTanStackQuery({
+      ...convexQuery(api.users.getCurrentUser, {}),
+      // Extended cache for user data to prevent auth flickering: 30 minutes, so user data
+      // persists longer
+      gcTime: 30 * 60 * 1000,
+    });
   // A user exists only while its session does, and only as that session's account. The cached
   // answer lags the session, indefinitely on a stalled connection: once Convex reports no session
   // (sign-out here or in another tab, or a rejected token) it is dropped at once, and a new session
   // never sees the previous account's while its own is on the way
   const user =
-    (isAuthLoading || isAuthenticated) && cachedUser?._id === sessionUserId ? cachedUser : null;
+    (isAuthLoading || isAuthenticated) && cachedUser?._id === sessionUserId
+      ? cachedUser
+      : null;
+  // Signed in with an account of their own, not as a guest
+  const isRegisteredUser = user !== null && user.isAnonymous !== true;
 
   // A token that turns straight into another account's comes from another tab signing in to it.
   // Convex Auth doesn't hand that token to this tab's connection, which keeps answering as the
@@ -111,7 +132,11 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   useEffect(() => {
     const previous = previousSessionUserId.current;
     previousSessionUserId.current = sessionUserId;
-    if (previous !== null && sessionUserId !== null && previous !== sessionUserId) {
+    if (
+      previous !== null &&
+      sessionUserId !== null &&
+      previous !== sessionUserId
+    ) {
       window.location.reload();
     }
   }, [sessionUserId]);
@@ -122,16 +147,17 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   // Their answers are dropped as soon as their account is (gcTime 0), so a later session's queries
   // start empty and wait for its own answers instead of showing the previous account's
   const { data: hasPremium, isLoading: isPremiumLoading } = useTanStackQuery({
-    ...convexQuery(api.users.userHasPremium, user && !user.isAnonymous ? {} : "skip"),
-    enabled: Boolean(user) && !user?.isAnonymous,
+    ...convexQuery(api.users.userHasPremium, isRegisteredUser ? {} : "skip"),
+    enabled: isRegisteredUser,
     gcTime: 0,
   });
 
-  const { data: rateLimitState, isLoading: isRateLimitLoading } = useTanStackQuery({
-    ...convexQuery(api.users.getRateLimitStatus, user ? {} : "skip"),
-    enabled: Boolean(user),
-    gcTime: 0,
-  });
+  const { data: rateLimitState, isLoading: isRateLimitLoading } =
+    useTanStackQuery({
+      ...convexQuery(api.users.getRateLimitStatus, user === null ? "skip" : {}),
+      enabled: user !== null,
+      gcTime: 0,
+    });
 
   // Credit windows run on the server's clock; a device clock running behind would keep an
   // exhausted window that has already reset. Measured once per session (TanStack retries a
@@ -139,8 +165,9 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const getServerTime = useMutation(api.users.getServerTime);
   const { data: serverClockOffset = 0 } = useTanStackQuery({
     queryKey: ["serverClockOffset"],
-    queryFn: () => measureServerClockOffset(() => getServerTime({})),
-    enabled: Boolean(user),
+    queryFn: async () =>
+      await measureServerClockOffset(async () => await getServerTime({})),
+    enabled: user !== null,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
   });
@@ -150,35 +177,56 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   const [now, setNow] = useState(() => Date.now());
   const rateLimitStatus = useMemo(
     () =>
-      rateLimitState ? resolveRateLimitStatus(rateLimitState, now + serverClockOffset) : undefined,
-    [rateLimitState, now, serverClockOffset],
+      rateLimitState
+        ? resolveRateLimitStatus(rateLimitState, now + serverClockOffset)
+        : undefined,
+    [rateLimitState, now, serverClockOffset]
   );
-  const nextRateLimitReset = rateLimitStatus ? getNextRateLimitReset(rateLimitStatus) : undefined;
+  const nextRateLimitReset = rateLimitStatus
+    ? getNextRateLimitReset(rateLimitStatus)
+    : undefined;
 
   useEffect(() => {
-    if (nextRateLimitReset === undefined) {
-      return;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    // Re-arms until the reset has passed: setTimeout caps delays at MAX_TIMEOUT_MS and can wake
+    // early (the offset has fractional ms), and a status resolved before the reset keeps the
+    // same nextRateLimitReset, so this effect wouldn't run again
+    const arm = (resetAt: number) => {
+      const remaining = resetAt - (Date.now() + serverClockOffset);
+      timeout = setTimeout(
+        () => {
+          if (resetAt > Date.now() + serverClockOffset) {
+            arm(resetAt);
+          } else {
+            setNow(Date.now());
+          }
+        },
+        Math.min(Math.max(Math.ceil(remaining), 0), MAX_TIMEOUT_MS)
+      );
+    };
+    if (nextRateLimitReset !== undefined) {
+      arm(nextRateLimitReset);
     }
-    // Re-arms after every tick (`now` dependency), which also covers clamped delays
-    const delay = Math.min(
-      Math.max(nextRateLimitReset - (Date.now() + serverClockOffset), 0),
-      MAX_TIMEOUT_MS,
-    );
-    const timeout = setTimeout(() => setNow(Date.now()), delay);
-    return () => clearTimeout(timeout);
-  }, [nextRateLimitReset, now, serverClockOffset]);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [nextRateLimitReset, serverClockOffset]);
 
   const { data: apiKeysQuery, isLoading: isApiKeysLoading } = useTanStackQuery({
-    ...convexQuery(api.api_keys.getApiKeys, user && !user.isAnonymous ? {} : "skip"),
-    enabled: Boolean(user) && !user?.isAnonymous,
+    ...convexQuery(api.api_keys.getApiKeys, isRegisteredUser ? {} : "skip"),
+    enabled: isRegisteredUser,
     gcTime: 0,
   });
 
-  const { data: connectorsQuery, isLoading: isConnectorsLoading } = useTanStackQuery({
-    ...convexQuery(api.connectors.listUserConnectors, user && !user?.isAnonymous ? {} : "skip"),
-    enabled: Boolean(user) && !user?.isAnonymous,
-    gcTime: 0,
-  });
+  const { data: connectorsQuery, isLoading: isConnectorsLoading } =
+    useTanStackQuery({
+      ...convexQuery(
+        api.connectors.listUserConnectors,
+        isRegisteredUser ? {} : "skip"
+      ),
+      enabled: isRegisteredUser,
+      gcTime: 0,
+    });
   const updateUserProfile = useMutation(api.users.updateUserProfile);
 
   // Users (guest or Google) are created by the createOrUpdateUser callback in convex/auth.ts
@@ -194,11 +242,14 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       // This function is for general profile updates only.
       await updateUserProfile({ updates });
     },
-    [updateUserProfile],
+    [updateUserProfile]
   );
 
   // Process API keys data
-  const apiKeys = useMemo(() => (apiKeysQuery ?? []) as ApiKey[], [apiKeysQuery]);
+  const apiKeys = useMemo(
+    () => (apiKeysQuery ?? []) as ApiKey[],
+    [apiKeysQuery]
+  );
 
   // Process connectors data
   const connectors = useMemo(() => connectorsQuery ?? [], [connectorsQuery]);
@@ -222,14 +273,18 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
   // session before the user's answer returns, so a missing user can't be told from a slow one, and
   // signing out a live guest loses the account. A session whose account was deleted on another
   // device (its token stays accepted for up to an hour) ends when Convex Auth's refresh fails.
-  const combinedLoading = Boolean(
-    isAuthLoading ||
-    isUserLoading ||
-    (isAuthenticated && !user) ||
-    (user &&
-      !user.isAnonymous &&
-      (isPremiumLoading || isRateLimitLoading || isApiKeysLoading || isConnectorsLoading)),
-  );
+  const combinedLoading = anyLoading([
+    isAuthLoading,
+    isUserLoading,
+    isAuthenticated && user === null,
+    isRegisteredUser &&
+      anyLoading([
+        isPremiumLoading,
+        isRateLimitLoading,
+        isApiKeysLoading,
+        isConnectorsLoading,
+      ]),
+  ]);
 
   const contextValue = useMemo(
     () => ({
@@ -241,7 +296,7 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       updateUser,
       // User capabilities and settings
       hasPremium: hasPremium ?? false,
-      rateLimitStatus: rateLimitStatus,
+      rateLimitStatus,
       // API Keys
       apiKeys,
       hasApiKey,
@@ -270,16 +325,18 @@ export function UserProvider({ children }: { children: React.ReactNode; initialU
       isApiKeysLoading,
       connectors,
       isConnectorsLoading,
-    ],
+    ]
   );
 
-  return <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>;
-}
+  return (
+    <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>
+  );
+};
 
-export function useUser() {
+export const useUser = () => {
   const context = useContext(UserContext);
   if (!context) {
     throw new Error("useUser must be used within a UserProvider");
   }
   return context;
-}
+};

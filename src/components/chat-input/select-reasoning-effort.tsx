@@ -14,7 +14,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import type { ReasoningEffort } from "@/lib/config";
+import type { ReasoningEffort } from "@/lib/config/schemas";
 import { getReasoningEffortOptions } from "@/lib/model-utils";
 import { PopoverContentAuth } from "./popover-content-auth";
 

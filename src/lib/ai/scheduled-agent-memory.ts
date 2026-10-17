@@ -1,13 +1,16 @@
-import { tool } from "ai";
 import type { Redis } from "@upstash/redis";
+import { tool } from "ai";
 import type { ModelMessage, Tool } from "ai";
 import { z } from "zod";
 
 const HISTORY_PREFIX = "agent:history:";
 const MEMORY_PREFIX = "agent:memory:";
-const HISTORY_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
-const MEMORY_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
-const MAX_WORKING_MEMORY_SIZE = 4096; // ~4KB cap
+// 30 days
+const HISTORY_TTL_SECONDS = 30 * 24 * 60 * 60;
+// 30 days
+const MEMORY_TTL_SECONDS = 30 * 24 * 60 * 60;
+// ~4KB cap
+const MAX_WORKING_MEMORY_SIZE = 4096;
 
 const WORKING_MEMORY_TEMPLATE = `# Working Memory
 
@@ -27,36 +30,52 @@ interface HistoryEntry {
 }
 
 export class ScheduledAgentMemory {
-  constructor(private redis: Redis) {}
+  private readonly redis: Redis;
+
+  constructor(redis: Redis) {
+    this.redis = redis;
+  }
 
   async loadHistory(taskId: string, limit: number): Promise<ModelMessage[]> {
-    const raw = await this.redis.get<HistoryEntry[]>(`${HISTORY_PREFIX}${taskId}`);
-    if (!raw || limit <= 0) return [];
-    const entries = raw.slice(-limit * 2); // limit is turns, each turn = 2 messages
+    const raw = await this.redis.get<HistoryEntry[]>(
+      `${HISTORY_PREFIX}${taskId}`
+    );
+    if (!raw || limit <= 0) {
+      return [];
+    }
+    // limit is turns, each turn = 2 messages
+    const entries = raw.slice(-limit * 2);
     return entries.map((e) => ({
       role: e.role,
       content: e.content,
     }));
   }
 
-  async saveHistory(taskId: string, userPrompt: string, assistantResponse: string): Promise<void> {
+  async saveHistory(
+    taskId: string,
+    userPrompt: string,
+    assistantResponse: string
+  ): Promise<void> {
     const key = `${HISTORY_PREFIX}${taskId}`;
     const existing = (await this.redis.get<HistoryEntry[]>(key)) ?? [];
     existing.push(
       { role: "user", content: userPrompt },
-      { role: "assistant", content: assistantResponse },
+      { role: "assistant", content: assistantResponse }
     );
-    const trimmed = existing.slice(-40); // Keep last 40 entries (20 turns)
+    // Keep last 40 entries (20 turns)
+    const trimmed = existing.slice(-40);
     await this.redis.set(key, trimmed, { ex: HISTORY_TTL_SECONDS });
   }
 
   async loadWorkingMemory(userId: string): Promise<string | null> {
-    return this.redis.get<string>(`${MEMORY_PREFIX}${userId}`);
+    return await this.redis.get<string>(`${MEMORY_PREFIX}${userId}`);
   }
 
   async saveWorkingMemory(userId: string, content: string): Promise<void> {
     const trimmed = content.trim().slice(0, MAX_WORKING_MEMORY_SIZE);
-    await this.redis.set(`${MEMORY_PREFIX}${userId}`, trimmed, { ex: MEMORY_TTL_SECONDS });
+    await this.redis.set(`${MEMORY_PREFIX}${userId}`, trimmed, {
+      ex: MEMORY_TTL_SECONDS,
+    });
   }
 
   createUpdateTool(userId: string): Tool {
@@ -67,7 +86,7 @@ export class ScheduledAgentMemory {
         memory: z
           .string()
           .describe(
-            "The full updated working memory content in markdown format. Always include ALL existing facts plus any new information — this replaces the entire memory.",
+            "The full updated working memory content in markdown format. Always include ALL existing facts plus any new information — this replaces the entire memory."
           ),
       }),
       execute: async ({ memory }) => {
@@ -78,7 +97,9 @@ export class ScheduledAgentMemory {
   }
 }
 
-export function formatWorkingMemoryPrompt(workingMemory: string | null): string {
+export const formatWorkingMemoryPrompt = (
+  workingMemory: string | null
+): string => {
   const memoryContent = workingMemory ?? WORKING_MEMORY_TEMPLATE;
 
   return `
@@ -100,4 +121,4 @@ ${memoryContent}
 ${WORKING_MEMORY_TEMPLATE}
 \`\`\`
 `.trim();
-}
+};

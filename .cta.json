@@ -8,5 +8,12 @@
   "addOnOptions": {},
   "version": 1,
   "framework": "react-cra",
-  "chosenAddOns": ["start", "tanstack-query", "convex", "shadcn", "t3env", "nitro"]
+  "chosenAddOns": [
+    "start",
+    "tanstack-query",
+    "convex",
+    "shadcn",
+    "t3env",
+    "nitro"
+  ]
 }

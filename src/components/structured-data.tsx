@@ -1,4 +1,4 @@
-import { APP_BASE_URL, APP_DESCRIPTION, APP_NAME } from "@/lib/config";
+import { APP_BASE_URL, APP_DESCRIPTION, APP_NAME } from "@/lib/config/constants";
 
 type StructuredDataProps = {
 	type?: "homepage" | "page";

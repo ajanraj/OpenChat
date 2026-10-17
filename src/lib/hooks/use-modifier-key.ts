@@ -1,27 +1,23 @@
 import { useSyncExternalStore } from "react";
 
-function getIsMac(): boolean {
+const getIsMac = (): boolean => {
   if (typeof navigator === "undefined") {
     return false;
   }
-  return /Mac|iPhone|iPod|iPad/i.test(navigator.userAgent);
-}
+  return /Mac|iPhone|iPod|iPad/iu.test(navigator.userAgent);
+};
 
 const isMac = getIsMac();
 const modifierKey = isMac ? "⌘" : "Ctrl";
 
-function subscribe() {
-  return () => {};
-}
+const unsubscribe = () => {
+  // The modifier key never changes, so there is nothing to unsubscribe from
+};
+const subscribe = () => unsubscribe;
 
-function getSnapshot(): string {
-  return modifierKey;
-}
+const getSnapshot = (): string => modifierKey;
 
-function getServerSnapshot(): string {
-  return "⌘";
-}
+const getServerSnapshot = (): string => "⌘";
 
-export function useModifierKey(): string {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
+export const useModifierKey = (): string =>
+  useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

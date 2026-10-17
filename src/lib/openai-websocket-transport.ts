@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import type { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
 import type { streamText } from "ai";
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
+import type { createWebSocketFetch } from "ai-sdk-openai-websocket-fetch";
 
 type StreamModel = Parameters<typeof streamText>[0]["model"];
 
@@ -21,16 +21,21 @@ const streamReasoningMiddleware = extractReasoningMiddleware({
   tagName: "think",
 });
 
-const getStringProperty = (value: unknown, propertyName: string): string | undefined => {
+const getStringProperty = (
+  value: unknown,
+  propertyName: string
+): string | undefined => {
   if (typeof value !== "object" || value === null) {
     return undefined;
   }
 
-  const propertyValue = Reflect.get(value, propertyName);
+  const propertyValue: unknown = Reflect.get(value, propertyName);
   return typeof propertyValue === "string" ? propertyValue : undefined;
 };
 
-export const isOpenAITransportEligible = (selectedModel: TransportEligibilityModel): boolean => {
+export const isOpenAITransportEligible = (
+  selectedModel: TransportEligibilityModel
+): boolean => {
   if (selectedModel.provider !== "openai") {
     return false;
   }
@@ -42,10 +47,10 @@ export const isOpenAITransportEligible = (selectedModel: TransportEligibilityMod
 export const getOpenAIStreamModel = (
   selectedModel: OpenAIStreamModelInput,
   wsFetch: OpenAIWebSocketFetch,
-  reasoningEnabled: boolean,
+  reasoningEnabled: boolean
 ): StreamModel | undefined => {
   const modelId = getStringProperty(selectedModel.api_sdk, "modelId");
-  if (!modelId) {
+  if (modelId === undefined || modelId === "") {
     return undefined;
   }
 

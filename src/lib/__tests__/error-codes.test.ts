@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+
 import { ERROR_CODES, getErrorMessage } from "../error-codes";
 
-describe("ERROR_CODES", () => {
+describe("ERROR_CODES map", () => {
   it("includes all authentication error codes", () => {
     expect(ERROR_CODES.NOT_AUTHENTICATED).toBe("NOT_AUTHENTICATED");
     expect(ERROR_CODES.UNAUTHORIZED).toBe("UNAUTHORIZED");
@@ -13,6 +14,9 @@ describe("ERROR_CODES", () => {
     expect(ERROR_CODES.MISSING_REQUIRED_FIELD).toBe("MISSING_REQUIRED_FIELD");
     expect(ERROR_CODES.USER_NOT_FOUND).toBe("USER_NOT_FOUND");
     expect(ERROR_CODES.CHAT_NOT_FOUND).toBe("CHAT_NOT_FOUND");
+  });
+
+  it("includes all not-found validation error codes", () => {
     expect(ERROR_CODES.MESSAGE_NOT_FOUND).toBe("MESSAGE_NOT_FOUND");
     expect(ERROR_CODES.FILE_NOT_FOUND).toBe("FILE_NOT_FOUND");
   });
@@ -24,12 +28,19 @@ describe("ERROR_CODES", () => {
   });
 
   it("includes all business error codes", () => {
-    expect(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED).toBe("PREMIUM_MODEL_ACCESS_DENIED");
+    expect(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED).toBe(
+      "PREMIUM_MODEL_ACCESS_DENIED"
+    );
     expect(ERROR_CODES.USER_KEY_REQUIRED).toBe("USER_KEY_REQUIRED");
     expect(ERROR_CODES.UNSUPPORTED_MODEL).toBe("UNSUPPORTED_MODEL");
+  });
+
+  it("includes all profile business error codes", () => {
     expect(ERROR_CODES.PROFILE_LIMIT_REACHED).toBe("PROFILE_LIMIT_REACHED");
     expect(ERROR_CODES.PROFILE_NOT_FOUND).toBe("PROFILE_NOT_FOUND");
-    expect(ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE).toBe("CANNOT_DELETE_DEFAULT_PROFILE");
+    expect(ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE).toBe(
+      "CANNOT_DELETE_DEFAULT_PROFILE"
+    );
   });
 
   it("includes all file error codes", () => {
@@ -47,96 +58,109 @@ describe("ERROR_CODES", () => {
   });
 
   it("includes all streaming error codes", () => {
-    expect(ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT).toBe("PROVIDER_STREAM_RATE_LIMIT");
-    expect(ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED).toBe("PROVIDER_STREAM_QUOTA_EXCEEDED");
-    expect(ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE).toBe(
-      "PROVIDER_STREAM_INSUFFICIENT_BALANCE",
+    expect(ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT).toBe(
+      "PROVIDER_STREAM_RATE_LIMIT"
     );
-    expect(ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR).toBe("PROVIDER_STREAM_AUTH_ERROR");
+    expect(ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED).toBe(
+      "PROVIDER_STREAM_QUOTA_EXCEEDED"
+    );
+    expect(ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE).toBe(
+      "PROVIDER_STREAM_INSUFFICIENT_BALANCE"
+    );
+    expect(ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR).toBe(
+      "PROVIDER_STREAM_AUTH_ERROR"
+    );
     expect(ERROR_CODES.PROVIDER_STREAM_TIMEOUT).toBe("PROVIDER_STREAM_TIMEOUT");
   });
 });
 
-describe("getErrorMessage", () => {
+describe(getErrorMessage, () => {
   it("returns correct message for auth errors", () => {
     expect(getErrorMessage(ERROR_CODES.NOT_AUTHENTICATED)).toBe(
-      "Authentication required. Please sign in.",
+      "Authentication required. Please sign in."
     );
     expect(getErrorMessage(ERROR_CODES.UNAUTHORIZED)).toBe(
-      "You are not authorized to perform this action.",
+      "You are not authorized to perform this action."
     );
     expect(getErrorMessage(ERROR_CODES.TOKEN_EXPIRED)).toBe(
-      "Your session has expired. Please sign in again.",
+      "Your session has expired. Please sign in again."
     );
   });
 
   it("returns correct message for validation errors", () => {
     expect(getErrorMessage(ERROR_CODES.INVALID_INPUT)).toBe(
-      "Invalid input provided. Please check your data.",
+      "Invalid input provided. Please check your data."
     );
     expect(getErrorMessage(ERROR_CODES.USER_NOT_FOUND)).toBe("User not found.");
     expect(getErrorMessage(ERROR_CODES.CHAT_NOT_FOUND)).toBe(
-      "Chat not found or you do not have access to it.",
+      "Chat not found or you do not have access to it."
     );
   });
 
   it("returns correct message for rate limit errors", () => {
     expect(getErrorMessage(ERROR_CODES.DAILY_LIMIT_REACHED)).toBe(
-      "You have reached your daily usage limit. Please try again tomorrow.",
+      "You have reached your daily usage limit. Please try again tomorrow."
     );
     expect(getErrorMessage(ERROR_CODES.MONTHLY_LIMIT_REACHED)).toBe(
-      "You have reached your monthly usage limit. Please upgrade your plan.",
+      "You have reached your monthly usage limit. Please upgrade your plan."
     );
   });
 
   it("returns correct message for business errors", () => {
     expect(getErrorMessage(ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED)).toBe(
-      "This model requires a premium subscription. Please upgrade to access premium models.",
+      "This model requires a premium subscription. Please upgrade to access premium models."
     );
     expect(getErrorMessage(ERROR_CODES.USER_KEY_REQUIRED)).toBe(
-      "This model requires your own API key. Please add your API key in settings.",
+      "This model requires your own API key. Please add your API key in settings."
     );
     expect(getErrorMessage(ERROR_CODES.PROFILE_LIMIT_REACHED)).toBe(
-      "Maximum of 5 profiles allowed.",
+      "Maximum of 5 profiles allowed."
     );
-    expect(getErrorMessage(ERROR_CODES.PROFILE_NOT_FOUND)).toBe("Profile not found.");
+    expect(getErrorMessage(ERROR_CODES.PROFILE_NOT_FOUND)).toBe(
+      "Profile not found."
+    );
     expect(getErrorMessage(ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE)).toBe(
-      "The default profile cannot be deleted.",
+      "The default profile cannot be deleted."
     );
   });
 
   it("returns correct message for file errors", () => {
     expect(getErrorMessage(ERROR_CODES.UNSUPPORTED_FILE_TYPE)).toBe(
-      "Unsupported file type. Please upload a supported file format.",
+      "Unsupported file type. Please upload a supported file format."
     );
     expect(getErrorMessage(ERROR_CODES.FILE_TOO_LARGE)).toBe(
-      "File is too large. Please upload a smaller file.",
+      "File is too large. Please upload a smaller file."
     );
     expect(getErrorMessage(ERROR_CODES.UPLOAD_FAILED)).toBe(
-      "File upload failed. Please try again.",
+      "File upload failed. Please try again."
     );
   });
 
   it("returns correct message for connector errors", () => {
     expect(getErrorMessage(ERROR_CODES.CONNECTION_FAILED)).toBe(
-      "Failed to establish connection. Please try again.",
+      "Failed to establish connection. Please try again."
     );
     expect(getErrorMessage(ERROR_CODES.CONNECTOR_AUTH_FAILED)).toBe(
-      "Authentication failed for this connector. Please reconnect.",
+      "Authentication failed for this connector. Please reconnect."
     );
   });
 
   it("returns correct message for streaming errors", () => {
     expect(getErrorMessage(ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT)).toBe(
-      "API rate limit exceeded. Please wait a moment before trying again.",
+      "API rate limit exceeded. Please wait a moment before trying again."
     );
     expect(getErrorMessage(ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR)).toBe(
-      "Invalid API key. Please check your API key in settings.",
+      "Invalid API key. Please check your API key in settings."
     );
   });
 
   it("returns default message for unknown error codes", () => {
-    const unknownCode = "UNKNOWN_ERROR" as never;
-    expect(getErrorMessage(unknownCode)).toBe("An unexpected error occurred. Please try again.");
+    expect(getErrorMessage("UNKNOWN_ERROR")).toBe(
+      "An unexpected error occurred. Please try again."
+    );
+    // Object prototype keys are not error codes
+    expect(getErrorMessage("toString")).toBe(
+      "An unexpected error occurred. Please try again."
+    );
   });
 });

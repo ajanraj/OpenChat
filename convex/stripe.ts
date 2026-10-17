@@ -1,11 +1,13 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { processEvent, StripeSubscriptions } from "@convex-dev/stripe";
 import { ConvexError, v } from "convex/values";
-import Stripe from "stripe";
+import { Stripe } from "stripe";
+
 import { ERROR_CODES } from "../src/lib/error-codes";
 import { api, components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { action, type ActionCtx, type QueryCtx } from "./_generated/server";
+import { action } from "./_generated/server";
+import type { ActionCtx, QueryCtx } from "./_generated/server";
 
 const stripeClient = new StripeSubscriptions(components.stripe);
 
@@ -13,55 +15,74 @@ const stripeClient = new StripeSubscriptions(components.stripe);
 const PREMIUM_STATUSES = new Set(["active", "trialing"]);
 // Statuses of a subscription that can still bill or be recovered in the portal; a new checkout
 // would create a second billable subscription
-const CHECKOUT_BLOCKING_STATUSES = new Set([...PREMIUM_STATUSES, "past_due", "unpaid", "paused"]);
+const CHECKOUT_BLOCKING_STATUSES = new Set([
+  ...PREMIUM_STATUSES,
+  "past_due",
+  "unpaid",
+  "paused",
+]);
 
-const siteUrl = () => process.env.SITE_URL || "https://oschat.ai";
+const siteUrl = () => {
+  const url = process.env.SITE_URL;
+  return url !== undefined && url !== "" ? url : "https://oschat.ai";
+};
 
 /** Stripe API client from STRIPE_SECRET_KEY; throws (so webhooks get retried) when unset. */
-export function stripeApi(): Stripe {
+export const stripeApi = (): Stripe => {
   const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
+  if (secretKey === undefined || secretKey === "") {
     throw new Error("STRIPE_SECRET_KEY is not set");
   }
   return new Stripe(secretKey);
-}
+};
 
 type RunQueryCtx = Pick<QueryCtx, "runQuery"> | Pick<ActionCtx, "runQuery">;
 
-async function hasSubscriptionWithStatus(
+const hasSubscriptionWithStatus = async (
   ctx: RunQueryCtx,
   userId: Id<"users">,
-  statuses: Set<string>,
-): Promise<boolean> {
-  const subscriptions = await ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
-    userId,
-  });
-  return subscriptions.some((subscription) => statuses.has(subscription.status));
-}
+  statuses: Set<string>
+): Promise<boolean> => {
+  const subscriptions = await ctx.runQuery(
+    components.stripe.public.listSubscriptionsByUserId,
+    {
+      userId,
+    }
+  );
+  return subscriptions.some((subscription) =>
+    statuses.has(subscription.status)
+  );
+};
 
 /**
  * Whether the user has a premium subscription, based on the Stripe component's
  * webhook-synced subscriptions table. Usable from queries, mutations and actions.
  */
-export function hasActivePremium(ctx: RunQueryCtx, userId: Id<"users">): Promise<boolean> {
-  return hasSubscriptionWithStatus(ctx, userId, PREMIUM_STATUSES);
-}
+export const hasActivePremium = async (
+  ctx: RunQueryCtx,
+  userId: Id<"users">
+): Promise<boolean> =>
+  await hasSubscriptionWithStatus(ctx, userId, PREMIUM_STATUSES);
 
 /**
  * Re-reads a subscription from Stripe and stores its current state. Stripe doesn't guarantee
  * webhook order, so event snapshots are never stored directly; each read reserves a revision
  * first, so an older read can't overwrite a newer one.
  */
-export async function syncSubscriptionFromStripe(
+export const syncSubscriptionFromStripe = async (
   ctx: Pick<ActionCtx, "runMutation">,
   stripe: Stripe,
-  stripeSubscriptionId: string,
-): Promise<void> {
-  const revision: number = await ctx.runMutation(internal.subscription.reserveSubscriptionSync, {
-    stripeSubscriptionId,
-  });
-  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-  const item = subscription.items.data[0];
+  stripeSubscriptionId: string
+): Promise<void> => {
+  const revision: number = await ctx.runMutation(
+    internal.subscription.reserveSubscriptionSync,
+    {
+      stripeSubscriptionId,
+    }
+  );
+  const subscription =
+    await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const [item] = subscription.items.data;
   await ctx.runMutation(internal.subscription.applySubscriptionSnapshot, {
     revision,
     snapshot: {
@@ -79,7 +100,7 @@ export async function syncSubscriptionFromStripe(
       metadata: subscription.metadata,
     },
   });
-}
+};
 
 // Statuses after which a subscription can never bill again
 const ENDED_STATUSES = new Set(["canceled", "incomplete_expired"]);
@@ -94,18 +115,20 @@ const ENDED_STATUSES = new Set(["canceled", "incomplete_expired"]);
  * for the user without a customer row come from the component's table. Safe to retry; every
  * step is attempted, then an AggregateError is thrown if any failed.
  */
-export async function cancelBillableSubscriptions(
+export const cancelBillableSubscriptions = async (
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  userId: Id<"users">,
-): Promise<void> {
+  userId: Id<"users">
+): Promise<void> => {
   const [customer, synced] = await Promise.all([
     ctx.runQuery(components.stripe.public.getCustomerByUserId, { userId }),
-    ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, { userId }),
+    ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
+      userId,
+    }),
   ]);
   const billable = new Set(
     synced
       .filter((subscription) => !ENDED_STATUSES.has(subscription.status))
-      .map((subscription) => subscription.stripeSubscriptionId),
+      .map((subscription) => subscription.stripeSubscriptionId)
   );
   if (!customer && billable.size === 0) {
     return;
@@ -146,20 +169,25 @@ export async function cancelBillableSubscriptions(
 
   // Stripe's live status decides whether to cancel, so a retry after a failed sync doesn't
   // re-cancel an already canceled subscription (cancel is a DELETE, which ignores idempotency
-  // keys).
-  for (const stripeSubscriptionId of billable) {
-    await attempt(async () => {
-      const live = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-      if (!ENDED_STATUSES.has(live.status)) {
-        await stripe.subscriptions.cancel(stripeSubscriptionId);
-      }
-      await syncSubscriptionFromStripe(ctx, stripe, stripeSubscriptionId);
-    });
-  }
+  // keys). Subscriptions are independent, so they are handled concurrently.
+  await Promise.all(
+    [...billable].map(async (stripeSubscriptionId) => {
+      await attempt(async () => {
+        const live = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+        if (!ENDED_STATUSES.has(live.status)) {
+          await stripe.subscriptions.cancel(stripeSubscriptionId);
+        }
+        await syncSubscriptionFromStripe(ctx, stripe, stripeSubscriptionId);
+      });
+    })
+  );
   if (failures.length > 0) {
-    throw new AggregateError(failures, `${failures.length} billing step(s) failed`);
+    throw new AggregateError(
+      failures,
+      `${failures.length} billing step(s) failed`
+    );
   }
-}
+};
 
 // Invoice reasons that start a new billing period (not proration or manual invoices)
 const NEW_PERIOD_BILLING_REASONS = new Set<Stripe.Invoice.BillingReason>([
@@ -171,58 +199,62 @@ const NEW_PERIOD_BILLING_REASONS = new Set<Stripe.Invoice.BillingReason>([
  * The user whose credits a paid invoice should reset, or null if the invoice doesn't start a
  * new billing period or isn't linked to a user.
  */
-export function getCreditResetUserId(invoice: Stripe.Invoice): string | null {
-  if (!invoice.billing_reason || !NEW_PERIOD_BILLING_REASONS.has(invoice.billing_reason)) {
+export const getCreditResetUserId = (
+  invoice: Stripe.Invoice
+): string | null => {
+  const reason = invoice.billing_reason;
+  if (reason === null || !NEW_PERIOD_BILLING_REASONS.has(reason)) {
     return null;
   }
   return invoice.parent?.subscription_details?.metadata?.userId ?? null;
-}
+};
 
 /**
  * Handles a verified Stripe webhook event. Subscription events re-read the subscription from
  * Stripe; everything else uses the component's default syncing, plus credit resets on paid
  * new-period invoices (once per invoice).
  */
-export async function handleStripeEvent(
+export const handleStripeEvent = async (
   ctx: ActionCtx,
   stripe: Stripe,
-  event: Stripe.Event,
-): Promise<void> {
-  switch (event.type) {
-    case "customer.subscription.created":
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted":
-      await syncSubscriptionFromStripe(ctx, stripe, event.data.object.id);
-      return;
-    case "invoice.paid": {
-      await processEvent(ctx, components.stripe, event, stripe);
-      const invoice = event.data.object;
-      const userId = getCreditResetUserId(invoice);
-      if (userId && invoice.id) {
-        await ctx.runMutation(internal.subscription.onInvoicePaid, {
-          userId,
-          stripeInvoiceId: invoice.id,
-        });
-      }
-      return;
-    }
-    default:
-      await processEvent(ctx, components.stripe, event, stripe);
+  event: Stripe.Event
+): Promise<void> => {
+  if (
+    event.type === "customer.subscription.created" ||
+    event.type === "customer.subscription.updated" ||
+    event.type === "customer.subscription.deleted"
+  ) {
+    await syncSubscriptionFromStripe(ctx, stripe, event.data.object.id);
+    return;
   }
-}
+  await processEvent(ctx, components.stripe, event, stripe);
+  if (event.type === "invoice.paid") {
+    const invoice = event.data.object;
+    const userId = getCreditResetUserId(invoice);
+    if (userId !== null && userId !== "" && invoice.id) {
+      await ctx.runMutation(internal.subscription.onInvoicePaid, {
+        userId,
+        stripeInvoiceId: invoice.id,
+      });
+    }
+  }
+};
 
 /**
  * Returns the Stripe customer linked to this user, creating one if needed. Looks up strictly by
  * userId (unlike the component's getOrCreateCustomer, which can reuse an email match from a
  * deleted account that the portal lookup would then never find).
  */
-export async function getOrCreateCustomerId(
+export const getOrCreateCustomerId = async (
   ctx: ActionCtx,
-  user: { _id: Id<"users">; email: string; name: string },
-): Promise<string> {
-  const existing = await ctx.runQuery(components.stripe.public.getCustomerByUserId, {
-    userId: user._id,
-  });
+  user: { _id: Id<"users">; email: string; name: string }
+): Promise<string> => {
+  const existing = await ctx.runQuery(
+    components.stripe.public.getCustomerByUserId,
+    {
+      userId: user._id,
+    }
+  );
   if (existing) {
     return existing.stripeCustomerId;
   }
@@ -233,10 +265,16 @@ export async function getOrCreateCustomerId(
     idempotencyKey: user._id,
   });
   return customerId;
-}
+};
 
-async function createPortalUrl(ctx: ActionCtx, userId: Id<"users">): Promise<string> {
-  const customer = await ctx.runQuery(components.stripe.public.getCustomerByUserId, { userId });
+const createPortalUrl = async (
+  ctx: ActionCtx,
+  userId: Id<"users">
+): Promise<string> => {
+  const customer = await ctx.runQuery(
+    components.stripe.public.getCustomerByUserId,
+    { userId }
+  );
   if (!customer) {
     throw new ConvexError(ERROR_CODES.USER_NOT_FOUND);
   }
@@ -245,7 +283,7 @@ async function createPortalUrl(ctx: ActionCtx, userId: Id<"users">): Promise<str
     returnUrl: `${siteUrl()}/settings`,
   });
   return url;
-}
+};
 
 /**
  * Returns where to send the user to upgrade: a hosted Stripe Checkout for the premium plan, an
@@ -257,21 +295,33 @@ export const createCheckout = action({
   returns: v.object({ url: v.string() }),
   handler: async (ctx): Promise<{ url: string }> => {
     const priceId = process.env.STRIPE_PREMIUM_PRICE_ID;
-    if (!priceId) {
+    if (priceId === undefined || priceId === "") {
       throw new ConvexError(ERROR_CODES.MISSING_REQUIRED_FIELD);
     }
-    const user: Doc<"users"> | null = await ctx.runQuery(api.users.getCurrentUser);
-    if (!user?.email || user.isAnonymous) {
+    const user: Doc<"users"> | null = await ctx.runQuery(
+      api.users.getCurrentUser
+    );
+    if (
+      user === null ||
+      user.email === undefined ||
+      user.email === "" ||
+      user.isAnonymous === true
+    ) {
       throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
     }
-    if (await hasSubscriptionWithStatus(ctx, user._id, CHECKOUT_BLOCKING_STATUSES)) {
+    if (
+      await hasSubscriptionWithStatus(ctx, user._id, CHECKOUT_BLOCKING_STATUSES)
+    ) {
       return { url: await createPortalUrl(ctx, user._id) };
     }
 
     const customerId = await getOrCreateCustomerId(ctx, {
       _id: user._id,
       email: user.email,
-      name: user.preferredName || user.name || "User",
+      name:
+        [user.preferredName, user.name].find(
+          (name) => name !== undefined && name !== ""
+        ) ?? "User",
     });
     // Reuse a checkout the user already has open instead of starting a parallel one
     const open = await stripeApi().checkout.sessions.list({
@@ -280,7 +330,7 @@ export const createCheckout = action({
       limit: 1,
     });
     const openUrl = open.data[0]?.url;
-    if (openUrl) {
+    if (typeof openUrl === "string" && openUrl !== "") {
       return { url: openUrl };
     }
 
@@ -294,9 +344,12 @@ export const createCheckout = action({
       subscriptionMetadata: { userId: user._id },
       // Stripe Managed Payments: Stripe is merchant of record and handles tax, fraud and disputes.
       // Tax is added on top of the price (the price's tax behavior is exclusive).
-      params: { managed_payments: { enabled: true }, allow_promotion_codes: true },
+      params: {
+        managed_payments: { enabled: true },
+        allow_promotion_codes: true,
+      },
     });
-    if (!url) {
+    if (typeof url !== "string" || url === "") {
       throw new ConvexError(ERROR_CODES.UNSUPPORTED_OPERATION);
     }
     return { url };

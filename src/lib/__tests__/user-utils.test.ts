@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { getDisplayName, getFirstName, getUserTimezone, isUserAuthenticated } from "../user-utils";
+
+import {
+  getDisplayName,
+  getFirstName,
+  getUserTimezone,
+  isUserAuthenticated,
+} from "../user-utils";
 
 describe("user-utils", () => {
-  describe("getFirstName", () => {
+  describe(getFirstName, () => {
     it("returns null for undefined name", () => {
-      expect(getFirstName(undefined)).toBeNull();
+      expect(getFirstName()).toBeNull();
     });
 
     it("returns null for empty string", () => {
@@ -29,7 +35,7 @@ describe("user-utils", () => {
     });
   });
 
-  describe("getDisplayName", () => {
+  describe(getDisplayName, () => {
     it("returns null for null user", () => {
       expect(getDisplayName(null)).toBeNull();
     });
@@ -38,19 +44,19 @@ describe("user-utils", () => {
       const user = {
         preferredName: "Johnny",
         name: "John Doe",
-      } as never;
+      };
       expect(getDisplayName(user)).toBe("Johnny");
     });
 
     it("returns first name when no preferredName", () => {
       const user = {
         name: "John Doe",
-      } as never;
+      };
       expect(getDisplayName(user)).toBe("John");
     });
 
     it("returns null when no name or preferredName", () => {
-      const user = {} as never;
+      const user = {};
       expect(getDisplayName(user)).toBeNull();
     });
 
@@ -58,40 +64,40 @@ describe("user-utils", () => {
       const user = {
         preferredName: "JD",
         name: "John Doe",
-      } as never;
+      };
       expect(getDisplayName(user)).toBe("JD");
     });
   });
 
-  describe("isUserAuthenticated", () => {
+  describe(isUserAuthenticated, () => {
     it("returns false for null user", () => {
-      expect(isUserAuthenticated(null)).toBe(false);
+      expect(isUserAuthenticated(null)).toBeFalsy();
     });
 
     it("returns false for anonymous user", () => {
       const user = {
         isAnonymous: true,
-      } as never;
-      expect(isUserAuthenticated(user)).toBe(false);
+      };
+      expect(isUserAuthenticated(user)).toBeFalsy();
     });
 
     it("returns true for authenticated user", () => {
       const user = {
         isAnonymous: false,
-      } as never;
-      expect(isUserAuthenticated(user)).toBe(true);
+      };
+      expect(isUserAuthenticated(user)).toBeTruthy();
     });
 
     it("returns true when isAnonymous is undefined", () => {
-      const user = {} as never;
-      expect(isUserAuthenticated(user)).toBe(true);
+      const user = {};
+      expect(isUserAuthenticated(user)).toBeTruthy();
     });
   });
 
-  describe("getUserTimezone", () => {
+  describe(getUserTimezone, () => {
     it("returns a non-empty string", () => {
       const timezone = getUserTimezone();
-      expect(typeof timezone).toBe("string");
+      expect(timezone).toBeTypeOf("string");
       expect(timezone.length).toBeGreaterThan(0);
     });
 

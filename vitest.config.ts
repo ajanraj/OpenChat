@@ -7,7 +7,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    include: ["src/**/*.{test,spec}.{ts,tsx}", "convex/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "convex/**/*.{test,spec}.{ts,tsx}",
+    ],
     exclude: ["node_modules", "dist", ".output", "convex/_generated"],
     coverage: {
       provider: "v8",

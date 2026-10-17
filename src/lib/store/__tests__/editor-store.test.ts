@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { useEditorStore } from "../editor-store";
 
-describe("useEditorStore", () => {
+describe("editor store (useEditorStore)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     // Reset the store to its initial state
@@ -34,12 +35,12 @@ describe("useEditorStore", () => {
 
     it("has empty history initially", () => {
       const state = useEditorStore.getState();
-      expect(state.history).toEqual([]);
+      expect(state.history).toStrictEqual([]);
     });
 
     it("has empty future initially", () => {
       const state = useEditorStore.getState();
-      expect(state.future).toEqual([]);
+      expect(state.future).toStrictEqual([]);
     });
   });
 
@@ -77,7 +78,8 @@ describe("useEditorStore", () => {
       const { setThemeState, themeState } = useEditorStore.getState();
 
       // Change only currentMode
-      const newMode: "light" | "dark" = themeState.currentMode === "light" ? "dark" : "light";
+      const newMode: "light" | "dark" =
+        themeState.currentMode === "light" ? "dark" : "light";
       const newState = {
         ...themeState,
         currentMode: newMode,
@@ -86,7 +88,7 @@ describe("useEditorStore", () => {
       setThemeState(newState);
 
       const state = useEditorStore.getState();
-      expect(state.history.length).toBe(0);
+      expect(state.history).toHaveLength(0);
     });
   });
 
@@ -97,7 +99,7 @@ describe("useEditorStore", () => {
       saveThemeCheckpoint();
 
       const state = useEditorStore.getState();
-      expect(state.themeCheckpoint).toEqual(themeState);
+      expect(state.themeCheckpoint).toStrictEqual(themeState);
     });
 
     it("restoreThemeCheckpoint restores saved state", () => {
@@ -134,21 +136,23 @@ describe("useEditorStore", () => {
       store.restoreThemeCheckpoint();
 
       // State should remain unchanged
-      expect(useEditorStore.getState().themeState).toEqual(originalState);
+      expect(useEditorStore.getState().themeState).toStrictEqual(originalState);
     });
   });
 
   describe("hasThemeChangedFromCheckpoint", () => {
     it("returns false when no checkpoint exists", () => {
       const { hasThemeChangedFromCheckpoint } = useEditorStore.getState();
-      expect(hasThemeChangedFromCheckpoint()).toBe(false);
+      expect(hasThemeChangedFromCheckpoint()).toBeFalsy();
     });
 
     it("returns false when state equals checkpoint", () => {
       const store = useEditorStore.getState();
       store.saveThemeCheckpoint();
 
-      expect(useEditorStore.getState().hasThemeChangedFromCheckpoint()).toBe(false);
+      expect(
+        useEditorStore.getState().hasThemeChangedFromCheckpoint()
+      ).toBeFalsy();
     });
 
     it("returns true when state differs from checkpoint", () => {
@@ -163,19 +167,21 @@ describe("useEditorStore", () => {
         preset: "different",
       });
 
-      expect(useEditorStore.getState().hasThemeChangedFromCheckpoint()).toBe(true);
+      expect(
+        useEditorStore.getState().hasThemeChangedFromCheckpoint()
+      ).toBeTruthy();
     });
   });
 
   describe("canUndo and canRedo", () => {
     it("canUndo returns false initially", () => {
       const { canUndo } = useEditorStore.getState();
-      expect(canUndo()).toBe(false);
+      expect(canUndo()).toBeFalsy();
     });
 
     it("canRedo returns false initially", () => {
       const { canRedo } = useEditorStore.getState();
-      expect(canRedo()).toBe(false);
+      expect(canRedo()).toBeFalsy();
     });
 
     it("canUndo returns true after state change", () => {
@@ -188,7 +194,7 @@ describe("useEditorStore", () => {
         preset: "changed",
       });
 
-      expect(useEditorStore.getState().canUndo()).toBe(true);
+      expect(useEditorStore.getState().canUndo()).toBeTruthy();
     });
   });
 
@@ -257,7 +263,7 @@ describe("useEditorStore", () => {
 
       useEditorStore.getState().undo();
 
-      expect(useEditorStore.getState().canRedo()).toBe(true);
+      expect(useEditorStore.getState().canRedo()).toBeTruthy();
     });
   });
 
@@ -280,7 +286,7 @@ describe("useEditorStore", () => {
       useEditorStore.getState().resetToCurrentPreset();
 
       const state = useEditorStore.getState();
-      expect(state.themeState.hslAdjustments).toEqual({
+      expect(state.themeState.hslAdjustments).toStrictEqual({
         hueShift: 0,
         saturationScale: 1,
         lightnessScale: 1,
@@ -300,8 +306,8 @@ describe("useEditorStore", () => {
       useEditorStore.getState().resetToCurrentPreset();
 
       const state = useEditorStore.getState();
-      expect(state.history).toEqual([]);
-      expect(state.future).toEqual([]);
+      expect(state.history).toStrictEqual([]);
+      expect(state.future).toStrictEqual([]);
     });
   });
 });

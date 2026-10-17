@@ -1,21 +1,32 @@
 import { useAuthToken } from "@convex-dev/auth/react";
 import { createFileRoute, useRouter, useSearch } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useMutation } from "convex/react";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useMutation,
+} from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+
 import { Loader } from "@/components/prompt-kit/loader";
 import { api } from "@/convex/_generated/api";
-import { getConnectorConfig } from "@/lib/config/tools";
-import type { ConnectorType } from "@/lib/types";
+import { getConnectorConfig, isConnectorType } from "@/lib/config/tools";
 import { useUser } from "@/providers/user-provider";
 
 type CallbackStatus = "checking" | "success" | "error";
 
-export const Route = createFileRoute("/auth/callback")({
-  component: AuthCallbackPage,
+// Successful /api/composio/status response
+const connectionStatusSchema = z.object({
+  connectionId: z.string(),
+  isConnected: z.boolean(),
 });
 
-function AuthenticatedCallback() {
+// Error body of /api/composio/status
+const statusErrorSchema = z.object({ error: z.string() });
+
+const AuthenticatedCallback = () => {
   const authToken = useAuthToken();
   const router = useRouter();
   const search = useSearch({ from: "/auth/callback" });
@@ -35,7 +46,7 @@ function AuthenticatedCallback() {
         void router.navigate({ to: path });
       }, delay);
     },
-    [router],
+    [router]
   );
 
   // Cleanup timeout on unmount
@@ -45,20 +56,21 @@ function AuthenticatedCallback() {
         clearTimeout(timeoutRef.current);
       }
     },
-    [],
+    []
   );
 
   const handleCallback = useCallback(async () => {
-    const requestHeaders = authToken
-      ? {
-          Authorization: `Bearer ${authToken}`,
-        }
-      : undefined;
+    const requestHeaders =
+      authToken !== null && authToken !== ""
+        ? {
+            Authorization: `Bearer ${authToken}`,
+          }
+        : undefined;
 
     try {
-      const connectorType = (search as { type?: string }).type as ConnectorType;
+      const connectorType = (search as { type?: string }).type;
 
-      if (!connectorType) {
+      if (connectorType === undefined || !isConnectorType(connectorType)) {
         toast.error("Missing connector type");
         setStatus("error");
         redirectAfterDelay("/settings/connectors", 3000);
@@ -70,7 +82,7 @@ function AuthenticatedCallback() {
       }
 
       // Redirect if no user or anonymous user - they can't complete OAuth callbacks
-      if (user.isAnonymous) {
+      if (user.isAnonymous === true) {
         toast.error("Please sign in with Google to connect external services");
         setStatus("error");
         redirectAfterDelay("/", 3000);
@@ -78,9 +90,11 @@ function AuthenticatedCallback() {
       }
 
       // Get connectionRequestId from sessionStorage
-      const connectionRequestId = sessionStorage.getItem(`composio_connection_${connectorType}`);
+      const connectionRequestId = sessionStorage.getItem(
+        `composio_connection_${connectorType}`
+      );
 
-      if (!connectionRequestId) {
+      if (connectionRequestId === null || connectionRequestId === "") {
         toast.error("Missing connection request ID");
         setStatus("error");
         redirectAfterDelay("/settings/connectors", 3000);
@@ -95,27 +109,29 @@ function AuthenticatedCallback() {
         `/api/composio/status?connectionRequestId=${connectionRequestId}`,
         {
           headers: requestHeaders,
-        },
+        }
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        toast.error(`Failed to verify connection: ${errorData.error}`);
+        const errorBody: unknown = await response.json().catch(() => null);
+        const parsedError = statusErrorSchema.safeParse(errorBody);
+        const errorMessage = parsedError.success
+          ? parsedError.data.error
+          : "Unknown error";
+        toast.error(`Failed to verify connection: ${errorMessage}`);
         setStatus("error");
         redirectAfterDelay("/settings/connectors", 3000);
         return;
       }
 
-      const data = await response.json();
+      const data = connectionStatusSchema.parse(await response.json());
 
       if (data.isConnected) {
         // Save to Convex (user is guaranteed to exist in Authenticated component)
-        if (user) {
-          await saveConnection({
-            type: connectorType,
-            connectionId: data.connectionId,
-          });
-        }
+        await saveConnection({
+          type: connectorType,
+          connectionId: data.connectionId,
+        });
 
         const connectorConfig = getConnectorConfig(connectorType);
         toast.success(`${connectorConfig.displayName} connected successfully`);
@@ -153,7 +169,7 @@ function AuthenticatedCallback() {
       <div className="text-center">
         {status === "checking" && (
           <>
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-primary border-b-2" />
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
             <p>Please wait, we are verifying your connection...</p>
           </>
         )}
@@ -172,35 +188,9 @@ function AuthenticatedCallback() {
       </div>
     </div>
   );
-}
+};
 
-function AuthCallbackPage() {
-  return (
-    <>
-      {/* Auth Loading State */}
-      <AuthLoading>
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="text-center">
-            <Loader size="lg" variant="dots" />
-            <p className="mt-4">Loading...</p>
-          </div>
-        </div>
-      </AuthLoading>
-
-      {/* Unauthenticated State - redirect to home */}
-      <Unauthenticated>
-        <UnauthenticatedRedirect />
-      </Unauthenticated>
-
-      {/* Authenticated State */}
-      <Authenticated>
-        <AuthenticatedCallback />
-      </Authenticated>
-    </>
-  );
-}
-
-function UnauthenticatedRedirect() {
+const UnauthenticatedRedirect = () => {
   const router = useRouter();
 
   useEffect(() => {
@@ -223,4 +213,32 @@ function UnauthenticatedRedirect() {
       </div>
     </div>
   );
-}
+};
+
+const AuthCallbackPage = () => (
+  <>
+    {/* Auth Loading State */}
+    <AuthLoading>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Loader size="lg" variant="dots" />
+          <p className="mt-4">Loading...</p>
+        </div>
+      </div>
+    </AuthLoading>
+
+    {/* Unauthenticated State - redirect to home */}
+    <Unauthenticated>
+      <UnauthenticatedRedirect />
+    </Unauthenticated>
+
+    {/* Authenticated State */}
+    <Authenticated>
+      <AuthenticatedCallback />
+    </Authenticated>
+  </>
+);
+
+export const Route = createFileRoute("/auth/callback")({
+  component: AuthCallbackPage,
+});

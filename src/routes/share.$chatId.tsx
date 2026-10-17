@@ -1,9 +1,70 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
+
 import { ShareView } from "@/components/share/share-view";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { APP_BASE_URL } from "@/lib/config";
+import { APP_BASE_URL } from "@/lib/config/constants";
+
+const ShareChatPage = () => {
+  const { chatId } = Route.useParams();
+
+  // Fetch public chat data
+  const chat = useQuery(api.chats.getPublicChat, { chatId });
+
+  // Fetch sanitized messages
+  const messages = useQuery(api.messages.getPublicChatMessages, { chatId });
+
+  // Loading state
+  if (chat === undefined || messages === undefined) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
+        <div className="flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Chat not found or not public
+  if (chat === null) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
+        <div className="text-center">
+          <h1 className="mb-4 text-2xl font-medium">Chat Not Found</h1>
+          <p className="text-muted-foreground">
+            This chat may have been deleted or is not publicly available.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const createdAtMs = chat.createdAt ?? chat._creationTime;
+  const createdAtDate = new Date(createdAtMs);
+  const [createdAtDateTime] = createdAtDate.toISOString().split("T");
+  const createdAtLabel = createdAtDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
+      <div className="mb-8 flex items-center justify-center gap-2 text-sm font-medium">
+        <time className="text-foreground" dateTime={createdAtDateTime}>
+          {createdAtLabel}
+        </time>
+      </div>
+      <h1 className="mb-4 text-center text-4xl font-medium tracking-tight md:text-5xl">
+        {chat.title !== undefined && chat.title !== "" ? chat.title : "Chat"}
+      </h1>
+      <p className="mb-8 text-center text-lg text-muted-foreground">
+        A conversation from oschat.ai
+      </p>
+      <ShareView messages={messages ?? []} sourceChatId={chatId} />
+    </div>
+  );
+};
 
 export const Route = createFileRoute("/share/$chatId")({
   component: ShareChatPage,
@@ -24,68 +85,3 @@ export const Route = createFileRoute("/share/$chatId")({
     ],
   }),
 });
-
-function ShareChatPage() {
-  const { chatId } = Route.useParams();
-
-  // Fetch public chat data
-  const chat = useQuery(api.chats.getPublicChat, {
-    chatId: chatId as Id<"chats">,
-  });
-
-  // Fetch sanitized messages
-  const messages = useQuery(api.messages.getPublicChatMessages, {
-    chatId: chatId as Id<"chats">,
-  });
-
-  // Loading state
-  if (chat === undefined || messages === undefined) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
-        <div className="flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Chat not found or not public
-  if (chat === null) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
-        <div className="text-center">
-          <h1 className="mb-4 font-medium text-2xl">Chat Not Found</h1>
-          <p className="text-muted-foreground">
-            This chat may have been deleted or is not publicly available.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const createdAtMs = chat.createdAt ?? chat._creationTime;
-  const createdAtDate = new Date(createdAtMs);
-  const createdAtDateTime = createdAtDate.toISOString().split("T")[0];
-  const createdAtLabel = createdAtDate.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  return (
-    <div className="mx-auto max-w-3xl px-4 pt-20 pb-12 md:pt-24 md:pb-24">
-      <div className="mb-8 flex items-center justify-center gap-2 font-medium text-sm">
-        <time className="text-foreground" dateTime={createdAtDateTime}>
-          {createdAtLabel}
-        </time>
-      </div>
-      <h1 className="mb-4 text-center font-medium text-4xl tracking-tight md:text-5xl">
-        {chat.title || "Chat"}
-      </h1>
-      <p className="mb-8 text-center text-lg text-muted-foreground">
-        A conversation from oschat.ai
-      </p>
-      <ShareView messages={messages ?? []} sourceChatId={chatId} />
-    </div>
-  );
-}

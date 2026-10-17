@@ -1,11 +1,87 @@
 import { handleSearchError } from "../search-errors";
-import {
-  PROVIDER_LIMITS,
-  SEARCH_CONFIG,
-  type SearchAdapter,
-  type SearchOptions,
-  type SearchResult,
-} from "../types";
+import { PROVIDER_LIMITS, SEARCH_CONFIG } from "../types";
+import type { SearchAdapter, SearchOptions, SearchResult } from "../types";
+
+// Fields read from one entry of Brave's `web.results` array
+interface BraveResult {
+  url?: string;
+  title?: string;
+  description?: string;
+  snippet?: string;
+}
+
+const getStringField = (value: object, key: string): string | undefined => {
+  const field: unknown = Reflect.get(value, key);
+  return typeof field === "string" ? field : undefined;
+};
+
+/**
+ * Reads the result entries from a Brave response body. A reply without web results has none; any
+ * other malformed reply throws, so the search falls back to the next provider.
+ */
+const parseBraveResults = (data: unknown): BraveResult[] => {
+  if (typeof data !== "object" || data === null) {
+    throw new TypeError("Brave Search returned a malformed reply");
+  }
+  const web: unknown = "web" in data ? data.web : undefined;
+  if (web === undefined || web === null) {
+    return [];
+  }
+  if (typeof web !== "object") {
+    throw new TypeError("Brave Search returned malformed web results");
+  }
+  const results: unknown = "results" in web ? web.results : undefined;
+  if (results === undefined || results === null) {
+    return [];
+  }
+  if (!Array.isArray(results)) {
+    throw new TypeError("Brave Search returned malformed web results");
+  }
+  return results.map((result: unknown): BraveResult => {
+    if (typeof result !== "object" || result === null) {
+      return {};
+    }
+    return {
+      url: getStringField(result, "url"),
+      title: getStringField(result, "title"),
+      description: getStringField(result, "description"),
+      snippet: getStringField(result, "snippet"),
+    };
+  });
+};
+
+// `value || fallback` for optional strings: empty strings fall through too
+const orElse = <T>(value: string | undefined, fallback: T): string | T =>
+  value !== undefined && value !== "" ? value : fallback;
+
+const formatMarkdown = (item: BraveResult, includeContent: boolean): string => {
+  const text = orElse(item.description, item.snippet);
+  let markdown = `### [${orElse(item.title, "Untitled")}](${orElse(item.url, "#")})\n${text ?? ""}`;
+
+  if (includeContent && text !== undefined && text !== "") {
+    const truncatedContent =
+      text.length > SEARCH_CONFIG.maxTextCharacters
+        ? `${text.slice(0, SEARCH_CONFIG.maxTextCharacters - 3)}...`
+        : text;
+    markdown += `\n\n> ${truncatedContent}`;
+  }
+
+  return markdown;
+};
+
+const formatResults = (
+  results: BraveResult[],
+  includeContent: boolean
+): SearchResult[] =>
+  results.map((item) => ({
+    url: item.url ?? "",
+    title: item.title ?? "",
+    description: orElse(item.description, item.snippet) ?? "",
+    content: includeContent
+      ? orElse(item.description, item.snippet)
+      : undefined,
+    markdown: formatMarkdown(item, includeContent),
+  }));
 
 export class BraveSearchProvider implements SearchAdapter {
   readonly name = "brave";
@@ -19,7 +95,10 @@ export class BraveSearchProvider implements SearchAdapter {
     this.apiKey = apiKey;
   }
 
-  async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+  async search(
+    query: string,
+    options: SearchOptions = {}
+  ): Promise<SearchResult[]> {
     const {
       maxResults = SEARCH_CONFIG.maxResults,
       scrapeContent = SEARCH_CONFIG.scrapeContent,
@@ -56,55 +135,16 @@ export class BraveSearchProvider implements SearchAdapter {
       });
 
       if (!response.ok) {
-        throw new Error(`Brave Search failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Brave Search failed: ${response.status} ${response.statusText}`
+        );
       }
 
-      const data = await response.json();
+      const data: unknown = await response.json();
 
-      return this.formatResults(data.web?.results || [], scrapeContent);
+      return formatResults(parseBraveResults(data), scrapeContent);
     } catch (error) {
-      handleSearchError(error, "brave");
+      return handleSearchError(error, "brave");
     }
-  }
-
-  private formatResults(results: unknown[], includeContent: boolean): SearchResult[] {
-    return results.map((result: unknown) => {
-      const item = result as {
-        url?: string;
-        title?: string;
-        description?: string;
-        snippet?: string;
-      };
-
-      return {
-        url: item.url || "",
-        title: item.title || "",
-        description: item.description || item.snippet || "",
-        content: includeContent ? item.description || item.snippet : undefined,
-        markdown: this.formatMarkdown(item, includeContent),
-      };
-    });
-  }
-
-  private formatMarkdown(result: unknown, includeContent: boolean): string {
-    const item = result as {
-      url?: string;
-      title?: string;
-      description?: string;
-      snippet?: string;
-    };
-
-    let markdown = `### [${item.title || "Untitled"}](${item.url || "#"})\n${item.description || item.snippet || ""}`;
-
-    if (includeContent && (item.description || item.snippet)) {
-      const content = item.description || item.snippet || "";
-      const truncatedContent =
-        content.length > SEARCH_CONFIG.maxTextCharacters
-          ? `${content.substring(0, SEARCH_CONFIG.maxTextCharacters - 3)}...`
-          : content;
-      markdown += `\n\n> ${truncatedContent}`;
-    }
-
-    return markdown;
   }
 }

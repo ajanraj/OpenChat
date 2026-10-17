@@ -1,34 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { createSearchTool } from "../search";
 import {
   consumeOneStandardCreditForSearch,
   createMeteredSearchTool,
-  type ConsumeStandardCredits,
 } from "../search-credit-metering";
+import type { ConsumeStandardCredits } from "../search-credit-metering";
 
-interface SearchToolOptions {
-  onSearchSuccess?: () => Promise<void> | void;
-}
+const createSearchToolMock = vi.fn<typeof createSearchTool>();
 
-const createSearchToolMock = vi.fn<(options?: SearchToolOptions) => object>();
-
-vi.mock("../search", () => ({
-  createSearchTool: (options?: SearchToolOptions) => createSearchToolMock(options),
+vi.mock(import("../search"), () => ({
+  createSearchTool: (options) => createSearchToolMock(options),
 }));
 
 describe("search-credit-metering", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createSearchToolMock.mockReset();
-    createSearchToolMock.mockReturnValue({ name: "search-tool" });
   });
 
   it("charges exactly one standard credit per search success callback", async () => {
-    const consumeStandardCredits = vi.fn<ConsumeStandardCredits>().mockResolvedValue(undefined);
+    const consumeStandardCredits = vi
+      .fn<ConsumeStandardCredits>()
+      .mockResolvedValue();
 
     await consumeOneStandardCreditForSearch(consumeStandardCredits);
 
-    expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
-    expect(consumeStandardCredits).toHaveBeenCalledWith(1);
+    expect(consumeStandardCredits).toHaveBeenCalledExactlyOnceWith(1);
   });
 
   it("propagates errors when credit consumption fails", async () => {
@@ -36,9 +34,9 @@ describe("search-credit-metering", () => {
       .fn<ConsumeStandardCredits>()
       .mockRejectedValue(new Error("billing unavailable"));
 
-    await expect(consumeOneStandardCreditForSearch(consumeStandardCredits)).rejects.toThrow(
-      "billing unavailable",
-    );
+    await expect(
+      consumeOneStandardCreditForSearch(consumeStandardCredits)
+    ).rejects.toThrow("billing unavailable");
   });
 
   it("does not create a search tool when search is disabled", () => {
@@ -54,14 +52,16 @@ describe("search-credit-metering", () => {
   });
 
   it("wires search tool callback to consume one standard credit", async () => {
-    const consumeStandardCredits = vi.fn<ConsumeStandardCredits>().mockResolvedValue(undefined);
+    const consumeStandardCredits = vi
+      .fn<ConsumeStandardCredits>()
+      .mockResolvedValue();
 
     createMeteredSearchTool({
       enableSearch: true,
       consumeStandardCredits,
     });
 
-    expect(createSearchToolMock).toHaveBeenCalledTimes(1);
+    expect(createSearchToolMock).toHaveBeenCalledOnce();
     const [options] = createSearchToolMock.mock.calls[0] ?? [];
 
     if (
@@ -75,8 +75,7 @@ describe("search-credit-metering", () => {
 
     await options.onSearchSuccess();
 
-    expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
-    expect(consumeStandardCredits).toHaveBeenCalledWith(1);
+    expect(consumeStandardCredits).toHaveBeenCalledExactlyOnceWith(1);
   });
 
   it("propagates errors through onSearchSuccess callback", async () => {
@@ -89,7 +88,7 @@ describe("search-credit-metering", () => {
       consumeStandardCredits,
     });
 
-    expect(createSearchToolMock).toHaveBeenCalledTimes(1);
+    expect(createSearchToolMock).toHaveBeenCalledOnce();
     const [options] = createSearchToolMock.mock.calls[0] ?? [];
 
     if (
@@ -101,8 +100,9 @@ describe("search-credit-metering", () => {
       throw new Error("onSearchSuccess callback not wired");
     }
 
-    await expect(options.onSearchSuccess()).rejects.toThrow("billing unavailable");
-    expect(consumeStandardCredits).toHaveBeenCalledTimes(1);
-    expect(consumeStandardCredits).toHaveBeenCalledWith(1);
+    await expect(options.onSearchSuccess()).rejects.toThrow(
+      "billing unavailable"
+    );
+    expect(consumeStandardCredits).toHaveBeenCalledExactlyOnceWith(1);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   COMMON_STYLES,
   DEFAULT_FONT_MONO,
@@ -10,15 +11,19 @@ import {
 } from "../config/theme";
 
 describe("Theme Config Constants", () => {
-  describe("COMMON_STYLES", () => {
+  describe("common style keys", () => {
     it("contains all expected common style keys", () => {
-      expect(COMMON_STYLES).toContain("font-sans");
-      expect(COMMON_STYLES).toContain("font-serif");
-      expect(COMMON_STYLES).toContain("font-mono");
-      expect(COMMON_STYLES).toContain("radius");
-      expect(COMMON_STYLES).toContain("shadow-opacity");
-      expect(COMMON_STYLES).toContain("letter-spacing");
-      expect(COMMON_STYLES).toContain("spacing");
+      expect(COMMON_STYLES).toStrictEqual(
+        expect.arrayContaining([
+          "font-sans",
+          "font-serif",
+          "font-mono",
+          "radius",
+          "shadow-opacity",
+          "letter-spacing",
+          "spacing",
+        ])
+      );
     });
   });
 
@@ -40,7 +45,7 @@ describe("Theme Config Constants", () => {
   });
 });
 
-describe("defaultLightThemeStyles", () => {
+describe("default light theme styles", () => {
   it("has background color", () => {
     expect(defaultLightThemeStyles.background).toBeDefined();
     expect(defaultLightThemeStyles.background).toContain("oklch");
@@ -84,7 +89,7 @@ describe("defaultLightThemeStyles", () => {
   });
 });
 
-describe("defaultDarkThemeStyles", () => {
+describe("default dark theme styles", () => {
   it("extends light theme styles", () => {
     // Dark theme should have same keys as light theme
     const lightKeys = Object.keys(defaultLightThemeStyles);
@@ -96,20 +101,28 @@ describe("defaultDarkThemeStyles", () => {
   });
 
   it("has different background from light theme", () => {
-    expect(defaultDarkThemeStyles.background).not.toBe(defaultLightThemeStyles.background);
+    expect(defaultDarkThemeStyles.background).not.toBe(
+      defaultLightThemeStyles.background
+    );
   });
 
   it("has different foreground from light theme", () => {
-    expect(defaultDarkThemeStyles.foreground).not.toBe(defaultLightThemeStyles.foreground);
+    expect(defaultDarkThemeStyles.foreground).not.toBe(
+      defaultLightThemeStyles.foreground
+    );
   });
 
   it("shares font settings with light theme", () => {
-    expect(defaultDarkThemeStyles["font-sans"]).toBe(defaultLightThemeStyles["font-sans"]);
-    expect(defaultDarkThemeStyles["font-mono"]).toBe(defaultLightThemeStyles["font-mono"]);
+    expect(defaultDarkThemeStyles["font-sans"]).toBe(
+      defaultLightThemeStyles["font-sans"]
+    );
+    expect(defaultDarkThemeStyles["font-mono"]).toBe(
+      defaultLightThemeStyles["font-mono"]
+    );
   });
 });
 
-describe("defaultThemeState", () => {
+describe("default theme state", () => {
   it("has light and dark styles", () => {
     expect(defaultThemeState.styles.light).toBeDefined();
     expect(defaultThemeState.styles.dark).toBeDefined();
@@ -124,7 +137,7 @@ describe("defaultThemeState", () => {
   });
 
   it("has default HSL adjustments", () => {
-    expect(defaultThemeState.hslAdjustments).toEqual({
+    expect(defaultThemeState.hslAdjustments).toStrictEqual({
       hueShift: 0,
       saturationScale: 1,
       lightnessScale: 1,

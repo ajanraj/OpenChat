@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+
 import { defaultThemeState } from "../config/theme";
 import type { FontCategory, FontOption } from "../theme/theme-fonts";
 import { hasCustomFonts, updateThemeFont } from "../theme/theme-fonts";
@@ -8,7 +9,8 @@ import type { ThemeEditorState } from "../types/theme";
 import { isDeepEqual } from "../utils";
 
 const MAX_HISTORY_COUNT = 30;
-const HISTORY_OVERRIDE_THRESHOLD_MS = 500; // 0.5 seconds
+// 0.5 seconds
+const HISTORY_OVERRIDE_THRESHOLD_MS = 500;
 
 interface ThemeHistoryEntry {
   state: ThemeEditorState;
@@ -37,9 +39,12 @@ interface EditorStore {
 // Helper function to safely detect system preference on client-side only
 const getSystemPreference = (): "light" | "dark" => {
   if (typeof window === "undefined") {
-    return "light"; // Safe server-side default
+    // Safe server-side default
+    return "light";
   }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 };
 
 export const useEditorStore = create<EditorStore>()(
@@ -76,19 +81,24 @@ export const useEditorStore = create<EditorStore>()(
         // If other things changed, or if it's an actual identical state set (though less likely here)
         // Proceed with history logic
         const lastHistoryEntry =
-          currentHistory.length > 0 ? currentHistory[currentHistory.length - 1] : null;
+          currentHistory.length > 0 ? currentHistory.at(-1) : null;
 
         if (
           !lastHistoryEntry ||
-          currentTime - lastHistoryEntry.timestamp >= HISTORY_OVERRIDE_THRESHOLD_MS
+          currentTime - lastHistoryEntry.timestamp >=
+            HISTORY_OVERRIDE_THRESHOLD_MS
         ) {
           // Add a new history entry
-          currentHistory = [...currentHistory, { state: oldThemeState, timestamp: currentTime }];
+          currentHistory = [
+            ...currentHistory,
+            { state: oldThemeState, timestamp: currentTime },
+          ];
           currentFuture = [];
         }
 
         if (currentHistory.length > MAX_HISTORY_COUNT) {
-          currentHistory.shift(); // Remove the oldest entry
+          // Remove the oldest entry
+          currentHistory.shift();
         }
 
         set({
@@ -121,7 +131,8 @@ export const useEditorStore = create<EditorStore>()(
 
         set({
           themeState: newThemeState,
-          themeCheckpoint: newThemeState, // Applying a preset also updates the checkpoint
+          // Applying a preset also updates the checkpoint
+          themeCheckpoint: newThemeState,
           history: updatedHistory,
           future: [],
         });
@@ -137,16 +148,26 @@ export const useEditorStore = create<EditorStore>()(
 
         const updatedLightStyles = {
           ...currentThemeState.styles.light,
-          ...updateThemeFont(currentThemeState.styles.light, category, fontOption),
+          ...updateThemeFont(
+            currentThemeState.styles.light,
+            category,
+            fontOption
+          ),
         };
         const updatedDarkStyles = {
           ...currentThemeState.styles.dark,
-          ...updateThemeFont(currentThemeState.styles.dark, category, fontOption),
+          ...updateThemeFont(
+            currentThemeState.styles.dark,
+            category,
+            fontOption
+          ),
         };
 
         // Determine custom font usage based on (updated) light styles
         const shouldMarkAsCustom = hasCustomFonts(updatedLightStyles);
-        const preset = shouldMarkAsCustom ? undefined : currentThemeState.preset;
+        const preset = shouldMarkAsCustom
+          ? undefined
+          : currentThemeState.preset;
 
         const newThemeState: ThemeEditorState = {
           ...currentThemeState,
@@ -200,19 +221,26 @@ export const useEditorStore = create<EditorStore>()(
         return !isDeepEqual(get().themeState, checkpoint);
       },
       hasUnsavedChanges: () => {
-        const themeState = get().themeState;
-        const presetThemeStyles = getPresetThemeStyles(themeState.preset ?? "oschat");
-        const stylesChanged = !isDeepEqual(themeState.styles, presetThemeStyles);
+        const { themeState } = get();
+        const presetThemeStyles = getPresetThemeStyles(
+          themeState.preset ?? "oschat"
+        );
+        const stylesChanged = !isDeepEqual(
+          themeState.styles,
+          presetThemeStyles
+        );
         const hslChanged = !isDeepEqual(
           themeState.hslAdjustments,
-          defaultThemeState.hslAdjustments,
+          defaultThemeState.hslAdjustments
         );
         return stylesChanged || hslChanged;
       },
       resetToCurrentPreset: () => {
         const currentThemeState = get().themeState;
 
-        const presetThemeStyles = getPresetThemeStyles(currentThemeState.preset ?? "oschat");
+        const presetThemeStyles = getPresetThemeStyles(
+          currentThemeState.preset ?? "oschat"
+        );
         const newThemeState: ThemeEditorState = {
           ...currentThemeState,
           styles: presetThemeStyles,
@@ -227,15 +255,15 @@ export const useEditorStore = create<EditorStore>()(
         });
       },
       undo: () => {
-        const history = get().history;
+        const { history } = get();
         if (history.length === 0) {
           return;
         }
 
         const currentThemeState = get().themeState;
-        const future = get().future;
+        const { future } = get();
 
-        const lastHistoryEntry = history[history.length - 1];
+        const lastHistoryEntry = history.at(-1);
         if (!lastHistoryEntry) {
           return;
         }
@@ -259,13 +287,13 @@ export const useEditorStore = create<EditorStore>()(
         });
       },
       redo: () => {
-        const future = get().future;
+        const { future } = get();
         if (future.length === 0) {
           return;
         }
-        const history = get().history;
+        const { history } = get();
 
-        const firstFutureEntry = future[0];
+        const [firstFutureEntry] = future;
         const newFuture = future.slice(1);
 
         const currentThemeState = get().themeState;
@@ -299,7 +327,7 @@ export const useEditorStore = create<EditorStore>()(
         if (state && typeof window !== "undefined") {
           // If no theme state exists in storage (first visit), detect system preference
           const hasStoredTheme = localStorage.getItem("editor-storage");
-          if (!hasStoredTheme) {
+          if (hasStoredTheme === null || hasStoredTheme === "") {
             const systemPreference = getSystemPreference();
             state.themeState = {
               ...state.themeState,
@@ -308,6 +336,6 @@ export const useEditorStore = create<EditorStore>()(
           }
         }
       },
-    },
-  ),
+    }
+  )
 );

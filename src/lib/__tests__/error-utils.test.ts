@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   classifyError,
   classifyStreamingError,
@@ -9,7 +10,7 @@ import {
   shouldShowInConversation,
 } from "../error-utils";
 
-describe("classifyStreamingError", () => {
+describe(classifyStreamingError, () => {
   it("classifies rate limit errors correctly", () => {
     const error = {
       type: "rate_limit",
@@ -90,7 +91,7 @@ describe("classifyStreamingError", () => {
   });
 });
 
-describe("classifyError", () => {
+describe(classifyError, () => {
   it("classifies detected errors", () => {
     const error = {
       type: "rate_limit",
@@ -112,7 +113,9 @@ describe("classifyError", () => {
 
     expect(result.code).toBe("SYSTEM_ERROR");
     expect(result.message).toBe("Something went wrong");
-    expect(result.userFriendlyMessage).toBe("An unexpected error occurred. Please try again.");
+    expect(result.userFriendlyMessage).toBe(
+      "An unexpected error occurred. Please try again."
+    );
     expect(result.httpStatus).toBe(500);
   });
 
@@ -131,15 +134,14 @@ describe("classifyError", () => {
   });
 
   it("handles null/undefined errors", () => {
-    const nullResult = classifyError(null);
-    expect(nullResult.message).toBe("null");
-
-    const undefinedResult = classifyError(undefined);
-    expect(undefinedResult.message).toBe("undefined");
+    const missingErrors: unknown[] = [null, undefined];
+    expect(
+      missingErrors.map((error) => classifyError(error).message)
+    ).toStrictEqual(["null", "undefined"]);
   });
 });
 
-describe("createErrorPart", () => {
+describe(createErrorPart, () => {
   it("creates error part without raw error", () => {
     const result = createErrorPart("TEST_ERROR", "Test message");
 
@@ -156,7 +158,7 @@ describe("createErrorPart", () => {
   });
 });
 
-describe("createErrorPartFromDetectedError", () => {
+describe(createErrorPartFromDetectedError, () => {
   it("creates error part from detected rate limit error", () => {
     const detectedError = {
       type: "rate_limit",
@@ -175,7 +177,7 @@ describe("createErrorPartFromDetectedError", () => {
   });
 });
 
-describe("createStreamingError", () => {
+describe(createStreamingError, () => {
   it("returns shouldSaveToConversation as true for conversation errors", () => {
     const error = {
       type: "rate_limit",
@@ -187,13 +189,13 @@ describe("createStreamingError", () => {
 
     const result = createStreamingError(error);
 
-    expect(result.shouldSaveToConversation).toBe(true);
+    expect(result.shouldSaveToConversation).toBeTruthy();
     expect(result.errorPayload.error.type).toBe("provider_rate_limit");
     expect(result.errorPayload.error.message).toBe("Slow down");
   });
 });
 
-describe("shouldShowInConversation", () => {
+describe(shouldShowInConversation, () => {
   it("returns true for conversation display type errors", () => {
     const error = {
       type: "error",
@@ -203,16 +205,16 @@ describe("shouldShowInConversation", () => {
       isRateLimit: true,
     };
 
-    expect(shouldShowInConversation(error)).toBe(true);
+    expect(shouldShowInConversation(error)).toBeTruthy();
   });
 
   it("returns true for plain errors (defaults to conversation)", () => {
     const error = new Error("Test error");
-    expect(shouldShowInConversation(error)).toBe(true);
+    expect(shouldShowInConversation(error)).toBeTruthy();
   });
 });
 
-describe("shouldShowAsToast", () => {
+describe(shouldShowAsToast, () => {
   it("returns false for conversation-only errors", () => {
     const error = {
       type: "rate_limit",
@@ -222,11 +224,11 @@ describe("shouldShowAsToast", () => {
       isRateLimit: true,
     };
 
-    expect(shouldShowAsToast(error)).toBe(false);
+    expect(shouldShowAsToast(error)).toBeFalsy();
   });
 
   it("returns false for plain errors (defaults to conversation)", () => {
     const error = new Error("Test error");
-    expect(shouldShowAsToast(error)).toBe(false);
+    expect(shouldShowAsToast(error)).toBeFalsy();
   });
 });

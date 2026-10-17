@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME } from "@/lib/config/constants";
 
 const LEGAL_NAV_ITEMS = [
 	{ name: "Privacy Policy", href: "/privacy" },

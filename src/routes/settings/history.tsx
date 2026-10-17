@@ -1,16 +1,17 @@
 import {
-  Copy,
-  DownloadSimple,
-  LinkSimple,
-  Trash,
-  UploadSimple,
-  XCircle,
+  CopyIcon,
+  DownloadSimpleIcon,
+  LinkSimpleIcon,
+  TrashIcon,
+  UploadSimpleIcon,
+  XCircleIcon,
 } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
 import { useCallback, useRef, useReducer } from "react";
-import superjson from "superjson";
+import { parse, stringify } from "superjson";
 import { z } from "zod";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -23,16 +24,17 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { CHAT_LIST_PAGE_SIZE, useLoadMoreRef } from "@/hooks/use-chat-list";
-import { APP_BASE_URL, MESSAGE_MAX_LENGTH } from "@/lib/config";
+import { APP_BASE_URL, MESSAGE_MAX_LENGTH } from "@/lib/config/constants";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/settings/history")({
-  component: HistorySettingsPage,
-});
 
 // Schema to validate imported history files (supports both old and new formats)
 const ImportSchema = z
@@ -70,16 +72,21 @@ const ImportSchema = z
                   serverDurationMs: z.number().optional(),
                 })
                 .optional(),
-            }),
+            })
           )
           .optional(),
-      }),
+      })
     ),
   })
   .strict();
 
-function formatDateLines(timestamp?: number | null) {
-  if (!timestamp) {
+const formatDateLines = (timestamp?: number | null) => {
+  if (
+    timestamp === undefined ||
+    timestamp === null ||
+    timestamp === 0 ||
+    Number.isNaN(timestamp)
+  ) {
     return { dateTime: "Unknown", ampm: "" };
   }
   const d = new Date(timestamp);
@@ -98,13 +105,27 @@ function formatDateLines(timestamp?: number | null) {
   });
   const [time, ampm] = timeStr.split(" ");
   return { dateTime: `${dateStr} ${time}`, ampm };
-}
+};
 
-export function HistorySettingsPage() {
-  return useHistorySettingsPageView();
-}
+// Copies a chat's public share link to the clipboard
+const copyShareLink = async (chatId: Id<"chats">) => {
+  await navigator.clipboard
+    .writeText(`${APP_BASE_URL}/share/${chatId}`)
+    .then(() => {
+      toast({
+        title: "Link copied",
+        status: "success",
+      });
+    })
+    .catch(() => {
+      toast({
+        title: "Failed to copy link",
+        status: "error",
+      });
+    });
+};
 
-function useHistorySettingsPageView() {
+const useHistorySettingsPageView = () => {
   // Every profile's chats, like "Delete All". Chats load a page at a time, so counts and
   // "Select All" cover the loaded chats
   const {
@@ -114,12 +135,18 @@ function useHistorySettingsPageView() {
   } = usePaginatedQuery(
     api.chats.listChatsForUser,
     { profileId: null },
-    { initialNumItems: CHAT_LIST_PAGE_SIZE },
+    { initialNumItems: CHAT_LIST_PAGE_SIZE }
   );
   const isChatsLoading = chatsStatus === "LoadingFirstPage";
-  const hasMoreChats = chatsStatus === "CanLoadMore" || chatsStatus === "LoadingMore";
-  const loadMoreChats = useCallback(() => loadMore(CHAT_LIST_PAGE_SIZE), [loadMore]);
-  const loadMoreRef = useLoadMoreRef(chatsStatus === "CanLoadMore", loadMoreChats);
+  const hasMoreChats =
+    chatsStatus === "CanLoadMore" || chatsStatus === "LoadingMore";
+  const loadMoreChats = useCallback(() => {
+    loadMore(CHAT_LIST_PAGE_SIZE);
+  }, [loadMore]);
+  const loadMoreRef = useLoadMoreRef(
+    chatsStatus === "CanLoadMore",
+    loadMoreChats
+  );
   const deleteChat = useMutation(api.chats.deleteChat);
   const deleteBulkChats = useMutation(api.chats.deleteBulkChats);
   const unpublishChat = useMutation(api.chats.unpublishChat);
@@ -128,8 +155,8 @@ function useHistorySettingsPageView() {
 
   interface ImportDataItem {
     chat?: { title?: string; model?: string };
-    messages?: Array<{
-      role?: string;
+    messages?: {
+      role?: "user" | "assistant" | "system";
       content: string;
       parts?: unknown[];
       metadata?: unknown;
@@ -138,7 +165,7 @@ function useHistorySettingsPageView() {
       parentMessageId?: string;
       createdAt?: number;
       model?: string;
-    }>;
+    }[];
   }
 
   interface HistoryState {
@@ -173,39 +200,62 @@ function useHistorySettingsPageView() {
       switch (action.type) {
         case "TOGGLE_SELECT": {
           const next = new Set(s.selectedIds);
-          if (next.has(action.id)) next.delete(action.id);
-          else next.add(action.id);
+          if (next.has(action.id)) {
+            next.delete(action.id);
+          } else {
+            next.add(action.id);
+          }
           return { ...s, selectedIds: next };
         }
-        case "SELECT_ALL":
+        case "SELECT_ALL": {
           return { ...s, selectedIds: new Set(action.ids) };
-        case "CLEAR_SELECTION":
+        }
+        case "CLEAR_SELECTION": {
           return { ...s, selectedIds: new Set() };
-        case "OPEN_DELETE_SELECTED":
+        }
+        case "OPEN_DELETE_SELECTED": {
           return { ...s, showDeleteSelectedDialog: true };
-        case "CLOSE_DELETE_SELECTED":
+        }
+        case "CLOSE_DELETE_SELECTED": {
           return { ...s, showDeleteSelectedDialog: false };
-        case "OPEN_IMPORT_DIALOG":
+        }
+        case "OPEN_IMPORT_DIALOG": {
           return {
             ...s,
             showImportDialog: true,
             importData: action.data,
             importChatCount: action.count,
           };
-        case "CLOSE_IMPORT_DIALOG":
-          return { ...s, showImportDialog: false, importData: [], importChatCount: 0 };
-        case "OPEN_DELETE_ALL":
+        }
+        case "CLOSE_IMPORT_DIALOG": {
+          return {
+            ...s,
+            showImportDialog: false,
+            importData: [],
+            importChatCount: 0,
+          };
+        }
+        case "OPEN_DELETE_ALL": {
           return { ...s, showDeleteAllDialog: true };
-        case "CLOSE_DELETE_ALL":
+        }
+        case "CLOSE_DELETE_ALL": {
           return { ...s, showDeleteAllDialog: false };
-        case "SET_DELETING_ALL":
+        }
+        case "SET_DELETING_ALL": {
           return { ...s, isDeletingAll: action.value };
-        case "SET_REVOKE_CHAT":
+        }
+        case "SET_REVOKE_CHAT": {
           return { ...s, revokeChatId: action.id };
-        case "SET_REVOKING":
+        }
+        case "SET_REVOKING": {
           return { ...s, isRevoking: action.value };
-        case "REVOKE_DONE":
+        }
+        case "REVOKE_DONE": {
           return { ...s, isRevoking: false, revokeChatId: null };
+        }
+        default: {
+          return s;
+        }
       }
     },
     {
@@ -218,7 +268,7 @@ function useHistorySettingsPageView() {
       isRevoking: false,
       importChatCount: 0,
       importData: [],
-    },
+    }
   );
   const {
     selectedIds,
@@ -235,19 +285,25 @@ function useHistorySettingsPageView() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isSelected = (id: Id<"chats">) => selectedIds.has(id);
-  const toggleSelect = (id: Id<"chats">) => dispatch({ type: "TOGGLE_SELECT", id });
+  const toggleSelect = (id: Id<"chats">) => {
+    dispatch({ type: "TOGGLE_SELECT", id });
+  };
   const selectAll = () => {
     dispatch({ type: "SELECT_ALL", ids: chats.map((c) => c._id) });
   };
-  const clearSelection = () => dispatch({ type: "CLEAR_SELECTION" });
+  const clearSelection = () => {
+    dispatch({ type: "CLEAR_SELECTION" });
+  };
 
   const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) {
+      return;
+    }
     dispatch({ type: "OPEN_DELETE_SELECTED" });
   };
 
   const confirmDeleteSelected = async () => {
-    const selectedChatIds = Array.from(selectedIds);
+    const selectedChatIds = [...selectedIds];
     const deletePromise =
       selectedChatIds.length === 1
         ? deleteChat({ chatId: selectedChatIds[0] })
@@ -270,16 +326,16 @@ function useHistorySettingsPageView() {
     }
     toast({ title: "Preparing export...", status: "info" });
     const collectData = async () => {
-      const data: Array<{
+      const data: {
         chat: Pick<
           Doc<"chats">,
           "_id" | "title" | "model" | "createdAt" | "updatedAt" | "personaId"
         >;
         messages: Doc<"messages">[];
-      }> = [];
+      }[] = [];
 
       await Promise.all(
-        Array.from(selectedIds).map(async (id) => {
+        [...selectedIds].map(async (id) => {
           const chat = chats.find((c) => c._id === id);
           if (!chat) {
             return;
@@ -298,7 +354,7 @@ function useHistorySettingsPageView() {
             },
             messages,
           });
-        }),
+        })
       );
 
       return data;
@@ -310,7 +366,7 @@ function useHistorySettingsPageView() {
       return;
     }
 
-    const blob = new Blob([superjson.stringify({ exportedAt: Date.now(), data })], {
+    const blob = new Blob([stringify({ exportedAt: Date.now(), data })], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
@@ -326,17 +382,17 @@ function useHistorySettingsPageView() {
     fileInputRef.current?.click();
   };
 
-  const MAX_IMPORT_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
-  // removed chat count limit
+  // 2 MB
+  const MAX_IMPORT_SIZE_BYTES = 2 * 1024 * 1024;
 
-  async function processImportFile(file: File) {
+  const processImportFile = async (file: File) => {
     if (file.size > MAX_IMPORT_SIZE_BYTES) {
       toast({ title: "Import file too large (max 2 MB)", status: "error" });
       return;
     }
 
     const text = await file.text();
-    const data = superjson.parse(text);
+    const data = parse(text);
     const parsed = ImportSchema.safeParse(data);
     if (!parsed.success) {
       throw new Error("Invalid file format");
@@ -350,7 +406,7 @@ function useHistorySettingsPageView() {
     }
 
     dispatch({ type: "OPEN_IMPORT_DIALOG", data: dataArr, count: chatCount });
-  }
+  };
 
   const confirmImport = async () => {
     toast({
@@ -364,19 +420,24 @@ function useHistorySettingsPageView() {
         const messages = (item.messages ?? [])
           .filter(
             (msg) =>
-              msg &&
               typeof msg.content === "string" &&
               msg.content.length > 0 &&
-              msg.content.length <= MESSAGE_MAX_LENGTH,
+              msg.content.length <= MESSAGE_MAX_LENGTH
           )
           .map((msg) => ({
-            role: (msg.role || "assistant") as "user" | "assistant" | "system",
+            role: msg.role ?? "assistant",
             content: msg.content,
             parts: msg.parts,
-            metadata: msg.metadata ?? (msg.model ? { modelName: msg.model } : undefined),
-            originalId: msg._id || msg.id,
+            metadata:
+              msg.metadata ??
+              (msg.model !== undefined && msg.model !== ""
+                ? { modelName: msg.model }
+                : undefined),
+            originalId:
+              msg._id !== undefined && msg._id !== "" ? msg._id : msg.id,
             parentOriginalId: msg.parentMessageId,
-            createdAt: typeof msg.createdAt === "number" ? msg.createdAt : undefined,
+            createdAt:
+              typeof msg.createdAt === "number" ? msg.createdAt : undefined,
           }));
 
         if (messages.length === 0) {
@@ -396,10 +457,10 @@ function useHistorySettingsPageView() {
           },
           messages,
         });
-      }),
+      })
     )
       .then(() => true)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error("Failed to import chat history:", error);
         return false;
       })
@@ -454,6 +515,26 @@ function useHistorySettingsPageView() {
       });
   };
 
+  const confirmRevoke = async () => {
+    if (!revokeChatId) {
+      return;
+    }
+    dispatch({ type: "SET_REVOKING", value: true });
+    await unpublishChat({ chatId: revokeChatId })
+      .then(() => {
+        toast({
+          title: "Conversation unshared",
+          status: "success",
+        });
+      })
+      .catch(() => {
+        toast({ title: "Failed to unshare", status: "error" });
+      })
+      .finally(() => {
+        dispatch({ type: "REVOKE_DONE" });
+      });
+  };
+
   const renderChatsList = () => {
     if (isChatsLoading) {
       return (
@@ -464,7 +545,7 @@ function useHistorySettingsPageView() {
               <div
                 className={cn(
                   "group flex min-h-[52px] items-center gap-3 px-4 py-3",
-                  i !== 4 && "border-b",
+                  i !== 4 && "border-b"
                 )}
                 key={key}
               >
@@ -493,7 +574,9 @@ function useHistorySettingsPageView() {
     return (
       <div className="flex max-h-[320px] flex-col overflow-y-auto rounded-xl border bg-card">
         {chats.map((chat, index) => {
-          const { dateTime, ampm } = formatDateLines(chat.updatedAt ?? chat.createdAt);
+          const { dateTime, ampm } = formatDateLines(
+            chat.updatedAt ?? chat.createdAt
+          );
           const selected = isSelected(chat._id);
 
           return (
@@ -501,25 +584,29 @@ function useHistorySettingsPageView() {
               className={cn(
                 "group flex min-h-[52px] items-center gap-3 px-4 py-3",
                 index !== chats.length - 1 && "border-b",
-                selected ? "bg-primary/[0.04]" : "hover:bg-muted/50",
+                selected ? "bg-primary/[0.04]" : "hover:bg-muted/50"
               )}
               key={chat._id}
             >
               <Checkbox
                 checked={selected}
                 className="shrink-0"
-                onCheckedChange={() => toggleSelect(chat._id)}
+                onCheckedChange={() => {
+                  toggleSelect(chat._id);
+                }}
               />
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="truncate font-medium text-sm">
-                  {chat.title || "Untitled Chat"}
+                <span className="truncate text-sm font-medium">
+                  {chat.title !== undefined && chat.title !== ""
+                    ? chat.title
+                    : "Untitled Chat"}
                 </span>
                 {Boolean(chat.public) && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="shrink-0 rounded-full bg-blue-500/10 p-1">
-                          <LinkSimple className="size-3 text-blue-600 dark:text-blue-400" />
+                          <LinkSimpleIcon className="size-3 text-blue-600 dark:text-blue-400" />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>Shared publicly</TooltipContent>
@@ -536,27 +623,14 @@ function useHistorySettingsPageView() {
                           <Button
                             aria-label="Copy share link"
                             className="size-7"
-                            onClick={async () => {
-                              await navigator.clipboard
-                                .writeText(`${APP_BASE_URL}/share/${chat._id}`)
-                                .then(() => {
-                                  toast({
-                                    title: "Link copied",
-                                    status: "success",
-                                  });
-                                })
-                                .catch(() => {
-                                  toast({
-                                    title: "Failed to copy link",
-                                    status: "error",
-                                  });
-                                });
+                            onClick={() => {
+                              void copyShareLink(chat._id);
                             }}
                             size="icon"
                             type="button"
                             variant="ghost"
                           >
-                            <Copy className="size-3.5" />
+                            <CopyIcon className="size-3.5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Copy link</TooltipContent>
@@ -568,12 +642,17 @@ function useHistorySettingsPageView() {
                           <Button
                             aria-label="Unshare conversation"
                             className="size-7"
-                            onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: chat._id })}
+                            onClick={() => {
+                              dispatch({
+                                type: "SET_REVOKE_CHAT",
+                                id: chat._id,
+                              });
+                            }}
                             size="icon"
                             type="button"
                             variant="ghost"
                           >
-                            <XCircle className="size-3.5" />
+                            <XCircleIcon className="size-3.5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Unshare</TooltipContent>
@@ -581,7 +660,7 @@ function useHistorySettingsPageView() {
                     </TooltipProvider>
                   </div>
                 )}
-                <span className="w-24 text-right text-muted-foreground text-xs tabular-nums">
+                <span className="w-24 text-right text-xs text-muted-foreground tabular-nums">
                   {dateTime} {ampm}
                 </span>
               </div>
@@ -596,7 +675,7 @@ function useHistorySettingsPageView() {
 
   // Counts of loaded chats; "+" marks that more pages exist
   const totalChats = chats.length;
-  const sharedCount = chats.filter((c) => c.public).length;
+  const sharedCount = chats.filter((c) => c.public === true).length;
   const moreSuffix = hasMoreChats ? "+" : "";
   const chatsList = renderChatsList();
 
@@ -604,17 +683,17 @@ function useHistorySettingsPageView() {
     <div className="w-full space-y-10">
       <div className="space-y-6">
         <div className="flex items-baseline justify-between">
-          <h1 className="font-semibold text-2xl tracking-tight">History</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">History</h1>
           {totalChats > 0 && (
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
                 {totalChats}
                 {moreSuffix} chat{totalChats === 1 && !hasMoreChats ? "" : "s"}
               </span>
               {sharedCount > 0 && (
                 <>
                   <span className="text-muted-foreground/40">·</span>
-                  <span className="rounded-full bg-blue-500/10 px-2.5 py-1 font-medium text-blue-600 text-xs dark:text-blue-400">
+                  <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400">
                     {sharedCount}
                     {moreSuffix} shared
                   </span>
@@ -623,9 +702,9 @@ function useHistorySettingsPageView() {
             </div>
           )}
         </div>
-        <p className="text-muted-foreground leading-relaxed">
-          Export your chat history as JSON or import from a backup file. Importing adds to your
-          existing conversations.
+        <p className="leading-relaxed text-muted-foreground">
+          Export your chat history as JSON or import from a backup file.
+          Importing adds to your existing conversations.
         </p>
         <div className="space-y-4">
           {/* Selection Controls */}
@@ -633,7 +712,9 @@ function useHistorySettingsPageView() {
             <div className="flex items-center gap-2">
               <Label className="flex items-center gap-3 rounded-lg border px-4 py-1.5 hover:bg-accent/25 has-aria-checked:border-blue-600 has-aria-checked:bg-blue-50 dark:has-aria-checked:border-blue-900 dark:has-aria-checked:bg-blue-950">
                 <Checkbox
-                  checked={chats.length > 0 && selectedIds.size === chats.length}
+                  checked={
+                    chats.length > 0 && selectedIds.size === chats.length
+                  }
                   className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
                   disabled={isChatsLoading}
                   id="select-all"
@@ -645,11 +726,19 @@ function useHistorySettingsPageView() {
                     }
                   }}
                 />
-                <span className="hidden font-medium text-sm sm:inline">Select All</span>
+                <span className="hidden text-sm font-medium sm:inline">
+                  Select All
+                </span>
               </Label>
               {selectedIds.size > 0 && (
-                <Button onClick={clearSelection} size="sm" type="button" variant="secondary">
-                  Clear <span className="hidden text-sm sm:inline">Selection</span>
+                <Button
+                  onClick={clearSelection}
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                >
+                  Clear{" "}
+                  <span className="hidden text-sm sm:inline">Selection</span>
                 </Button>
               )}
             </div>
@@ -657,11 +746,13 @@ function useHistorySettingsPageView() {
               <Button
                 className="flex items-center gap-2"
                 disabled={selectedIds.size === 0}
-                onClick={handleExport}
+                onClick={() => {
+                  void handleExport();
+                }}
                 size="sm"
                 variant="secondary"
               >
-                <DownloadSimple className="size-4" />{" "}
+                <DownloadSimpleIcon className="size-4" />{" "}
                 <span className="hidden sm:inline">Export</span>
                 {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </Button>
@@ -672,7 +763,8 @@ function useHistorySettingsPageView() {
                 size="sm"
                 variant="destructive"
               >
-                <Trash className="size-4" /> <span className="hidden sm:inline">Delete</span>
+                <TrashIcon className="size-4" />{" "}
+                <span className="hidden sm:inline">Delete</span>
                 {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </Button>
               <Button
@@ -681,13 +773,16 @@ function useHistorySettingsPageView() {
                 size="sm"
                 variant="secondary"
               >
-                <UploadSimple className="size-4" /> <span className="hidden sm:inline">Import</span>
+                <UploadSimpleIcon className="size-4" />{" "}
+                <span className="hidden sm:inline">Import</span>
               </Button>
               <input
                 accept="application/json"
                 aria-label="Import chat history"
                 className="hidden"
-                onChange={handleImport}
+                onChange={(e) => {
+                  void handleImport(e);
+                }}
                 ref={fileInputRef}
                 type="file"
               />
@@ -700,35 +795,42 @@ function useHistorySettingsPageView() {
 
       {/* Danger Zone */}
       <section className="space-y-4">
-        <h2 className="font-semibold text-destructive text-lg tracking-tight">Danger Zone</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-destructive">
+          Danger Zone
+        </h2>
         <div className="flex items-center justify-between rounded-xl border border-destructive/20 bg-destructive/[0.02] p-4">
           <div className="space-y-0.5">
-            <p className="font-medium text-sm">Delete all chats</p>
-            <p className="text-muted-foreground text-xs">
-              Permanently delete your entire chat history. This cannot be undone.
+            <p className="text-sm font-medium">Delete all chats</p>
+            <p className="text-xs text-muted-foreground">
+              Permanently delete your entire chat history. This cannot be
+              undone.
             </p>
           </div>
           <Button
             disabled={isDeletingAll}
-            onClick={() => dispatch({ type: "OPEN_DELETE_ALL" })}
+            onClick={() => {
+              dispatch({ type: "OPEN_DELETE_ALL" });
+            }}
             size="sm"
             variant="destructive"
           >
-            <Trash className="mr-2 size-4" />
+            <TrashIcon className="mr-2 size-4" />
             Delete All
           </Button>
         </div>
       </section>
 
       {/* Retention policy note */}
-      <p className="mt-6 text-muted-foreground text-xs italic">
+      <p className="mt-6 text-xs text-muted-foreground italic">
         *The retention policies of our LLM hosting partners may vary.
       </p>
 
       {/* Delete selected chats dialog */}
       <Dialog
         onOpenChange={(open) => {
-          if (!open) dispatch({ type: "CLOSE_DELETE_SELECTED" });
+          if (!open) {
+            dispatch({ type: "CLOSE_DELETE_SELECTED" });
+          }
         }}
         open={showDeleteSelectedDialog}
       >
@@ -736,16 +838,26 @@ function useHistorySettingsPageView() {
           <DialogHeader>
             <DialogTitle>Delete selected chats?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete {selectedIds.size} selected
-              chat
+              This action cannot be undone. This will permanently delete{" "}
+              {selectedIds.size} selected chat
               {selectedIds.size === 1 ? "" : "s"}.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => dispatch({ type: "CLOSE_DELETE_SELECTED" })} variant="outline">
+            <Button
+              onClick={() => {
+                dispatch({ type: "CLOSE_DELETE_SELECTED" });
+              }}
+              variant="outline"
+            >
               Cancel
             </Button>
-            <Button onClick={confirmDeleteSelected} variant="destructive">
+            <Button
+              onClick={() => {
+                void confirmDeleteSelected();
+              }}
+              variant="destructive"
+            >
               Delete
             </Button>
           </DialogFooter>
@@ -755,7 +867,9 @@ function useHistorySettingsPageView() {
       {/* Import chats dialog */}
       <Dialog
         onOpenChange={(open) => {
-          if (!open) dispatch({ type: "CLOSE_IMPORT_DIALOG" });
+          if (!open) {
+            dispatch({ type: "CLOSE_IMPORT_DIALOG" });
+          }
         }}
         open={showImportDialog}
       >
@@ -766,15 +880,25 @@ function useHistorySettingsPageView() {
             </DialogTitle>
             <DialogDescription>
               This will import {importChatCount} chat
-              {importChatCount === 1 ? "" : "s"} into your account. Importing will NOT delete
-              existing messages.
+              {importChatCount === 1 ? "" : "s"} into your account. Importing
+              will NOT delete existing messages.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => dispatch({ type: "CLOSE_IMPORT_DIALOG" })} variant="outline">
+            <Button
+              onClick={() => {
+                dispatch({ type: "CLOSE_IMPORT_DIALOG" });
+              }}
+              variant="outline"
+            >
               Cancel
             </Button>
-            <Button onClick={confirmImport} variant="default">
+            <Button
+              onClick={() => {
+                void confirmImport();
+              }}
+              variant="default"
+            >
               Import
             </Button>
           </DialogFooter>
@@ -794,18 +918,27 @@ function useHistorySettingsPageView() {
           <DialogHeader>
             <DialogTitle>Delete all chat history?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete all of your chat history.
+              This action cannot be undone. This will permanently delete all of
+              your chat history.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               disabled={isDeletingAll}
-              onClick={() => dispatch({ type: "CLOSE_DELETE_ALL" })}
+              onClick={() => {
+                dispatch({ type: "CLOSE_DELETE_ALL" });
+              }}
               variant="outline"
             >
               Cancel
             </Button>
-            <Button disabled={isDeletingAll} onClick={confirmDeleteAll} variant="destructive">
+            <Button
+              disabled={isDeletingAll}
+              onClick={() => {
+                void confirmDeleteAll();
+              }}
+              variant="destructive"
+            >
               {isDeletingAll ? "Deleting..." : "Delete All"}
             </Button>
           </DialogFooter>
@@ -825,31 +958,23 @@ function useHistorySettingsPageView() {
           <DialogHeader>
             <DialogTitle>Unshare this conversation?</DialogTitle>
             <DialogDescription>
-              This turns off the public link for this conversation. You can share it again later.
+              This turns off the public link for this conversation. You can
+              share it again later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
-              onClick={() => dispatch({ type: "SET_REVOKE_CHAT", id: null })}
+              onClick={() => {
+                dispatch({ type: "SET_REVOKE_CHAT", id: null });
+              }}
               variant="outline"
             >
               Cancel
             </Button>
             <Button
               disabled={isRevoking}
-              onClick={async () => {
-                if (!revokeChatId) return;
-                dispatch({ type: "SET_REVOKING", value: true });
-                await unpublishChat({ chatId: revokeChatId })
-                  .then(() => {
-                    toast({ title: "Conversation unshared", status: "success" });
-                  })
-                  .catch(() => {
-                    toast({ title: "Failed to unshare", status: "error" });
-                  })
-                  .finally(() => {
-                    dispatch({ type: "REVOKE_DONE" });
-                  });
+              onClick={() => {
+                void confirmRevoke();
               }}
               variant="destructive"
             >
@@ -860,4 +985,10 @@ function useHistorySettingsPageView() {
       </Dialog>
     </div>
   );
-}
+};
+
+export const HistorySettingsPage = () => useHistorySettingsPageView();
+
+export const Route = createFileRoute("/settings/history")({
+  component: HistorySettingsPage,
+});

@@ -119,6 +119,5 @@ export const FILE_UPLOAD_MODELS = [
 
 const FILE_UPLOAD_MODEL_SET = new Set<string>(FILE_UPLOAD_MODELS);
 
-export function supportsFileUploadModel(modelId: string): boolean {
-  return FILE_UPLOAD_MODEL_SET.has(modelId);
-}
+export const supportsFileUploadModel = (modelId: string): boolean =>
+  FILE_UPLOAD_MODEL_SET.has(modelId);

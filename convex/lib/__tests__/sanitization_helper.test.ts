@@ -1,42 +1,43 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { sanitizeMessageParts } from "../sanitization_helper";
 
-describe("sanitizeMessageParts", () => {
+describe(sanitizeMessageParts, () => {
   describe("basic behavior", () => {
     it("returns empty array for empty input", () => {
       const result = sanitizeMessageParts([], { hideFiles: false });
 
-      expect(result).toEqual([]);
+      expect(result).toStrictEqual([]);
     });
 
     it("handles null input gracefully", () => {
-      const result = sanitizeMessageParts(null as unknown as unknown[], {
+      const result = sanitizeMessageParts(null, {
         hideFiles: false,
       });
 
-      expect(result).toEqual([]);
+      expect(result).toStrictEqual([]);
     });
 
     it("handles undefined input gracefully", () => {
-      const result = sanitizeMessageParts(undefined as unknown as unknown[], {
+      const result = sanitizeMessageParts(undefined, {
         hideFiles: false,
       });
 
-      expect(result).toEqual([]);
+      expect(result).toStrictEqual([]);
     });
 
     it("passes through primitive values unchanged", () => {
       const parts = ["string", 123, true, null];
       const result = sanitizeMessageParts(parts, { hideFiles: false });
 
-      expect(result).toEqual(["string", 123, true, null]);
+      expect(result).toStrictEqual(["string", 123, true, null]);
     });
 
     it("passes through text parts unchanged", () => {
       const parts = [{ type: "text", text: "Hello world" }];
       const result = sanitizeMessageParts(parts, { hideFiles: false });
 
-      expect(result).toEqual([{ type: "text", text: "Hello world" }]);
+      expect(result).toStrictEqual([{ type: "text", text: "Hello world" }]);
     });
   });
 
@@ -109,8 +110,10 @@ describe("sanitizeMessageParts", () => {
       ];
       const result = sanitizeMessageParts(parts, { hideFiles: false });
 
-      expect(result[0].input).toEqual({ query: "weather today" });
-      expect(result[0].output).toEqual([{ title: "Weather", url: "https://weather.com" }]);
+      expect(result[0].input).toStrictEqual({ query: "weather today" });
+      expect(result[0].output).toStrictEqual([
+        { title: "Weather", url: "https://weather.com" },
+      ]);
     });
   });
 
@@ -139,7 +142,9 @@ describe("sanitizeMessageParts", () => {
       ];
       const result = sanitizeMessageParts(parts, { hideFiles: false });
 
-      expect(result[0].url).toBe("https://storage.example.com/files/public-doc.pdf");
+      expect(result[0].url).toBe(
+        "https://storage.example.com/files/public-doc.pdf"
+      );
     });
 
     it("redacts reasoning file URLs when hideFiles is true", () => {
@@ -188,13 +193,15 @@ describe("sanitizeMessageParts", () => {
       expect(result[2].url).toBe("redacted");
 
       // tool-search should be preserved
-      expect(result[3].input).toEqual({ query: "public search" });
+      expect(result[3].input).toStrictEqual({ query: "public search" });
     });
   });
 
   describe("error handling", () => {
     it("returns safe placeholder when processing throws", () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       try {
         // Create a part that will throw when cloned
         const badPart = {
@@ -209,7 +216,7 @@ describe("sanitizeMessageParts", () => {
         const result = sanitizeMessageParts(parts, { hideFiles: false });
 
         // Should return a safe placeholder
-        expect(result[0]).toEqual({
+        expect(result[0]).toStrictEqual({
           type: "redacted",
           error: "Content sanitization failed",
         });

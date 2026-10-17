@@ -1,9 +1,14 @@
+import type { FileUIPart } from "ai";
 import { describe, expect, it, vi } from "vitest";
-import { createOptimisticAttachments, revokeOptimisticAttachments } from "../file-upload-utils";
 
-const BLOB_URL_PATTERN = /^blob:/;
+import {
+  createOptimisticAttachments,
+  revokeOptimisticAttachments,
+} from "../file-upload-utils";
 
-describe("createOptimisticAttachments", () => {
+const BLOB_URL_PATTERN = /^blob:/u;
+
+describe(createOptimisticAttachments, () => {
   it("creates FileUIPart array from files", () => {
     const mockFile1 = new File(["content1"], "test1.txt", {
       type: "text/plain",
@@ -14,21 +19,25 @@ describe("createOptimisticAttachments", () => {
 
     const result = createOptimisticAttachments([mockFile1, mockFile2]);
 
-    expect(result).toHaveLength(2);
-    expect(result[0].type).toBe("file");
-    expect(result[0].filename).toBe("test1.txt");
-    expect(result[0].mediaType).toBe("text/plain");
-    expect(result[0].url).toMatch(BLOB_URL_PATTERN);
-
-    expect(result[1].type).toBe("file");
-    expect(result[1].filename).toBe("test2.pdf");
-    expect(result[1].mediaType).toBe("application/pdf");
-    expect(result[1].url).toMatch(BLOB_URL_PATTERN);
+    expect(
+      result.map(({ type, filename, mediaType }) => ({
+        type,
+        filename,
+        mediaType,
+      }))
+    ).toStrictEqual([
+      { type: "file", filename: "test1.txt", mediaType: "text/plain" },
+      { type: "file", filename: "test2.pdf", mediaType: "application/pdf" },
+    ]);
+    expect(result.map(({ url }) => url)).toStrictEqual([
+      expect.stringMatching(BLOB_URL_PATTERN),
+      expect.stringMatching(BLOB_URL_PATTERN),
+    ]);
   });
 
   it("returns empty array for empty files array", () => {
     const result = createOptimisticAttachments([]);
-    expect(result).toEqual([]);
+    expect(result).toStrictEqual([]);
   });
 
   it("handles files with empty type", () => {
@@ -40,20 +49,32 @@ describe("createOptimisticAttachments", () => {
   });
 });
 
-describe("revokeOptimisticAttachments", () => {
+describe(revokeOptimisticAttachments, () => {
   it("revokes blob URLs", () => {
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
 
-    const parts = [
-      { type: "file" as const, url: "blob:http://localhost/abc123" },
-      { type: "file" as const, url: "blob:http://localhost/def456" },
+    const parts: FileUIPart[] = [
+      {
+        type: "file",
+        mediaType: "image/png",
+        url: "blob:http://localhost/abc123",
+      },
+      {
+        type: "file",
+        mediaType: "image/png",
+        url: "blob:http://localhost/def456",
+      },
     ];
 
-    revokeOptimisticAttachments(parts as never);
+    revokeOptimisticAttachments(parts);
 
     expect(revokeObjectURL).toHaveBeenCalledTimes(2);
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:http://localhost/abc123");
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:http://localhost/def456");
+    expect(revokeObjectURL).toHaveBeenCalledWith(
+      "blob:http://localhost/abc123"
+    );
+    expect(revokeObjectURL).toHaveBeenCalledWith(
+      "blob:http://localhost/def456"
+    );
 
     revokeObjectURL.mockRestore();
   });
@@ -61,12 +82,20 @@ describe("revokeOptimisticAttachments", () => {
   it("ignores non-blob URLs", () => {
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
 
-    const parts = [
-      { type: "file" as const, url: "https://example.com/image.png" },
-      { type: "file" as const, url: "data:image/png;base64,abc" },
+    const parts: FileUIPart[] = [
+      {
+        type: "file",
+        mediaType: "image/png",
+        url: "https://example.com/image.png",
+      },
+      {
+        type: "file",
+        mediaType: "image/png",
+        url: "data:image/png;base64,abc",
+      },
     ];
 
-    revokeOptimisticAttachments(parts as never);
+    revokeOptimisticAttachments(parts);
 
     expect(revokeObjectURL).not.toHaveBeenCalled();
 
@@ -76,13 +105,25 @@ describe("revokeOptimisticAttachments", () => {
   it("handles mixed blob and non-blob URLs", () => {
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
 
-    const parts = [
-      { type: "file" as const, url: "blob:http://localhost/abc123" },
-      { type: "file" as const, url: "https://example.com/image.png" },
-      { type: "file" as const, url: "blob:http://localhost/def456" },
+    const parts: FileUIPart[] = [
+      {
+        type: "file",
+        mediaType: "image/png",
+        url: "blob:http://localhost/abc123",
+      },
+      {
+        type: "file",
+        mediaType: "image/png",
+        url: "https://example.com/image.png",
+      },
+      {
+        type: "file",
+        mediaType: "image/png",
+        url: "blob:http://localhost/def456",
+      },
     ];
 
-    revokeOptimisticAttachments(parts as never);
+    revokeOptimisticAttachments(parts);
 
     expect(revokeObjectURL).toHaveBeenCalledTimes(2);
 
@@ -102,10 +143,13 @@ describe("revokeOptimisticAttachments", () => {
   it("handles parts with undefined url", () => {
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
 
-    const parts = [{ type: "file" as const, url: undefined }, { type: "file" as const }];
+    const parts = [
+      { type: "file" as const, url: undefined },
+      { type: "file" as const },
+    ];
 
-    // Should not throw
-    revokeOptimisticAttachments(parts as never);
+    // Should not throw; called untyped, since FileUIPart requires a url
+    Reflect.apply(revokeOptimisticAttachments, undefined, [parts]);
 
     expect(revokeObjectURL).not.toHaveBeenCalled();
 

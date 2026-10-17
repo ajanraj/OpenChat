@@ -33,7 +33,11 @@ export const ZAI_MODELS = [
       "Z.AI's fast multimodal GLM 5.3 model.\nSupports images, video, tools, and always-on reasoning at low cost.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: openrouter("z-ai/glm-5.3-flash"),
-    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_MAX],
+    features: [
+      FILE_UPLOAD_FEATURE,
+      TOOL_CALLING_FEATURE,
+      REASONING_FEATURE_MAX,
+    ],
   },
   {
     id: "z-ai/glm-5.2",
@@ -60,7 +64,11 @@ export const ZAI_MODELS = [
       "Z.AI's latest multimodal model for visual and video understanding.\nSupports optional reasoning and tool-driven workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: openrouter("z-ai/glm-5v-turbo"),
-    features: [FILE_UPLOAD_FEATURE, TOOL_CALLING_FEATURE, REASONING_FEATURE_TOGGLE],
+    features: [
+      FILE_UPLOAD_FEATURE,
+      TOOL_CALLING_FEATURE,
+      REASONING_FEATURE_TOGGLE,
+    ],
   },
   {
     id: "glm-5",
@@ -168,7 +176,11 @@ export const ZAI_MODELS = [
       "Z.AI's vision model based on GLM 4.6.\nSupports image understanding with 200K context and advanced multimodal capabilities.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     api_sdk: openrouter("z-ai/glm-4.6v"),
-    features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_DISABLED, FILE_UPLOAD_FEATURE],
+    features: [
+      TOOL_CALLING_FEATURE,
+      REASONING_FEATURE_DISABLED,
+      FILE_UPLOAD_FEATURE,
+    ],
   },
   {
     id: "glm-4.7",

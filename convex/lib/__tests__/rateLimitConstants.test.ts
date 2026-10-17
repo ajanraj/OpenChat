@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+
 import { PERIODS, RATE_LIMITS } from "../rateLimitConstants";
 
-describe("RATE_LIMITS", () => {
+describe("RATE_LIMITS constants", () => {
   it("has anonymous daily limit defined", () => {
     expect(RATE_LIMITS.ANONYMOUS_DAILY).toBe(5);
   });
@@ -23,11 +24,13 @@ describe("RATE_LIMITS", () => {
   });
 
   it("authenticated limit is greater than anonymous limit", () => {
-    expect(RATE_LIMITS.AUTHENTICATED_DAILY).toBeGreaterThan(RATE_LIMITS.ANONYMOUS_DAILY);
+    expect(RATE_LIMITS.AUTHENTICATED_DAILY).toBeGreaterThan(
+      RATE_LIMITS.ANONYMOUS_DAILY
+    );
   });
 });
 
-describe("PERIODS", () => {
+describe("PERIODS constants", () => {
   it("has daily period defined", () => {
     expect(PERIODS.DAILY).toBeDefined();
     // 24 hours in milliseconds
@@ -41,6 +44,8 @@ describe("PERIODS", () => {
   });
 
   it("monthly period equals daily times monthly period days", () => {
-    expect(PERIODS.MONTHLY).toBe(PERIODS.DAILY * RATE_LIMITS.MONTHLY_PERIOD_DAYS);
+    expect(PERIODS.MONTHLY).toBe(
+      PERIODS.DAILY * RATE_LIMITS.MONTHLY_PERIOD_DAYS
+    );
   });
 });

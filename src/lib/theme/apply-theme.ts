@@ -1,9 +1,14 @@
 import { COMMON_STYLES } from "../config/theme";
-import type { ThemeEditorState, ThemeStyleProps, ThemeStyles } from "../types/theme";
+import type {
+  ThemeEditorState,
+  ThemeStyleProps,
+  ThemeStyles,
+} from "../types/theme";
 
 type Theme = "dark" | "light";
 
-const COMMON_NON_COLOR_KEYS = COMMON_STYLES;
+// Style keys shared by both modes; every other key is a mode-specific color
+const COMMON_NON_COLOR_KEYS: ReadonlySet<string> = new Set(COMMON_STYLES);
 
 // Map primary font family names to next/font CSS variable names
 const FONT_VAR_MAP: Readonly<Record<string, string>> = {
@@ -25,13 +30,15 @@ const FONT_VAR_MAP: Readonly<Record<string, string>> = {
 const normalizeFontKey = (value: string): string =>
   value
     .trim()
-    .replace(/^['"]|['"]$/g, "")
-    .replace(/\s+/g, " ")
+    .replaceAll(/^['"]|['"]$/gu, "")
+    .replaceAll(/\s+/gu, " ")
     .toLowerCase();
 
 // Build a normalized map to allow case/spacing-insensitive lookups
 const NORMALIZED_FONT_VAR_MAP: Readonly<Record<string, string>> = Object.freeze(
-  Object.fromEntries(Object.entries(FONT_VAR_MAP).map(([k, v]) => [normalizeFontKey(k), v])),
+  Object.fromEntries(
+    Object.entries(FONT_VAR_MAP).map(([k, v]) => [normalizeFontKey(k), v])
+  )
 );
 
 const DEFAULT_FALLBACKS: Readonly<Record<"sans" | "mono", string>> = {
@@ -40,24 +47,24 @@ const DEFAULT_FALLBACKS: Readonly<Record<"sans" | "mono", string>> = {
 } as const;
 
 const extractPrimaryAndRest = (
-  familyList: string | undefined,
+  familyList: string | undefined
 ): { primary: string | null; rest: string } => {
-  if (!familyList) {
+  if (familyList === undefined || familyList === "") {
     return { primary: null, rest: "" };
   }
   const parts = familyList.split(",");
   const primaryRaw = parts[0]?.trim() ?? "";
-  const primary = primaryRaw.replace(/^['"]|['"]$/g, "");
+  const primary = primaryRaw.replaceAll(/^['"]|['"]$/gu, "");
   const rest = parts.slice(1).join(",").trim();
   return { primary: primary || null, rest };
 };
 
 const buildActiveFontValue = (
   fullFamily: string | undefined,
-  category: "sans" | "mono",
+  category: "sans" | "mono"
 ): string | null => {
   const { primary, rest } = extractPrimaryAndRest(fullFamily);
-  if (!primary) {
+  if (primary === null) {
     return null;
   }
   const varName = NORMALIZED_FONT_VAR_MAP[normalizeFontKey(primary)];
@@ -65,23 +72,20 @@ const buildActiveFontValue = (
     // Fallback to the original list if we don't have a mapped next/font variable
     return fullFamily ?? null;
   }
-  const restList = rest.length > 0 ? `, ${rest}` : `, ${DEFAULT_FALLBACKS[category]}`;
+  const restList =
+    rest.length > 0 ? `, ${rest}` : `, ${DEFAULT_FALLBACKS[category]}`;
   return `var(${varName})${restList}`;
 };
 
 // Helper functions (not exported, used internally by applyThemeToElement)
 const updateThemeClass = (root: HTMLElement, mode: Theme) => {
-  if (mode === "light") {
-    root.classList.remove("dark");
-  } else {
-    root.classList.add("dark");
-  }
+  root.classList.toggle("dark", !(mode === "light"));
 };
 
 const applyStyleToElement = (
   element: HTMLElement,
   key: string,
-  value: string | null | undefined,
+  value: string | null | undefined
 ) => {
   if (value === null || value === undefined || value === "") {
     element.style.removeProperty(`--${key}`);
@@ -92,10 +96,7 @@ const applyStyleToElement = (
 
 const applyCommonStyles = (root: HTMLElement, themeStyles: ThemeStyleProps) => {
   for (const [key, value] of Object.entries(themeStyles)) {
-    if (
-      COMMON_NON_COLOR_KEYS.includes(key as (typeof COMMON_NON_COLOR_KEYS)[number]) &&
-      typeof value === "string"
-    ) {
+    if (COMMON_NON_COLOR_KEYS.has(key) && typeof value === "string") {
       // Avoid overriding Tailwind v4 font tokens; fonts are driven via --active-font-*
       if (key === "font-sans" || key === "font-mono") {
         continue;
@@ -105,22 +106,26 @@ const applyCommonStyles = (root: HTMLElement, themeStyles: ThemeStyleProps) => {
   }
 };
 
-const applyThemeColors = (root: HTMLElement, themeStyles: ThemeStyles, mode: Theme) => {
+const applyThemeColors = (
+  root: HTMLElement,
+  themeStyles: ThemeStyles,
+  mode: Theme
+) => {
   for (const [key, value] of Object.entries(themeStyles[mode])) {
-    if (
-      typeof value === "string" &&
-      !COMMON_NON_COLOR_KEYS.includes(key as (typeof COMMON_NON_COLOR_KEYS)[number])
-    ) {
+    if (typeof value === "string" && !COMMON_NON_COLOR_KEYS.has(key)) {
       applyStyleToElement(root, key, value);
     }
   }
 };
 
 // Exported function to apply theme styles to an element
-export const applyThemeToElement = (themeState: ThemeEditorState, rootElement: HTMLElement) => {
+export const applyThemeToElement = (
+  themeState: ThemeEditorState,
+  rootElement: HTMLElement | null
+) => {
   const { currentMode: mode, styles: themeStyles } = themeState;
 
-  if (!rootElement) {
+  if (rootElement === null) {
     return;
   }
 
@@ -131,8 +136,14 @@ export const applyThemeToElement = (themeState: ThemeEditorState, rootElement: H
   applyThemeColors(rootElement, themeStyles, mode);
 
   // Set active font variables to drive Tailwind v4 tokens via @theme inline
-  const activeSans = buildActiveFontValue(themeStyles.light["font-sans"], "sans");
-  const activeMono = buildActiveFontValue(themeStyles.light["font-mono"], "mono");
+  const activeSans = buildActiveFontValue(
+    themeStyles.light["font-sans"],
+    "sans"
+  );
+  const activeMono = buildActiveFontValue(
+    themeStyles.light["font-mono"],
+    "mono"
+  );
   applyStyleToElement(rootElement, "active-font-sans", activeSans);
   applyStyleToElement(rootElement, "active-font-mono", activeMono);
 };

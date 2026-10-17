@@ -1,46 +1,62 @@
 import { describe, expect, it } from "vitest";
+
 import {
   detectProviderErrorFromObject,
   detectProviderErrorInText,
   shouldTriggerFallback,
 } from "../provider-error-detector";
 
-describe("detectProviderErrorInText", () => {
+describe(detectProviderErrorInText, () => {
   describe("OpenAI errors", () => {
     it("detects quota exceeded errors", () => {
-      const result = detectProviderErrorInText("Error: You exceeded your current quota", "openai");
+      const result = detectProviderErrorInText(
+        "Error: You exceeded your current quota",
+        "openai"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("QUOTA_EXCEEDED");
       expect(result?.provider).toBe("openai");
-      expect(result?.isQuotaExceeded).toBe(true);
+      expect(result).toHaveProperty("isQuotaExceeded", true);
     });
 
     it("detects rate limit errors", () => {
-      const result = detectProviderErrorInText("Rate limit reached for requests", "openai");
+      const result = detectProviderErrorInText(
+        "Rate limit reached for requests",
+        "openai"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("RATE_LIMIT");
-      expect(result?.isRateLimit).toBe(true);
+      expect(result).toHaveProperty("isRateLimit", true);
     });
 
     it("detects authentication errors", () => {
-      const result = detectProviderErrorInText("Invalid API key provided", "openai");
+      const result = detectProviderErrorInText(
+        "Invalid API key provided",
+        "openai"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("AUTH_ERROR");
-      expect(result?.isAuthError).toBe(true);
+      expect(result).toHaveProperty("isAuthError", true);
     });
   });
 
   describe("Anthropic errors", () => {
     it("detects insufficient credits errors", () => {
-      const result = detectProviderErrorInText("Your credit balance is too low", "anthropic");
+      const result = detectProviderErrorInText(
+        "Your credit balance is too low",
+        "anthropic"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("INSUFFICIENT_BALANCE");
       expect(result?.provider).toBe("anthropic");
-      expect(result?.isInsufficientBalance).toBe(true);
+      expect(result).toHaveProperty("isInsufficientBalance", true);
     });
 
     it("detects rate limit errors", () => {
-      const result = detectProviderErrorInText("Rate limit exceeded for Claude", "anthropic");
+      const result = detectProviderErrorInText(
+        "Rate limit exceeded for Claude",
+        "anthropic"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("RATE_LIMIT");
     });
@@ -48,7 +64,10 @@ describe("detectProviderErrorInText", () => {
 
   describe("Google errors", () => {
     it("detects resource exhausted errors", () => {
-      const result = detectProviderErrorInText("RESOURCE_EXHAUSTED: Quota exceeded", "google");
+      const result = detectProviderErrorInText(
+        "RESOURCE_EXHAUSTED: Quota exceeded",
+        "google"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("QUOTA_EXCEEDED");
       expect(result?.provider).toBe("google");
@@ -57,7 +76,7 @@ describe("detectProviderErrorInText", () => {
     it("detects authentication errors", () => {
       const result = detectProviderErrorInText(
         "API key not valid. Please pass a valid API key",
-        "google",
+        "google"
       );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("AUTH_ERROR");
@@ -66,7 +85,10 @@ describe("detectProviderErrorInText", () => {
 
   describe("xAI errors", () => {
     it("detects rate limit errors", () => {
-      const result = detectProviderErrorInText("Too many requests to Grok API", "xai");
+      const result = detectProviderErrorInText(
+        "Too many requests to Grok API",
+        "xai"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("RATE_LIMIT");
       expect(result?.provider).toBe("xai");
@@ -75,7 +97,10 @@ describe("detectProviderErrorInText", () => {
 
   describe("DeepSeek errors", () => {
     it("detects timeout errors", () => {
-      const result = detectProviderErrorInText("Request timeout. Please try again.", "deepseek");
+      const result = detectProviderErrorInText(
+        "Request timeout. Please try again.",
+        "deepseek"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("RATE_LIMIT");
       expect(result?.provider).toBe("deepseek");
@@ -84,7 +109,10 @@ describe("detectProviderErrorInText", () => {
 
   describe("OpenRouter errors", () => {
     it("detects insufficient balance errors", () => {
-      const result = detectProviderErrorInText("You have a negative credit balance", "openrouter");
+      const result = detectProviderErrorInText(
+        "You have a negative credit balance",
+        "openrouter"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("INSUFFICIENT_BALANCE");
       expect(result?.provider).toBe("openrouter");
@@ -95,7 +123,7 @@ describe("detectProviderErrorInText", () => {
     it("detects rate limit patterns for unknown providers", () => {
       const result = detectProviderErrorInText(
         "Too many requests, please slow down",
-        "unknown_provider",
+        "unknown_provider"
       );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("RATE_LIMIT");
@@ -105,14 +133,17 @@ describe("detectProviderErrorInText", () => {
     it("detects quota patterns for unknown providers", () => {
       const result = detectProviderErrorInText(
         "Your usage limit has been reached",
-        "unknown_provider",
+        "unknown_provider"
       );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("QUOTA_EXCEEDED");
     });
 
     it("detects auth patterns for unknown providers", () => {
-      const result = detectProviderErrorInText("Unauthorized: 401 error", "unknown_provider");
+      const result = detectProviderErrorInText(
+        "Unauthorized: 401 error",
+        "unknown_provider"
+      );
       expect(result).not.toBeNull();
       expect(result?.type).toBe("AUTH_ERROR");
     });
@@ -127,14 +158,20 @@ describe("detectProviderErrorInText", () => {
   });
 
   it("returns null when no error pattern matches", () => {
-    const result = detectProviderErrorInText("Hello world, this is a normal response", "openai");
+    const result = detectProviderErrorInText(
+      "Hello world, this is a normal response",
+      "openai"
+    );
     expect(result).toBeNull();
   });
 });
 
-describe("detectProviderErrorFromObject", () => {
+describe(detectProviderErrorFromObject, () => {
   it("extracts error from string", () => {
-    const result = detectProviderErrorFromObject("Rate limit exceeded", "openai");
+    const result = detectProviderErrorFromObject(
+      "Rate limit exceeded",
+      "openai"
+    );
     expect(result).not.toBeNull();
     expect(result?.type).toBe("RATE_LIMIT");
   });
@@ -158,11 +195,17 @@ describe("detectProviderErrorFromObject", () => {
   });
 
   it("returns null for null provider", () => {
-    expect(detectProviderErrorFromObject("Some error", null as unknown as string)).toBeNull();
+    // Called untyped, like JavaScript callers that pass a null provider
+    const result: unknown = Reflect.apply(
+      detectProviderErrorFromObject,
+      undefined,
+      ["Some error", null]
+    );
+    expect(result).toBeNull();
   });
 });
 
-describe("shouldTriggerFallback", () => {
+describe(shouldTriggerFallback, () => {
   it("returns true for auth errors", () => {
     const error = {
       type: "AUTH_ERROR",
@@ -171,7 +214,7 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Invalid API key",
       isAuthError: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(true);
+    expect(shouldTriggerFallback(error)).toBeTruthy();
   });
 
   it("returns true for insufficient balance", () => {
@@ -182,7 +225,7 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Balance too low",
       isInsufficientBalance: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(true);
+    expect(shouldTriggerFallback(error)).toBeTruthy();
   });
 
   it("returns true for quota exceeded", () => {
@@ -193,7 +236,7 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Quota exceeded",
       isQuotaExceeded: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(true);
+    expect(shouldTriggerFallback(error)).toBeTruthy();
   });
 
   it("returns false for rate limit errors", () => {
@@ -204,6 +247,6 @@ describe("shouldTriggerFallback", () => {
       userFriendlyMessage: "Rate limit",
       isRateLimit: true,
     };
-    expect(shouldTriggerFallback(error)).toBe(false);
+    expect(shouldTriggerFallback(error)).toBeFalsy();
   });
 });

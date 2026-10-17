@@ -1,10 +1,19 @@
 // Helper functions for time conversion and formatting
 
 // Regex for validating "HH:mm" time format (24-hour)
-const TIME_24H_REGEX = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+const TIME_24H_REGEX = /^(?:[0-1]?[0-9]|2[0-3]):[0-5][0-9]$/u;
 
 // Regex for validating strict "HH:MM" format (two-digit hours and minutes)
-const TIME_STRICT_REGEX = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
+const TIME_STRICT_REGEX = /^(?:[0-1][0-9]|2[0-3]):[0-5][0-9]$/u;
+
+// Leading decimal integer, read the way Number.parseInt(value, 10) reads it
+const LEADING_INT_REGEX = /^\s*[+-]?\d+/u;
+
+/** Number.parseInt(value, 10) without parseInt: the leading integer of `value`, or NaN. */
+const parseLeadingInt = (value: string): number => {
+  const match = LEADING_INT_REGEX.exec(value);
+  return match === null ? Number.NaN : Number(match[0]);
+};
 
 export const convertTo12Hour = (hour24: number): number => {
   if (hour24 === 0) {
@@ -33,11 +42,14 @@ export interface Time12HourFormat {
 export const formatTime12Hour = (time24: string): Time12HourFormat => {
   // Validate input format using regex - expects "HH:mm" format
   if (!TIME_24H_REGEX.test(time24)) {
-    throw new Error(`Invalid time format. Expected "HH:mm" format, received: "${time24}"`);
+    throw new Error(
+      `Invalid time format. Expected "HH:mm" format, received: "${time24}"`
+    );
   }
 
   const [hour, minute] = time24.split(":");
-  const hour24 = Number.parseInt(hour, 10);
+  // TIME_24H_REGEX allows only digits here, so Number reads them as parseInt would
+  const hour24 = Number(hour);
 
   // Additional validation for hour range (0-23)
   if (hour24 < 0 || hour24 > 23) {
@@ -45,9 +57,11 @@ export const formatTime12Hour = (time24: string): Time12HourFormat => {
   }
 
   // Additional validation for minute range (0-59)
-  const minuteValue = Number.parseInt(minute, 10);
+  const minuteValue = Number(minute);
   if (minuteValue < 0 || minuteValue > 59) {
-    throw new Error(`Invalid minute value. Expected 0-59, received: ${minuteValue}`);
+    throw new Error(
+      `Invalid minute value. Expected 0-59, received: ${minuteValue}`
+    );
   }
 
   const hour12 = convertTo12Hour(hour24);
@@ -60,46 +74,16 @@ export const formatTime12Hour = (time24: string): Time12HourFormat => {
   };
 };
 
-export const formatNextRun = (date: Date | string, timezone: string): string => {
+export const formatNextRun = (
+  date: Date | string,
+  timezone: string
+): string => {
   const dateObj = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     dateStyle: "medium",
     timeStyle: "short",
   }).format(dateObj);
-};
-
-export const formatFrequency = (frequency: string, time: string): string => {
-  switch (frequency) {
-    case "daily": {
-      const { hour12, minute, ampm } = formatTime12Hour(time);
-      const displayTime = `${hour12}:${minute} ${ampm}`;
-      return `Daily at ${displayTime}`;
-    }
-    case "weekly": {
-      // For weekly tasks, time format is "day:HH:MM"
-      const { day, time: timeOnly } = parseWeeklyTime(time);
-      const { hour12, minute, ampm } = formatTime12Hour(timeOnly);
-      const displayTime = `${hour12}:${minute} ${ampm}`;
-      const dayName = getDayName(day);
-      return `${dayName}s at ${displayTime}`;
-    }
-    case "monthly": {
-      const { hour12, minute, ampm } = formatTime12Hour(time);
-      const displayTime = `${hour12}:${minute} ${ampm}`;
-      return `Monthly on the 1st at ${displayTime}`;
-    }
-    case "once": {
-      const { hour12, minute, ampm } = formatTime12Hour(time);
-      const displayTime = `${hour12}:${minute} ${ampm}`;
-      return `Once at ${displayTime}`;
-    }
-    default: {
-      const { hour12, minute, ampm } = formatTime12Hour(time);
-      const displayTime = `${hour12}:${minute} ${ampm}`;
-      return `${frequency} at ${displayTime}`;
-    }
-  }
 };
 
 export const formatRelativeTime = (date: Date | string): string => {
@@ -191,11 +175,33 @@ export const getNextAvailableDate = (): Date => {
   return now;
 };
 
+/** Throws unless the parts are a two-digit hour (00-23) and a two-digit minute (00-59). */
+const assertHourAndMinuteParts = (hourStr: string, minuteStr: string): void => {
+  const hour = parseLeadingInt(hourStr);
+  if (Number.isNaN(hour) || hour < 0 || hour > 23 || hourStr.length !== 2) {
+    throw new Error("Hour must be a valid two-digit number between 00 and 23");
+  }
+
+  const minute = parseLeadingInt(minuteStr);
+  if (
+    Number.isNaN(minute) ||
+    minute < 0 ||
+    minute > 59 ||
+    minuteStr.length !== 2
+  ) {
+    throw new Error(
+      "Minute must be a valid two-digit number between 00 and 59"
+    );
+  }
+};
+
 // Helper functions for weekly task time formatting
-export const parseWeeklyTime = (scheduledTime: string): { day: number; time: string } => {
+export const parseWeeklyTime = (
+  scheduledTime: string
+): { day: number; time: string } => {
   // Validate input is a string
   if (typeof scheduledTime !== "string") {
-    throw new Error("scheduledTime must be a string");
+    throw new TypeError("scheduledTime must be a string");
   }
 
   const trimmedTime = scheduledTime.trim();
@@ -207,49 +213,23 @@ export const parseWeeklyTime = (scheduledTime: string): { day: number; time: str
 
   if (parts.length === 3) {
     // Format is "day:HH:MM"
-    const dayStr = parts[0];
-    const hourStr = parts[1];
-    const minuteStr = parts[2];
+    const [dayStr, hourStr, minuteStr] = parts;
 
     // Validate day part
-    const day = Number.parseInt(dayStr, 10);
+    const day = parseLeadingInt(dayStr);
     if (Number.isNaN(day) || day < 0 || day > 6) {
       throw new Error("Day must be a number between 0 and 6 (Sunday-Saturday)");
     }
 
-    // Validate hour part
-    const hour = Number.parseInt(hourStr, 10);
-    if (Number.isNaN(hour) || hour < 0 || hour > 23 || hourStr.length !== 2) {
-      throw new Error("Hour must be a valid two-digit number between 00 and 23");
-    }
-
-    // Validate minute part
-    const minute = Number.parseInt(minuteStr, 10);
-    if (Number.isNaN(minute) || minute < 0 || minute > 59 || minuteStr.length !== 2) {
-      throw new Error("Minute must be a valid two-digit number between 00 and 59");
-    }
-
+    assertHourAndMinuteParts(hourStr, minuteStr);
     const time = `${hourStr}:${minuteStr}`;
     return { day, time };
   }
 
   // Fallback for regular time format (HH:MM) - validate and default to Monday
   if (parts.length === 2) {
-    const hourStr = parts[0];
-    const minuteStr = parts[1];
-
-    // Validate hour part
-    const hour = Number.parseInt(hourStr, 10);
-    if (Number.isNaN(hour) || hour < 0 || hour > 23 || hourStr.length !== 2) {
-      throw new Error("Hour must be a valid two-digit number between 00 and 23");
-    }
-
-    // Validate minute part
-    const minute = Number.parseInt(minuteStr, 10);
-    if (Number.isNaN(minute) || minute < 0 || minute > 59 || minuteStr.length !== 2) {
-      throw new Error("Minute must be a valid two-digit number between 00 and 59");
-    }
-
+    const [hourStr, minuteStr] = parts;
+    assertHourAndMinuteParts(hourStr, minuteStr);
     return { day: 1, time: trimmedTime };
   }
 
@@ -259,7 +239,7 @@ export const parseWeeklyTime = (scheduledTime: string): { day: number; time: str
 export const formatWeeklyTime = (day: number, time: string): string => {
   // Validate day parameter
   if (typeof day !== "number") {
-    throw new Error("day must be a number");
+    throw new TypeError("day must be a number");
   }
 
   if (Number.isNaN(day) || day < 0 || day > 6 || !Number.isInteger(day)) {
@@ -268,7 +248,7 @@ export const formatWeeklyTime = (day: number, time: string): string => {
 
   // Validate time parameter
   if (typeof time !== "string") {
-    throw new Error("time must be a string");
+    throw new TypeError("time must be a string");
   }
 
   const trimmedTime = time.trim();
@@ -278,7 +258,9 @@ export const formatWeeklyTime = (day: number, time: string): string => {
 
   // Validate time format (HH:MM)
   if (!TIME_STRICT_REGEX.test(trimmedTime)) {
-    throw new Error('time must be in format "HH:MM" with valid hours (00-23) and minutes (00-59)');
+    throw new Error(
+      'time must be in format "HH:MM" with valid hours (00-23) and minutes (00-59)'
+    );
   }
 
   // Format: "day:HH:MM" where day is 0-6 (Sunday-Saturday)
@@ -286,11 +268,19 @@ export const formatWeeklyTime = (day: number, time: string): string => {
 };
 
 export const getDayName = (dayNumber: number): string => {
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
   return days[dayNumber] || "Monday";
 };
 
-export const getDayOptions = (): Array<{ value: number; label: string }> => [
+export const getDayOptions = (): { value: number; label: string }[] => [
   { value: 0, label: "Sunday" },
   { value: 1, label: "Monday" },
   { value: 2, label: "Tuesday" },
@@ -299,3 +289,36 @@ export const getDayOptions = (): Array<{ value: number; label: string }> => [
   { value: 5, label: "Friday" },
   { value: 6, label: "Saturday" },
 ];
+
+export const formatFrequency = (frequency: string, time: string): string => {
+  switch (frequency) {
+    case "daily": {
+      const { hour12, minute, ampm } = formatTime12Hour(time);
+      const displayTime = `${hour12}:${minute} ${ampm}`;
+      return `Daily at ${displayTime}`;
+    }
+    case "weekly": {
+      // For weekly tasks, time format is "day:HH:MM"
+      const { day, time: timeOnly } = parseWeeklyTime(time);
+      const { hour12, minute, ampm } = formatTime12Hour(timeOnly);
+      const displayTime = `${hour12}:${minute} ${ampm}`;
+      const dayName = getDayName(day);
+      return `${dayName}s at ${displayTime}`;
+    }
+    case "monthly": {
+      const { hour12, minute, ampm } = formatTime12Hour(time);
+      const displayTime = `${hour12}:${minute} ${ampm}`;
+      return `Monthly on the 1st at ${displayTime}`;
+    }
+    case "once": {
+      const { hour12, minute, ampm } = formatTime12Hour(time);
+      const displayTime = `${hour12}:${minute} ${ampm}`;
+      return `Once at ${displayTime}`;
+    }
+    default: {
+      const { hour12, minute, ampm } = formatTime12Hour(time);
+      const displayTime = `${hour12}:${minute} ${ampm}`;
+      return `${frequency} at ${displayTime}`;
+    }
+  }
+};

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { __filenameUtilsTesting__, sanitizeAndValidateFileName } from "@/lib/filename";
 
-describe("sanitizeAndValidateFileName", () => {
+import {
+  __filenameUtilsTesting__,
+  sanitizeAndValidateFileName,
+} from "@/lib/filename";
+
+describe(sanitizeAndValidateFileName, () => {
   it("returns default for empty or whitespace-only names", () => {
     expect(sanitizeAndValidateFileName("")).toBe("file");
     expect(sanitizeAndValidateFileName("   ")).toBe("file");
@@ -33,40 +37,39 @@ describe("sanitizeAndValidateFileName", () => {
     expect(sanitizeAndValidateFileName(".env")).toBe(".env");
   });
 
-  it("avoids reserved basenames by appending -file", () => {
+  it.each([
     // Basic reserved names
-    expect(sanitizeAndValidateFileName("con")).toBe("con-file");
-    expect(sanitizeAndValidateFileName("PRN")).toBe("PRN-file");
-    expect(sanitizeAndValidateFileName("Com1")).toBe("Com1-file");
-
+    ["con", "con-file"],
+    ["PRN", "PRN-file"],
+    ["Com1", "Com1-file"],
     // Reserved names with trailing dots (should append -file and strip dots)
-    expect(sanitizeAndValidateFileName("con.")).toBe("con-file");
-    expect(sanitizeAndValidateFileName("con...")).toBe("con-file");
-    expect(sanitizeAndValidateFileName("PRN.")).toBe("PRN-file");
-    expect(sanitizeAndValidateFileName("aux.")).toBe("aux-file");
-    expect(sanitizeAndValidateFileName("nul.")).toBe("nul-file");
-    expect(sanitizeAndValidateFileName("lpt1.")).toBe("lpt1-file");
-
+    ["con.", "con-file"],
+    ["con...", "con-file"],
+    ["PRN.", "PRN-file"],
+    ["aux.", "aux-file"],
+    ["nul.", "nul-file"],
+    ["lpt1.", "lpt1-file"],
     // Reserved names with trailing spaces (should append -file and strip spaces)
-    expect(sanitizeAndValidateFileName("con ")).toBe("con-file");
-    expect(sanitizeAndValidateFileName("PRN   ")).toBe("PRN-file");
-    expect(sanitizeAndValidateFileName("aux ")).toBe("aux-file");
-    expect(sanitizeAndValidateFileName("com2 ")).toBe("com2-file");
-
+    ["con ", "con-file"],
+    ["PRN   ", "PRN-file"],
+    ["aux ", "aux-file"],
+    ["com2 ", "com2-file"],
     // Reserved names with trailing dots/spaces and extensions
-    expect(sanitizeAndValidateFileName("PRN .txt")).toBe("PRN-file.txt");
-    expect(sanitizeAndValidateFileName("con..txt")).toBe("con-file.txt");
-    expect(sanitizeAndValidateFileName("aux .pdf")).toBe("aux-file.pdf");
-    expect(sanitizeAndValidateFileName("nul. .doc")).toBe("nul-file.doc");
-    expect(sanitizeAndValidateFileName("lpt2 .  .log")).toBe("lpt2-file.log");
+    ["PRN .txt", "PRN-file.txt"],
+    ["con..txt", "con-file.txt"],
+    ["aux .pdf", "aux-file.pdf"],
+    ["nul. .doc", "nul-file.doc"],
+    ["lpt2 .  .log", "lpt2-file.log"],
+  ])("avoids reserved basename %j by appending -file", (input, expected) => {
+    expect(sanitizeAndValidateFileName(input)).toBe(expected);
   });
 
   it("preserves extension and enforces max length", () => {
     const { MAX_FILENAME_LENGTH } = __filenameUtilsTesting__;
     const longBase = "a".repeat(MAX_FILENAME_LENGTH + 50);
     const out = sanitizeAndValidateFileName(`${longBase}.pdf`);
-    expect(out.endsWith(".pdf")).toBe(true);
-    expect(out.length).toBe(MAX_FILENAME_LENGTH);
+    expect(out.endsWith(".pdf")).toBeTruthy();
+    expect(out).toHaveLength(MAX_FILENAME_LENGTH);
   });
 
   it("normalizes unicode (NFKC)", () => {

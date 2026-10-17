@@ -1,149 +1,85 @@
 import { describe, expect, it } from "vitest";
-import {
-  handleSearchError,
-  SearchAuthenticationError,
-  SearchError,
-  SearchInvalidResponseError,
-  SearchNetworkError,
-  SearchRateLimitError,
-} from "../search-errors";
 
-describe("SearchError", () => {
-  it("creates error with correct properties", () => {
-    const error = new SearchError("Test error", "exa", "TEST_CODE");
+import { handleSearchError, SearchError } from "../search-errors";
+import type { SearchErrorCode } from "../search-errors";
+
+/** Returns whatever `fn` throws, so its fields can be asserted. */
+const thrownBy = (fn: () => unknown): unknown => {
+  try {
+    fn();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("Expected the call to throw");
+};
+
+describe(SearchError, () => {
+  it("is an Error subclass", () => {
+    const error = new SearchError("Test error", "exa", "AUTH_ERROR");
 
     expect(error).toBeInstanceOf(Error);
     expect(error).toBeInstanceOf(SearchError);
-    expect(error.name).toBe("SearchError");
-    expect(error.message).toBe("[exa] Test error");
-    expect(error.provider).toBe("exa");
-    expect(error.code).toBe("TEST_CODE");
   });
 
-  it("uses default code when not provided", () => {
-    const error = new SearchError("Test error", "tavily");
-
-    expect(error.code).toBe("SEARCH_ERROR");
-  });
-});
-
-describe("SearchAuthenticationError", () => {
   it("creates error with correct properties", () => {
-    const error = new SearchAuthenticationError("exa");
+    const error = new SearchError("Test error", "exa");
 
-    expect(error).toBeInstanceOf(SearchError);
-    expect(error.name).toBe("SearchAuthenticationError");
-    expect(error.message).toBe("[exa] Authentication failed");
-    expect(error.provider).toBe("exa");
-    expect(error.code).toBe("AUTH_ERROR");
+    expect(error).toMatchObject({
+      name: "SearchError",
+      message: "[exa] Test error",
+      provider: "exa",
+      code: "SEARCH_ERROR",
+    });
   });
 
-  it("accepts custom message", () => {
-    const error = new SearchAuthenticationError("exa", "Invalid API key");
+  it.each<SearchErrorCode>([
+    "AUTH_ERROR",
+    "NETWORK_ERROR",
+    "RATE_LIMIT_ERROR",
+    "INVALID_RESPONSE",
+  ])("keeps the %s code", (code) => {
+    const error = new SearchError("Custom message", "tavily", code);
 
-    expect(error.message).toBe("[exa] Invalid API key");
-  });
-});
-
-describe("SearchNetworkError", () => {
-  it("creates error with correct properties", () => {
-    const error = new SearchNetworkError("tavily");
-
-    expect(error).toBeInstanceOf(SearchError);
-    expect(error.name).toBe("SearchNetworkError");
-    expect(error.message).toBe("[tavily] Network request failed");
-    expect(error.code).toBe("NETWORK_ERROR");
-  });
-
-  it("accepts custom message", () => {
-    const error = new SearchNetworkError("tavily", "Connection timeout");
-
-    expect(error.message).toBe("[tavily] Connection timeout");
+    expect(error).toMatchObject({
+      name: "SearchError",
+      message: "[tavily] Custom message",
+      provider: "tavily",
+      code,
+    });
   });
 });
 
-describe("SearchRateLimitError", () => {
-  it("creates error with correct properties", () => {
-    const error = new SearchRateLimitError("brave");
-
-    expect(error).toBeInstanceOf(SearchError);
-    expect(error.name).toBe("SearchRateLimitError");
-    expect(error.message).toBe("[brave] Rate limit exceeded");
-    expect(error.code).toBe("RATE_LIMIT_ERROR");
-  });
-
-  it("accepts custom message", () => {
-    const error = new SearchRateLimitError("brave", "Too many requests");
-
-    expect(error.message).toBe("[brave] Too many requests");
-  });
-});
-
-describe("SearchInvalidResponseError", () => {
-  it("creates error with correct properties", () => {
-    const error = new SearchInvalidResponseError("exa");
-
-    expect(error).toBeInstanceOf(SearchError);
-    expect(error.name).toBe("SearchInvalidResponseError");
-    expect(error.message).toBe("[exa] Invalid response format");
-    expect(error.code).toBe("INVALID_RESPONSE");
-  });
-
-  it("accepts custom message", () => {
-    const error = new SearchInvalidResponseError("exa", "Missing results field");
-
-    expect(error.message).toBe("[exa] Missing results field");
-  });
-});
-
-describe("handleSearchError", () => {
+describe(handleSearchError, () => {
   it("re-throws SearchError instances", () => {
     const originalError = new SearchError("Original", "exa");
 
-    expect(() => handleSearchError(originalError, "tavily")).toThrow(SearchError);
-    expect(() => handleSearchError(originalError, "tavily")).toThrow("[exa] Original");
+    expect(thrownBy(() => handleSearchError(originalError, "tavily"))).toBe(
+      originalError
+    );
   });
 
-  it("converts 401 errors to SearchAuthenticationError", () => {
-    const error = new Error("Request failed with status 401");
+  it.each<[string, SearchErrorCode]>([
+    ["Request failed with status 401", "AUTH_ERROR"],
+    ["Request failed with status 403", "AUTH_ERROR"],
+    ["Request failed with status 429", "RATE_LIMIT_ERROR"],
+    ["getaddrinfo ENOTFOUND api.example.com", "NETWORK_ERROR"],
+    ["connect ETIMEDOUT", "NETWORK_ERROR"],
+    ["Something went wrong", "SEARCH_ERROR"],
+  ])("converts %j to a %s SearchError", (message, code) => {
+    const thrown = thrownBy(() =>
+      handleSearchError(new Error(message), "brave")
+    );
 
-    expect(() => handleSearchError(error, "exa")).toThrow(SearchAuthenticationError);
+    expect(thrown).toBeInstanceOf(SearchError);
+    expect(thrown).toMatchObject({ code, message: `[brave] ${message}` });
   });
 
-  it("converts 403 errors to SearchAuthenticationError", () => {
-    const error = new Error("Request failed with status 403");
-
-    expect(() => handleSearchError(error, "exa")).toThrow(SearchAuthenticationError);
-  });
-
-  it("converts 429 errors to SearchRateLimitError", () => {
-    const error = new Error("Request failed with status 429");
-
-    expect(() => handleSearchError(error, "tavily")).toThrow(SearchRateLimitError);
-  });
-
-  it("converts ENOTFOUND errors to SearchNetworkError", () => {
-    const error = new Error("getaddrinfo ENOTFOUND api.example.com");
-
-    expect(() => handleSearchError(error, "brave")).toThrow(SearchNetworkError);
-  });
-
-  it("converts ETIMEDOUT errors to SearchNetworkError", () => {
-    const error = new Error("connect ETIMEDOUT");
-
-    expect(() => handleSearchError(error, "brave")).toThrow(SearchNetworkError);
-  });
-
-  it("wraps generic errors in SearchError", () => {
-    const error = new Error("Something went wrong");
-
-    expect(() => handleSearchError(error, "exa")).toThrow(SearchError);
-    expect(() => handleSearchError(error, "exa")).toThrow("[exa] Something went wrong");
-  });
-
-  it("handles unknown error types", () => {
-    expect(() => handleSearchError("string error", "exa")).toThrow("[exa] Unknown error occurred");
-    expect(() => handleSearchError(null, "exa")).toThrow("[exa] Unknown error occurred");
-    expect(() => handleSearchError(undefined, "exa")).toThrow("[exa] Unknown error occurred");
-  });
+  it.each([["string error"], [null], [undefined]])(
+    "handles unknown error type %j",
+    (value) => {
+      expect(() => handleSearchError(value, "exa")).toThrow(
+        "[exa] Unknown error occurred"
+      );
+    }
+  );
 });

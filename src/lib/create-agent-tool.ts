@@ -1,6 +1,20 @@
-import type { Tool, ToolSet, TypedToolResult, UIMessage, UIMessageStreamWriter } from "ai";
-import { convertToModelMessages, isStepCount, streamText, toUIMessageStream, tool } from "ai";
+import type {
+  LanguageModel,
+  Tool,
+  ToolSet,
+  TypedToolResult,
+  UIMessage,
+  UIMessageStreamWriter,
+} from "ai";
+import {
+  convertToModelMessages,
+  isStepCount,
+  streamText,
+  toUIMessageStream,
+  tool,
+} from "ai";
 import { z } from "zod";
+
 import { getComposioTools } from "@/lib/composio-server";
 import type { ReasoningEffort } from "@/lib/config/schemas";
 import type { ConnectorStatusLists } from "@/lib/connector-utils";
@@ -11,8 +25,9 @@ const COMPOSIO_MULTI_EXECUTE_TOOL = "COMPOSIO_MULTI_EXECUTE_TOOL";
 const COMPOSIO_TOOL_ROUTER_INSTRUCTIONS =
   "Use COMPOSIO_SEARCH_TOOLS first with atomic, toolkit-scoped queries to discover the required tool schemas. Reuse its returned session_id for later schema lookups and COMPOSIO_MULTI_EXECUTE_TOOL calls. Then execute connector actions with COMPOSIO_MULTI_EXECUTE_TOOL. A search alone does not complete the task. Do not claim success unless COMPOSIO_MULTI_EXECUTE_TOOL returns a successful result. If an account is disconnected, stop and ask the user to reconnect it in Settings; do not attempt connection management.";
 
-export const appendComposioToolRouterInstructions = (instructions: string): string =>
-  `${instructions}\n\n${COMPOSIO_TOOL_ROUTER_INSTRUCTIONS}`;
+export const appendComposioToolRouterInstructions = (
+  instructions: string
+): string => `${instructions}\n\n${COMPOSIO_TOOL_ROUTER_INSTRUCTIONS}`;
 
 export const toolListSchema = z.union([
   toolNameSchema,
@@ -21,7 +36,7 @@ export const toolListSchema = z.union([
 
 export const createAgentInputSchema = z.object({
   tool: toolListSchema.describe(
-    'One or more connector toolkits to enable (e.g. "GMAIL", "NOTION").',
+    'One or more connector toolkits to enable (e.g. "GMAIL", "NOTION").'
   ),
   task: z
     .string()
@@ -32,17 +47,21 @@ export const createAgentInputSchema = z.object({
     .string()
     .max(5000, "Context must be 5000 characters or less")
     .optional()
-    .describe("Optional context from previous operations to provide to the agent."),
+    .describe(
+      "Optional context from previous operations to provide to the agent."
+    ),
 });
 
 export type CreateAgentInput = z.input<typeof createAgentInputSchema>;
 
-type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOptions"]>;
+type ProviderOptions = NonNullable<
+  Parameters<typeof streamText>[0]["providerOptions"]
+>;
 
 interface CreateAgentToolOptions {
   userId?: string;
   availableToolkits: string[];
-  model: string;
+  model: LanguageModel;
   systemPrompt?: string;
   maxSteps?: number;
   reasoning?: ReasoningEffort;
@@ -60,6 +79,17 @@ export interface SubAgentAnalysis {
   summary: string;
   errorMessage?: string;
 }
+
+// Parses the JSON analysis that execute() hands to toModelOutput
+const subAgentAnalysisSchema = z.object({
+  success: z.boolean(),
+  toolCallCount: z.number(),
+  toolNames: z.array(z.string()),
+  finishReason: z.string(),
+  issues: z.array(z.string()),
+  summary: z.string(),
+  errorMessage: z.string().optional(),
+}) satisfies z.ZodType<SubAgentAnalysis>;
 
 type SubAgentToolResult = TypedToolResult<ToolSet>;
 
@@ -79,7 +109,11 @@ const isSuccessfulConnectorResult = (result: SubAgentToolResult): boolean => {
 
 const getConnectorResultError = (result: SubAgentToolResult): string | null => {
   const parsed = connectorToolOutputSchema.safeParse(result.output);
-  return parsed.success && parsed.data.error ? parsed.data.error : null;
+  if (!parsed.success) {
+    return null;
+  }
+  const { error } = parsed.data;
+  return error !== undefined && error !== null && error !== "" ? error : null;
 };
 
 export const analyzeSubAgentExecution = ({
@@ -101,10 +135,10 @@ export const analyzeSubAgentExecution = ({
   // Determine completion status
   const attemptedTools = toolCallCount > 0;
   const connectorActionCalls = toolCalls.filter(
-    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
+    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL
   );
   const connectorActionResults = toolResults.filter(
-    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL,
+    ({ toolName }) => toolName.toUpperCase() === COMPOSIO_MULTI_EXECUTE_TOOL
   );
   const executedConnectorAction = connectorActionCalls.length > 0;
   const connectorActionsSucceeded =
@@ -115,7 +149,11 @@ export const analyzeSubAgentExecution = ({
   const hasSubstantialOutput = finalText.length > 25;
   const hasError = subAgentError !== null;
 
-  const success = connectorActionsSucceeded && normalFinish && hasSubstantialOutput && !hasError;
+  const success =
+    connectorActionsSucceeded &&
+    normalFinish &&
+    hasSubstantialOutput &&
+    !hasError;
 
   const issues: string[] = [];
   if (hasError) {
@@ -134,7 +172,7 @@ export const analyzeSubAgentExecution = ({
     issues.push(
       resultErrors.length > 0
         ? `Connector action failed: ${resultErrors.join("; ")}`
-        : "Connector action failed",
+        : "Connector action failed"
     );
   }
   if (finishReason === "error") {
@@ -161,7 +199,7 @@ export const analyzeSubAgentExecution = ({
 const buildInnerSystemPrompt = (
   task: string,
   requestedToolkits: string[],
-  connectorsStatus?: ConnectorStatusLists,
+  connectorsStatus?: ConnectorStatusLists
 ): string => {
   const enabledList = connectorsStatus?.enabled ?? [];
   const disabledList = connectorsStatus?.disabled ?? [];
@@ -171,7 +209,9 @@ const buildInnerSystemPrompt = (
   const toolSpecificPrompts = getToolSpecificPrompts(requestedToolkits);
 
   let systemPrompt = `You are a focused operations agent. Your job is to complete the task provided by the supervisor using ONLY the enabled tools.\n\nTask: ${task}\nEnabled toolkits available to you: ${requestedToolkits.join(", ")}\nOther toolkits for context:\n- Enabled (outside request): ${
-    enabledList.filter((slug: string) => !requestedToolkits.includes(slug)).join(", ") || "none"
+    enabledList
+      .filter((slug: string) => !requestedToolkits.includes(slug))
+      .join(", ") || "none"
   }\n- Disabled: ${disabledList.join(", ") || "none"}\n- Not connected: ${notConnectedList.join(", ") || "none"}`;
 
   // Add tool-specific guidance if available
@@ -197,14 +237,16 @@ export const createAgentTool = ({
   writer,
 }: CreateAgentToolOptions): Tool<CreateAgentInput, string> => {
   const connectorListDescription =
-    availableToolkits.length > 0 ? availableToolkits.join(", ") : "(no connectors available)";
+    availableToolkits.length > 0
+      ? availableToolkits.join(", ")
+      : "(no connectors available)";
 
   return tool({
     description: `Create a temporary agent that can use specific connectors to complete a task. Provide the connectors via the \`tool\` field, the high-level goal via \`task\`, and optional context from previous operations via \`context\`. Available connectors: ${connectorListDescription}.`,
     inputSchema: createAgentInputSchema,
     toModelOutput: ({ output }) => {
       try {
-        const analysis: SubAgentAnalysis = JSON.parse(output);
+        const analysis = subAgentAnalysisSchema.parse(JSON.parse(output));
 
         if (!analysis.success) {
           const issueDetails = analysis.issues.join("; ");
@@ -231,54 +273,71 @@ export const createAgentTool = ({
     async execute(input, { abortSignal }) {
       const toolValues = Array.isArray(input.tool) ? input.tool : [input.tool];
 
-      const requestedToolkits = Array.from(
-        new Set(
+      const requestedToolkits = [
+        ...new Set(
           toolValues
             .map((rawValue) => rawValue.trim())
             .filter((value) => value.length > 0)
-            .map((value) => value.toUpperCase()),
+            .map((value) => value.toUpperCase())
         ),
-      );
+      ];
 
       if (requestedToolkits.length === 0) {
         throw new Error("At least one connector toolkit must be specified.");
       }
 
-      if (!userId) {
+      if (userId === undefined || userId === "") {
         throw new Error("User session required to use connectors.");
       }
 
-      const availableSet = new Set(availableToolkits.map((slug) => slug.toUpperCase()));
-      const unavailable = requestedToolkits.filter((slug) => !availableSet.has(slug));
+      const availableSet = new Set(
+        availableToolkits.map((slug) => slug.toUpperCase())
+      );
+      const unavailable = requestedToolkits.filter(
+        (slug) => !availableSet.has(slug)
+      );
 
       if (unavailable.length > 0) {
         throw new Error(
-          `Unavailable connectors requested: ${unavailable.join(", ")}. Enable them in settings and try again.`,
+          `Unavailable connectors requested: ${unavailable.join(", ")}. Enable them in settings and try again.`
         );
       }
 
-      const composioSession = await getComposioTools(userId, requestedToolkits, abortSignal);
+      const composioSession = await getComposioTools(
+        userId,
+        requestedToolkits,
+        abortSignal
+      );
 
       if (!composioSession) {
-        throw new Error("No connector tools available for the requested selection.");
+        throw new Error(
+          "No connector tools available for the requested selection."
+        );
       }
 
       try {
         const filteredTools = composioSession.tools;
 
         if (Object.keys(filteredTools).length === 0) {
-          throw new Error("No connector tools available for the requested selection.");
+          throw new Error(
+            "No connector tools available for the requested selection."
+          );
         }
 
         const innerSystem = appendComposioToolRouterInstructions(
-          systemPrompt ?? buildInnerSystemPrompt(input.task, requestedToolkits, connectorsStatus),
+          systemPrompt ??
+            buildInnerSystemPrompt(
+              input.task,
+              requestedToolkits,
+              connectorsStatus
+            )
         );
 
         // Build messages array based on whether context is provided
         const messages: UIMessage[] = [];
 
         // Add context message if provided
-        if (input.context) {
+        if (input.context !== undefined && input.context !== "") {
           messages.push({
             id: "create-agent-context",
             role: "user",
@@ -318,19 +377,20 @@ export const createAgentTool = ({
           abortSignal,
           // toolChoice: "required",
           onError: ({ error }) => {
-            subAgentError = error instanceof Error ? error : new Error(String(error));
+            subAgentError =
+              error instanceof Error ? error : new Error(String(error));
           },
           onEnd({ usage }) {
             agentTokenUsage = {
-              inputTokens: usage.inputTokens || 0,
-              outputTokens: usage.outputTokens || 0,
-              totalTokens: usage.totalTokens || 0,
+              inputTokens: usage.inputTokens ?? 0,
+              outputTokens: usage.outputTokens ?? 0,
+              totalTokens: usage.totalTokens ?? 0,
             };
           },
         });
 
         // Generate unique boundary ID for this agent execution
-        const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const boundaryId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
         // Inject start boundary marker
         writer.write({
@@ -345,7 +405,8 @@ export const createAgentTool = ({
             toolkits: requestedToolkits,
             context: input.context,
           },
-          transient: false, // Keep in message history for boundary detection
+          // Keep in message history for boundary detection
+          transient: false,
         });
 
         // Let AI SDK handle all the streaming naturally
@@ -358,11 +419,14 @@ export const createAgentTool = ({
         }
 
         // Get tool execution information (these are Promises)
-        const [steps, finishReason] = await Promise.all([result.steps, result.finishReason]);
+        const [steps, finishReason] = await Promise.all([
+          result.steps,
+          result.finishReason,
+        ]);
 
         // Collect all tool calls from all steps (not just the last one)
-        const toolCalls = steps.flatMap((step) => step.toolCalls || []);
-        const toolResults = steps.flatMap((step) => step.toolResults || []);
+        const toolCalls = steps.flatMap((step) => step.toolCalls);
+        const toolResults = steps.flatMap((step) => step.toolResults);
 
         // Analyze what the sub-agent actually did
         const analysis = analyzeSubAgentExecution({
@@ -391,7 +455,8 @@ export const createAgentTool = ({
             },
             tokenUsage: agentTokenUsage,
           },
-          transient: false, // Keep in message history for boundary detection
+          // Keep in message history for boundary detection
+          transient: false,
         });
 
         // Return structured analysis as JSON for toModelOutput processing

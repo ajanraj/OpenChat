@@ -1,5 +1,6 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
+
 import { StripeCreditReset, StripeSubscriptionSync } from "./schema/billing";
 import { Chat } from "./schema/chat";
 import { ChatAttachment } from "./schema/chat_attachment";
@@ -19,12 +20,23 @@ export default defineSchema({
   chats: defineTable(Chat)
     .index("by_user", ["userId"])
     // Chat list pages, most recently active first: one profile's, or every profile's (settings)
-    .index("by_user_and_profile_and_updated", ["userId", "profileId", "updatedAt"])
+    .index("by_user_and_profile_and_updated", [
+      "userId",
+      "profileId",
+      "updatedAt",
+    ])
     .index("by_user_and_updated", ["userId", "updatedAt"])
-    .index("by_user_and_profile_and_pinned", ["userId", "profileId", "isPinned"])
+    .index("by_user_and_profile_and_pinned", [
+      "userId",
+      "profileId",
+      "isPinned",
+    ])
     // Branches of a chat, to clear their link when the chat is deleted
     .index("by_user_and_original_chat", ["userId", "originalChatId"])
-    .searchIndex("search_title", { searchField: "title", filterFields: ["userId", "profileId"] }),
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["userId", "profileId"],
+    }),
   profiles: defineTable(Profile)
     .index("by_user", ["userId"])
     .index("by_user_and_default", ["userId", "isDefault"]),
@@ -41,7 +53,10 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     // Dedicated index for direct lookups/deletes by R2 object key
     .index("by_key", ["key"]),
-  user_api_keys: defineTable(UserApiKey).index("by_user_provider", ["userId", "provider"]),
+  user_api_keys: defineTable(UserApiKey).index("by_user_provider", [
+    "userId",
+    "provider",
+  ]),
   connectors: defineTable(Connector)
     .index("by_user", ["userId"])
     .index("by_user_and_type", ["userId", "type"])
@@ -55,9 +70,10 @@ export default defineSchema({
     .index("by_execution_id", ["executionId"]),
   stripe_subscription_syncs: defineTable(StripeSubscriptionSync).index(
     "by_stripe_subscription_id",
-    ["stripeSubscriptionId"],
+    ["stripeSubscriptionId"]
   ),
-  stripe_credit_resets: defineTable(StripeCreditReset).index("by_stripe_invoice_id", [
-    "stripeInvoiceId",
-  ]),
+  stripe_credit_resets: defineTable(StripeCreditReset).index(
+    "by_stripe_invoice_id",
+    ["stripeInvoiceId"]
+  ),
 });

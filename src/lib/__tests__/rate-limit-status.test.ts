@@ -1,29 +1,34 @@
 import { DAY, HOUR } from "@convex-dev/rate-limiter";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import {
   getNextRateLimitReset,
   measureServerClockOffset,
-  type RateLimitState,
   resolveRateLimitStatus,
 } from "../rate-limit-status";
+import type { RateLimitState } from "../rate-limit-status";
 
 const WINDOW_START = Date.UTC(2026, 9, 1, 8);
 const MONTH = 30 * DAY;
 
-function bucket(value: number, ts: number, capacity: number, period: number) {
-  return { value, ts, rate: capacity, capacity, period };
-}
+const bucket = (
+  value: number,
+  ts: number,
+  capacity: number,
+  period: number
+) => ({ value, ts, rate: capacity, capacity, period });
 
-function freeUser(dailyValue: number, dailyTs = WINDOW_START): RateLimitState {
-  return {
-    isPremium: false,
-    daily: bucket(dailyValue, dailyTs, 5, DAY),
-    monthly: bucket(1400, WINDOW_START, 1500, MONTH),
-    premium: null,
-  };
-}
+const freeUser = (
+  dailyValue: number,
+  dailyTs = WINDOW_START
+): RateLimitState => ({
+  isPremium: false,
+  daily: bucket(dailyValue, dailyTs, 5, DAY),
+  monthly: bucket(1400, WINDOW_START, 1500, MONTH),
+  premium: null,
+});
 
-describe("resolveRateLimitStatus", () => {
+describe(resolveRateLimitStatus, () => {
   it("reports usage within the current window", () => {
     const status = resolveRateLimitStatus(freeUser(3), WINDOW_START + HOUR);
 
@@ -38,7 +43,10 @@ describe("resolveRateLimitStatus", () => {
   });
 
   it("refills an exhausted daily window once it has ended", () => {
-    const status = resolveRateLimitStatus(freeUser(0), WINDOW_START + DAY + HOUR);
+    const status = resolveRateLimitStatus(
+      freeUser(0),
+      WINDOW_START + DAY + HOUR
+    );
 
     expect(status.dailyRemaining).toBe(5);
     expect(status.dailyCount).toBe(0);
@@ -47,13 +55,19 @@ describe("resolveRateLimitStatus", () => {
   });
 
   it("points the reset at the current window after several have passed", () => {
-    const status = resolveRateLimitStatus(freeUser(1), WINDOW_START + 3.5 * DAY);
+    const status = resolveRateLimitStatus(
+      freeUser(1),
+      WINDOW_START + 3.5 * DAY
+    );
 
     expect(status.dailyReset).toBe(WINDOW_START + 4 * DAY);
   });
 
   it("does not count back into an earlier window when the client clock is behind", () => {
-    const status = resolveRateLimitStatus(freeUser(3), WINDOW_START - 5 * 60 * 1000);
+    const status = resolveRateLimitStatus(
+      freeUser(3),
+      WINDOW_START - 5 * 60 * 1000
+    );
 
     expect(status.dailyRemaining).toBe(3);
     expect(status.dailyReset).toBe(WINDOW_START + DAY);
@@ -81,7 +95,7 @@ describe("resolveRateLimitStatus", () => {
         monthly: bucket(1450, WINDOW_START, 1500, MONTH),
         premium: bucket(90, WINDOW_START, 100, MONTH),
       },
-      WINDOW_START + DAY,
+      WINDOW_START + DAY
     );
 
     expect(status).toMatchObject({
@@ -97,7 +111,7 @@ describe("resolveRateLimitStatus", () => {
   });
 });
 
-describe("getNextRateLimitReset", () => {
+describe(getNextRateLimitReset, () => {
   it("returns the earliest upcoming reset", () => {
     const status = resolveRateLimitStatus(freeUser(3), WINDOW_START + HOUR);
 
@@ -112,14 +126,14 @@ describe("getNextRateLimitReset", () => {
         monthly: bucket(1500, 0, 1500, MONTH),
         premium: null,
       },
-      WINDOW_START,
+      WINDOW_START
     );
 
     expect(getNextRateLimitReset(status)).toBeUndefined();
   });
 });
 
-describe("measureServerClockOffset", () => {
+describe(measureServerClockOffset, () => {
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -131,7 +145,7 @@ describe("measureServerClockOffset", () => {
     const offset = await measureServerClockOffset(async () => {
       // The server, two minutes ahead, reads its clock halfway through a 200 ms round trip
       vi.setSystemTime(WINDOW_START + 200);
-      return WINDOW_START + 100 + 2 * 60_000;
+      return await Promise.resolve(WINDOW_START + 100 + 2 * 60_000);
     });
 
     expect(offset).toBe(2 * 60_000);
@@ -142,8 +156,8 @@ describe("measureServerClockOffset", () => {
     vi.setSystemTime(WINDOW_START);
 
     const measured = measureServerClockOffset(async () => {
-      vi.setSystemTime(WINDOW_START + 6_000);
-      return WINDOW_START + 3_000;
+      vi.setSystemTime(WINDOW_START + 6000);
+      return await Promise.resolve(WINDOW_START + 3000);
     });
 
     await expect(measured).rejects.toThrow("measure again");

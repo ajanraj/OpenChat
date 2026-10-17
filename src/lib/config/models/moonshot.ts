@@ -68,7 +68,8 @@ export const MOONSHOT_MODELS = [
     premium: true,
     usesPremiumCredits: false,
     legacy: true,
-    description: "Moonshot AI's original Kimi K2 model.\nSupports agentic tool use.",
+    description:
+      "Moonshot AI's original Kimi K2 model.\nSupports agentic tool use.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE],
     api_sdk: openrouter("moonshotai/kimi-k2:nitro"),
@@ -96,9 +97,14 @@ export const MOONSHOT_MODELS = [
     premium: true,
     usesPremiumCredits: false,
     legacy: true,
-    description: "Moonshot AI's previous multimodal flagship.\nStrong coding and agentic tool use.",
+    description:
+      "Moonshot AI's previous multimodal flagship.\nStrong coding and agentic tool use.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
-    features: [FILE_UPLOAD_FEATURE, PDF_PROCESSING_FEATURE, TOOL_CALLING_FEATURE],
+    features: [
+      FILE_UPLOAD_FEATURE,
+      PDF_PROCESSING_FEATURE,
+      TOOL_CALLING_FEATURE,
+    ],
     api_sdk: openrouter("moonshotai/kimi-k2.5"),
   },
   {
@@ -129,7 +135,8 @@ export const MOONSHOT_MODELS = [
     premium: true,
     usesPremiumCredits: true,
     legacy: true,
-    description: "Moonshot AI's previous always-thinking model.\nDesigned for complex workflows.",
+    description:
+      "Moonshot AI's previous always-thinking model.\nDesigned for complex workflows.",
     apiKeyUsage: { allowUserKey: false, userKeyOnly: false },
     features: [TOOL_CALLING_FEATURE, REASONING_FEATURE_FIXED],
     api_sdk: openrouter("moonshotai/kimi-k2-thinking"),

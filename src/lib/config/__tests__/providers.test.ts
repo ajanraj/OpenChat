@@ -1,7 +1,14 @@
-import { createElement } from "react";
 import { render } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { FluxIcon, KimiIcon, MinimaxIcon, ZAIIcon } from "@/components/icons/provider-brand-icons";
+
+import {
+  FluxIcon,
+  KimiIcon,
+  MinimaxIcon,
+  ZAIIcon,
+} from "@/components/icons/provider-brand-icons";
+
 import { PROVIDERS, PROVIDERS_OPTIONS } from "../providers";
 
 const providerIconMappings = [
@@ -21,18 +28,16 @@ const localProviderIcons = [
 describe("Providers Config", () => {
   describe("PROVIDERS array", () => {
     it("is a non-empty array", () => {
-      expect(Array.isArray(PROVIDERS)).toBe(true);
+      expect(Array.isArray(PROVIDERS)).toBeTruthy();
       expect(PROVIDERS.length).toBeGreaterThan(0);
     });
 
     it("each provider has required properties", () => {
       for (const provider of PROVIDERS) {
-        expect(provider.id).toBeDefined();
-        expect(typeof provider.id).toBe("string");
+        expect(provider.id).toBeTypeOf("string");
         expect(provider.id.length).toBeGreaterThan(0);
 
-        expect(provider.name).toBeDefined();
-        expect(typeof provider.name).toBe("string");
+        expect(provider.name).toBeTypeOf("string");
         expect(provider.name.length).toBeGreaterThan(0);
 
         expect(provider.icon).toBeDefined();
@@ -79,21 +84,33 @@ describe("Providers Config", () => {
   });
 
   describe("Provider icon variations", () => {
-    it.each(providerIconMappings)("uses the expected icon for $id", ({ icon, id }) => {
-      expect(PROVIDERS.find((provider) => provider.id === id)?.icon).toBe(icon);
-    });
+    it.each(providerIconMappings)(
+      "uses the expected icon for $id",
+      ({ icon, id }) => {
+        expect(PROVIDERS.find((provider) => provider.id === id)?.icon).toBe(
+          icon
+        );
+      }
+    );
 
-    it.each(localProviderIcons)("renders the local $title icon", ({ icon, title }) => {
-      const { container } = render(createElement(icon, { className: "size-5" }));
-      const svg = container.querySelector("svg");
+    it.each(localProviderIcons)(
+      "renders the local $title icon",
+      ({ icon, title }) => {
+        const { container } = render(
+          createElement(icon, { className: "size-5" })
+        );
+        const svg = container.querySelector("svg");
 
-      expect(svg?.getAttribute("class")).toBe("size-5");
-      expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
-      expect(svg?.querySelector("title")?.textContent).toBe(title);
-    });
+        expect(svg?.getAttribute("class")).toBe("size-5");
+        expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
+        expect(svg?.querySelector("title")?.textContent).toBe(title);
+      }
+    );
 
     it("renders Kimi without an opaque app-tile background", () => {
-      const { container } = render(createElement(KimiIcon, { className: "size-5" }));
+      const { container } = render(
+        createElement(KimiIcon, { className: "size-5" })
+      );
       const svg = container.querySelector("svg");
 
       expect(svg?.querySelectorAll("path")).toHaveLength(2);
@@ -122,7 +139,7 @@ describe("Providers Config", () => {
     });
   });
 
-  describe("PROVIDERS_OPTIONS", () => {
+  describe("provider options", () => {
     it("is the same as PROVIDERS", () => {
       expect(PROVIDERS_OPTIONS).toBe(PROVIDERS);
     });

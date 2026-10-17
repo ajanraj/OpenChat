@@ -1,7 +1,7 @@
 import type { UIMessage as MessageType } from "@ai-sdk/react";
 import type { Infer } from "convex/values";
 import React, { useCallback, useState } from "react";
-import type { ReasoningEffort } from "@/lib/config";
+import type { ReasoningEffort } from "@/lib/config/schemas";
 import type { Message as MessageSchema } from "../../../convex/schema/message";
 import { MessageAssistant } from "./message-assistant";
 import { MessageUser } from "./message-user";

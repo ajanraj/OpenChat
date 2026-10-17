@@ -78,96 +78,90 @@ export const ERROR_CODES = {
 // Type for all error codes
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
-// Helper function to create user-friendly error messages
-export function getErrorMessage(code: ErrorCode): string {
-  switch (code) {
-    // Auth errors
-    case ERROR_CODES.NOT_AUTHENTICATED:
-      return "Authentication required. Please sign in.";
-    case ERROR_CODES.UNAUTHORIZED:
-      return "You are not authorized to perform this action.";
-    case ERROR_CODES.TOKEN_EXPIRED:
-      return "Your session has expired. Please sign in again.";
+/** User-facing message for each error code. */
+const ERROR_MESSAGES: Record<ErrorCode, string> = {
+  // Auth errors
+  [ERROR_CODES.NOT_AUTHENTICATED]: "Authentication required. Please sign in.",
+  [ERROR_CODES.UNAUTHORIZED]: "You are not authorized to perform this action.",
+  [ERROR_CODES.TOKEN_EXPIRED]:
+    "Your session has expired. Please sign in again.",
 
-    // Validation errors
-    case ERROR_CODES.INVALID_INPUT:
-      return "Invalid input provided. Please check your data.";
-    case ERROR_CODES.MISSING_REQUIRED_FIELD:
-      return "Required field is missing.";
-    case ERROR_CODES.USER_NOT_FOUND:
-      return "User not found.";
-    case ERROR_CODES.CHAT_NOT_FOUND:
-      return "Chat not found or you do not have access to it.";
-    case ERROR_CODES.MESSAGE_NOT_FOUND:
-      return "Message not found.";
-    case ERROR_CODES.FILE_NOT_FOUND:
-      return "File not found.";
-    case ERROR_CODES.CONNECTOR_NOT_FOUND:
-      return "Connector not found or not connected.";
+  // Validation errors
+  [ERROR_CODES.INVALID_INPUT]:
+    "Invalid input provided. Please check your data.",
+  [ERROR_CODES.MISSING_REQUIRED_FIELD]: "Required field is missing.",
+  [ERROR_CODES.USER_NOT_FOUND]: "User not found.",
+  [ERROR_CODES.CHAT_NOT_FOUND]:
+    "Chat not found or you do not have access to it.",
+  [ERROR_CODES.MESSAGE_NOT_FOUND]: "Message not found.",
+  [ERROR_CODES.FILE_NOT_FOUND]: "File not found.",
+  [ERROR_CODES.CONNECTOR_NOT_FOUND]: "Connector not found or not connected.",
 
-    // Rate limit errors
-    case ERROR_CODES.DAILY_LIMIT_REACHED:
-      return "You have reached your daily usage limit. Please try again tomorrow.";
-    case ERROR_CODES.MONTHLY_LIMIT_REACHED:
-      return "You have reached your monthly usage limit. Please upgrade your plan.";
-    case ERROR_CODES.PREMIUM_LIMIT_REACHED:
-      return "You have used all of your premium credits for this month. Your premium credits will reset with your subscription.";
+  // Rate limit errors
+  [ERROR_CODES.DAILY_LIMIT_REACHED]:
+    "You have reached your daily usage limit. Please try again tomorrow.",
+  [ERROR_CODES.MONTHLY_LIMIT_REACHED]:
+    "You have reached your monthly usage limit. Please upgrade your plan.",
+  [ERROR_CODES.PREMIUM_LIMIT_REACHED]:
+    "You have used all of your premium credits for this month. Your premium credits will reset with your subscription.",
 
-    // Business errors
-    case ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED:
-      return "This model requires a premium subscription. Please upgrade to access premium models.";
-    case ERROR_CODES.USER_KEY_REQUIRED:
-      return "This model requires your own API key. Please add your API key in settings.";
-    case ERROR_CODES.UNSUPPORTED_MODEL:
-      return "The selected model is not supported for this operation.";
-    case ERROR_CODES.UNSUPPORTED_OPERATION:
-      return "This operation is not supported.";
-    case ERROR_CODES.REDACTED_CONTENT:
-      return "Cannot fork chat with redacted content. Forking disabled to maintain conversation integrity.";
-    case ERROR_CODES.PROFILE_LIMIT_REACHED:
-      return "Maximum of 5 profiles allowed.";
-    case ERROR_CODES.PROFILE_NOT_FOUND:
-      return "Profile not found.";
-    case ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE:
-      return "The default profile cannot be deleted.";
+  // Business errors
+  [ERROR_CODES.PREMIUM_MODEL_ACCESS_DENIED]:
+    "This model requires a premium subscription. Please upgrade to access premium models.",
+  [ERROR_CODES.USER_KEY_REQUIRED]:
+    "This model requires your own API key. Please add your API key in settings.",
+  [ERROR_CODES.UNSUPPORTED_MODEL]:
+    "The selected model is not supported for this operation.",
+  [ERROR_CODES.UNSUPPORTED_OPERATION]: "This operation is not supported.",
+  [ERROR_CODES.REDACTED_CONTENT]:
+    "Cannot fork chat with redacted content. Forking disabled to maintain conversation integrity.",
+  [ERROR_CODES.PROFILE_LIMIT_REACHED]: "Maximum of 5 profiles allowed.",
+  [ERROR_CODES.PROFILE_NOT_FOUND]: "Profile not found.",
+  [ERROR_CODES.CANNOT_DELETE_DEFAULT_PROFILE]:
+    "The default profile cannot be deleted.",
 
-    // File errors
-    case ERROR_CODES.UNSUPPORTED_FILE_TYPE:
-      return "Unsupported file type. Please upload a supported file format.";
-    case ERROR_CODES.FILE_TOO_LARGE:
-      return "File is too large. Please upload a smaller file.";
-    case ERROR_CODES.UPLOAD_FAILED:
-      return "File upload failed. Please try again.";
+  // File errors
+  [ERROR_CODES.UNSUPPORTED_FILE_TYPE]:
+    "Unsupported file type. Please upload a supported file format.",
+  [ERROR_CODES.FILE_TOO_LARGE]:
+    "File is too large. Please upload a smaller file.",
+  [ERROR_CODES.UPLOAD_FAILED]: "File upload failed. Please try again.",
 
-    // Connector errors
-    case ERROR_CODES.CONNECTION_FAILED:
-      return "Failed to establish connection. Please try again.";
-    case ERROR_CODES.CONNECTION_NOT_FOUND:
-      return "Connection not found. Please reconnect the service.";
-    case ERROR_CODES.CONNECTION_TIMEOUT:
-      return "Connection timed out. Please try again.";
-    case ERROR_CODES.CONNECTOR_NOT_SUPPORTED:
-      return "This connector is not supported.";
-    case ERROR_CODES.CONNECTOR_AUTH_FAILED:
-      return "Authentication failed for this connector. Please reconnect.";
+  // Connector errors
+  [ERROR_CODES.CONNECTION_FAILED]:
+    "Failed to establish connection. Please try again.",
+  [ERROR_CODES.CONNECTION_NOT_FOUND]:
+    "Connection not found. Please reconnect the service.",
+  [ERROR_CODES.CONNECTION_TIMEOUT]: "Connection timed out. Please try again.",
+  [ERROR_CODES.CONNECTOR_NOT_SUPPORTED]: "This connector is not supported.",
+  [ERROR_CODES.CONNECTOR_AUTH_FAILED]:
+    "Authentication failed for this connector. Please reconnect.",
 
-    // Streaming errors
-    case ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT:
-      return "API rate limit exceeded. Please wait a moment before trying again.";
-    case ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED:
-      return "API quota exceeded. Please check your billing or add credits to your account.";
-    case ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE:
-      return "Insufficient API credits. Please add credits to your account.";
-    case ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR:
-      return "Invalid API key. Please check your API key in settings.";
-    case ERROR_CODES.PROVIDER_STREAM_TIMEOUT:
-      return "API request timed out. Please try again.";
-    case ERROR_CODES.PROVIDER_STREAM_THROTTLED:
-      return "API is experiencing high load. Please try again in a moment.";
-    case ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED:
-      return "API resources exhausted. Please wait before retrying.";
+  // Streaming errors
+  [ERROR_CODES.PROVIDER_STREAM_RATE_LIMIT]:
+    "API rate limit exceeded. Please wait a moment before trying again.",
+  [ERROR_CODES.PROVIDER_STREAM_QUOTA_EXCEEDED]:
+    "API quota exceeded. Please check your billing or add credits to your account.",
+  [ERROR_CODES.PROVIDER_STREAM_INSUFFICIENT_BALANCE]:
+    "Insufficient API credits. Please add credits to your account.",
+  [ERROR_CODES.PROVIDER_STREAM_AUTH_ERROR]:
+    "Invalid API key. Please check your API key in settings.",
+  [ERROR_CODES.PROVIDER_STREAM_TIMEOUT]:
+    "API request timed out. Please try again.",
+  [ERROR_CODES.PROVIDER_STREAM_THROTTLED]:
+    "API is experiencing high load. Please try again in a moment.",
+  [ERROR_CODES.PROVIDER_STREAM_RESOURCE_EXHAUSTED]:
+    "API resources exhausted. Please wait before retrying.",
+};
 
-    default:
-      return "An unexpected error occurred. Please try again.";
-  }
-}
+const isErrorCode = (code: string): code is ErrorCode =>
+  Object.hasOwn(ERROR_MESSAGES, code);
+
+/**
+ * User-friendly message for an error code. Accepts any string because callers pass error data
+ * from the server; unknown codes get a generic message.
+ */
+export const getErrorMessage = (code: string): string =>
+  isErrorCode(code)
+    ? ERROR_MESSAGES[code]
+    : "An unexpected error occurred. Please try again.";

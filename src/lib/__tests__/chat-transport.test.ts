@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { chatTransport, setChatAuthToken } from "../chat-transport";
 
-const fetchMock = vi.fn<(url: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
-  async () => new Response("", { headers: { "Content-Type": "text/event-stream" } }),
+const fetchMock = vi.fn<
+  (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+>(
+  async () =>
+    await Promise.resolve(
+      new Response("", { headers: { "Content-Type": "text/event-stream" } })
+    )
 );
 
-async function sendAndReadAuthorization() {
+const sendAndReadAuthorization = async () => {
   fetchMock.mockClear();
   await chatTransport.sendMessages({
     chatId: "chats:1",
@@ -14,10 +20,12 @@ async function sendAndReadAuthorization() {
     trigger: "submit-message",
     messageId: undefined,
   });
-  return new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("authorization");
-}
+  return new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get(
+    "authorization"
+  );
+};
 
-describe("chatTransport", () => {
+describe("chatTransport (DefaultChatTransport)", () => {
   afterEach(() => {
     setChatAuthToken(null);
     vi.unstubAllGlobals();
@@ -27,13 +35,17 @@ describe("chatTransport", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     // A signed-out visitor's first request would have no token...
-    expect(await sendAndReadAuthorization()).toBeNull();
+    await expect(sendAndReadAuthorization()).resolves.toBeNull();
 
     // ...and after their guest sign-in, or a token refresh, the same transport sends the new one
     setChatAuthToken("guest-token");
-    expect(await sendAndReadAuthorization()).toBe("Bearer guest-token");
+    await expect(sendAndReadAuthorization()).resolves.toBe(
+      "Bearer guest-token"
+    );
 
     setChatAuthToken("refreshed-token");
-    expect(await sendAndReadAuthorization()).toBe("Bearer refreshed-token");
+    await expect(sendAndReadAuthorization()).resolves.toBe(
+      "Bearer refreshed-token"
+    );
   });
 });

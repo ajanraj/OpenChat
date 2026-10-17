@@ -9,7 +9,9 @@ import {
 } from "@/components/prompt-kit/prompt-input";
 import { Button } from "@/components/ui/button";
 import { useEditClickOutside } from "@/hooks/use-edit-click-outside";
-import { MODEL_DEFAULT, MODELS_MAP, type ReasoningEffort } from "@/lib/config";
+import { MODEL_DEFAULT } from "@/lib/config/constants";
+import { MODELS_MAP } from "@/lib/config/models";
+import { type ReasoningEffort } from "@/lib/config/schemas";
 import {
 	normalizeReasoningEffort,
 	supportsReasoningEffort,

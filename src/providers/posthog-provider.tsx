@@ -1,15 +1,9 @@
-import posthog from "posthog-js";
+import { posthog } from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 import { useEffect } from "react";
-import { type UserProfile, useUser } from "./user-provider";
 
-export function CSPostHogProvider({ children }: { children: React.ReactNode }) {
-  return (
-    <PostHogProvider client={posthog}>
-      <PostHogAuthWrapper>{children}</PostHogAuthWrapper>
-    </PostHogProvider>
-  );
-}
+import { useUser } from "./user-provider";
+import type { UserProfile } from "./user-provider";
 
 // Define types for PostHog user properties
 interface PostHogUserProperties {
@@ -18,16 +12,18 @@ interface PostHogUserProperties {
   isAnonymous?: boolean;
 }
 
-// Validate user properties before accessing them
-function validateUserProperties(user: UserProfile): PostHogUserProperties {
-  return {
-    email: user.email || undefined,
-    name: user.name || user.preferredName || undefined,
-    isAnonymous: user.isAnonymous,
-  };
-}
+const hasText = (value: string | undefined): value is string =>
+  value !== undefined && value !== "";
 
-function PostHogAuthWrapper({ children }: { children: React.ReactNode }) {
+// Validate user properties before accessing them
+const validateUserProperties = (user: UserProfile): PostHogUserProperties => ({
+  email: hasText(user.email) ? user.email : undefined,
+  name: [user.name, user.preferredName].find(hasText),
+  isAnonymous: user.isAnonymous,
+});
+
+// Identifies the signed-in user (or resets the session after sign-out); renders nothing
+const PostHogIdentify = () => {
   const userInfo = useUser();
 
   useEffect(() => {
@@ -37,10 +33,8 @@ function PostHogAuthWrapper({ children }: { children: React.ReactNode }) {
         const userProperties = validateUserProperties(userInfo.user);
 
         // Only identify if we have a valid user ID
-        if (userInfo.user._id) {
+        if (userInfo.user._id !== "") {
           posthog.identify(userInfo.user._id, userProperties);
-        } else {
-          // console.warn('PostHog: User ID is missing, skipping identification');
         }
       } catch (error) {
         console.error("PostHog: Failed to identify user:", error);
@@ -54,5 +48,17 @@ function PostHogAuthWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [userInfo.user]);
 
-  return children;
-}
+  return null;
+};
+
+export const CSPostHogProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => (
+  <PostHogProvider client={posthog}>
+    {children}
+    {/* After children, so its effect still runs after theirs, as when it wrapped them */}
+    <PostHogIdentify />
+  </PostHogProvider>
+);

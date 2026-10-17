@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   COMMON_STYLES,
   DEFAULT_FONT_MONO,
@@ -9,9 +10,9 @@ import {
   defaultThemeState,
 } from "../theme";
 
-describe("COMMON_STYLES", () => {
+describe("COMMON_STYLES list", () => {
   it("is an array of style property names", () => {
-    expect(Array.isArray(COMMON_STYLES)).toBe(true);
+    expect(Array.isArray(COMMON_STYLES)).toBeTruthy();
     expect(COMMON_STYLES.length).toBeGreaterThan(0);
   });
 
@@ -39,27 +40,27 @@ describe("COMMON_STYLES", () => {
 describe("DEFAULT_FONT constants", () => {
   it("DEFAULT_FONT_SANS is a valid font stack", () => {
     expect(DEFAULT_FONT_SANS).toBeDefined();
-    expect(typeof DEFAULT_FONT_SANS).toBe("string");
+    expect(DEFAULT_FONT_SANS).toBeTypeOf("string");
     expect(DEFAULT_FONT_SANS).toContain("sans-serif");
   });
 
   it("DEFAULT_FONT_SERIF is a valid font stack", () => {
     expect(DEFAULT_FONT_SERIF).toBeDefined();
-    expect(typeof DEFAULT_FONT_SERIF).toBe("string");
+    expect(DEFAULT_FONT_SERIF).toBeTypeOf("string");
     expect(DEFAULT_FONT_SERIF).toContain("serif");
   });
 
   it("DEFAULT_FONT_MONO is a valid font stack", () => {
     expect(DEFAULT_FONT_MONO).toBeDefined();
-    expect(typeof DEFAULT_FONT_MONO).toBe("string");
+    expect(DEFAULT_FONT_MONO).toBeTypeOf("string");
     expect(DEFAULT_FONT_MONO).toContain("monospace");
   });
 });
 
-describe("defaultLightThemeStyles", () => {
+describe("defaultLightThemeStyles object", () => {
   it("is defined and is an object", () => {
     expect(defaultLightThemeStyles).toBeDefined();
-    expect(typeof defaultLightThemeStyles).toBe("object");
+    expect(defaultLightThemeStyles).toBeTypeOf("object");
   });
 
   it("has required color properties", () => {
@@ -106,23 +107,29 @@ describe("defaultLightThemeStyles", () => {
   });
 });
 
-describe("defaultDarkThemeStyles", () => {
+describe("defaultDarkThemeStyles object", () => {
   it("is defined and is an object", () => {
     expect(defaultDarkThemeStyles).toBeDefined();
-    expect(typeof defaultDarkThemeStyles).toBe("object");
+    expect(defaultDarkThemeStyles).toBeTypeOf("object");
   });
 
   it("extends light theme", () => {
-    expect(defaultDarkThemeStyles["font-sans"]).toBe(defaultLightThemeStyles["font-sans"]);
+    expect(defaultDarkThemeStyles["font-sans"]).toBe(
+      defaultLightThemeStyles["font-sans"]
+    );
     expect(defaultDarkThemeStyles.radius).toBe(defaultLightThemeStyles.radius);
   });
 
   it("has different background than light theme", () => {
-    expect(defaultDarkThemeStyles.background).not.toBe(defaultLightThemeStyles.background);
+    expect(defaultDarkThemeStyles.background).not.toBe(
+      defaultLightThemeStyles.background
+    );
   });
 
   it("has different foreground than light theme", () => {
-    expect(defaultDarkThemeStyles.foreground).not.toBe(defaultLightThemeStyles.foreground);
+    expect(defaultDarkThemeStyles.foreground).not.toBe(
+      defaultLightThemeStyles.foreground
+    );
   });
 
   it("uses oklch color format", () => {
@@ -131,10 +138,10 @@ describe("defaultDarkThemeStyles", () => {
   });
 });
 
-describe("defaultThemeState", () => {
+describe("defaultThemeState object", () => {
   it("is defined and is an object", () => {
     expect(defaultThemeState).toBeDefined();
-    expect(typeof defaultThemeState).toBe("object");
+    expect(defaultThemeState).toBeTypeOf("object");
   });
 
   it("has styles for both light and dark modes", () => {

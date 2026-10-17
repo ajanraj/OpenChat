@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PostHog } from "posthog-node";
 import { z } from "zod";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { createErrorResponse } from "@/lib/error-utils";
-import { authMiddleware, badRequest, json, unauthorized } from "@/lib/middleware/auth";
+import {
+  authMiddleware,
+  badRequest,
+  json,
+  unauthorized,
+} from "@/lib/middleware/auth";
 
 const createChatSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -12,10 +18,22 @@ const createChatSchema = z.object({
   personaId: z.string().optional(),
   profileId: z
     .string()
-    .regex(/^\S+$/, "profileId must be a non-empty string without whitespace")
+    .refine(
+      (value): value is Id<"profiles"> => /^\S+$/u.test(value),
+      "profileId must be a non-empty string without whitespace"
+    )
     .optional(),
   timezone: z.string().optional(),
 });
+
+// Flushes queued PostHog events; failures are non-critical for user experience
+const shutdownPostHog = async (posthog: PostHog): Promise<void> => {
+  try {
+    await posthog.shutdown();
+  } catch {
+    // Ignore shutdown failures
+  }
+};
 
 export const Route = createFileRoute("/api/create-chat")({
   server: {
@@ -24,7 +42,7 @@ export const Route = createFileRoute("/api/create-chat")({
       POST: async ({ context, request }) => {
         try {
           // --- Validate request body ---
-          const body = await request.json();
+          const body: unknown = await request.json();
           const parseResult = createChatSchema.safeParse(body);
 
           if (!parseResult.success) {
@@ -50,13 +68,14 @@ export const Route = createFileRoute("/api/create-chat")({
             title,
             model,
             personaId,
-            profileId: profileId as Id<"profiles"> | undefined,
+            profileId,
           });
 
           // Only track if PostHog is configured
-          if (process.env.VITE_POSTHOG_KEY) {
+          const posthogKey = process.env.VITE_POSTHOG_KEY;
+          if (posthogKey !== undefined && posthogKey !== "") {
             try {
-              const posthog = new PostHog(process.env.VITE_POSTHOG_KEY);
+              const posthog = new PostHog(posthogKey);
               posthog.capture({
                 distinctId: user._id,
                 event: "chat_created",
@@ -64,9 +83,7 @@ export const Route = createFileRoute("/api/create-chat")({
                   model,
                 },
               });
-              posthog.shutdown().catch(() => {
-                // PostHog shutdown failures are non-critical for user experience
-              });
+              void shutdownPostHog(posthog);
             } catch {
               // Don't let tracking failures affect the API response
             }
@@ -75,8 +92,8 @@ export const Route = createFileRoute("/api/create-chat")({
           // The client now only needs the ID to redirect to the new chat page.
           // The chat data itself will be fetched on the client via a query.
           return json({ chatId });
-        } catch (err: unknown) {
-          return createErrorResponse(err);
+        } catch (error: unknown) {
+          return createErrorResponse(error);
         }
       },
     },

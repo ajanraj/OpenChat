@@ -1,9 +1,16 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
-import { type ReactNode } from "react";
+import type { useMutation } from "convex/react";
 import { getFunctionName } from "convex/server";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+
 import { useEditorStore } from "@/lib/store/editor-store";
+
+import type { Id, TableNames } from "../../../convex/_generated/dataModel";
 import { ProfileProvider, useProfile } from "../profile-provider";
+import type { useUser } from "../user-provider";
 
 interface MockProfile {
   _creationTime: number;
@@ -20,65 +27,107 @@ interface MockQueryResult {
   isLoading: boolean;
 }
 
-interface MockUserResult {
-  user: {
-    _id: string;
-    activeProfileId?: string;
-    isAnonymous: boolean;
-  } | null;
-  isLoading?: boolean;
+interface MockUser {
+  _id: string;
+  activeProfileId?: string;
+  isAnonymous: boolean;
 }
 
 type MutationValue = boolean | null | number | string | undefined;
 type MutationMock = (args?: Record<string, MutationValue>) => Promise<null>;
 type FunctionReference = Parameters<typeof getFunctionName>[0];
+type ReactMutation = ReturnType<typeof useMutation>;
 
-const useTanStackQueryMock = vi.hoisted(() => vi.fn<(options: object) => MockQueryResult>());
-const useMutationMock = vi.hoisted(() => vi.fn<(mutationRef: FunctionReference) => MutationMock>());
-const convexQueryMock = vi.hoisted(() =>
-  vi.fn<(functionRef: FunctionReference, args?: object | "skip") => object>(() => ({})),
-);
-const useUserMock = vi.hoisted(() => vi.fn<() => MockUserResult>());
+const useMutationMock = vi.hoisted(() => vi.fn<typeof useMutation>());
+const useUserMock = vi.hoisted(() => vi.fn<typeof useUser>());
 
-vi.mock("@tanstack/react-query", () => ({
-  useQuery: useTanStackQueryMock,
-}));
-
-vi.mock("convex/react", () => ({
+vi.mock(import("convex/react"), () => ({
   useMutation: useMutationMock,
 }));
 
-vi.mock("@convex-dev/react-query", () => ({
-  convexQuery: convexQueryMock,
-}));
-
-vi.mock("../user-provider", () => ({
+vi.mock(import("../user-provider"), () => ({
   useUser: useUserMock,
 }));
 
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: unknown) => void;
-}
+/** A fake document id: Convex ids are branded strings, so any string can stand in for one. */
+const testId = <Table extends TableNames>(id: string): Id<Table> =>
+  z.custom<Id<Table>>((value) => typeof value === "string").parse(id);
 
-function createDeferred<T>(): Deferred<T> {
-  let resolve: (value: T | PromiseLike<T>) => void = () => {};
-  let reject: (reason?: unknown) => void = () => {};
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
+const signedOutStub = async () => {
+  // These tests never call the session actions
+};
+
+/** Answers useUser with `user` (null when signed out); the provider reads nothing else. */
+const mockUser = (user: MockUser | null, isLoading = false) => {
+  useUserMock.mockReturnValue({
+    user:
+      user === null
+        ? null
+        : {
+            _id: testId<"users">(user._id),
+            _creationTime: 1,
+            isAnonymous: user.isAnonymous,
+            ...(user.activeProfileId === undefined
+              ? {}
+              : { activeProfileId: testId<"profiles">(user.activeProfileId) }),
+          },
+    isLoading,
+    ensureSession: signedOutStub,
+    signInGoogle: signedOutStub,
+    signOut: signedOutStub,
+    updateUser: signedOutStub,
+    hasPremium: false,
+    rateLimitStatus: undefined,
+    apiKeys: [],
+    hasApiKey: new Map(),
+    hasOpenAI: false,
+    hasAnthropic: false,
+    hasGemini: false,
+    isApiKeysLoading: false,
+    connectors: [],
+    isConnectorsLoading: false,
   });
-  return { promise, resolve, reject };
-}
+};
 
-function flushMicrotasks() {
-  return new Promise<void>((resolve) => {
-    queueMicrotask(resolve);
+/** The mutation useMutation hands out for `fn`; it never applies optimistic updates. */
+const reactMutation = (fn: MutationMock): ReactMutation => {
+  const mutation: ReactMutation = Object.assign(fn, {
+    withOptimisticUpdate: () => mutation,
   });
-}
+  return mutation;
+};
 
-function TestHarness() {
+// A real query cache. Nothing fetches: tests answer the profile list with `mockProfiles`, and
+// without an answer it stays loading
+let queryClient = new QueryClient();
+
+const resetQueryClient = () => {
+  queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { queryFn: async () => await Promise.withResolvers().promise },
+    },
+  });
+};
+
+/** Answers the signed-in user's profile list, or leaves it loading. */
+const mockProfiles = ({ data, isLoading }: MockQueryResult) => {
+  if (!isLoading) {
+    queryClient.setQueryData(
+      ["convexQuery", "profiles:listProfiles", {}],
+      data
+    );
+  }
+};
+
+const flushMicrotasks = async () => {
+  const { promise, resolve } = Promise.withResolvers<null>();
+  queueMicrotask(() => {
+    resolve(null);
+  });
+  await promise;
+};
+
+const TestHarness = () => {
   const { activeProfile, profiles, setActiveProfile } = useProfile();
 
   const profileP2 = profiles.find((profile) => profile.name === "P2");
@@ -91,33 +140,86 @@ function TestHarness() {
   return (
     <div>
       <div data-testid="active-profile-id">{activeProfile?._id ?? "none"}</div>
-      <button data-testid="switch-p2" onClick={() => setActiveProfile(profileP2._id)} type="button">
+      <button
+        data-testid="switch-p2"
+        onClick={() => {
+          setActiveProfile(profileP2._id);
+        }}
+        type="button"
+      >
         switch p2
       </button>
-      <button data-testid="switch-p3" onClick={() => setActiveProfile(profileP3._id)} type="button">
+      <button
+        data-testid="switch-p3"
+        onClick={() => {
+          setActiveProfile(profileP3._id);
+        }}
+        type="button"
+      >
         switch p3
       </button>
     </div>
   );
-}
+};
 
-function renderWithProvider(children: ReactNode) {
-  return render(<ProfileProvider>{children}</ProfileProvider>);
-}
+const Wrapper = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
+    <ProfileProvider>{children}</ProfileProvider>
+  </QueryClientProvider>
+);
+
+const renderWithProvider = (children: ReactNode) =>
+  render(children, { wrapper: Wrapper });
+
+const ChatListProfileHarness = () => {
+  const { chatListProfileId } = useProfile();
+  return (
+    <div data-testid="chat-list-profile-id">{String(chatListProfileId)}</div>
+  );
+};
+
+const renderChatListProfileId = (
+  user: MockUser | null,
+  query: MockQueryResult,
+  isUserLoading = false
+) => {
+  resetQueryClient();
+  mockUser(user, isUserLoading);
+  mockProfiles(query);
+  const { getByTestId, unmount } = renderWithProvider(
+    <ChatListProfileHarness />
+  );
+  const value = getByTestId("chat-list-profile-id").textContent;
+  unmount();
+  return value;
+};
+
+const profile = (id: string, userId: string): MockProfile => ({
+  _id: id,
+  _creationTime: 1,
+  userId,
+  name: "Default",
+  icon: "ChatCircle",
+  isDefault: true,
+  order: 0,
+});
+
+const signOut = () => {
+  mockUser(null);
+};
 
 describe("ProfileProvider profile switching", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetQueryClient();
 
-    useUserMock.mockReturnValue({
-      user: {
-        _id: "users:u1",
-        activeProfileId: "profiles:p1",
-        isAnonymous: false,
-      },
+    mockUser({
+      _id: "users:u1",
+      activeProfileId: "profiles:p1",
+      isAnonymous: false,
     });
 
-    useTanStackQueryMock.mockReturnValue({
+    mockProfiles({
       data: [
         {
           _id: "profiles:p1",
@@ -152,29 +254,31 @@ describe("ProfileProvider profile switching", () => {
   });
 
   it("keeps latest optimistic profile after stale failure and falls back on latest failure", async () => {
-    const firstSwitchDeferred = createDeferred<null>();
-    const secondSwitchDeferred = createDeferred<null>();
+    const firstSwitchDeferred = Promise.withResolvers<null>();
+    const secondSwitchDeferred = Promise.withResolvers<null>();
 
-    const ensureDefaultMutation = vi.fn<MutationMock>(async () => null);
+    const ensureDefaultMutation = vi.fn<MutationMock>().mockResolvedValue(null);
     const setActiveMutation = vi
       .fn<MutationMock>()
       .mockReturnValueOnce(firstSwitchDeferred.promise)
       .mockReturnValueOnce(secondSwitchDeferred.promise);
-    const updateProfileMutation = vi.fn<MutationMock>(async () => null);
+    const updateProfileMutation = vi.fn<MutationMock>().mockResolvedValue(null);
 
-    useMutationMock.mockImplementation((mutationRef: Parameters<typeof getFunctionName>[0]) => {
-      const functionName = getFunctionName(mutationRef);
-      if (functionName === "profiles:ensureDefaultProfile") {
-        return ensureDefaultMutation;
+    useMutationMock.mockImplementation(
+      (mutationRef: Parameters<typeof getFunctionName>[0]) => {
+        const functionName = getFunctionName(mutationRef);
+        if (functionName === "profiles:ensureDefaultProfile") {
+          return reactMutation(ensureDefaultMutation);
+        }
+        if (functionName === "profiles:setActiveProfile") {
+          return reactMutation(setActiveMutation);
+        }
+        if (functionName === "profiles:updateProfile") {
+          return reactMutation(updateProfileMutation);
+        }
+        throw new Error(`unexpected mutation: ${functionName}`);
       }
-      if (functionName === "profiles:setActiveProfile") {
-        return setActiveMutation;
-      }
-      if (functionName === "profiles:updateProfile") {
-        return updateProfileMutation;
-      }
-      throw new Error(`unexpected mutation: ${functionName}`);
-    });
+    );
 
     const { getByTestId } = renderWithProvider(<TestHarness />);
 
@@ -214,51 +318,45 @@ describe("ProfileProvider chatListProfileId", () => {
     },
   ];
 
-  function ChatListProfileHarness() {
-    const { chatListProfileId } = useProfile();
-    return <div data-testid="chat-list-profile-id">{String(chatListProfileId)}</div>;
-  }
-
-  function renderChatListProfileId(
-    user: MockUserResult["user"],
-    query: MockQueryResult,
-    isUserLoading = false,
-  ) {
-    useUserMock.mockReturnValue({ user, isLoading: isUserLoading });
-    useTanStackQueryMock.mockReturnValue(query);
-    const { getByTestId, unmount } = renderWithProvider(<ChatListProfileHarness />);
-    const value = getByTestId("chat-list-profile-id").textContent;
-    unmount();
-    return value;
-  }
-
   beforeEach(() => {
     vi.clearAllMocks();
-    useMutationMock.mockReturnValue(vi.fn<MutationMock>(async () => null));
-  });
-
-  it("uses the stored active profile until profiles load, then the resolved one", () => {
-    const user = { _id: "users:u1", activeProfileId: "profiles:deleted", isAnonymous: false };
-
-    expect(renderChatListProfileId(user, { data: [], isLoading: true })).toBe("profiles:deleted");
-    // The stored profile no longer exists, so the active profile falls back to the default
-    expect(renderChatListProfileId(user, { data: profiles, isLoading: false })).toBe(
-      "profiles:default",
+    useMutationMock.mockReturnValue(
+      reactMutation(vi.fn<MutationMock>().mockResolvedValue(null))
     );
   });
 
+  it("uses the stored active profile until profiles load, then the resolved one", () => {
+    const user = {
+      _id: "users:u1",
+      activeProfileId: "profiles:deleted",
+      isAnonymous: false,
+    };
+
+    expect(renderChatListProfileId(user, { data: [], isLoading: true })).toBe(
+      "profiles:deleted"
+    );
+    // The stored profile no longer exists, so the active profile falls back to the default
+    expect(
+      renderChatListProfileId(user, { data: profiles, isLoading: false })
+    ).toBe("profiles:default");
+  });
+
   it("is unknown until a signed-in user's profile is known", () => {
-    expect(renderChatListProfileId(null, { data: [], isLoading: false }, true)).toBe("undefined");
+    expect(
+      renderChatListProfileId(null, { data: [], isLoading: false }, true)
+    ).toBe("undefined");
     expect(
       renderChatListProfileId(
         { _id: "users:u1", isAnonymous: false },
-        { data: [], isLoading: true },
-      ),
+        { data: [], isLoading: true }
+      )
     ).toBe("undefined");
   });
 
   it("is null for a signed-out visitor, who has no chats until their first message", () => {
-    expect(renderChatListProfileId(null, { data: [], isLoading: false })).toBe("null");
+    expect(renderChatListProfileId(null, { data: [], isLoading: false })).toBe(
+      "null"
+    );
   });
 
   it("uses an anonymous user's active profile, or null before their first chat", () => {
@@ -267,27 +365,21 @@ describe("ProfileProvider chatListProfileId", () => {
     expect(
       renderChatListProfileId(
         { ...anonymous, activeProfileId: "profiles:anon" },
-        { data: [], isLoading: false },
-      ),
+        { data: [], isLoading: false }
+      )
     ).toBe("profiles:anon");
-    expect(renderChatListProfileId(anonymous, { data: [], isLoading: false })).toBe("null");
+    expect(
+      renderChatListProfileId(anonymous, { data: [], isLoading: false })
+    ).toBe("null");
   });
 });
 
 describe("ProfileProvider theme saves", () => {
   const initialThemeState = useEditorStore.getState().themeState;
-  const profile = (id: string, userId: string): MockProfile => ({
-    _id: id,
-    _creationTime: 1,
-    userId,
-    name: "Default",
-    icon: "ChatCircle",
-    isDefault: true,
-    order: 0,
-  });
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetQueryClient();
     vi.useFakeTimers();
   });
 
@@ -299,16 +391,20 @@ describe("ProfileProvider theme saves", () => {
   const edited = { ...initialThemeState, preset: "edited-before-sign-out" };
 
   /** Renders u1's profile p1 with a theme edit still inside its save's debounce. */
-  function renderWithPendingEdit(updateProfile: MutationMock) {
+  const renderWithPendingEdit = (updateProfile: MutationMock) => {
     useMutationMock.mockImplementation((mutationRef: FunctionReference) =>
-      getFunctionName(mutationRef) === "profiles:updateProfile"
-        ? updateProfile
-        : vi.fn<MutationMock>(async () => null),
+      reactMutation(
+        getFunctionName(mutationRef) === "profiles:updateProfile"
+          ? updateProfile
+          : vi.fn<MutationMock>().mockResolvedValue(null)
+      )
     );
-    useUserMock.mockReturnValue({
-      user: { _id: "users:u1", activeProfileId: "profiles:p1", isAnonymous: false },
+    mockUser({
+      _id: "users:u1",
+      activeProfileId: "profiles:p1",
+      isAnonymous: false,
     });
-    useTanStackQueryMock.mockReturnValue({
+    mockProfiles({
       data: [profile("profiles:p1", "users:u1")],
       isLoading: false,
     });
@@ -316,16 +412,13 @@ describe("ProfileProvider theme saves", () => {
     act(() => {
       useEditorStore.getState().setThemeState(edited);
     });
-    return () => rerender(<ProfileProvider>{null}</ProfileProvider>);
-  }
-
-  function signOut() {
-    useUserMock.mockReturnValue({ user: null });
-    useTanStackQueryMock.mockReturnValue({ data: [], isLoading: false });
-  }
+    return () => {
+      rerender(null);
+    };
+  };
 
   it("saves a theme edit still pending as its account signs out, and only to that account", () => {
-    const updateProfile = vi.fn<MutationMock>(async () => null);
+    const updateProfile = vi.fn<MutationMock>().mockResolvedValue(null);
     const rerender = renderWithPendingEdit(updateProfile);
 
     // Signed out within the save's debounce
@@ -338,10 +431,12 @@ describe("ProfileProvider theme saves", () => {
     });
 
     // The next account's profile loads with nothing left to save to the previous one
-    useUserMock.mockReturnValue({
-      user: { _id: "users:u2", activeProfileId: "profiles:p2", isAnonymous: false },
+    mockUser({
+      _id: "users:u2",
+      activeProfileId: "profiles:p2",
+      isAnonymous: false,
     });
-    useTanStackQueryMock.mockReturnValue({
+    mockProfiles({
       data: [profile("profiles:p2", "users:u2")],
       isLoading: false,
     });
@@ -350,15 +445,15 @@ describe("ProfileProvider theme saves", () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(updateProfile).toHaveBeenCalledTimes(1);
+    expect(updateProfile).toHaveBeenCalledOnce();
   });
 
   it("saves it once when the account changes while the same profile is still shown", () => {
-    const updateProfile = vi.fn<MutationMock>(async () => null);
+    const updateProfile = vi.fn<MutationMock>().mockResolvedValue(null);
     const rerender = renderWithPendingEdit(updateProfile);
 
     // The next account's user arrives before its own profiles replace the previous ones
-    useUserMock.mockReturnValue({ user: { _id: "users:u2", isAnonymous: false } });
+    mockUser({ _id: "users:u2", isAnonymous: false });
     rerender();
     // The save's debounce would have fired by now
     act(() => {
@@ -374,9 +469,9 @@ describe("ProfileProvider theme saves", () => {
   it("keeps the save best-effort when the ended session can't make it", async () => {
     // Not a vi.fn, which handles the promises it returns: a rejection left unhandled fails the run
     let saves = 0;
-    const rerender = renderWithPendingEdit(() => {
+    const rerender = renderWithPendingEdit(async () => {
       saves += 1;
-      return Promise.reject(new Error("NOT_AUTHENTICATED"));
+      return await Promise.reject(new Error("NOT_AUTHENTICATED"));
     });
 
     signOut();

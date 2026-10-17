@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
+
 import { ERROR_CODES } from "../../src/lib/error-codes";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -11,13 +12,15 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
  * @example
  * const userId = await ensureAuthenticated(ctx);
  */
-export async function ensureAuthenticated(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
+export const ensureAuthenticated = async (
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"users">> => {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     throw new ConvexError(ERROR_CODES.NOT_AUTHENTICATED);
   }
   return userId;
-}
+};
 
 /**
  * Ensures the user has access to the specified chat.
@@ -27,10 +30,10 @@ export async function ensureAuthenticated(ctx: QueryCtx | MutationCtx): Promise<
  * @example
  * const { chat, userId } = await ensureChatAccess(ctx, chatId);
  */
-export async function ensureChatAccess(
+export const ensureChatAccess = async (
   ctx: QueryCtx | MutationCtx,
-  chatId: Id<"chats">,
-): Promise<{ chat: Doc<"chats">; userId: Id<"users"> }> {
+  chatId: Id<"chats">
+): Promise<{ chat: Doc<"chats">; userId: Id<"users"> }> => {
   const userId = await ensureAuthenticated(ctx);
   const chat = await ctx.db.get("chats", chatId);
 
@@ -39,7 +42,7 @@ export async function ensureChatAccess(
   }
 
   return { chat, userId };
-}
+};
 
 /**
  * Safely attempts to ensure chat access without throwing.
@@ -51,16 +54,16 @@ export async function ensureChatAccess(
  * if (!result) return null;
  * const { chat, userId } = result;
  */
-export async function tryEnsureChatAccess(
+export const tryEnsureChatAccess = async (
   ctx: QueryCtx | MutationCtx,
-  chatId: Id<"chats">,
-): Promise<{ chat: Doc<"chats">; userId: Id<"users"> } | null> {
+  chatId: Id<"chats">
+): Promise<{ chat: Doc<"chats">; userId: Id<"users"> } | null> => {
   try {
     return await ensureChatAccess(ctx, chatId);
   } catch {
     return null;
   }
-}
+};
 
 /**
  * Ensures the user has access to the specified message and its chat.
@@ -70,14 +73,14 @@ export async function tryEnsureChatAccess(
  * @example
  * const { message, chat, userId } = await ensureMessageAccess(ctx, messageId);
  */
-export async function ensureMessageAccess(
+export const ensureMessageAccess = async (
   ctx: QueryCtx | MutationCtx,
-  messageId: Id<"messages">,
+  messageId: Id<"messages">
 ): Promise<{
   message: Doc<"messages">;
   chat: Doc<"chats">;
   userId: Id<"users">;
-}> {
+}> => {
   const userId = await ensureAuthenticated(ctx);
   const message = await ctx.db.get("messages", messageId);
 
@@ -91,7 +94,7 @@ export async function ensureMessageAccess(
   }
 
   return { message, chat, userId };
-}
+};
 
 /**
  * Gets the current authenticated user document.
@@ -102,15 +105,15 @@ export async function ensureMessageAccess(
  * const user = await getCurrentUserOrNull(ctx);
  * if (!user) return [];
  */
-export async function getCurrentUserOrNull(
-  ctx: QueryCtx | MutationCtx,
-): Promise<Doc<"users"> | null> {
+export const getCurrentUserOrNull = async (
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users"> | null> => {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     return null;
   }
   return await ctx.db.get("users", userId);
-}
+};
 
 /**
  * Gets the current authenticated user document.
@@ -119,7 +122,9 @@ export async function getCurrentUserOrNull(
  * @example
  * const user = await getCurrentUserOrThrow(ctx);
  */
-export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
+export const getCurrentUserOrThrow = async (
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> => {
   const userId = await ensureAuthenticated(ctx);
   const user = await ctx.db.get("users", userId);
 
@@ -128,13 +133,13 @@ export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx): Promis
   }
 
   return user;
-}
+};
 
 /**
  * Compares two strings in time that depends only on the expected length,
  * so response timing does not reveal how many leading characters matched.
  */
-function constantTimeEqual(provided: string, expected: string): boolean {
+const constantTimeEqual = (provided: string, expected: string): boolean => {
   const encoder = new TextEncoder();
   const providedBytes = encoder.encode(provided);
   const expectedBytes = encoder.encode(expected);
@@ -143,7 +148,7 @@ function constantTimeEqual(provided: string, expected: string): boolean {
     diff |= (providedBytes[index] ?? 0) ^ byte;
   }
   return diff === 0;
-}
+};
 
 /**
  * Ensures a call comes from the app's own server routes rather than a browser.
@@ -154,9 +159,15 @@ function constantTimeEqual(provided: string, expected: string): boolean {
  * @example
  * assertServerSecret(args.serverSecret);
  */
-export function assertServerSecret(provided: string): void {
+export const assertServerSecret = (provided: string): void => {
   const expected = process.env.SERVER_ROUTE_SECRET;
-  if (!(expected && constantTimeEqual(provided, expected))) {
+  if (
+    !(
+      expected !== undefined &&
+      expected !== "" &&
+      constantTimeEqual(provided, expected)
+    )
+  ) {
     throw new ConvexError(ERROR_CODES.UNAUTHORIZED);
   }
-}
+};
