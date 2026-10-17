@@ -12,10 +12,10 @@
     "format:check": "oxfmt --check",
     "lint": "oxlint --type-aware --fix",
     "lint:check": "oxlint --type-aware",
-    "typecheck": "tsc -p .",
+    "typecheck": "bun check",
     "prepare": "husky",
-    "check": "ultracite check",
-    "fix": "ultracite fix"
+    "ultracite:check": "ultracite check",
+    "ultracite:fix": "ultracite fix"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",

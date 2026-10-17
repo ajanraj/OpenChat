@@ -4,8 +4,8 @@
 - **Linter**: oxlint (type-aware via oxlint-tsgolint), configured in `oxlint.config.ts`
 - **Formatter**: oxfmt, configured in `oxfmt.config.ts`
 - **Rules**: Ultracite presets `core`, `react`, `tanstack` and `vitest` (see the "Ultracite Code Standards" section of `AGENTS.md`)
-- **Type checker**: tsc
-- Run `bun run lint` and `bun run format` before committing (`bun run check` / `bun run fix` run both through Ultracite). Never use ESLint or Prettier.
+- **Type checker**: `bun check` (Bun's built-in checker; run it through `bun run typecheck`)
+- Run `bun run lint` and `bun run format` before committing (`bun run ultracite:check` / `bun run ultracite:fix` run both through Ultracite). Never use ESLint or Prettier.
 
 ## Project Rules
 - `no-unused-vars`: prefix intentionally unused vars and args with `_`.
@@ -18,7 +18,7 @@
 - Add project-specific rules after the presets in `oxlint.config.ts`, so they win.
 
 ## Autofix Caveats
-Some oxlint autofixes change behavior; review them instead of applying blindly: `vitest/prefer-called-with` (drops the real arguments), `vitest/prefer-expect-type-of` (compile-time only; use `toBeTypeOf` for runtime checks), `vitest/prefer-describe-function-title` (Convex functions have an empty runtime name), `typescript/no-unnecessary-boolean-literal-compare` (turns `x === true` on optional flags into `undefined`). Run `bun run typecheck` and `bun run test` after `bun run fix`.
+Some oxlint autofixes change behavior; review them instead of applying blindly: `vitest/prefer-called-with` (drops the real arguments), `vitest/prefer-expect-type-of` (compile-time only; use `toBeTypeOf` for runtime checks), `vitest/prefer-describe-function-title` (Convex functions have an empty runtime name), `typescript/no-unnecessary-boolean-literal-compare` (turns `x === true` on optional flags into `undefined`). Run `bun run typecheck` and `bun run test` after `bun run ultracite:fix`.
 
 ## Ignored Paths
 Beyond the presets' defaults (build output, generated files, `node_modules`) and `.gitignore`: `src/components`, `agent_rules`, `.github/instructions`; oxfmt also skips `.agents` and `src/styles.css`.
