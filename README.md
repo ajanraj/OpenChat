@@ -131,7 +131,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see OS Chat running loca
 | `bun build`         | Build for production                  |
 | `bun test`          | Run tests with Vitest                 |
 | `bun run lint`      | Run Ultracite linter                  |
-| `bun run typecheck` | Run TypeScript type checking with tsc |
+| `bun run typecheck` | Type check with bun check             |
 | `bunx convex dev`   | Run Convex development server         |
 
 ## 🗺️ Roadmap
