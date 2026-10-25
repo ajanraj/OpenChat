@@ -4,6 +4,7 @@ import { useCallback, useRef } from "react";
 import { PricingTableOne } from "@/components/billingsdk/pricing-table-one";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { plans } from "@/lib/billingsdk-config";
+import { SUPPORT_EMAIL } from "@/lib/config/constants";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 
@@ -89,7 +90,7 @@ export function UpgradeModal({ isOpen, onOpenChange }: UpgradeModalProps) {
 							Questions?{" "}
 							<a
 								className="text-muted-foreground hover:text-foreground"
-								href="mailto:support@oschat.ai"
+								href={`mailto:${SUPPORT_EMAIL}`}
 							>
 								Get in touch
 							</a>
