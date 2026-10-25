@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { SUPPORT_EMAIL } from "@/lib/config/constants";
 
 export function AppInfoContent() {
 	return (
@@ -67,7 +68,7 @@ export function AppInfoContent() {
 				>
 					<a
 						className="flex w-full items-center justify-center"
-						href="mailto:support@oschat.ai"
+						href={`mailto:${SUPPORT_EMAIL}`}
 						rel="noopener noreferrer"
 						target="_blank"
 					>

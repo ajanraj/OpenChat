@@ -13,6 +13,7 @@ import {
 	DrawerTrigger,
 } from "@/components/ui/drawer";
 import { plans } from "@/lib/billingsdk-config";
+import { SUPPORT_EMAIL } from "@/lib/config/constants";
 import { useUser } from "@/providers/user-provider";
 import { api } from "../../../convex/_generated/api";
 
@@ -125,7 +126,7 @@ export function UpgradeDrawer({
 								Questions?{" "}
 								<a
 									className="text-muted-foreground hover:text-foreground"
-									href="mailto:support@oschat.ai"
+									href={`mailto:${SUPPORT_EMAIL}`}
 								>
 									Get in touch
 								</a>

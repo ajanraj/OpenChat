@@ -10,7 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteRouteImport } from './routes/_chat/route'
+import { Route as AiDottxtRouteImport } from './routes/ai[.]txt'
+import { Route as LlmsFullDottxtRouteImport } from './routes/llms-full[.]txt'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TasksRouteImport } from './routes/tasks'
@@ -35,14 +39,35 @@ import { Route as ChatCChatIdRouteImport } from './routes/_chat/c.$chatId'
 import { Route as ApiComposioConnectRouteImport } from './routes/api.composio.connect'
 import { Route as ApiComposioDisconnectRouteImport } from './routes/api.composio.disconnect'
 import { Route as ApiComposioStatusRouteImport } from './routes/api.composio.status'
+import { Route as ApiMdSplatRouteImport } from './routes/api.md.$'
 
 const ChatRouteRoute = ChatRouteRouteImport.update({
   id: '/_chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiDottxtRoute = AiDottxtRouteImport.update({
+  id: '/ai.txt',
+  path: '/ai.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsFullDottxtRoute = LlmsFullDottxtRouteImport.update({
+  id: '/llms-full.txt',
+  path: '/llms-full.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SecurityRoute = SecurityRouteImport.update({
@@ -165,10 +190,19 @@ const ApiComposioStatusRoute = ApiComposioStatusRouteImport.update({
   path: '/api/composio/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMdSplatRoute = ApiMdSplatRouteImport.update({
+  id: '/api/md/$',
+  path: '/api/md/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
+  '/ai.txt': typeof AiDottxtRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/privacy': typeof PrivacyRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRouteWithChildren
   '/tasks': typeof TasksRoute
@@ -192,9 +226,14 @@ export interface FileRoutesByFullPath {
   '/api/composio/connect': typeof ApiComposioConnectRoute
   '/api/composio/disconnect': typeof ApiComposioDisconnectRoute
   '/api/composio/status': typeof ApiComposioStatusRoute
+  '/api/md/$': typeof ApiMdSplatRoute
 }
 export interface FileRoutesByTo {
+  '/ai.txt': typeof AiDottxtRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/privacy': typeof PrivacyRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/security': typeof SecurityRoute
   '/tasks': typeof TasksRoute
   '/terms': typeof TermsRoute
@@ -218,11 +257,16 @@ export interface FileRoutesByTo {
   '/api/composio/connect': typeof ApiComposioConnectRoute
   '/api/composio/disconnect': typeof ApiComposioDisconnectRoute
   '/api/composio/status': typeof ApiComposioStatusRoute
+  '/api/md/$': typeof ApiMdSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteRouteWithChildren
+  '/ai.txt': typeof AiDottxtRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/privacy': typeof PrivacyRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRouteWithChildren
   '/tasks': typeof TasksRoute
@@ -247,12 +291,17 @@ export interface FileRoutesById {
   '/api/composio/connect': typeof ApiComposioConnectRoute
   '/api/composio/disconnect': typeof ApiComposioDisconnectRoute
   '/api/composio/status': typeof ApiComposioStatusRoute
+  '/api/md/$': typeof ApiMdSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai.txt'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/privacy'
+    | '/robots.txt'
     | '/security'
     | '/settings'
     | '/tasks'
@@ -276,9 +325,14 @@ export interface FileRouteTypes {
     | '/api/composio/connect'
     | '/api/composio/disconnect'
     | '/api/composio/status'
+    | '/api/md/$'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/ai.txt'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/privacy'
+    | '/robots.txt'
     | '/security'
     | '/tasks'
     | '/terms'
@@ -302,10 +356,15 @@ export interface FileRouteTypes {
     | '/api/composio/connect'
     | '/api/composio/disconnect'
     | '/api/composio/status'
+    | '/api/md/$'
   id:
     | '__root__'
     | '/_chat'
+    | '/ai.txt'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/privacy'
+    | '/robots.txt'
     | '/security'
     | '/settings'
     | '/tasks'
@@ -330,11 +389,16 @@ export interface FileRouteTypes {
     | '/api/composio/connect'
     | '/api/composio/disconnect'
     | '/api/composio/status'
+    | '/api/md/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
+  AiDottxtRoute: typeof AiDottxtRoute
+  LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   PrivacyRoute: typeof PrivacyRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SecurityRoute: typeof SecurityRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   TasksRoute: typeof TasksRoute
@@ -349,6 +413,7 @@ export interface RootRouteChildren {
   ApiComposioConnectRoute: typeof ApiComposioConnectRoute
   ApiComposioDisconnectRoute: typeof ApiComposioDisconnectRoute
   ApiComposioStatusRoute: typeof ApiComposioStatusRoute
+  ApiMdSplatRoute: typeof ApiMdSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -360,11 +425,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai.txt': {
+      id: '/ai.txt'
+      path: '/ai.txt'
+      fullPath: '/ai.txt'
+      preLoaderRoute: typeof AiDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms-full.txt': {
+      id: '/llms-full.txt'
+      path: '/llms-full.txt'
+      fullPath: '/llms-full.txt'
+      preLoaderRoute: typeof LlmsFullDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/security': {
@@ -535,6 +628,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiComposioStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/md/$': {
+      id: '/api/md/$'
+      path: '/api/md/$'
+      fullPath: '/api/md/$'
+      preLoaderRoute: typeof ApiMdSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -580,7 +680,11 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   ChatRouteRoute: ChatRouteRouteWithChildren,
+  AiDottxtRoute: AiDottxtRoute,
+  LlmsFullDottxtRoute: LlmsFullDottxtRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   PrivacyRoute: PrivacyRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SecurityRoute: SecurityRoute,
   SettingsRoute: SettingsRouteWithChildren,
   TasksRoute: TasksRoute,
@@ -595,16 +699,18 @@ const rootRouteChildren: RootRouteChildren = {
   ApiComposioConnectRoute: ApiComposioConnectRoute,
   ApiComposioDisconnectRoute: ApiComposioDisconnectRoute,
   ApiComposioStatusRoute: ApiComposioStatusRoute,
+  ApiMdSplatRoute: ApiMdSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }
