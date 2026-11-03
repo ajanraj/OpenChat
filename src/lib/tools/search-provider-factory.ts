@@ -2,6 +2,7 @@ import { classifyError } from "@/lib/error-utils";
 
 import { BraveSearchProvider } from "./providers/brave-search";
 import { ExaSearchProvider } from "./providers/exa-search";
+import { KeenableSearchProvider } from "./providers/keenable-search";
 import { TavilySearchProvider } from "./providers/tavily-search";
 import { SEARCH_CONFIG } from "./types";
 import type {
@@ -25,6 +26,13 @@ const hasApiKeyForProvider = (provider: SearchProvider): boolean => {
     case "exa": {
       return Boolean(process.env.EXA_API_KEY);
     }
+    case "keenable": {
+      // Keyless use is opt-in: only when Keenable is the configured default
+      return (
+        Boolean(process.env.KEENABLE_API_KEY) ||
+        SEARCH_CONFIG.defaultProvider === "keenable"
+      );
+    }
     default: {
       return false;
     }
@@ -35,7 +43,7 @@ export const getProvider = (provider?: SearchProvider): SearchAdapter => {
   const selectedProvider = provider ?? SEARCH_CONFIG.defaultProvider;
   if (selectedProvider === undefined) {
     throw new Error(
-      "No search provider given and DEFAULT_SEARCH_PROVIDER is unset or invalid (expected exa, tavily or brave)"
+      "No search provider given and DEFAULT_SEARCH_PROVIDER is unset or invalid (expected exa, tavily, brave or keenable)"
     );
   }
 
@@ -76,6 +84,12 @@ export const getProvider = (provider?: SearchProvider): SearchAdapter => {
       break;
     }
 
+    case "keenable": {
+      // KEENABLE_API_KEY is optional; without it the keyless public endpoint is used
+      instance = new KeenableSearchProvider(process.env.KEENABLE_API_KEY);
+      break;
+    }
+
     default: {
       const exhaustiveCheck: never = selectedProvider;
       throw new Error(`Unknown search provider: ${String(exhaustiveCheck)}`);
@@ -97,7 +111,12 @@ export const searchWithFallback = async (
     providers ??
     (() => {
       const { defaultProvider } = SEARCH_CONFIG;
-      const allProviders: SearchProvider[] = ["brave", "tavily", "exa"];
+      const allProviders: SearchProvider[] = [
+        "brave",
+        "tavily",
+        "exa",
+        "keenable",
+      ];
 
       // Start with default provider, then add others
       const others = allProviders.filter((p) => p !== defaultProvider);
