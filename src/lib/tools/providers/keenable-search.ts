@@ -48,6 +48,19 @@ const truncate = (text: string): string =>
     ? `${text.slice(0, SEARCH_CONFIG.maxTextCharacters - 3)}...`
     : text;
 
+const hostMatches = (url: string, domains: string[]): boolean => {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return domains.some((domain) => {
+    const d = domain.toLowerCase().replace(/^\*?\./u, "");
+    return host === d || host.endsWith(`.${d}`);
+  });
+};
+
 const formatResults = (
   results: KeenableResult[],
   includeContent: boolean
@@ -62,7 +75,16 @@ const formatResults = (
         ? item.description
         : truncate(snippet);
     let markdown = `### [${title}](${url})\n${description}`;
-    if (includeContent && snippet !== "" && snippet !== description) {
+    // Only quote the snippet when the description came from Keenable itself;
+    // otherwise the description is already the (truncated) snippet.
+    const hasOwnDescription =
+      item.description !== undefined && item.description !== "";
+    if (
+      includeContent &&
+      hasOwnDescription &&
+      snippet !== "" &&
+      truncate(snippet) !== description
+    ) {
       markdown += `\n\n> ${truncate(snippet)}`;
     }
     return {
@@ -94,12 +116,17 @@ export class KeenableSearchProvider implements SearchAdapter {
       maxResults = SEARCH_CONFIG.maxResults,
       scrapeContent = SEARCH_CONFIG.scrapeContent,
       includeDomains,
+      excludeDomains,
       startPublishedDate,
       endPublishedDate,
       signal,
     } = options;
 
-    const limit = Math.min(maxResults, PROVIDER_LIMITS.keenable.maxResults);
+    // Keenable has no exclude filter, so excluded domains are removed from the results
+    const limit = Math.max(
+      1,
+      Math.min(maxResults, PROVIDER_LIMITS.keenable.maxResults)
+    );
 
     try {
       const requestBody = {
@@ -139,7 +166,15 @@ export class KeenableSearchProvider implements SearchAdapter {
 
       const data: unknown = await response.json();
 
-      return formatResults(parseKeenableResults(data), scrapeContent);
+      const parsed = parseKeenableResults(data);
+      const kept =
+        excludeDomains !== undefined && excludeDomains.length > 0
+          ? parsed.filter(
+              (item) =>
+                item.url === undefined || !hostMatches(item.url, excludeDomains)
+            )
+          : parsed;
+      return formatResults(kept, scrapeContent);
     } catch (error) {
       return handleSearchError(error, "keenable");
     }

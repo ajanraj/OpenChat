@@ -48,4 +48,59 @@ describe(KeenableSearchProvider, () => {
     expect(url).toBe("https://api.keenable.ai/v1/search");
     expect(init.headers).toMatchObject({ "X-API-Key": "test-key" });
   });
+
+  it("drops results from excluded domains and clamps max_results to at least 1", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init: RequestInit) => Promise<Response>
+    >(
+      async () =>
+        await Promise.resolve(
+          Response.json({
+            results: [
+              { url: "https://blocked.com/a", title: "Blocked" },
+              { url: "https://sub.blocked.com/b", title: "Blocked sub" },
+              { url: "https://kept.org", title: "Kept" },
+            ],
+          })
+        )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await new KeenableSearchProvider().search("example", {
+      excludeDomains: ["blocked.com"],
+      maxResults: 0,
+    });
+
+    const [[, init]] = fetchMock.mock.calls;
+    expect(init.body).toContain('"max_results":1');
+    expect(results.map((r) => r.url)).toStrictEqual(["https://kept.org"]);
+  });
+
+  it("does not quote a long snippet that already backs an empty description", async () => {
+    const longSnippet = "a".repeat(5000);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          await Promise.resolve(
+            Response.json({
+              results: [
+                {
+                  url: "https://x.com",
+                  title: "X",
+                  description: "",
+                  snippet: longSnippet,
+                },
+              ],
+            })
+          )
+      )
+    );
+
+    const [result] = await new KeenableSearchProvider().search("example", {
+      scrapeContent: true,
+    });
+
+    expect(result.markdown).not.toContain("\n\n> ");
+  });
 });

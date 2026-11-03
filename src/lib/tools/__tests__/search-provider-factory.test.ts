@@ -228,4 +228,41 @@ describe("search-provider-factory", () => {
       expect(module.searchWithFallback.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe("keenable opt-in", () => {
+    it("skips keyless Keenable when it is not the default provider", async () => {
+      process.env.KEENABLE_API_KEY = undefined;
+      process.env.DEFAULT_SEARCH_PROVIDER = "brave";
+      const fetchMock = vi.fn<typeof fetch>();
+      vi.stubGlobal("fetch", fetchMock);
+      const module = await import("../search-provider-factory");
+
+      await expect(
+        module.searchWithFallback("q", {}, ["keenable"])
+      ).rejects.toThrow("All search providers failed");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("uses the keyless public endpoint when Keenable is the default", async () => {
+      process.env.KEENABLE_API_KEY = undefined;
+      process.env.DEFAULT_SEARCH_PROVIDER = "keenable";
+      const fetchMock = vi.fn<typeof fetch>(
+        async () =>
+          await Promise.resolve(
+            Response.json({
+              results: [{ url: "https://k.example", title: "K" }],
+            })
+          )
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const module = await import("../search-provider-factory");
+
+      const results = await module.searchWithFallback("q", {}, ["keenable"]);
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        "https://api.keenable.ai/v1/search/public"
+      );
+      expect(results[0].url).toBe("https://k.example");
+    });
+  });
 });
