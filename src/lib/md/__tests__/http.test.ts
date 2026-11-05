@@ -22,7 +22,7 @@ describe(resolveMarkdownRequest, () => {
       "content-location": `${APP_BASE_URL}/privacy.md`,
       link: `<${APP_BASE_URL}/privacy>; rel="canonical"`,
       "access-control-allow-origin": "*",
-      "last-modified": "Tue, 09 Sep 2025 00:00:00 GMT",
+      "last-modified": "Thu, 05 Nov 2026 00:00:00 GMT",
     });
     expect(response?.headers.get("cache-control")).toContain("s-maxage=");
     expect(response?.headers.has("vary")).toBeFalsy();

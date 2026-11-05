@@ -122,9 +122,17 @@ export const isMarkdownPath = (path: string): path is MarkdownPath =>
 export const getMarkdownPage = (path: MarkdownPath): MarkdownPage =>
   MARKDOWN_PAGES[path];
 
-/** Route `head()` for a markdown page: its ai-summary meta and markdown alternate link. */
+/**
+ * Route `head()` for a markdown page: its document title ("Terms of Service - OS Chat";
+ * the home page keeps the root title), ai-summary meta and markdown alternate link.
+ */
 export const markdownHead = (path: MarkdownPath) => ({
-  meta: [{ name: "ai-summary", content: getMarkdownPage(path).summary }],
+  meta: [
+    ...(path === "/"
+      ? []
+      : [{ title: `${getMarkdownPage(path).title} - ${APP_NAME}` }]),
+    { name: "ai-summary", content: getMarkdownPage(path).summary },
+  ],
   links: [
     {
       rel: "alternate",
