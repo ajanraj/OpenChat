@@ -30,15 +30,16 @@ interface TextResponseInit {
   headers?: Record<string, string>;
 }
 
+/** CORS preflight answer; callers return it before rendering anything. */
+const preflightResponse = (): Response =>
+  new Response(null, { status: 204, headers: CORS_HEADERS });
+
 /** Public, CORS-open text response; HEAD gets the same headers without a body. */
 export const textResponse = (
   body: string,
   { method, contentType, cacheControl, status = 200, headers }: TextResponseInit
-): Response => {
-  if (method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
-  return new Response(method === "HEAD" ? null : body, {
+): Response =>
+  new Response(method === "HEAD" ? null : body, {
     status,
     headers: {
       "Content-Type": contentType,
@@ -47,7 +48,6 @@ export const textResponse = (
       ...headers,
     },
   });
-};
 
 /** GET/HEAD/OPTIONS handlers for a generated site file such as /llms.txt. */
 export const siteFileHandlers = (
@@ -55,17 +55,23 @@ export const siteFileHandlers = (
   contentType = "text/plain; charset=utf-8"
 ) => {
   const handler = async ({ request }: { request: Request }) =>
-    textResponse(await render(), {
-      method: request.method,
-      contentType,
-      cacheControl: PAGE_CACHE,
-    });
+    request.method === "OPTIONS"
+      ? preflightResponse()
+      : textResponse(await render(), {
+          method: request.method,
+          contentType,
+          cacheControl: PAGE_CACHE,
+        });
   return { GET: handler, HEAD: handler, OPTIONS: handler };
 };
 
-const markdownHeaders = (markdown: string) => ({
+/**
+ * Token estimate, plus noindex for the duplicate .md URLs. A negotiated
+ * response is served at the page's own URL, so noindex there would drop the page.
+ */
+const markdownHeaders = (markdown: string, { noindex = true } = {}) => ({
   "X-Markdown-Tokens": String(Math.ceil(markdown.length / CHARS_PER_TOKEN)),
-  "X-Robots-Tag": "noindex, follow",
+  ...(noindex ? { "X-Robots-Tag": "noindex, follow" } : {}),
 });
 
 const notFoundMarkdown = (): string =>
@@ -81,6 +87,9 @@ export const markdownForPath = async (
   method: string,
   { negotiated = false }: { negotiated?: boolean } = {}
 ): Promise<Response> => {
+  if (method === "OPTIONS") {
+    return preflightResponse();
+  }
   if (!isMarkdownPath(path)) {
     const markdown = notFoundMarkdown();
     return textResponse(markdown, {
@@ -98,7 +107,7 @@ export const markdownForPath = async (
     contentType: MARKDOWN_TYPE,
     cacheControl: PAGE_CACHE,
     headers: {
-      ...markdownHeaders(markdown),
+      ...markdownHeaders(markdown, { noindex: !negotiated }),
       // The markdown alternate's own URL; the HTML page is the rel=canonical below.
       "Content-Location": absoluteUrl(markdownPath(path)),
       Link: `<${canonical}>; rel="canonical"`,

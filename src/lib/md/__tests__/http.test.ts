@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { APP_BASE_URL } from "@/lib/config/constants";
 
-import { resolveMarkdownRequest } from "../http";
+import { resolveMarkdownRequest, siteFileHandlers } from "../http";
 import { SKIPPED_ROUTES } from "../registry";
 
 const request = (path: string, init?: RequestInit) =>
@@ -40,10 +40,12 @@ describe(resolveMarkdownRequest, () => {
       request("/terms.md", { method: "HEAD" })
     );
 
+    const get = await resolveMarkdownRequest(request("/terms.md"));
+
     expect(response?.status).toBe(200);
     expect(response?.body).toBeNull();
-    expect(Number(response?.headers.get("x-markdown-tokens"))).toBeGreaterThan(
-      0
+    expect(Object.fromEntries(response?.headers ?? [])).toStrictEqual(
+      Object.fromEntries(get?.headers ?? [])
     );
   });
 
@@ -56,6 +58,17 @@ describe(resolveMarkdownRequest, () => {
     expect(response?.headers.get("access-control-allow-methods")).toBe(
       "GET, HEAD, OPTIONS"
     );
+  });
+
+  it("answers a site file preflight without rendering the file", async () => {
+    const render = vi.fn<() => string>(() => "body");
+    const { OPTIONS } = siteFileHandlers(render);
+    const response = await OPTIONS({
+      request: request("/llms-full.txt", { method: "OPTIONS" }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(render).not.toHaveBeenCalled();
   });
 
   it.each(["/does-not-exist", ...Object.keys(SKIPPED_ROUTES)])(
@@ -78,6 +91,8 @@ describe(resolveMarkdownRequest, () => {
 
     expect(markdown?.status).toBe(200);
     expect(markdown?.headers.get("vary")).toBe("Accept");
+    // Served at the page's own URL, so it must not tell crawlers to drop the page.
+    expect(markdown?.headers.has("x-robots-tag")).toBeFalsy();
     await expect(markdown?.text()).resolves.toMatch(/^# Security Policy\n/u);
 
     await expect(

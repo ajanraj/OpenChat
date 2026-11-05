@@ -31,7 +31,8 @@ describe(renderMarkdownPage, () => {
     const page = await renderMarkdownPage("/");
 
     expect(page.markdown).toMatch(/^# OS Chat\n/u);
-    expect(page.markdown).toContain("| Premium | $10/month or $120/year |");
+    expect(page.markdown).toContain("| Premium | $10/month |");
+    expect(page.markdown).not.toContain("/year");
     expect(page.markdown).not.toContain("Last updated:");
     expect(page.lastModified).toBeUndefined();
   });

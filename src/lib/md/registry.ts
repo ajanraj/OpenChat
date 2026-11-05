@@ -24,11 +24,10 @@ const LAST_UPDATED = /^\*\*Last Updated:\*\* (?<date>[^\\\n]+)/mu;
 
 const homeBody = async (): Promise<string> => {
   const { plans } = await import("@/lib/billingsdk-config");
+  // Monthly only: checkout and the upgrade views offer no yearly billing.
   const planRows = plans.map((plan) => {
-    const yearly =
-      plan.yearlyPrice === "0" ? "" : ` or $${plan.yearlyPrice}/year`;
     const includes = plan.features.map((feature) => feature.name).join(", ");
-    return `| ${plan.title} | $${plan.monthlyPrice}/month${yearly} | ${includes} |`;
+    return `| ${plan.title} | $${plan.monthlyPrice}/month | ${includes} |`;
   });
   return [
     APP_DESCRIPTION,
