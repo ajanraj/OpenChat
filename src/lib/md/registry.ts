@@ -166,11 +166,16 @@ export interface RenderedMarkdown {
   lastModified?: string;
 }
 
+/** YYYY-MM-DD from a "Last Updated" line; undefined if absent or unparseable, so a bad date never fails the page. */
 const parseLastUpdated = (body: string): string | undefined => {
   const date = LAST_UPDATED.exec(body)?.groups?.date;
-  return date === undefined
+  if (date === undefined) {
+    return undefined;
+  }
+  const parsed = new Date(`${date} UTC`);
+  return Number.isNaN(parsed.getTime())
     ? undefined
-    : new Date(`${date} UTC`).toISOString().slice(0, 10);
+    : parsed.toISOString().slice(0, 10);
 };
 
 export const renderMarkdownPage = async (

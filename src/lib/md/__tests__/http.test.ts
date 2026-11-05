@@ -19,7 +19,7 @@ describe(resolveMarkdownRequest, () => {
       "content-type": "text/markdown; charset=utf-8",
       "x-markdown-tokens": String(Math.ceil((body ?? "").length / 4)),
       "x-robots-tag": "noindex, follow",
-      "content-location": `${APP_BASE_URL}/privacy`,
+      "content-location": `${APP_BASE_URL}/privacy.md`,
       link: `<${APP_BASE_URL}/privacy>; rel="canonical"`,
       "access-control-allow-origin": "*",
       "last-modified": "Tue, 09 Sep 2025 00:00:00 GMT",

@@ -1,5 +1,5 @@
 import { prefersMarkdown } from "./accept";
-import { absoluteUrl } from "./format";
+import { absoluteUrl, markdownPath } from "./format";
 import { isMarkdownPath, renderMarkdownPage } from "./registry";
 
 const MARKDOWN_TYPE = "text/markdown; charset=utf-8";
@@ -99,7 +99,8 @@ export const markdownForPath = async (
     cacheControl: PAGE_CACHE,
     headers: {
       ...markdownHeaders(markdown),
-      "Content-Location": canonical,
+      // The markdown alternate's own URL; the HTML page is the rel=canonical below.
+      "Content-Location": absoluteUrl(markdownPath(path)),
       Link: `<${canonical}>; rel="canonical"`,
       ...(lastModified === undefined
         ? {}

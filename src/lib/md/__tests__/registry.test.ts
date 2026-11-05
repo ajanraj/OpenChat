@@ -17,6 +17,16 @@ describe(renderMarkdownPage, () => {
     expect(page.lastModified).toBe("2025-09-09");
   });
 
+  // A malformed "Last Updated" line drops the date instead of failing the page, so catch it here.
+  it.each(["/privacy", "/terms", "/security"] as const)(
+    "parses the last update of %s",
+    async (path) => {
+      const { lastModified } = await renderMarkdownPage(path);
+
+      expect(lastModified).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+    }
+  );
+
   it("renders the home page from the published plan data", async () => {
     const page = await renderMarkdownPage("/");
 

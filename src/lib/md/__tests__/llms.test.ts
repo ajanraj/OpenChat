@@ -27,14 +27,13 @@ describe(llmsTxt, () => {
   });
 
   it("lists the machine-readable files", () => {
-    for (const path of [
-      "/llms-full.txt",
-      "/api/md/_catalog",
-      "/sitemap.xml",
-      "/ai.txt",
-    ]) {
+    for (const path of ["/llms-full.txt", "/sitemap.xml", "/ai.txt"]) {
       expect(llms).toContain(`](${APP_BASE_URL}${path})`);
     }
+  });
+
+  it("links nothing under /api/, which robots.txt disallows", () => {
+    expect(llms).not.toContain(`${APP_BASE_URL}/api/`);
   });
 });
 

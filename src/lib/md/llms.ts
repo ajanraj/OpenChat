@@ -43,7 +43,6 @@ export const llmsTxt = (): string =>
     `## Core pages\n\n${routeList(routesIn("core"))}`,
     `## Machine-readable\n\n${[
       `- ${mdLink("Full content", absoluteUrl("/llms-full.txt"))}: every page listed here, in one file`,
-      `- ${mdLink("Markdown catalog", absoluteUrl("/api/md/_catalog"))}: every markdown route as JSON`,
       `- ${mdLink("Sitemap", absoluteUrl("/sitemap.xml"))}: HTML pages for search engines`,
       `- ${mdLink("AI usage policy", absoluteUrl("/ai.txt"))}: permissions, restrictions and attribution`,
     ].join("\n")}`,
