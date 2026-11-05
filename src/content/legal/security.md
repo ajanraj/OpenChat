@@ -1,8 +1,8 @@
-**Last Updated:** September 9, 2025
+**Last Updated:** November 5, 2026
 
 At OS Chat, we take security seriously. This policy outlines how we protect your data and maintain the security of our AI application.
 
-### 1. Data Protection
+## 1. Data Protection
 
 **Encryption:**
 
@@ -18,7 +18,7 @@ At OS Chat, we take security seriously. This policy outlines how we protect your
 - Rate limiting: 5 messages/day anonymous, 20 messages/day authenticated
 - Session management with automatic expiration
 
-### 2. Infrastructure Security
+## 2. Infrastructure Security
 
 **Technology Stack:**
 
@@ -34,7 +34,7 @@ At OS Chat, we take security seriously. This policy outlines how we protect your
 - Secure session management
 - Environment variables for sensitive configuration
 
-### 3. Third-Party Services
+## 3. Third-Party Services
 
 **AI Providers:**
 
@@ -50,7 +50,7 @@ At OS Chat, we take security seriously. This policy outlines how we protect your
 - **Stripe:** Payment processing via Stripe Managed Payments (PCI compliant)
 - We don't store payment card information
 
-### 4. Data Storage and Retention
+## 4. Data Storage and Retention
 
 **What We Store:**
 
@@ -62,10 +62,10 @@ At OS Chat, we take security seriously. This policy outlines how we protect your
 **Data Deletion:**
 
 - Users can delete their chat history at any time
-- Account deletion removes all associated data
-- We retain data only as long as necessary for service functionality
+- Account deletion removes your account, chats, files, settings and connected accounts, and cancels any active subscription; billing records held by our payment processor, Stripe, are kept
+- Retention periods vary by data type; the Privacy Policy lists each one
 
-### 5. Security Practices
+## 5. Security Practices
 
 - Regular updates of dependencies and frameworks
 - Code reviews for security-sensitive changes
@@ -73,7 +73,7 @@ At OS Chat, we take security seriously. This policy outlines how we protect your
 - Following security best practices for web applications
 - Using environment variables for sensitive configuration
 
-### 6. Incident Response
+## 6. Incident Response
 
 If a security incident occurs:
 
@@ -82,7 +82,7 @@ If a security incident occurs:
 3. Notify affected users if their data was compromised
 4. Work to prevent similar incidents in the future
 
-### 7. Your Security Responsibilities
+## 7. Your Security Responsibilities
 
 You can help keep your account secure by:
 
@@ -91,7 +91,7 @@ You can help keep your account secure by:
 - Logging out when using shared devices
 - Reporting any suspicious activity to us
 
-### 8. Reporting Security Issues
+## 8. Reporting Security Issues
 
 If you discover a security vulnerability:
 
@@ -100,11 +100,11 @@ If you discover a security vulnerability:
 - Allow us reasonable time to investigate and fix the issue
 - Please don't publicly disclose the issue until we've had a chance to address it
 
-### 9. Updates to This Policy
+## 9. Updates to This Policy
 
 We may update this security policy as our practices evolve. Check back periodically for updates. The "Last Updated" date shows when we last made changes.
 
-### 10. Contact Us
+## 10. Contact Us
 
 For security questions or concerns:
 

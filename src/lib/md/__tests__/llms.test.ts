@@ -51,6 +51,6 @@ describe(llmsFullTxt, () => {
       `${APP_BASE_URL}/terms`,
       `${APP_BASE_URL}/security`,
     ]);
-    expect(full).toContain("### 14. Contact Us");
+    expect(full).toContain("## 14. Contact Us");
   });
 });

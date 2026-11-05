@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { APP_BASE_URL } from "@/lib/config/constants";
 
-import { listMarkdownRoutes, renderMarkdownPage } from "../registry";
+import {
+  listMarkdownRoutes,
+  markdownHead,
+  renderMarkdownPage,
+} from "../registry";
 
 const MARKDOWN_LINK = /\]\((?<url>[^)]+)\)/gu;
 
@@ -12,18 +16,20 @@ describe(renderMarkdownPage, () => {
 
     expect(page.markdown).toMatch(/^# Privacy Policy\n\n> \S/u);
     expect(page.markdown).toContain(`Canonical: ${APP_BASE_URL}/privacy`);
-    expect(page.markdown).toContain("Last updated: 2025-09-09");
-    expect(page.markdown).toContain("### 14. Contact Us");
-    expect(page.lastModified).toBe("2025-09-09");
+    expect(page.markdown).toContain("Last updated: 2026-11-05");
+    expect(page.markdown).toContain("## 14. Contact Us");
+    expect(page.lastModified).toBe("2026-11-05");
   });
 
   // A malformed "Last Updated" line drops the date instead of failing the page, so catch it here.
   it.each(["/privacy", "/terms", "/security"] as const)(
-    "parses the last update of %s",
+    "parses the last update of %s and keeps its sections at h2",
     async (path) => {
-      const { lastModified } = await renderMarkdownPage(path);
+      const { lastModified, markdown } = await renderMarkdownPage(path);
 
       expect(lastModified).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+      // The page title is the only h1, so sections must not skip to h3.
+      expect(markdown).not.toMatch(/^### /mu);
     }
   );
 
@@ -64,5 +70,16 @@ describe(listMarkdownRoutes, () => {
       [`${APP_BASE_URL}/terms`, `${APP_BASE_URL}/terms.md`],
       [`${APP_BASE_URL}/security`, `${APP_BASE_URL}/security.md`],
     ]);
+  });
+});
+
+describe(markdownHead, () => {
+  it("titles each page after itself, leaving the home page the root title", () => {
+    expect(markdownHead("/terms").meta).toContainEqual({
+      title: "Terms of Service - OS Chat",
+    });
+    expect(
+      markdownHead("/").meta.some((entry) => "title" in entry)
+    ).toBeFalsy();
   });
 });
