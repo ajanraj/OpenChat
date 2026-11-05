@@ -4,7 +4,7 @@
 - **Linter**: oxlint (type-aware via oxlint-tsgolint), configured in `oxlint.config.ts`
 - **Formatter**: oxfmt, configured in `oxfmt.config.ts`
 - **Rules**: Ultracite presets `core`, `react`, `tanstack` and `vitest` (see the "Ultracite Code Standards" section of `AGENTS.md`)
-- **Type checker**: `bun check` (Bun's built-in checker; run it through `bun run typecheck`)
+- **Type checker**: `bun check` (Bun's built-in checker) for the app and `tsc -p convex/tsconfig.json` for Convex functions; run both through `bun run typecheck`
 - Run `bun run lint` and `bun run format` before committing (`bun run ultracite:check` / `bun run ultracite:fix` run both through Ultracite). Never use ESLint or Prettier.
 
 ## Project Rules

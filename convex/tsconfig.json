@@ -27,6 +27,8 @@
       "@/convex/*": ["./*"]
     }
   },
-  "include": ["./**/*", "../src/lib/**/*"],
+  /* Only convex/ itself: tsc follows its imports into src/lib, so Convex checks exactly what it bundles.
+   * Including all of src/lib pulled in app-only code (e.g. src/lib/md types the route tree) that needs Vite types. */
+  "include": ["./**/*"],
   "exclude": ["./_generated"]
 }
