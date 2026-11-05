@@ -63,7 +63,7 @@ At OS Chat, we take security seriously. This policy outlines how we protect your
 
 - Users can delete their chat history at any time
 - Account deletion removes your account, chats, files, settings and connected accounts, and cancels any active subscription; billing records held by our payment processor, Stripe, are kept
-- Retention periods vary by data type; the Privacy Policy lists each one
+- Retention periods vary by data type; see the Privacy Policy for details
 
 ## 5. Security Practices
 

@@ -3,38 +3,19 @@ import { PostHogProvider } from "posthog-js/react";
 import { useEffect } from "react";
 
 import { useUser } from "./user-provider";
-import type { UserProfile } from "./user-provider";
 
-// Define types for PostHog user properties
-interface PostHogUserProperties {
-  email?: string;
-  name?: string;
-  isAnonymous?: boolean;
-}
-
-const hasText = (value: string | undefined): value is string =>
-  value !== undefined && value !== "";
-
-// Validate user properties before accessing them
-const validateUserProperties = (user: UserProfile): PostHogUserProperties => ({
-  email: hasText(user.email) ? user.email : undefined,
-  name: [user.name, user.preferredName].find(hasText),
-  isAnonymous: user.isAnonymous,
-});
-
-// Identifies the signed-in user (or resets the session after sign-out); renders nothing
+// Identifies the signed-in user by internal account ID only; name and email never go to
+// analytics (the Privacy Policy promises this). Resets the session after sign-out.
 const PostHogIdentify = () => {
   const userInfo = useUser();
 
   useEffect(() => {
     if (userInfo.user) {
       try {
-        // Validate user properties before using them
-        const userProperties = validateUserProperties(userInfo.user);
-
-        // Only identify if we have a valid user ID
         if (userInfo.user._id !== "") {
-          posthog.identify(userInfo.user._id, userProperties);
+          posthog.identify(userInfo.user._id, {
+            isAnonymous: userInfo.user.isAnonymous,
+          });
         }
       } catch (error) {
         console.error("PostHog: Failed to identify user:", error);

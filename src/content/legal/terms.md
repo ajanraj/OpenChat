@@ -41,7 +41,8 @@ To ensure fair access for everyone:
 
 - **Anonymous users:** 5 messages per day
 - **Registered users:** 20 messages per day
-- **Premium users:** 1,500 messages per 30 days, plus 100 premium-model messages per 30 days
+- **Premium users:** 1,500 messages per 30 days, plus 100 messages per 30 days on models that use premium credits
+- Messages sent with your own API key don't count toward these limits
 
 ## 6. Your Content
 
