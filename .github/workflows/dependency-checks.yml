@@ -46,7 +46,8 @@ jobs:
       - name: Build
         run: bun run build
 
-      # GHSA-vfj7-8cjw-p6xm: braces has no patched release. It reaches us only through the
-      # Ultracite CLI (dev-only, globbing our own config patterns); drop the ignore once fixed.
+      # GHSA-mrhx-c7xc-m3w5: zod 3.x has no patched release (fixed in 4.6.6, which we use directly).
+      # The 3.x copy comes from exa-js, which requires zod ^3.22.0 (through 2.27.0, its latest) and only
+      # validates with it in tool-calling helpers; we use search alone. Drop the ignore once exa-js moves to zod 4.
       - name: Audit dependencies
-        run: bun audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm
+        run: bun audit --audit-level=high --ignore GHSA-mrhx-c7xc-m3w5
