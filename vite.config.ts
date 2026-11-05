@@ -33,7 +33,7 @@ const config = defineConfig({
     VitePWA({
       outDir: ".output/public",
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "apple-icon.png", "robots.txt"],
+      includeAssets: ["favicon.ico", "apple-icon.png"],
       manifest: false,
       devOptions: {
         enabled: true,
