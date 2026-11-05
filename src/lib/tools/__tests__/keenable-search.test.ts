@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { KeenableSearchProvider } from "../providers/keenable-search";
+import { SearchError } from "../search-errors";
 
 const reply = {
   results: [
@@ -103,4 +104,32 @@ describe(KeenableSearchProvider, () => {
 
     expect(result.markdown).not.toContain("\n\n> ");
   });
+
+  it.each([null, { results: {} }, { results: "none" }])(
+    "throws SearchError when Keenable returns malformed results: %j",
+    async (body) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => await Promise.resolve(Response.json(body)))
+      );
+
+      await expect(
+        new KeenableSearchProvider().search("example")
+      ).rejects.toBeInstanceOf(SearchError);
+    }
+  );
+
+  it.each([{}, { results: [] }])(
+    "treats a reply without result entries as no results: %j",
+    async (body) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => await Promise.resolve(Response.json(body)))
+      );
+
+      await expect(
+        new KeenableSearchProvider().search("example")
+      ).resolves.toStrictEqual([]);
+    }
+  );
 });
