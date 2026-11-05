@@ -240,7 +240,7 @@ For production deployment, set the environment variables before deploying either
 | `bun test`          | Run tests with Vitest                 |
 | `bun run lint`      | Run oxlint with auto-fix              |
 | `bun run format`    | Format code with oxfmt                |
-| `bun run typecheck` | Type check with bun check             |
+| `bun run typecheck` | Type check the app and Convex         |
 | `bunx convex dev`   | Run Convex development server         |
 
 ## Troubleshooting

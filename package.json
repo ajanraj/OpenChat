@@ -12,7 +12,7 @@
     "format:check": "oxfmt --check",
     "lint": "oxlint --type-aware --fix",
     "lint:check": "oxlint --type-aware",
-    "typecheck": "bun check",
+    "typecheck": "bun check && tsc -p convex/tsconfig.json",
     "prepare": "husky",
     "ultracite:check": "ultracite check",
     "ultracite:fix": "ultracite fix"
