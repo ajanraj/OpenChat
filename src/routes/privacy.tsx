@@ -115,7 +115,7 @@ const PrivacyPage = () => (
             servers)
           </li>
           <li>
-            <strong>Search:</strong> Exa, Tavily, Brave Search for enhanced AI
+            <strong>Search:</strong> Exa, Tavily, Brave Search, Keenable for enhanced AI
             responses
           </li>
           <li>
