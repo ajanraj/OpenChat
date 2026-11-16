@@ -8,6 +8,7 @@ describe("PROVIDER_LIMITS constant", () => {
     expect(PROVIDER_LIMITS.exa).toBeDefined();
     expect(PROVIDER_LIMITS.tavily).toBeDefined();
     expect(PROVIDER_LIMITS.brave).toBeDefined();
+    expect(PROVIDER_LIMITS.keenable).toBeDefined();
   });
 
   it("exa has expected limits", () => {
@@ -23,6 +24,11 @@ describe("PROVIDER_LIMITS constant", () => {
   it("brave has expected limits", () => {
     expect(PROVIDER_LIMITS.brave.maxResults).toBe(20);
     expect(PROVIDER_LIMITS.brave.maxChunks).toBe(3);
+  });
+
+  it("keenable has expected limits", () => {
+    expect(PROVIDER_LIMITS.keenable.maxResults).toBe(50);
+    expect(PROVIDER_LIMITS.keenable.maxChunks).toBe(3);
   });
 });
 

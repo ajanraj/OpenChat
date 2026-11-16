@@ -44,7 +44,7 @@ At OS Chat, we're committed to protecting your privacy. This policy explains how
 **Other Third Parties:**
 
 - **Analytics:** Vercel Analytics, Umami, PostHog
-- **Search:** Exa, Tavily, Brave Search for enhanced AI responses
+- **Search:** Exa, Tavily, Brave Search, Keenable for enhanced AI responses
 - **Authentication:** Convex Auth for secure login
 - **Payments:** Stripe Managed Payments (Sold through Link, LLC, merchant of record) for subscription billing and tax
 - **Infrastructure:** Convex for backend services

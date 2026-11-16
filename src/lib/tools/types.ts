@@ -34,11 +34,11 @@ export interface SearchOptions {
   startPublishedDate?: string;
   endPublishedDate?: string;
   category?: ExaSearchCategory;
-  // Cancels the provider request (Brave and Tavily; exa-js takes no signal) and further fallbacks
+  // Cancels the provider request (Brave, Tavily and Keenable; exa-js takes no signal) and further fallbacks
   signal?: AbortSignal;
 }
 
-export const SEARCH_PROVIDERS = ["exa", "tavily", "brave"] as const;
+export const SEARCH_PROVIDERS = ["exa", "tavily", "brave", "keenable"] as const;
 export type SearchProvider = (typeof SEARCH_PROVIDERS)[number];
 
 const toSearchProvider = (
@@ -51,6 +51,7 @@ export const PROVIDER_LIMITS = {
   exa: { maxResults: 10, maxChunks: 3 },
   tavily: { maxResults: 20, maxChunks: 8 },
   brave: { maxResults: 20, maxChunks: 3 },
+  keenable: { maxResults: 50, maxChunks: 3 },
 } as const;
 
 // Search configuration
